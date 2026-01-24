@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>添加花盆 - My Flower Pots</title>
+
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+    <!-- Tailwind CSS & Custom Styles (Optimized) -->
+    <link rel="stylesheet" href="css/tailwind-built.css">
+
+    <!-- 图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- 配置脚本 -->
+    <script src="js/config.js?v=20260111"></script>
+    <script src="js/api-client.js?v=20260111"></script>
+</head>
+
+<body class="bg-gray-50">
+    <div id="app" v-cloak>
+        <!-- 顶部导航栏 (全宽强制布局) -->
+        <header class="header bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-50 h-16 w-full">
+            <div class="relative flex items-center h-full px-4">
+                <div class="z-10">
+                    <button class="w-10 h-10 flex items-center justify-center text-gray-400 active:scale-90 transition"
+                        @click="goBack">
+                        <i class="fas fa-arrow-left text-xl"></i>
+                    </button>
+                </div>
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <h1 class="text-base sm:text-lg font-black text-gray-800">添加新花盆</h1>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主内容区域 -->
+        <main class="container mx-auto px-4 py-8">
+            <div class="max-w-xl mx-auto bg-white rounded-[2rem] shadow-sm p-8">
+                <form @submit.prevent="savePot" class="space-y-6">
+                    <!-- 1. 图片上传 -->
+                    <div class="flex flex-col items-center">
+                        <div class="relative w-40 h-40 group">
+                            <div
+                                class="w-full h-full rounded-3xl bg-gray-50 border-2 border-dashed border-gray-200 overflow-hidden flex items-center justify-center transition group-hover:border-green-500">
+                                <img v-if="imagePreview" :src="imagePreview" class="w-full h-full object-cover">
+                                <div v-else class="text-center text-gray-400">
+                                    <i class="fas fa-camera text-3xl mb-2"></i>
+                                    <p class="text-[10px] font-bold uppercase tracking-wider">上传照片</p>
+                                </div>
+                            </div>
+                            <!-- 悬浮编辑图标 -->
+                            <div
+                                class="absolute -bottom-2 -right-2 bg-green-500 text-white w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg border-4 border-white cursor-pointer hover:scale-110 transition active:scale-95">
+                                <i class="fas fa-plus"></i>
+                            </div>
+                            <input type="file" @change="onFileSelected" accept="image/*"
+                                class="absolute inset-0 opacity-0 cursor-pointer">
+                        </div>
+                        <p class="text-xs text-gray-400 mt-4">为您的植物拍一张美美的照片吧</p>
+                    </div>
+
+                    <!-- 2. 花盆名称 -->
+                    <div class="relative">
+                        <label
+                            class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">花盆名称</label>
+                        <div class="relative">
+                            <input type="text" v-model="form.name" @input="onNameInput" required placeholder="例如：书桌上的绿萝"
+                                class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-green-500 transition-all font-bold text-gray-800">
+                            <!-- 自动补全建议 -->
+                            <div v-if="suggestions.length > 0"
+                                class="absolute left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-30">
+                                <button v-for="s in suggestions" :key="s" type="button" @click="selectSuggestion(s)"
+                                    class="w-full text-left px-6 py-3 text-sm hover:bg-green-50 border-b border-gray-50 last:border-none transition">
+                                    {{ s }}
+                                </button>
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-gray-400 mt-2 ml-1">💡 建议输入准确的植物名称，以便自动匹配百科知识</p>
+                    </div>
+
+                    <!-- 3. 种植日期 -->
+                    <div>
+                        <label
+                            class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">开始种植于</label>
+                        <input type="date" v-model="form.plant_date" required
+                            class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-green-500 transition-all font-bold text-gray-800">
+                    </div>
+
+                    <!-- 4. 备注 -->
+                    <div>
+                        <label
+                            class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">备注说明</label>
+                        <textarea v-model="form.note" rows="3" placeholder="写点什么，比如：这是朋友送的生日礼物..."
+                            class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-green-500 transition-all font-bold text-gray-800 resize-none"></textarea>
+                    </div>
+
+                    <!-- 提交按钮 -->
+                    <div class="pt-4">
+                        <button type="submit" :disabled="isSaving"
+                            class="w-full btn btn-primary py-5 rounded-[1.5rem] text-lg font-black shadow-xl shadow-green-100 disabled:opacity-50 transition-all active:scale-[0.98]">
+                            <span v-if="!isSaving">创建我的花盆</span>
+                            <span v-else><i class="fas fa-spinner fa-spin mr-2"></i>正在入库...</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const { createApp, ref, reactive, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const isSaving = ref(false);
+                const imageFile = ref(null);
+                const imagePreview = ref(null);
+                const suggestions = ref([]);
+
+                const form = reactive({
+                    name: '',
+                    plant_date: new Date().toISOString().split('T')[0],
+                    note: ''
+                });
+
+                const onFileSelected = (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        imageFile.value = file;
+                        const reader = new FileReader();
+                        reader.onload = (ev) => imagePreview.value = ev.target.result;
+                        reader.readAsDataURL(file);
+                    }
+                };
+
+                const onNameInput = async () => {
+                    if (form.name.length < 2) {
+                        suggestions.value = [];
+                        return;
+                    }
+                    try {
+                        const res = await apiClient.searchPlants(form.name);
+                        if (res.success) {
+                            suggestions.value = res.data.slice(0, 5).map(p => p.name);
+                        }
+                    } catch (e) { }
+                };
+
+                const selectSuggestion = (name) => {
+                    form.name = name;
+                    suggestions.value = [];
+                };
+
+                const savePot = async () => {
+                    try {
+                        isSaving.value = true;
+
+                        // 1. 生成 ID
+                        const potId = `pot_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+
+                        // 2. 如果有图片，上传图片
+                        let imageUrl = null;
+                        if (imageFile.value) {
+                            const uploadRes = await apiClient.uploadImage(imageFile.value, {
+                                potId: potId,
+                                uploadType: 'pot'
+                            });
+                            if (uploadRes.success) {
+                                imageUrl = uploadRes.data.url;
+                            }
+                        }
+
+                        // 3. 创建花盆
+                        const payload = {
+                            id: potId,
+                            userId: apiClient.userId,
+                            name: form.name,
+                            plantDate: form.plant_date,
+                            note: form.note,
+                            imageUrl: imageUrl
+                        };
+
+                        const res = await apiClient.createPot(payload);
+                        if (res.success) {
+                            alert('恭喜！新花盆添加成功');
+                            window.location.href = 'index.html';
+                        }
+                    } catch (err) {
+                        alert('添加失败: ' + err.message);
+                    } finally {
+                        isSaving.value = false;
+                    }
+                };
+
+                const goBack = () => {
+                    // 添加页回首页
+                    window.location.href = 'index.html';
+                };
+
+                return {
+                    form, isSaving, imagePreview, suggestions,
+                    onFileSelected, onNameInput, selectSuggestion, savePot, goBack
+                };
+            }
+        }).mount('#app');
+    </script>
+
+    <style>
+        [v-cloak] {
+            display: none;
+        }
+
+        .btn-primary {
+            background: #10b981;
+            color: #fff;
+        }
+    </style>
+</body>
+
+</html>

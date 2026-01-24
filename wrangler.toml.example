@@ -1,0 +1,25 @@
+name = "my-flower-pots"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+
+# ========== Bindings (example only) ==========
+
+[[d1_databases]]
+binding = "DB"
+database_name = "your-database-name"
+database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+[[r2_buckets]]
+binding = "ASSETS"
+bucket_name = "your-bucket-name"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# 开发环境静态资源目录
+[dev]
+port = 8787
+ip = "127.0.0.1"
+local_protocol = "http"
+# assets = "frontend"

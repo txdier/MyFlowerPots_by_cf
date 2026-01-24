@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人资料 - My Flower Pots</title>
+
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+    <!-- Tailwind CSS & Custom Styles (Optimized) -->
+    <link rel="stylesheet" href="css/tailwind-built.css">
+
+    <!-- 图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- 配置脚本 -->
+    <script src="js/config.js?v=20260111"></script>
+    <script src="js/api-client.js?v=20260111"></script>
+</head>
+
+<body class="bg-gray-50">
+    <div id="app" v-cloak>
+        <!-- 顶部导航栏 -->
+        <header class="header bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-50 h-16 w-full">
+            <div class="relative flex items-center h-full px-4">
+                <div class="z-10">
+                    <button class="w-10 h-10 flex items-center justify-center text-gray-400 active:scale-90 transition"
+                        @click="goBack">
+                        <i class="fas fa-arrow-left text-xl"></i>
+                    </button>
+                </div>
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <h1 class="text-base sm:text-lg font-black text-gray-800">个人中心</h1>
+                </div>
+            </div>
+        </header>
+
+        <!-- 标签导航栏 -->
+        <div class="bg-white border-b border-gray-100 sticky top-16 z-40">
+            <div class="container mx-auto max-w-lg flex">
+                <button @click="activeTab = 'profile'"
+                    :class="activeTab === 'profile' ? 'text-green-600 border-green-500' : 'text-gray-400 border-transparent'"
+                    class="flex-1 py-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all">
+                    基本资料
+                </button>
+                <button @click="activeTab = 'security'"
+                    :class="activeTab === 'security' ? 'text-green-600 border-green-500' : 'text-gray-400 border-transparent'"
+                    class="flex-1 py-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all">
+                    安全中心
+                </button>
+                <button @click="activeTab = 'about'"
+                    :class="activeTab === 'about' ? 'text-green-600 border-green-500' : 'text-gray-400 border-transparent'"
+                    class="flex-1 py-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all">
+                    关于项目
+                </button>
+            </div>
+        </div>
+
+        <main class="container mx-auto px-4 py-8 space-y-6 max-w-lg">
+            <!-- 1. 基本资料卡片 -->
+            <div v-show="activeTab === 'profile'"
+                class="bg-white rounded-3xl shadow-sm p-8 border border-gray-50 animate-slide-up">
+                <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-8">基本资料</h3>
+
+                <div class="flex flex-col items-center mb-8">
+                    <!-- 头像上传 -->
+                    <div class="relative w-24 h-24 group">
+                        <div
+                            class="w-full h-full rounded-full bg-gray-100 border-4 border-white shadow-md overflow-hidden flex items-center justify-center">
+                            <img v-if="userForm.avatarPreview || user?.avatarUrl"
+                                :src="userForm.avatarPreview || user?.avatarUrl" class="w-full h-full object-cover">
+                            <i v-else class="fas fa-user text-3xl text-gray-300"></i>
+                        </div>
+                        <label
+                            class="absolute bottom-0 right-0 bg-green-500 text-white w-8 h-8 rounded-full flex items-center justify-center shadow-lg cursor-pointer hover:scale-110 active:scale-95 transition border-2 border-white">
+                            <i class="fas fa-camera text-xs"></i>
+                            <input type="file" @change="onAvatarSelected" accept="image/*" class="hidden">
+                        </label>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <div>
+                        <label
+                            class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">显示名称</label>
+                        <input type="text" v-model="userForm.displayName"
+                            class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-green-500 transition-all font-bold text-gray-800"
+                            placeholder="设置一个昵称吧">
+                    </div>
+                    <div>
+                        <label
+                            class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">绑定邮箱</label>
+                        <input type="email" :value="user?.email" disabled
+                            class="w-full bg-gray-50/50 border-none rounded-2xl py-4 px-6 text-gray-400 font-bold cursor-not-allowed">
+
+                        <!-- 邮箱验证状态 -->
+                        <div class="mt-2 flex items-center justify-between">
+                            <div v-if="user?.emailVerified" class="flex items-center text-green-600 text-sm">
+                                <i class="fas fa-check-circle mr-2"></i>
+                                <span class="font-medium">邮箱已验证</span>
+                            </div>
+                            <div v-else class="flex items-center text-amber-600 text-sm">
+                                <i class="fas fa-exclamation-circle mr-2"></i>
+                                <span class="font-medium">邮箱未验证</span>
+                            </div>
+
+                            <!-- 发送验证邮件按钮（仅当邮箱未验证时显示） -->
+                            <button v-if="user?.userType === 'email' && !user?.emailVerified"
+                                @click="sendVerificationEmail" :disabled="isSendingVerificationEmail"
+                                class="text-xs bg-amber-100 text-amber-700 hover:bg-amber-200 px-3 py-1 rounded-full font-medium transition disabled:opacity-50">
+                                <span v-if="!isSendingVerificationEmail">发送验证邮件</span>
+                                <span v-else><i class="fas fa-spinner fa-spin mr-1"></i>发送中...</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button @click="updateProfile" :disabled="isUpdatingProfile"
+                        class="w-full btn btn-primary py-4 rounded-2xl text-sm font-black shadow-lg shadow-green-100 disabled:opacity-50 mt-4">
+                        <span v-if="!isUpdatingProfile">保存个人资料</span>
+                        <span v-else><i class="fas fa-spinner fa-spin mr-2"></i>更新中...</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. 安全设置 -->
+            <div v-show="activeTab === 'security' && user?.userType === 'email'" class="space-y-6 animate-slide-up">
+                <div class="bg-white rounded-3xl shadow-sm p-8 border border-gray-50">
+                    <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-6">修改登录密码</h3>
+
+                    <div class="space-y-4">
+                        <input type="password" v-model="passForm.currentPassword" placeholder="当前密码"
+                            class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-red-500">
+                        <input type="password" v-model="passForm.newPassword" placeholder="新密码 (至少8位)"
+                            class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-red-500">
+                        <input type="password" v-model="passForm.confirmPassword" placeholder="确认新密码"
+                            class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-red-500">
+
+                        <button @click="updatePassword" :disabled="isUpdatingPass"
+                            class="w-full bg-gray-800 text-white py-4 rounded-2xl text-sm font-black shadow-lg shadow-gray-200 disabled:opacity-50 active:scale-95 transition">
+                            <span v-if="!isUpdatingPass">修改登录密码</span>
+                            <span v-else><i class="fas fa-spinner fa-spin mr-2"></i>同步中...</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 3. 修改邮箱 -->
+                <div class="bg-white rounded-3xl shadow-sm p-8 border border-gray-50">
+                    <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-6">更换绑定邮箱</h3>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label
+                                class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">当前邮箱</label>
+                            <input type="email" :value="user?.email" disabled
+                                class="w-full bg-gray-50/50 border-none rounded-2xl py-4 px-6 text-gray-400 font-bold cursor-not-allowed">
+                        </div>
+                        <input type="email" v-model="emailForm.newEmail" placeholder="新邮箱地址"
+                            class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-blue-500">
+
+                        <button @click="changeEmail" :disabled="isChangingEmail"
+                            class="w-full bg-blue-600 text-white py-4 rounded-2xl text-sm font-black shadow-lg shadow-blue-100 disabled:opacity-50 active:scale-95 transition">
+                            <span v-if="!isChangingEmail">发送验证邮件</span>
+                            <span v-else><i class="fas fa-spinner fa-spin mr-2"></i>发送中...</span>
+                        </button>
+                        <p class="text-xs text-gray-400 text-center mt-2">
+                            我们将向新邮箱发送验证邮件，点击邮件中的链接完成邮箱修改。
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. 关于项目 -->
+            <div v-show="activeTab === 'about'"
+                class="bg-white rounded-3xl shadow-sm p-8 border border-gray-50 animate-slide-up">
+                <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-6">关于项目</h3>
+
+                <div class="prose prose-sm text-gray-500 mb-8 leading-relaxed">
+                    <p class="mb-4">我的花盆是一款记录植物与花盆养护过程的小工具。你可以为每一盆植物建立自己的档案，记录浇水、换盆、生长变化等日常点滴，让植物的成长过程清晰可见、不再遗漏。</p>
+                    <p>它适合想认真养花、但又不想被复杂功能打扰的人，帮助你用简单、持续的方式，把养护变成一件轻松而有记录感的事情。</p>
+                </div>
+
+                <div class="space-y-4">
+                    <a href="https://github.com/txdier/MyFlowerPots_by_cf" target="_blank"
+                        class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl active:bg-gray-100 transition border border-gray-50">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
+                                <i class="fab fa-github text-xl text-gray-800"></i>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="text-xs font-black text-gray-800">开源仓库</span>
+                                <span
+                                    class="text-[10px] text-gray-400 font-medium truncate max-w-[180px]">txdier/MyFlowerPots_by_cf</span>
+                            </div>
+                        </div>
+                        <i class="fas fa-external-link-alt text-[10px] text-gray-300"></i>
+                    </a>
+
+                    <div class="text-[10px] text-gray-300 text-center mt-4">
+                        My Flower Pots v2.0 • 2026
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const { createApp, ref, reactive, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const user = ref(null);
+                const activeTab = ref('profile');
+                const isUpdatingProfile = ref(false);
+                const isUpdatingPass = ref(false);
+
+                const userForm = reactive({
+                    displayName: '',
+                    avatarFile: null,
+                    avatarPreview: null
+                });
+
+                const passForm = reactive({
+                    currentPassword: '',
+                    newPassword: '',
+                    confirmPassword: ''
+                });
+
+                const emailForm = reactive({
+                    newEmail: ''
+                });
+
+                const isChangingEmail = ref(false);
+                const isSendingVerificationEmail = ref(false);
+
+                const init = async () => {
+                    try {
+                        const res = await apiClient.getCurrentUser();
+                        if (res.success) {
+                            user.value = res.user;
+                            userForm.displayName = res.user.displayName || '';
+                        } else {
+                            window.location.href = 'index.html';
+                        }
+                    } catch (e) {
+                        window.location.href = 'index.html';
+                    }
+                };
+
+                const onAvatarSelected = (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        userForm.avatarFile = file;
+                        const reader = new FileReader();
+                        reader.onload = (ev) => userForm.avatarPreview = ev.target.result;
+                        reader.readAsDataURL(file);
+                    }
+                };
+
+                const updateProfile = async () => {
+                    try {
+                        isUpdatingProfile.value = true;
+                        let avatarUrl = user.value.avatarUrl;
+
+                        // 1. 上传新头像
+                        if (userForm.avatarFile) {
+                            const uploadRes = await apiClient.uploadImage(userForm.avatarFile, {
+                                uploadType: 'avatar'
+                            });
+                            if (uploadRes.success) {
+                                avatarUrl = uploadRes.data.url;
+                            }
+                        }
+
+                        // 2. 更新资料
+                        const res = await apiClient.request('/api/auth/profile', {
+                            method: 'PUT',
+                            body: {
+                                displayName: userForm.displayName,
+                                avatarUrl: avatarUrl
+                            }
+                        });
+
+                        if (res.success) {
+                            alert('资料更新成功');
+                            await init();
+                        }
+                    } catch (e) {
+                        alert('更新失败: ' + e.message);
+                    } finally {
+                        isUpdatingProfile.value = false;
+                    }
+                };
+
+                const updatePassword = async () => {
+                    if (passForm.newPassword !== passForm.confirmPassword) {
+                        alert('两次输入的密码不一致');
+                        return;
+                    }
+                    try {
+                        isUpdatingPass.value = true;
+                        const res = await apiClient.request('/api/auth/password', {
+                            method: 'PUT',
+                            body: {
+                                currentPassword: passForm.currentPassword,
+                                newPassword: passForm.newPassword
+                            }
+                        });
+                        if (res.success) {
+                            alert('密码修改成功，请重新登录');
+                            await apiClient.logout();
+                            window.location.href = 'index.html';
+                        }
+                    } catch (e) {
+                        alert('修改失败: ' + e.message);
+                    } finally {
+                        isUpdatingPass.value = false;
+                    }
+                };
+
+                const changeEmail = async () => {
+                    if (!emailForm.newEmail) {
+                        alert('请输入新邮箱地址');
+                        return;
+                    }
+                    try {
+                        isChangingEmail.value = true;
+                        const res = await apiClient.request('/api/auth/change-email', {
+                            method: 'POST',
+                            body: {
+                                newEmail: emailForm.newEmail
+                            }
+                        });
+                        if (res.success) {
+                            alert('验证邮件已发送到新邮箱，请查收并点击链接完成验证。');
+                            emailForm.newEmail = '';
+                        }
+                    } catch (e) {
+                        alert('发送失败: ' + e.message);
+                    } finally {
+                        isChangingEmail.value = false;
+                    }
+                };
+
+                const sendVerificationEmail = async () => {
+                    try {
+                        isSendingVerificationEmail.value = true;
+                        const res = await apiClient.request('/api/auth/send-verification-email', {
+                            method: 'POST'
+                        });
+                        if (res.success) {
+                            alert('验证邮件已发送到您的邮箱，请查收并点击链接完成验证。');
+                        }
+                    } catch (e) {
+                        alert('发送失败: ' + e.message);
+                    } finally {
+                        isSendingVerificationEmail.value = false;
+                    }
+                };
+
+                const goBack = () => window.location.href = 'index.html';
+
+                onMounted(init);
+
+                return {
+                    user, activeTab, userForm, passForm, emailForm, isUpdatingProfile, isUpdatingPass, isChangingEmail, isSendingVerificationEmail,
+                    onAvatarSelected, updateProfile, updatePassword, changeEmail, sendVerificationEmail, goBack
+                };
+            }
+        }).mount('#app');
+    </script>
+
+    <style>
+        [v-cloak] {
+            display: none;
+        }
+
+        .btn-primary {
+            background: #10b981;
+            color: #fff;
+        }
+
+        .animate-slide-up {
+            animation: slide-up 0.4s ease-out;
+        }
+
+        @keyframes slide-up {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</body>
+
+</html>

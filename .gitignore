@@ -1,0 +1,32 @@
+# System Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependencies
+node_modules/
+
+# Secrets & Local Config
+wrangler.toml
+.env
+frontend/js/config.js
+
+# Caches & Temp
+.wrangler/
+.upload-cache.json
+
+# Project Specific (Built & Redundant)
+frontend/css/tailwind-built.css
+old_project/
+plants.json
+schema-full.sql
+migrate-pots-to-d1.js
+
+# Note: upload-static-wrangler.js is included in the repository

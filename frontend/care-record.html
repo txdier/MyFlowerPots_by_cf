@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>养护记录 - My Flower Pots</title>
+
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+    <!-- Tailwind CSS & Custom Styles (Optimized) -->
+    <link rel="stylesheet" href="css/tailwind-built.css">
+
+    <!-- 图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- 配置脚本 -->
+    <script src="js/config.js?v=20260111"></script>
+    <script src="js/api-client.js?v=20260111"></script>
+</head>
+
+<body class="bg-gray-50">
+    <div id="app" v-cloak>
+        <!-- 顶部导航栏 (全宽强制布局) -->
+        <header class="header bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-50 h-16 w-full">
+            <div class="relative flex items-center h-full px-4">
+                <div class="z-10">
+                    <button class="w-10 h-10 flex items-center justify-center text-gray-400 active:scale-90 transition"
+                        @click="goBack">
+                        <i class="fas fa-arrow-left text-xl"></i>
+                    </button>
+                </div>
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <h1 class="text-base sm:text-lg font-black text-gray-800">{{ isEditMode ? '修改养护记录' : '添加养护记录' }}
+                    </h1>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主内容区域 -->
+        <main class="main container mx-auto px-4 py-6">
+            <!-- 加载状态 -->
+            <div v-if="isLoading" class="loading">
+                <div class="spinner"></div>
+                <p>加载中...</p>
+            </div>
+
+            <!-- 错误提示 -->
+            <div v-if="error" class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+                <i class="fas fa-exclamation-triangle mr-2"></i>
+                <span>{{ error }}</span>
+            </div>
+
+            <div v-if="!isLoading" class="max-w-lg mx-auto">
+                <!-- 花盆信息展示 -->
+                <div v-if="pot"
+                    class="bg-white rounded-2xl p-4 mb-6 flex items-center shadow-sm border border-gray-100">
+                    <img :src="pot.image_url || 'assets/images/icons/icons-default-pot.png'"
+                        class="w-16 h-16 rounded-xl object-cover mr-4">
+                    <div>
+                        <h3 class="font-bold text-gray-800">{{ pot.name }}</h3>
+                        <p class="text-xs text-gray-400 mt-1">种植于 {{ formatDate(pot.plant_date) }}</p>
+                    </div>
+                </div>
+
+                <!-- 表单区域 -->
+                <div class="bg-white rounded-3xl shadow-sm p-6">
+                    <form @submit.prevent="saveRecord">
+                        <!-- 1. 养护日期 -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">记录日期</label>
+                            <input type="date" v-model="form.date" required
+                                class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500 focus:border-green-500 transition">
+                        </div>
+
+                        <!-- 2. 养护类型 (支持多选) -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-bold text-gray-700 mb-1">养护类型</label>
+                            <p class="text-[10px] text-gray-400 mb-3" v-if="!isEditMode">可同时选择多项</p>
+                            <div class="grid grid-cols-3 gap-3">
+                                <button v-for="t in careTypes" :key="t.value" type="button"
+                                    @click="toggleCareType(t.value)"
+                                    :class="isTypeSelected(t.value) ? 'bg-green-500 text-white border-green-500 shadow-lg shadow-green-100 scale-[1.02]' : 'bg-gray-50 text-gray-500 border-gray-100 hover:bg-gray-100'"
+                                    class="flex flex-col items-center justify-center py-4 rounded-2xl border transition-all duration-200">
+                                    <i :class="t.icon" class="text-xl mb-2"></i>
+                                    <span class="text-xs font-bold">{{ t.label }}</span>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- 自定义内容输入 (仅当选择“其他”时显示) -->
+                        <div v-if="form.types.includes('other')" class="mt-4 animate-fade-in">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">自定义内容</label>
+                            <input v-model="form.description" type="text" placeholder="比如：移动位置、清理枯叶..."
+                                class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500 focus:border-green-500 transition">
+                        </div>
+                </div>
+
+
+
+                <!-- 4. 照片上传 (多选) -->
+                <div class="mb-8">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">现场照片 (可选)</label>
+
+                    <!-- 图片网格 -->
+                    <div class="grid grid-cols-4 gap-2 mb-2">
+                        <!-- 已有的/新上传的图片预览 -->
+                        <div v-for="(img, idx) in form.images" :key="idx"
+                            class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group border border-gray-100">
+                            <img :src="img.preview || img.url" class="w-full h-full object-cover">
+                            <!-- 删除按钮 -->
+                            <button @click.stop="removeImage(idx)" type="button"
+                                class="absolute top-1 right-1 bg-black/50 text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition z-10">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        <!-- 添加按钮 -->
+                        <button v-if="form.images.length < 9" @click="triggerFileInput" type="button"
+                            class="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-300 hover:border-green-500 hover:text-green-500 transition active:scale-95 bg-gray-50/50">
+                            <i class="fas fa-camera text-xl mb-1"></i>
+                            <span class="text-[8px] font-black uppercase tracking-tighter">添加</span>
+                        </button>
+                    </div>
+
+                    <input type="file" ref="fileInput" @change="onFilesSelected" multiple accept="image/*"
+                        class="hidden">
+
+                    <p class="text-xs text-gray-400">
+                        <span class="text-green-500 bg-green-50 px-2 py-0.5 rounded-full inline-block text-[10px]">
+                            <i class="fas fa-magic mr-1"></i>会自动同步到生长轨迹
+                        </span>
+                    </p>
+                </div>
+
+                <!-- 提交按钮 -->
+                <div class="space-y-3">
+                    <button type="button" @click="saveRecord" :disabled="isSaving"
+                        class="w-full btn btn-primary py-4 rounded-2xl text-lg shadow-lg shadow-green-100 disabled:opacity-50">
+                        <span v-if="!isSaving">{{ isEditMode ? '保存修改' : '确认添加' }}</span>
+                        <span v-else><i class="fas fa-spinner fa-spin mr-2"></i>处理中...</span>
+                    </button>
+                    <button type="button" @click="goBack" class="w-full py-3 text-gray-400 font-bold text-sm">
+                        取消并返回
+                    </button>
+                </div>
+                </form>
+            </div>
+
+    </div>
+    </main>
+    </div>
+
+    <script>
+        const { createApp, ref, reactive, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const isLoading = ref(true);
+                const isSaving = ref(false);
+                const error = ref(null);
+                const pot = ref(null);
+                const isEditMode = ref(false);
+                const recordId = ref(null);
+                const potId = ref(null);
+
+                const careTypes = [
+                    { value: 'water', label: '浇水', icon: 'fas fa-tint' },
+                    { value: 'fertilize', label: '施肥', icon: 'fas fa-seedling' },
+                    { value: 'prune', label: '修剪', icon: 'fas fa-cut' },
+                    { value: 'repot', label: '换盆', icon: 'fas fa-exchange-alt' },
+                    { value: 'pest', label: '病虫害', icon: 'fas fa-bug' },
+                    { value: 'other', label: '其他', icon: 'fas fa-ellipsis-h' }
+                ];
+
+                const fileInput = ref(null);
+
+                const form = reactive({
+                    types: [],
+                    date: new Date().toISOString().split('T')[0],
+                    description: '',
+                    images: [] // { file?, preview?, url? }
+                });
+
+                const init = async () => {
+                    const params = new URLSearchParams(window.location.search);
+                    recordId.value = params.get('id');
+                    potId.value = params.get('potId');
+
+                    try {
+                        if (recordId.value) {
+                            isEditMode.value = true;
+                            await loadRecordDetail();
+                        } else if (potId.value) {
+                            await loadPotInfo(potId.value);
+                        } else {
+                            error.value = '参数缺失，无法操作';
+                        }
+                    } catch (err) {
+                        error.value = '加载数据失败';
+                    } finally {
+                        isLoading.value = false;
+                    }
+                };
+
+                const loadRecordDetail = async () => {
+                    const res = await apiClient.request(`/api/care-records/detail/${recordId.value}`);
+                    if (res.success) {
+                        const data = res.data;
+                        form.types = [data.type];
+                        form.date = data.date;
+                        form.description = data.description || '';
+
+                        // 解析图片
+                        form.images = [];
+                        if (data.imageUrl) {
+                            try {
+                                const parsed = JSON.parse(data.imageUrl);
+                                if (Array.isArray(parsed)) {
+                                    form.images = parsed.map(url => ({ url }));
+                                } else {
+                                    form.images = [{ url: data.imageUrl }];
+                                }
+                            } catch (e) {
+                                // 兼容旧数据（单字符串）
+                                form.images = [{ url: data.imageUrl }];
+                            }
+                        }
+
+                        potId.value = data.potId;
+                        await loadPotInfo(data.potId);
+                    }
+                };
+
+                const loadPotInfo = async (pid) => {
+                    const res = await apiClient.getPotDetail(pid);
+                    if (res.success) pot.value = res.data;
+                };
+
+                const toggleCareType = (val) => {
+                    if (isEditMode.value) {
+                        form.types = [val];
+                        return;
+                    }
+                    const idx = form.types.indexOf(val);
+                    if (idx > -1) {
+                        if (form.types.length > 1) form.types.splice(idx, 1);
+                    } else {
+                        form.types.push(val);
+                    }
+                };
+
+                const isTypeSelected = (val) => form.types.includes(val);
+
+                const triggerFileInput = () => fileInput.value.click();
+
+                const onFilesSelected = (e) => {
+                    const files = Array.from(e.target.files);
+                    const remaining = 9 - form.images.length;
+
+                    files.slice(0, remaining).forEach(file => {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                            form.images.push({
+                                file,
+                                preview: ev.target.result
+                            });
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                    e.target.value = '';
+                };
+
+                const removeImage = (idx) => {
+                    form.images.splice(idx, 1);
+                };
+
+                const saveRecord = async () => {
+                    // DEBUG: 确认点击生效
+                    console.log('按钮被点击');
+
+                    // 校验
+                    if (form.types.length === 0) {
+                        alert('请至少选择一种养护类型');
+                        return;
+                    }
+
+                    try {
+                        console.log('开始保存, 表单:', JSON.parse(JSON.stringify(form)));
+                        isSaving.value = true;
+
+                        // 1. 上传新图片
+                        const uploadedUrls = [];
+
+                        // 先保留已有图片URL
+                        form.images.forEach(img => {
+                            if (img.url) uploadedUrls.push(img.url);
+                        });
+
+                        // 上传新文件
+                        const newImages = form.images.filter(img => img.file);
+                        for (const img of newImages) {
+                            const uploadRes = await apiClient.uploadImage(img.file, {
+                                potId: potId.value,
+                                uploadType: 'care'
+                            });
+                            if (uploadRes.success) {
+                                uploadedUrls.push(uploadRes.data.url);
+                            }
+                        }
+
+                        // 准备动作列表，如果类型是“其他”，优先使用描述内容
+                        const actions = form.types.map(t => {
+                            if (t === 'other' && form.description.trim()) {
+                                const d = form.description.trim();
+                                return d.length > 10 ? d.substring(0, 10) + '...' : d;
+                            }
+                            return careTypes.find(ct => ct.value === t).label;
+                        });
+
+                        const payload = {
+                            potId: potId.value,
+                            types: form.types,
+                            actions: actions,
+                            careDate: form.date,
+                            description: form.description,
+                            imageUrls: uploadedUrls // 发送数组
+                        };
+
+                        let result;
+                        if (isEditMode.value) {
+                            const editPayload = { ...payload, type: form.types[0], action: actions[0] };
+                            result = await apiClient.request(`/api/care-records/${recordId.value}`, {
+                                method: 'PUT',
+                                body: editPayload
+                            });
+                        } else {
+                            result = await apiClient.createCareRecord(payload);
+                        }
+
+                        if (result.success) {
+                            alert('保存成功');
+                            window.location.href = `pot-detail.html?id=${potId.value}`;
+                        }
+                    } catch (err) {
+                        console.error('保存失败:', err);
+                        alert(`保存失败: ${err.message || '未知错误'}`);
+                    } finally {
+                        isSaving.value = false;
+                    }
+                };
+
+                const goBack = () => {
+                    window.location.href = `pot-detail.html?id=${potId.value}`;
+                };
+
+                const formatDate = (d) => {
+                    if (!d) return '';
+                    const date = new Date(d);
+                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                };
+
+                onMounted(init);
+
+                return {
+                    isLoading, isSaving, error, pot, isEditMode, careTypes, form, fileInput,
+                    toggleCareType, isTypeSelected,
+                    triggerFileInput, onFilesSelected, removeImage, saveRecord, goBack, formatDate,
+                    potId
+                };
+            }
+        }).mount('#app');
+    </script>
+
+    <style>
+        [v-cloak] {
+            display: none;
+        }
+
+        .header h1 {
+            font-weight: 800;
+            color: #1a1a1a;
+        }
+
+        .btn-primary {
+            background: #4CAF50;
+            color: #fff;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .btn-primary:hover {
+            background: #43A047;
+            transform: translateY(-1px);
+        }
+    </style>
+</body>
+
+</html>

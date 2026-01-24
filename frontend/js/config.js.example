@@ -1,0 +1,66 @@
+// ============================================
+// My Flower Pots 应用配置模板
+// ============================================
+// 
+// 使用说明：
+// 1. 将此文件复制并命名为 config.js
+// 2. 将 prodUrl 替换为您在 Cloudflare Workers 部署后的真实 API 地址
+//
+
+// 应用配置
+const APP_CONFIG = {
+    // ==================== API配置 ====================
+    api: {
+        // 开发环境API地址
+        devUrl: 'http://127.0.0.1:8787',
+        
+        // 生产环境API地址 - 请替换为您的真实 Workers URL
+        prodUrl: 'https://your-api-domain.workers.dev',
+        
+        // 请求超时时间
+        timeout: 10000,
+    },
+    
+    // ==================== 应用信息 ====================
+    app: {
+        name: 'My Flower Pots',
+        version: '1.0.0',
+        description: '花盆养护管理应用',
+    },
+    
+    // ==================== 功能开关 ====================
+    features: {
+        enableImageUpload: true,
+        enableWeather: false,
+        enablePlantDatabase: false,
+    },
+    
+    // ==================== 图片上传配置 ====================
+    upload: {
+        maxFileSize: 5 * 1024 * 1024,
+        allowedTypes: [
+            'image/jpeg',
+            'image/png', 
+            'image/gif',
+            'image/webp'
+        ],
+    },
+};
+
+// ==================== 环境检测 ====================
+const isDevelopment = window.location.hostname === 'localhost' || 
+                     window.location.hostname === '127.0.0.1';
+
+// ==================== 导出全局配置 ====================
+window.APP_CONFIG = {
+    ...APP_CONFIG,
+    isDevelopment,
+    currentApiUrl: isDevelopment ? APP_CONFIG.api.devUrl : APP_CONFIG.api.prodUrl,
+    getApiEndpoint: (path) => {
+        const baseUrl = isDevelopment ? APP_CONFIG.api.devUrl : APP_CONFIG.api.prodUrl;
+        return `${baseUrl}${path.startsWith('/') ? path : '/' + path}`;
+    },
+    isFeatureEnabled: (featureName) => {
+        return APP_CONFIG.features[featureName] === true;
+    }
+};

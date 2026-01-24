@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>花盆详情 - My Flower Pots</title>
+
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+    <!-- Tailwind CSS & Custom Styles (Optimized) -->
+    <link rel="stylesheet" href="css/tailwind-built.css">
+
+    <!-- 图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- 自定义脚本 -->
+    <script src="js/config.js?v=20260111"></script>
+    <script src="js/api-client.js?v=20260111"></script>
+</head>
+
+<body class="bg-gray-50">
+    <div id="app" v-cloak>
+        <!-- 顶部导航栏 (强制靠左+居中) -->
+        <header class="header bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-50 h-16 w-full">
+            <div class="relative flex items-center h-full px-4">
+                <!-- 左侧按钮 -->
+                <div class="z-10">
+                    <button class="w-10 h-10 flex items-center justify-center text-gray-400 active:scale-90 transition"
+                        @click="goBack">
+                        <i class="fas fa-arrow-left text-xl"></i>
+                    </button>
+                </div>
+                <!-- 居中标题 -->
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <h1 class="text-base sm:text-lg font-black text-gray-800">花盆详情</h1>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主内容区域 -->
+        <main class="main pb-20">
+            <!-- 加载状态 -->
+            <div v-if="isLoading" class="loading py-20">
+                <div class="spinner"></div>
+                <p>加载中...</p>
+            </div>
+
+            <!-- 错误提示 -->
+            <div v-if="error" class="error-alert container mx-auto px-4 mt-4">
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                    <span>{{ error }}</span>
+                    <button @click="error = null" class="absolute top-0 bottom-0 right-0 px-4">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 内容区域 -->
+            <div v-if="!isLoading && pot" class="container mx-auto px-4 py-6 space-y-6">
+                <!-- 1. 花盆基本信息卡片 -->
+                <div class="bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-50">
+                    <div class="relative h-64 md:h-80">
+                        <img :src="pot.image_url || 'assets/images/icons/icons-default-pot.png'"
+                            class="w-full h-full object-cover" @error="handleImageError">
+                        <div
+                            class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6 text-white">
+                            <h2 class="text-2xl font-black">{{ pot.name }}</h2>
+                            <!-- <div class="flex items-center gap-2 mt-1">
+                                <span
+                                    class="bg-white/20 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{{
+                                    pot.plant_type || '普通植物' }}</span>
+                                <span class="text-xs opacity-80">种植于 {{ formatDate(pot.plant_date) }}</span>
+                            </div> -->
+                        </div>
+                        <!-- 编辑入口 -->
+                        <button @click="goEditPage"
+                            class="absolute top-4 right-4 w-10 h-10 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-white active:scale-90 transition">
+                            <i class="fas fa-pen text-sm"></i>
+                        </button>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <div class="flex flex-col gap-2 text-sm">
+                            <div class="flex items-baseline gap-2">
+                                <span class="text-gray-900 font-bold shrink-0 w-20">种植日期：</span>
+                                <span class="text-gray-600">{{ formatDate(pot.plant_date) }}</span>
+                            </div>
+                            <div class="flex items-baseline gap-2">
+                                <span class="text-gray-900 font-bold shrink-0 w-20">花盆备注：</span>
+                                <span class="text-gray-600">{{ pot.note || '无' }}</span>
+                            </div>
+                            <div v-if="matchedPlantName" class="flex items-baseline gap-2">
+                                <span class="text-gray-900 font-bold shrink-0 w-20">匹配植物：</span>
+                                <span class="text-gray-600 font-bold text-green-600">{{ matchedPlantName }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 植物基本信息 (Basic Info Section - Optimized) -->
+                <div v-if="plantInfo" class="bg-white rounded-3xl shadow-sm p-6 border border-gray-50">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-lg font-black text-gray-800 flex items-center gap-2">
+                            <i class="fas fa-book text-green-500"></i> 基本信息
+                        </h3>
+                    </div>
+
+                    <div class="space-y-3.5 text-sm overflow-hidden transition-all duration-500"
+                        :style="{ maxHeight: showFullPlantInfo ? '1000px' : '300px' }">
+                        <!-- 优先显示 -->
+                        <div v-for="item in plantInfoGroups.priority" :key="item.key" class="flex gap-2">
+                            <span class="text-gray-900 font-bold shrink-0 w-20 whitespace-nowrap">{{ item.label
+                                }}：</span>
+                            <span class="text-gray-600 flex-1">{{ item.val }}</span>
+                        </div>
+
+                        <!-- 折叠显示项 -->
+                        <div v-if="showFullPlantInfo" v-for="item in plantInfoGroups.extended" :key="item.key"
+                            class="flex gap-2 animate-fade-in">
+                            <span class="text-gray-900 font-bold shrink-0 w-20 whitespace-nowrap">{{ item.label
+                                }}：</span>
+                            <span class="text-gray-600 flex-1">{{ item.val }}</span>
+                        </div>
+                    </div>
+
+                    <!-- 展开/收起按钮 (基本信息) -->
+                    <div v-if="plantInfoGroups.extended.length > 0"
+                        class="mt-4 flex justify-center border-t border-gray-50 pt-4">
+                        <button @click="showFullPlantInfo = !showFullPlantInfo"
+                            class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:text-green-500 hover:bg-green-50 transition active:scale-90">
+                            <i class="fas" :class="showFullPlantInfo ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2. 养护提示 (Care Tips Section - Optimized) -->
+                <div v-if="plantInfo" class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
+                    <div class="px-6 py-5 bg-gray-50/30 border-b border-gray-50">
+                        <h3 class="text-lg font-black text-blue-500 flex items-center gap-2">
+                            <span>💡</span> 养护提示
+                        </h3>
+                    </div>
+
+                    <div class="px-6 py-6 overflow-hidden transition-all duration-500"
+                        :style="{ maxHeight: showFullCareTips ? '3000px' : '650px' }">
+
+                        <!-- 1. 顶部总结横线 (Summary Line) -->
+                        <div class="flex items-center justify-center gap-4 mb-8 text-[11px] font-black text-gray-400">
+                            <template v-for="(item, idx) in careTipsGroups.summary" :key="item.key">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                                    <span>{{ item.label }}：<span class="text-blue-500">{{ item.val }}</span></span>
+                                </div>
+                                <span v-if="idx < careTipsGroups.summary.length - 1" class="text-gray-200">|</span>
+                            </template>
+                        </div>
+
+                        <!-- 2. 日志详情列表 (Log Style) -->
+                        <div class="space-y-8">
+                            <div v-for="item in careTipsGroups.priorityDetails" :key="item.key"
+                                class="relative pl-6 border-l-2 border-blue-100/50">
+                                <!-- 左侧装饰原点 -->
+                                <div
+                                    class="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.3)]">
+                                </div>
+
+                                <div class="space-y-2">
+                                    <div class="flex items-center gap-2">
+                                        <i :class="item.icon" class="text-blue-500 text-sm"></i>
+                                        <span class="text-xs font-black text-gray-800 uppercase tracking-widest">{{
+                                            item.label }}</span>
+                                    </div>
+                                    <p class="text-sm text-gray-600 leading-relaxed font-medium">{{ item.val }}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. 折叠扩展部分 -->
+                        <div v-if="showFullCareTips"
+                            class="mt-8 pt-8 border-t border-gray-50 space-y-8 animate-fade-in">
+                            <div v-for="item in careTipsGroups.extended" :key="item.key"
+                                class="relative pl-6 border-l-2 border-gray-100">
+                                <div class="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-gray-300"></div>
+
+                                <div class="space-y-2">
+                                    <div class="flex items-center gap-2">
+                                        <i :class="item.icon" class="text-gray-400 text-sm"></i>
+                                        <span class="text-xs font-black text-gray-500 uppercase tracking-widest">{{
+                                            item.label }}</span>
+                                    </div>
+                                    <p class="text-sm text-gray-600 leading-relaxed font-medium">{{ item.val }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 展开/收起按钮 (养护提示) -->
+                    <div v-if="careTipsGroups.extended.length > 0" class="pb-6 flex justify-center">
+                        <button @click="showFullCareTips = !showFullCareTips"
+                            class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition active:scale-90 shadow-sm border border-gray-100">
+                            <i class="fas" :class="showFullCareTips ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                        </button>
+                    </div>
+                </div>
+                <!-- 移除过早关闭的容器 div -->
+
+                <!-- 4. 养护记录 (Care Records) -->
+                <div class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
+                    <div class="p-6 flex justify-between items-center border-b border-gray-50">
+                        <h3 class="text-lg font-black text-gray-800 flex items-center gap-2">
+                            <i class="fas fa-history text-orange-400"></i> 养护历史
+                        </h3>
+                        <button @click="goAddCarePage"
+                            class="bg-orange-400 text-white px-4 py-1.5 rounded-full text-xs font-black shadow-lg shadow-orange-100 active:scale-95 transition">
+                            新增养护
+                        </button>
+                    </div>
+
+                    <div v-if="careRecords.length === 0" class="p-10 text-center">
+                        <p class="text-gray-400 text-sm">暂无养护记录</p>
+                    </div>
+
+                    <div v-else class="divide-y divide-gray-50">
+                        <div v-for="group in groupedCareRecords.slice(0, 5)" :key="group.date"
+                            @click="showCareDetails(group)"
+                            class="group py-4 px-6 active:bg-gray-50 transition cursor-pointer flex items-center justify-between">
+                            <div class="flex items-baseline gap-4 min-w-0">
+                                <!-- 日期在前 -->
+                                <span class="text-xs font-black text-gray-800 uppercase shrink-0 w-24 leading-none">
+                                    {{ group.date }}
+                                </span>
+
+                                <!-- 概括在后 -->
+                                <div class="min-w-0">
+                                    <div class="text-xs font-bold text-gray-400 truncate">
+                                        {{ group.displayAction }}
+                                    </div>
+                                    <p v-if="group.displayDescription" class="text-[10px] text-gray-300 mt-1 truncate">
+                                        {{ group.displayDescription }}
+                                    </p>
+                                </div>
+                            </div>
+                            <i
+                                class="fas fa-chevron-right text-[10px] text-gray-200 group-active:text-gray-400 transition"></i>
+                        </div>
+
+                        <button v-if="careRecords.length > 0" @click="viewAllRecords"
+                            class="w-full py-4 text-[10px] text-gray-300 font-black uppercase tracking-widest bg-gray-50/50 border-t border-gray-50 flex items-center justify-center gap-2">
+                            查看完整历史档案 ({{ careRecords.length }}) <i class="fas fa-history"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 3. 生长记录入口 (Entry Logic) -->
+                <div class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
+                    <div class="p-6 flex justify-between items-center border-b border-gray-50">
+                        <h3 class="text-lg font-black text-gray-800 flex items-center gap-2">
+                            <i class="fas fa-chart-line text-blue-500"></i> 生长轨迹
+                        </h3>
+                        <div class="flex gap-2">
+                            <button v-if="timelineRecords.length >= 2" @click="toggleTimelineSort"
+                                class="w-8 h-8 rounded-full bg-gray-100/80 text-gray-500 flex items-center justify-center active:scale-90 transition">
+                                <i class="fas text-[12px]"
+                                    :class="isTimelineDesc ? 'fa-sort-amount-down' : 'fa-sort-amount-up'"></i>
+                            </button>
+                            <button @click="showAddTimelineModal = true"
+                                class="bg-blue-500 text-white px-4 py-1.5 rounded-full text-xs font-black shadow-lg shadow-blue-100 active:scale-95 transition">
+                                记录这一刻
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 时间轴内容 -->
+                    <div v-if="timelineRecords.length === 0" class="p-10 text-center">
+                        <div
+                            class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
+                            <i class="fas fa-camera text-2xl"></i>
+                        </div>
+                        <p class="text-gray-400 text-sm">还没有留下它的成长瞬间</p>
+                        <p class="text-[10px] text-gray-300 mt-1">上传照片，记录它的每一个变化</p>
+                    </div>
+
+                    <div v-else class="p-6 space-y-6">
+                        <div v-for="record in sortedTimelineRecords" :key="record.id"
+                            class="relative pl-6 border-l-2 border-blue-50">
+                            <!-- 时间点 -->
+                            <div
+                                class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white border-4 border-blue-500 shadow-sm">
+                            </div>
+
+                            <div class="flex justify-between items-start mb-2">
+                                <span class="text-xs font-black text-gray-400">{{ formatDate(record.date) }}</span>
+                                <button @click="confirmDeleteTimeline(record.id)"
+                                    class="text-gray-300 hover:text-red-400 p-1 active:scale-90 transition">
+                                    <i class="fas fa-trash-alt text-xs"></i>
+                                </button>
+                            </div>
+                            <p class="text-sm text-gray-700 mb-3 font-medium">{{ record.description || '这一天，有了新的成长...'
+                                }}</p>
+
+                            <!-- 图片展示网格 -->
+                            <div v-if="getImages(record.images).length > 0" class="grid grid-cols-3 gap-2">
+                                <div v-for="(img, idx) in getImages(record.images)" :key="idx"
+                                    class="aspect-square rounded-2xl overflow-hidden bg-gray-100 shadow-sm">
+                                    <img :src="img"
+                                        class="w-full h-full object-cover cursor-pointer active:opacity-75 transition"
+                                        @click="openGallery(img, getImages(record.images))">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. 删除按钮 (移至最底部) -->
+                <div class="pt-8 pb-10 flex flex-col items-center gap-4">
+                    <button @click="confirmDeletePot"
+                        class="w-full py-4 rounded-2xl text-red-500 font-black text-sm bg-red-50 border border-red-100 hover:bg-red-100 transition active:scale-95">
+                        <i class="fas fa-trash-alt mr-2"></i> 删除此花盆
+                    </button>
+                    <p class="text-[10px] text-gray-300 text-center uppercase tracking-widest font-black">
+                        ID: {{ potId }} • 更新于 {{ formatDate(new Date().toISOString()) }}
+                    </p>
+                </div>
+            </div>
+
+            <!-- 弹窗：添加生长记录 -->
+            <div v-if="showAddTimelineModal"
+                class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showAddTimelineModal = false"></div>
+                <div
+                    class="relative bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up">
+                    <div class="p-8">
+                        <div class="flex justify-between items-center mb-8">
+                            <div>
+                                <h3 class="text-xl font-black text-gray-800">增加生长记录</h3>
+                                <p class="text-xs text-gray-400 mt-1">记录并见证它的成长蜕变</p>
+                            </div>
+                            <button @click="showAddTimelineModal = false"
+                                class="text-gray-300 hover:text-gray-500 transition">
+                                <i class="fas fa-times text-xl"></i>
+                            </button>
+                        </div>
+
+                        <div class="space-y-6">
+                            <div>
+                                <label
+                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">记录日期</label>
+                                <input type="date" v-model="newTimeline.date"
+                                    class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-blue-500 transition-all font-bold text-gray-800">
+                            </div>
+                            <div>
+                                <label
+                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">文字说明</label>
+                                <textarea v-model="newTimeline.description" rows="3" placeholder="写点什么，记录这一刻的喜悦..."
+                                    class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-blue-500 transition-all font-bold text-gray-800 resize-none"></textarea>
+                            </div>
+                            <div>
+                                <label
+                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">上传照片
+                                    (多选, 最多9张)</label>
+                                <div class="grid grid-cols-4 gap-2 mt-2">
+                                    <div v-for="(img, idx) in newTimeline.tempImages" :key="idx"
+                                        class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden">
+                                        <img :src="img.preview" class="w-full h-full object-cover">
+                                        <button @click="removeNewImage(idx)"
+                                            class="absolute top-1 right-1 bg-black/50 text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                    <button v-if="newTimeline.tempImages.length < 9" @click="triggerFileInput"
+                                        class="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-300 hover:border-blue-500 hover:text-blue-500 transition active:scale-95">
+                                        <i class="fas fa-camera text-xl mb-1"></i>
+                                        <span class="text-[8px] font-black uppercase tracking-tighter">添加</span>
+                                    </button>
+                                </div>
+                                <input type="file" ref="fileInput" @change="onFilesSelected" multiple accept="image/*"
+                                    class="hidden">
+                            </div>
+                        </div>
+
+                        <div class="mt-10">
+                            <button @click="saveTimelineRecord" :disabled="isSavingTimeline"
+                                class="w-full bg-blue-500 text-white py-4 rounded-2xl text-lg font-black shadow-xl shadow-blue-100 disabled:opacity-50 transition active:scale-[0.98]">
+                                <span v-if="!isSavingTimeline">发布记录</span>
+                                <span v-else><i class="fas fa-spinner fa-spin mr-2"></i>正在同步...</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 弹窗：植物百科详细 -->
+            <div v-if="showPlantModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="showPlantModal = false"></div>
+                <div
+                    class="relative bg-white w-full max-w-xl max-h-[90vh] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col">
+                    <div class="p-8 border-b border-gray-50 flex justify-between items-center bg-green-50/50">
+                        <div>
+                            <h3 class="text-xl font-black text-green-800">{{ plantInfo?.basicInfo?.name }}</h3>
+                            <p class="text-[10px] font-black text-green-600 uppercase tracking-widest mt-1">{{
+                                plantInfo.basicInfo?.latinName }}</p>
+                        </div>
+                        <button @click="showPlantModal = false"
+                            class="text-green-800 opacity-40 hover:opacity-100 transition">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    <div class="p-8 overflow-y-auto flex-1 space-y-8">
+                        <section>
+                            <h4
+                                class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <i class="fas fa-info-circle text-green-500"></i> 基本资料
+                            </h4>
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div class="bg-gray-50 p-4 rounded-2xl col-span-2"
+                                    v-if="plantInfo.basicInfo?.synonyms?.length">
+                                    <span class="text-[10px] text-gray-400 font-bold block mb-1 uppercase">别名</span>
+                                    <span class="font-bold">{{ plantInfo.basicInfo.synonyms.join('、') }}</span>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-2xl"><span
+                                        class="text-[10px] text-gray-400 font-bold block mb-1 uppercase">科属</span><span
+                                        class="font-bold">{{ plantInfo.basicInfo?.family }}</span></div>
+                                <div class="bg-gray-50 p-4 rounded-2xl"><span
+                                        class="text-[10px] text-gray-400 font-bold block mb-1 uppercase">原产地</span><span
+                                        class="font-bold">{{ plantInfo.basicInfo?.origin }}</span></div>
+                            </div>
+                        </section>
+
+                        <section v-if="plantInfo.ornamentalFeatures">
+                            <h4
+                                class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <i class="fas fa-eye text-green-500"></i> 观赏特征
+                            </h4>
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div v-for="(val, key) in plantInfo.ornamentalFeatures" :key="key" v-show="val"
+                                    class="bg-gray-50 p-4 rounded-2xl">
+                                    <span class="text-[10px] text-gray-400 font-bold block mb-1 uppercase">{{
+                                        getOrnamentalLabel(key) }}</span>
+                                    <span class="font-bold">{{ val === true ? '是' : (val === false ? '否' : val)
+                                        }}</span>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section>
+                            <h4
+                                class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <i class="fas fa-hand-holding-heart text-green-500"></i> 全方位养护指南
+                            </h4>
+                            <div class="grid grid-cols-1 gap-4">
+                                <div v-for="(val, key) in plantInfo.careGuide" v-show="val"
+                                    class="flex gap-4 p-4 bg-gray-50 rounded-2xl">
+                                    <div
+                                        class="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-sm">
+                                        <i :class="getCareIcon(key)" class="text-green-500"></i>
+                                    </div>
+                                    <div>
+                                        <span
+                                            class="text-[10px] text-gray-400 font-black uppercase tracking-widest block mb-0.5">{{
+                                            getCareLabel(key) }}</span>
+                                        <span class="text-gray-700 text-sm font-medium leading-relaxed">{{ val }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 图片全屏预览 -->
+            <!-- 图片全屏画廊 -->
+            <div v-if="previewImages.length > 0"
+                class="fixed inset-0 z-[100] bg-black flex items-center justify-center animate-fade-in touch-none"
+                @click.self="closeGallery" @touchstart="handleGalleryTouchStart" @touchmove="handleGalleryTouchMove"
+                @touchend="handleGalleryTouchEnd">
+                <button @click="closeGallery"
+                    class="absolute top-6 right-6 text-white/50 hover:text-white p-4 z-[110] transition">
+                    <i class="fas fa-times text-2xl shadow-sm"></i>
+                </button>
+
+                <!-- 左右切换按钮 -->
+                <button v-if="previewImages.length > 1" @click.stop="prevImg"
+                    class="absolute left-2 top-1/2 -translate-y-1/2 p-4 text-white/50 hover:text-white z-[110] transition disabled:opacity-20"
+                    :disabled="previewIndex === 0">
+                    <i class="fas fa-chevron-left text-3xl drop-shadow-md"></i>
+                </button>
+                <button v-if="previewImages.length > 1" @click.stop="nextImg"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 p-4 text-white/50 hover:text-white z-[110] transition disabled:opacity-20"
+                    :disabled="previewIndex === previewImages.length - 1">
+                    <i class="fas fa-chevron-right text-3xl drop-shadow-md"></i>
+                </button>
+
+                <img :src="previewImages[previewIndex]"
+                    class="max-w-full max-h-full object-contain transition-transform duration-300"
+                    @click="closeGallery">
+
+                <div
+                    class="absolute bottom-10 left-0 right-0 text-center text-white/80 text-sm font-bold tracking-widest pointer-events-none">
+                    {{ previewIndex + 1 }} / {{ previewImages.length }}
+                </div>
+            </div>
+
+            <!-- 养护详情 Bottom Sheet -->
+            <teleport to="body">
+                <transition name="backdrop">
+                    <div v-if="activeCareDate" @click="closeCareDetails"
+                        class="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-[100]"></div>
+                </transition>
+
+                <transition name="bottom-sheet">
+                    <div v-if="activeCareDate && currentSheetGroup"
+                        class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl rounded-t-[3rem] p-8 pb-12 shadow-2xl z-[101] max-h-[85vh] overflow-hidden flex flex-col border-t border-white/20">
+                        <!-- 顶部把手 -->
+                        <div class="w-16 h-1.5 bg-gray-200/50 rounded-full mx-auto mb-10 shrink-0"></div>
+
+                        <div class="flex justify-between items-start mb-10 shrink-0">
+                            <div>
+                                <h2 class="text-2xl font-black text-gray-800">{{ activeCareDate }}</h2>
+                            </div>
+                            <button @click="closeCareDetails"
+                                class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 active:scale-95 transition">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        <div class="space-y-4 overflow-y-auto pr-2 flex-1 no-scrollbar">
+                            <div v-for="record in currentSheetGroup.records" :key="record.id"
+                                class="flex items-center justify-between p-5 bg-white rounded-3xl border border-gray-50 shadow-sm">
+                                <div class="flex items-center gap-5">
+                                    <div :class="getCareTypeColor(record.type)"
+                                        class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner">
+                                        <i :class="getCareTypeIcon(record.type)"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-black text-gray-700">
+                                            {{ record.action || getCareTypeLabel(record.type) }}
+                                        </p>
+                                        <p v-if="record.description && record.description !== record.action"
+                                            class="text-[10px] text-gray-400 mt-0.5">
+                                            {{ record.description }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-3">
+                                    <button @click="editRecord(record)"
+                                        class="w-11 h-11 flex items-center justify-center rounded-2xl bg-orange-50 text-orange-400 active:scale-90 transition">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button @click="deleteRecord(record)"
+                                        class="w-11 h-11 flex items-center justify-center rounded-2xl bg-red-50 text-red-400 active:scale-90 transition">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-10 shrink-0">
+                            <button @click="closeCareDetails"
+                                class="w-full py-5 bg-gray-900 text-white rounded-3xl font-black text-xs uppercase tracking-[0.2em] active:scale-[0.98] transition">
+                                好的
+                            </button>
+                        </div>
+                    </div>
+                </transition>
+            </teleport>
+        </main>
+    </div>
+
+    <script>
+        const { createApp, ref, reactive, onMounted, computed } = Vue;
+
+        createApp({
+            setup() {
+                // --- 状态变量 ---
+                const isLoading = ref(true);
+                const error = ref(null);
+                const potId = ref(null);
+                const pot = ref(null);
+                const careRecords = ref([]);
+                const timelineRecords = ref([]);
+                const plantInfo = ref(null);
+                const matchedPlantName = ref(null);
+                const activeCareDate = ref(null);
+                const showFullPlantInfo = ref(false); // 控制百科基本信息展开
+                const showFullCareTips = ref(false);  // 控制养护提示展开
+
+                // UI 状态
+                const showPlantModal = ref(false);
+                const showAddTimelineModal = ref(false);
+                const isTimelineDesc = ref(true); // 默认倒序
+                const previewImages = ref([]);
+                const previewIndex = ref(0);
+                const isSavingTimeline = ref(false);
+                const fileInput = ref(null);
+
+                // 触摸相关状态
+                const touchStartX = ref(0);
+                const touchEndX = ref(0);
+
+                // 新记录表单
+                const newTimeline = reactive({
+                    date: new Date().toISOString().split('T')[0],
+                    description: '',
+                    tempImages: [] // { file, preview }
+                });
+
+                // --- 初始化加载 ---
+                const init = async () => {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    potId.value = urlParams.get('id');
+
+                    if (!potId.value) {
+                        error.value = '未找到花盆ID';
+                        isLoading.value = false;
+                        return;
+                    }
+
+                    try {
+                        await Promise.all([
+                            loadPotDetail(),
+                            loadCareRecords(),
+                            loadTimelineRecords()
+                        ]);
+                        if (pot.value) await loadPlantInfo();
+                    } catch (err) {
+                        console.error('加载失败:', err);
+                        error.value = '数据同步失败，请检查网络';
+                    } finally {
+                        isLoading.value = false;
+                    }
+                };
+
+                const loadPotDetail = async () => {
+                    const res = await apiClient.getPotDetail(potId.value);
+                    if (res.success) pot.value = res.data;
+                };
+
+                const loadCareRecords = async () => {
+                    const res = await apiClient.getCareRecords(potId.value);
+                    if (res.success) careRecords.value = res.data || [];
+                };
+
+                const loadTimelineRecords = async () => {
+                    const res = await apiClient.getTimelines(potId.value);
+                    if (res.success) timelineRecords.value = res.data || [];
+                };
+
+                const loadPlantInfo = async () => {
+                    if (!pot.value?.name) return;
+                    try {
+                        // 使用智能匹配API，同时传递花盆名和备注
+                        const matchRes = await apiClient.smartMatchPlant(
+                            pot.value.name,
+                            pot.value.note || ''
+                        );
+
+                        if (matchRes.success && matchRes.data) {
+                            plantInfo.value = transformPlantData(matchRes.data);
+                            // 如果匹配到的植物名与花盆名不同，显示匹配提示
+                            if (matchRes.data.name !== pot.value.name) {
+                                matchedPlantName.value = matchRes.data.name;
+                            }
+                            console.log('智能匹配成功:', matchRes.message, '关键词:', matchRes.keywords);
+                        }
+                    } catch (e) { console.warn('百科匹配失败', e); }
+                };
+
+                const sortedTimelineRecords = computed(() => {
+                    return [...timelineRecords.value].sort((a, b) => {
+                        const dateA = new Date(a.date);
+                        const dateB = new Date(b.date);
+                        return isTimelineDesc.value ? dateB - dateA : dateA - dateB;
+                    });
+                });
+
+                const toggleTimelineSort = () => isTimelineDesc.value = !isTimelineDesc.value;
+
+                // --- 交互逻辑 ---
+                const goBack = () => {
+                    // 详情页强制回首页
+                    window.location.href = 'index.html';
+                };
+                const goEditPage = () => window.location.href = `edit-pot.html?id=${potId.value}`;
+                const goAddCarePage = () => window.location.href = `care-record.html?potId=${potId.value}`;
+
+                const confirmDeletePot = async () => {
+                    if (confirm('确定要删除这盆花吗？所有养护记录和成长轨迹都将被永久删除。')) {
+                        try {
+                            const res = await apiClient.deletePot(potId.value);
+                            if (res.success) {
+                                window.location.href = 'index.html';
+                            }
+                        } catch (err) {
+                            alert('删除失败: ' + err.message);
+                        }
+                    }
+                };
+
+                // 抽屉管理
+                const showCareDetails = (group) => {
+                    activeCareDate.value = group.date;
+                };
+                const closeCareDetails = () => {
+                    activeCareDate.value = null;
+                };
+                const currentSheetGroup = computed(() => {
+                    if (!activeCareDate.value) return null;
+                    const group = groupedCareRecords.value.find(g => g.date === activeCareDate.value);
+                    if (!group) activeCareDate.value = null; // 如果记录全被删了，自动关闭
+                    return group;
+                });
+
+                // --- 百科信息显示过滤逻辑 ---
+                const plantBasicPriorityKeys = ['synonyms', 'flowerColor', 'floweringSeason', 'fragrance', 'symbolism', 'safetyInfo'];
+                const careGuidePriorityKeys = ['careDifficulty', 'lightRequirement', 'watering', 'temperature', 'fertilizing', 'pests'];
+
+                // 拆分基本信息
+                const plantInfoGroups = computed(() => {
+                    if (!plantInfo.value) return { priority: [], extended: [] };
+
+                    const allFields = [
+                        { key: 'synonyms', label: '别　名', val: plantInfo.value.basicInfo?.synonyms?.join('、'), section: 'basicInfo' },
+                        { key: 'origin', label: '原产地', val: plantInfo.value.basicInfo?.origin, section: 'basicInfo' },
+                        { key: 'family', label: '科　属', val: plantInfo.value.basicInfo?.family, section: 'basicInfo' },
+                        { key: 'category', label: '类　别', val: plantInfo.value.ornamentalFeatures?.category, section: 'ornamentalFeatures' },
+                        { key: 'flowerColor', label: '花　色', val: plantInfo.value.ornamentalFeatures?.flowerColor, section: 'ornamentalFeatures' },
+                        { key: 'floweringSeason', label: '花　期', val: plantInfo.value.ornamentalFeatures?.floweringSeason, section: 'ornamentalFeatures' },
+                        { key: 'fragrance', label: '香　味', val: plantInfo.value.ornamentalFeatures?.fragrance, section: 'ornamentalFeatures' },
+                        { key: 'symbolism', label: '象　征', val: plantInfo.value.ornamentalFeatures?.symbolism, section: 'ornamentalFeatures' },
+                        { key: 'safetyInfo', label: '安全性', val: plantInfo.value.careGuide?.safetyInfo, section: 'careGuide' }
+                    ].filter(item => item.val);
+
+                    return {
+                        priority: allFields.filter(f => plantBasicPriorityKeys.includes(f.key)),
+                        extended: allFields.filter(f => !plantBasicPriorityKeys.includes(f.key))
+                    };
+                });
+
+                // 拆分养护提示 (方案B：顶部总结 + 下方日志块)
+                const careTipsGroups = computed(() => {
+                    if (!plantInfo.value || !plantInfo.value.careGuide) return { summary: [], priorityDetails: [], extended: [] };
+
+                    const careGuide = plantInfo.value.careGuide;
+                    const summaryKeys = ['careDifficulty', 'temperature'];
+                    const detailPriorityKeys = ['lightRequirement', 'watering', 'fertilizing', 'pests'];
+
+                    const allFields = Object.keys(careGuide)
+                        .filter(k => careGuide[k])
+                        .map(key => ({
+                            key,
+                            label: getCareLabel(key),
+                            val: careGuide[key],
+                            icon: getCareIcon(key)
+                        }));
+
+                    return {
+                        summary: allFields.filter(f => summaryKeys.includes(f.key)),
+                        priorityDetails: allFields.filter(f => detailPriorityKeys.includes(f.key)),
+                        extended: allFields.filter(f => !summaryKeys.includes(f.key) && !detailPriorityKeys.includes(f.key))
+                    };
+                });
+
+                const openGallery = (img, allImages) => {
+                    previewImages.value = allImages;
+                    const idx = allImages.indexOf(img);
+                    previewIndex.value = idx >= 0 ? idx : 0;
+                };
+
+                const closeGallery = () => {
+                    previewImages.value = [];
+                    previewIndex.value = 0;
+                };
+
+                const prevImg = () => {
+                    if (previewIndex.value > 0) previewIndex.value--;
+                };
+
+                const nextImg = () => {
+                    if (previewIndex.value < previewImages.value.length - 1) previewIndex.value++;
+                };
+
+                // 画廊触摸滑动逻辑
+                const handleGalleryTouchStart = (e) => {
+                    touchStartX.value = e.changedTouches[0].screenX;
+                    touchEndX.value = e.changedTouches[0].screenX; // 初始化防止misclick
+                };
+
+                const handleGalleryTouchMove = (e) => {
+                    touchEndX.value = e.changedTouches[0].screenX;
+                };
+
+                const handleGalleryTouchEnd = () => {
+                    const threshold = 50; // 滑动阈值
+                    const diff = touchStartX.value - touchEndX.value;
+
+                    if (Math.abs(diff) > threshold) {
+                        if (diff > 0) {
+                            // 向左滑 -> 下一张
+                            nextImg();
+                        } else {
+                            // 向右滑 -> 上一张
+                            prevImg();
+                        }
+                    }
+                    // 重置
+                    touchStartX.value = 0;
+                    touchEndX.value = 0;
+                };
+
+                // --- 生长记录功能 ---
+                const triggerFileInput = () => fileInput.value.click();
+
+                const onFilesSelected = (e) => {
+                    const files = Array.from(e.target.files);
+                    const remaining = 9 - newTimeline.tempImages.length;
+
+                    files.slice(0, remaining).forEach(file => {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                            newTimeline.tempImages.push({
+                                file,
+                                preview: ev.target.result
+                            });
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                    e.target.value = '';
+                };
+
+                const removeNewImage = (idx) => newTimeline.tempImages.splice(idx, 1);
+
+                const saveTimelineRecord = async () => {
+                    if (newTimeline.tempImages.length === 0 && !newTimeline.description.trim()) {
+                        alert('请至少上传一张照片或写点描述');
+                        return;
+                    }
+
+                    try {
+                        isSavingTimeline.value = true;
+                        let uploadedUrls = [];
+
+                        for (const item of newTimeline.tempImages) {
+                            const res = await apiClient.uploadImage(item.file, {
+                                potId: potId.value,
+                                uploadType: 'timeline'
+                            });
+                            if (res.success && res.data?.url) {
+                                uploadedUrls.push(res.data.url);
+                            }
+                        }
+
+                        const recordData = {
+                            potId: potId.value,
+                            date: newTimeline.date,
+                            description: newTimeline.description,
+                            images: uploadedUrls
+                        };
+
+                        const saveRes = await apiClient.createTimeline(recordData);
+                        if (saveRes.success) {
+                            showAddTimelineModal.value = false;
+                            newTimeline.description = '';
+                            newTimeline.tempImages = [];
+                            await loadTimelineRecords();
+                        }
+                    } catch (e) {
+                        alert('保存失败，请检查网络后重试');
+                    } finally {
+                        isSavingTimeline.value = false;
+                    }
+                };
+
+                const confirmDeleteTimeline = async (id) => {
+                    if (confirm('确认删除这条生长记录？照片也将一并清理。')) {
+                        try {
+                            const res = await apiClient.request(`/api/timelines/${id}`, { method: 'DELETE' });
+                            if (res.success) await loadTimelineRecords();
+                        } catch (e) { alert('删除操作失败'); }
+                    }
+                };
+
+                // 编辑记录
+                const editRecord = (record) => {
+                    window.location.href = `care-record.html?id=${record.id}`;
+                };
+
+                // 删除记录
+                const deleteRecord = async (record) => {
+                    if (!confirm('确认删除这条养护记录？')) return;
+                    try {
+                        const res = await apiClient.request(`/api/care-records/${record.id}`, { method: 'DELETE' });
+                        if (res.success) await loadCareRecords();
+                    } catch (e) { alert('操作失败'); }
+                };
+
+                // 查看全部记录
+                const viewAllRecords = () => {
+                    window.location.href = `all-records.html?potId=${potId.value}`;
+                };
+
+                // --- 辅助函数 ---
+                const formatDate = (dateStr) => {
+                    if (!dateStr) return '';
+                    const date = new Date(dateStr);
+                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                };
+
+                const getImages = (images) => {
+                    if (!images) return [];
+                    if (Array.isArray(images)) return images;
+                    try { return JSON.parse(images); } catch (e) { return []; }
+                };
+
+                const getCareTypeIcon = (type) => {
+                    const icons = { water: 'fas fa-tint', fertilize: 'fas fa-seedling', prune: 'fas fa-cut', repot: 'fas fa-exchange-alt', pest: 'fas fa-bug' };
+                    return icons[type] || 'fas fa-clipboard-check';
+                };
+
+                const getCareTypeColor = (type) => {
+                    const colors = { water: 'bg-blue-50 text-blue-500', fertilize: 'bg-green-50 text-green-500', prune: 'bg-orange-50 text-orange-500', repot: 'bg-purple-50 text-purple-500', pest: 'bg-red-50 text-red-500' };
+                    return colors[type] || 'bg-gray-50 text-gray-500';
+                };
+
+                const getCareTypeLabel = (type) => {
+                    const labels = { water: '浇水', fertilize: '施肥', prune: '修剪', repot: '换盆', pest: '病虫害' };
+                    return labels[type] || '日常';
+                };
+
+                const getCareIcon = (key) => {
+                    const icons = {
+                        careDifficulty: 'fas fa-tachometer-alt',
+                        lightRequirement: 'fas fa-sun',
+                        waterRequirement: 'fas fa-tint',
+                        temperature: 'fas fa-thermometer-half',
+                        humidity: 'fas fa-wind',
+                        soilRequirement: 'fas fa-mountain',
+                        droughtTolerance: 'fas fa-cactus',
+                        shadeTolerance: 'fas fa-cloud',
+                        coldTolerance: 'fas fa-snowflake',
+                        watering: 'fas fa-shower',
+                        fertilizing: 'fas fa-seedling',
+                        pruning: 'fas fa-cut',
+                        propagation: 'fas fa-vial',
+                        pests: 'fas fa-bug',
+                        safetyInfo: 'fas fa-shield-alt',
+                        specialNotes: 'fas fa-exclamation-circle'
+                    };
+                    return icons[key] || 'fas fa-leaf';
+                };
+
+                const getCareLabel = (key) => {
+                    const labels = {
+                        careDifficulty: '养护难度',
+                        lightRequirement: '光照需求',
+                        waterRequirement: '水分需求',
+                        temperature: '生长温度',
+                        humidity: '环境湿度',
+                        soilRequirement: '土壤要求',
+                        droughtTolerance: '抗旱特性',
+                        shadeTolerance: '耐阴特性',
+                        coldTolerance: '耐寒特性',
+                        watering: '浇水要点',
+                        fertilizing: '施肥建议',
+                        pruning: '修剪技巧',
+                        propagation: '繁殖方式',
+                        pests: '病虫防治',
+                        safetyInfo: '安全提示',
+                        specialNotes: '特别说明'
+                    };
+                    return labels[key] || key;
+                };
+
+                const getOrnamentalLabel = (key) => {
+                    const labels = {
+                        category: '类别',
+                        growthHabit: '生长习性',
+                        flowerColor: '花色',
+                        floweringSeason: '花期',
+                        fragrance: '香味',
+                        landscapeUse: '园林用途',
+                        potSuitable: '适合盆栽',
+                        symbolism: '象征意义'
+                    };
+                    return labels[key] || key;
+                };
+
+                const groupedCareRecords = computed(() => {
+                    if (!careRecords.value.length) return [];
+                    const groups = {};
+                    careRecords.value.forEach(r => {
+                        const d = formatDate(r.date);
+                        if (!groups[d]) groups[d] = [];
+                        groups[d].push(r);
+                    });
+
+                    return Object.keys(groups)
+                        .sort((a, b) => new Date(b) - new Date(a)) // 按日期倒序
+                        .map(date => {
+                            const list = groups[date];
+                            // 优先显示有描述的，或者合并动作名
+                            const actions = [...new Set(list.map(i => i.action || getCareTypeLabel(i.type)))];
+                            const types = [...new Set(list.map(i => i.type))];
+
+                            // 合并描述（去重）
+                            const descriptions = list
+                                .map(i => i.description)
+                                .filter(d => d && !actions.includes(d)) // 排除只是重复动作名的描述
+                                .filter((v, i, a) => a.indexOf(v) === i); // 去重
+
+                            return {
+                                id: list[0].id, // 主ID，用于key
+                                date: date,
+                                records: list, // 原始记录列表
+                                isGroup: list.length > 1,
+                                displayAction: actions.join('、'),
+                                displayType: types[0], // 用于取主颜色
+                                allTypes: types,
+                                displayDescription: descriptions.join('；')
+                            };
+                        });
+                });
+
+                const careTipsGrid = computed(() => {
+                    if (!plantInfo.value?.careGuide) return {};
+                    return plantInfo.value.careGuide;
+                });
+
+                const transformPlantData = (d) => ({
+                    basicInfo: d.basic_info || {},
+                    ornamentalFeatures: d.ornamental_features || {},
+                    careGuide: d.care_guide || {}
+                });
+
+                const handleImageError = (e) => {
+                    e.target.src = 'assets/images/icons/icons-default-pot.png';
+                };
+
+                onMounted(init);
+
+                return {
+                    isLoading, error, potId, pot, careRecords, timelineRecords, plantInfo, matchedPlantName,
+                    showPlantModal, showAddTimelineModal, isSavingTimeline, fileInput,
+                    previewImages, previewIndex,
+                    newTimeline, sortedTimelineRecords, isTimelineDesc,
+                    goBack, goEditPage, goAddCarePage, confirmDeletePot,
+                    openGallery, closeGallery, prevImg, nextImg, toggleTimelineSort,
+                    handleGalleryTouchStart, handleGalleryTouchMove, handleGalleryTouchEnd,
+                    triggerFileInput, onFilesSelected, removeNewImage, saveTimelineRecord, confirmDeleteTimeline,
+                    editRecord, deleteRecord, viewAllRecords,
+                    formatDate, getImages, getCareTypeIcon, getCareTypeColor, getCareTypeLabel,
+                    getCareIcon, getCareLabel, getOrnamentalLabel, careTipsGrid,
+                    handleImageError, groupedCareRecords,
+                    activeCareDate, showCareDetails, closeCareDetails, currentSheetGroup,
+                    showFullPlantInfo, showFullCareTips, plantInfoGroups, careTipsGroups
+                };
+            }
+        }).mount('#app');
+    </script>
+
+    <style>
+        [v-cloak] {
+            display: none;
+        }
+
+        .animate-slide-up {
+            animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .animate-fade-in {
+            animation: fade-in 0.2s ease-out;
+        }
+
+        @keyframes slide-up {
+            from {
+                transform: translateY(100%);
+            }
+
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        /* Bottom Sheet 动画 */
+        .bottom-sheet-enter-active,
+        .bottom-sheet-leave-active {
+            transition: all 0.4s cubic-bezier(0.32, 1, 0.23, 1);
+        }
+
+        .bottom-sheet-enter-from,
+        .bottom-sheet-leave-to {
+            transform: translateY(100%);
+        }
+
+        .backdrop-enter-active,
+        .backdrop-leave-active {
+            transition: opacity 0.3s ease;
+        }
+
+        .backdrop-enter-from,
+        .backdrop-leave-to {
+            opacity: 0;
+        }
+
+        /* 隐藏滚动条但保留功能 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</body>
+
+</html>

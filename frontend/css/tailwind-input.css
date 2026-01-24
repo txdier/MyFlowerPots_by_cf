@@ -1,0 +1,6 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 将原始样式放在最后，确保它们能覆盖 Tailwind 的默认设置 */
+@import "./app.css";

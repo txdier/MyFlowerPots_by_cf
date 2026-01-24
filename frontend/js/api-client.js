@@ -1,0 +1,396 @@
+// API客户端配置 - 从全局配置中读取
+const API_CONFIG = {
+    // 基础URL从全局配置中获取
+    // 如果全局配置不存在，使用默认值
+    get baseUrl() {
+        // 如果全局配置存在且有当前API地址，使用它
+        if (window.APP_CONFIG && window.APP_CONFIG.currentApiUrl) {
+            return window.APP_CONFIG.currentApiUrl;
+        }
+
+        // 默认值：开发环境使用本地服务器
+        const isDev = window.location.hostname === 'localhost' ||
+            window.location.hostname === '127.0.0.1' ||
+            window.location.hostname.includes('localhost');
+
+        return isDev ? 'http://127.0.0.1:8787' : '';
+    },
+    timeout: 10000, // 10秒超时
+};
+
+// API客户端类
+class APIClient {
+    constructor(config = {}) {
+        this.config = { ...API_CONFIG, ...config };
+        this.token = localStorage.getItem('flowerpots_token');
+        this.userId = localStorage.getItem('flowerpots_user_id');
+    }
+
+    // 设置认证令牌
+    setToken(token, userId) {
+        this.token = token;
+        this.userId = userId;
+        if (token) {
+            localStorage.setItem('flowerpots_token', token);
+            localStorage.setItem('flowerpots_user_id', userId);
+        } else {
+            localStorage.removeItem('flowerpots_token');
+            localStorage.removeItem('flowerpots_user_id');
+        }
+    }
+
+    // 清除认证信息
+    clearAuth() {
+        this.token = null;
+        this.userId = null;
+        localStorage.removeItem('flowerpots_token');
+        localStorage.removeItem('flowerpots_user_id');
+    }
+
+    // 通用请求方法
+    async request(endpoint, options = {}) {
+        const url = `${this.config.baseUrl}${endpoint}`;
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
+            ...options.headers,
+        };
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
+
+        try {
+            const response = await fetch(url, {
+                method: options.method || 'GET',
+                headers,
+                body: options.body ? JSON.stringify(options.body) : undefined,
+                signal: controller.signal,
+            });
+
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                let errorData;
+                try {
+                    errorData = JSON.parse(errorText);
+                } catch {
+                    errorData = { error: errorText || `HTTP ${response.status}` };
+                }
+                throw new APIError(response.status, errorData.error || '请求失败');
+            }
+
+            const data = await response.json();
+            return data;
+
+        } catch (error) {
+            clearTimeout(timeoutId);
+
+            if (error.name === 'AbortError') {
+                throw new APIError(408, '请求超时');
+            }
+
+            if (error instanceof APIError) {
+                throw error;
+            }
+
+            throw new APIError(0, error.message || '网络错误');
+        }
+    }
+
+    // 用户认证API
+    async identify() {
+        return this.request('/api/auth/identify', { method: 'POST' });
+    }
+
+    async login(email, password) {
+        const result = await this.request('/api/auth/login', {
+            method: 'POST',
+            body: { email, password }
+        });
+
+        if (result.token && result.userId) {
+            this.setToken(result.token, result.userId);
+        }
+
+        return result;
+    }
+
+    async register(email, password, displayName) {
+        const result = await this.request('/api/auth/register', {
+            method: 'POST',
+            body: { email, password, displayName }
+        });
+
+        if (result.token && result.userId) {
+            this.setToken(result.token, result.userId);
+        }
+
+        return result;
+    }
+
+    async upgrade(email, password, displayName, anonymousUserId) {
+        const result = await this.request('/api/auth/upgrade', {
+            method: 'POST',
+            body: { email, password, displayName, anonymousUserId }
+        });
+
+        if (result.token && result.userId) {
+            this.setToken(result.token, result.userId);
+        }
+
+        return result;
+    }
+
+    async getCurrentUser() {
+        return this.request('/api/auth/me');
+    }
+
+    async logout() {
+        this.clearAuth();
+        return { success: true };
+    }
+
+    async forgotPassword(email) {
+        return this.request('/api/auth/forgot-password', {
+            method: 'POST',
+            body: { email }
+        });
+    }
+
+    async resetPassword(token, newPassword) {
+        return this.request('/api/auth/reset-password', {
+            method: 'POST',
+            body: { token, newPassword }
+        });
+    }
+
+    // 花盆管理API
+    async getPots(userId = this.userId) {
+        // 优化：如果没有用户ID（未登录且未创建匿名账户），直接返回空数组，避免无效API调用
+        if (!userId) {
+            return { success: true, data: [] };
+        }
+        return this.request(`/api/pots?userId=${userId}`);
+    }
+
+    async getPotDetail(potId) {
+        return this.request(`/api/pots/${potId}`);
+    }
+
+    async createPot(potData) {
+        // 优化：如果当前没有用户ID，说明是纯浏览的匿名用户，此时才延迟创建匿名账户
+        if (!this.userId) {
+            const identifyResult = await this.identify();
+            if (identifyResult.success && identifyResult.userId) {
+                potData.userId = identifyResult.userId;
+            } else {
+                throw new Error('无法初始化匿名账户，请重试');
+            }
+        }
+
+        return this.request('/api/pots', {
+            method: 'POST',
+            body: potData
+        });
+    }
+
+    async updatePot(potId, potData, userId = this.userId) {
+        if (!userId) {
+            throw new APIError(400, '用户ID不能为空');
+        }
+        return this.request(`/api/pots/${potId}?userId=${userId}`, {
+            method: 'PUT',
+            body: potData
+        });
+    }
+
+    async deletePot(potId, userId = this.userId) {
+        if (!userId) {
+            throw new APIError(400, '用户ID不能为空');
+        }
+        return this.request(`/api/pots/${potId}?userId=${userId}`, {
+            method: 'DELETE'
+        });
+    }
+
+    async reorderPots(potIds) {
+        if (!this.userId) {
+            throw new APIError(400, '用户ID不能为空');
+        }
+        return this.request('/api/pots/reorder?userId=' + this.userId, {
+            method: 'PUT',
+            body: { potIds }
+        });
+    }
+
+    // 养护记录API
+    async getCareRecords(potId) {
+        return this.request(`/api/care-records/${potId}`);
+    }
+
+    async createCareRecord(recordData) {
+        return this.request('/api/care-records', {
+            method: 'POST',
+            body: recordData
+        });
+    }
+
+    // 时间线API
+    async getTimelines(potId) {
+        return this.request(`/api/pots/${potId}/timelines`);
+    }
+
+    async createTimeline(timelineData) {
+        return this.request('/api/timelines', {
+            method: 'POST',
+            body: timelineData
+        });
+    }
+
+    // 天气API
+    // async getWeather(location = null) {
+    //     const params = location ? `?location=${encodeURIComponent(location)}` : '';
+    //     return this.request(`/api/weather${params}`);
+    // }
+
+    // 养护建议API
+    // async getCareAdvice(data) {
+    //     return this.request('/api/care-advice', {
+    //         method: 'POST',
+    //         body: data
+    //     });
+    // }
+
+    // 植物数据库API
+    async searchPlants(query) {
+        return this.request(`/api/plants/search?q=${encodeURIComponent(query)}`);
+    }
+
+    async getPlantInfo(plantId) {
+        return this.request(`/api/plants/${plantId}`);
+    }
+
+    // 智能植物匹配API
+    async smartMatchPlant(potName, potNote = '') {
+        return this.request('/api/plants/smart-match', {
+            method: 'POST',
+            body: { potName, potNote }
+        });
+    }
+
+    // 图片上传API
+    async uploadImage(file, options = {}) {
+        const {
+            potId = null,
+            uploadType = 'pot', // 'pot' | 'timeline' | 'care'
+            entityId = null
+        } = options;
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        // 优先使用新的参数
+        if (uploadType) {
+            formData.append('uploadType', uploadType);
+        }
+
+        // 根据新的目录结构调整：
+        // 1. 花盆图片：不需要potId（后端会忽略）
+        // 2. 时间线图片：需要potId
+        // 3. 养护记录图片：需要potId
+
+        // 向后兼容：支持旧的entityId参数
+        const finalPotId = entityId || potId;
+
+        // 对于花盆图片，即使有potId也传递，但后端会忽略
+        // 对于时间线和养护记录，必须传递potId
+        if (finalPotId) {
+            formData.append('potId', finalPotId);
+        }
+
+        const url = `${this.config.baseUrl}/api/upload/image`;
+
+        // 重要：不要设置 Content-Type 头，浏览器会自动设置正确的 multipart/form-data
+        const headers = {};
+        if (this.token) {
+            headers['Authorization'] = `Bearer ${this.token}`;
+        }
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new APIError(response.status, errorText || '图片上传失败');
+        }
+
+        return response.json();
+    }
+
+    // 管理员API
+    async adminCheck() {
+        return this.request('/api/admin/check');
+    }
+
+    async adminGetPlants(page = 1, pageSize = 20, search = '') {
+        return this.request(`/api/admin/plants?page=${page}&pageSize=${pageSize}&search=${encodeURIComponent(search)}`);
+    }
+
+    async adminCreatePlant(plantData) {
+        return this.request('/api/admin/plants', {
+            method: 'POST',
+            body: plantData
+        });
+    }
+
+    async adminUpdatePlant(plantId, plantData) {
+        return this.request(`/api/admin/plants/${plantId}`, {
+            method: 'PUT',
+            body: plantData
+        });
+    }
+
+    async adminDeletePlant(plantId) {
+        return this.request(`/api/admin/plants/${plantId}`, {
+            method: 'DELETE'
+        });
+    }
+
+    async adminBatchDelete(ids) {
+        return this.request('/api/admin/plants/batch', {
+            method: 'DELETE',
+            body: { ids }
+        });
+    }
+
+    async adminBatchImport(plants) {
+        return this.request('/api/admin/plants/batch', {
+            method: 'POST',
+            body: plants
+        });
+    }
+}
+
+// API错误类
+class APIError extends Error {
+    constructor(status, message) {
+        super(message);
+        this.name = 'APIError';
+        this.status = status;
+    }
+}
+
+// 创建全局API客户端实例
+const apiClient = new APIClient();
+
+// 暴露到全局作用域
+window.apiClient = apiClient;
+window.APIClient = APIClient;
+window.APIError = APIError;
+
+// 控制台日志
+// console.log('API客户端已加载，baseUrl:', apiClient.config.baseUrl);

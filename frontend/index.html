@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的花盆</title>
+    <!-- v2.0.3 - Selection UI Optimization -->
+
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+    <!-- Tailwind CSS & Custom Styles (Optimized) -->
+    <link rel="stylesheet" href="css/tailwind-built.css">
+
+    <!-- 图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- 配置脚本 -->
+    <script src="js/config.js?v=20260118"></script>
+    <script src="js/api-client.js?v=20260118"></script>
+    <!-- SortableJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+</head>
+
+<body class="bg-gray-50 pb-24">
+    <div id="app" v-cloak>
+        <!-- 顶部导航栏 (全宽分布) -->
+        <header class="header bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-50 h-16 w-full">
+            <div class="w-full h-full px-4 flex justify-between items-center">
+                <!-- 1. 左侧：管理模式 -->
+                <div class="flex items-center gap-2">
+                    <template v-if="isEditMode">
+                        <button @click="toggleSelectAll"
+                            class="bg-green-50 text-green-600 px-3 py-1.5 rounded-full font-black text-xs transition active:scale-95">
+                            {{ allSelected ? '取消全选' : '全选' }}
+                        </button>
+                        <button @click="toggleEditMode"
+                            class="bg-blue-500 text-white px-3 py-1.5 rounded-full font-black text-xs transition active:scale-95 shadow-sm shadow-blue-200">
+                            完成
+                        </button>
+                    </template>
+                    <button v-else-if="pots.length > 0" @click="toggleEditMode"
+                        class="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-blue-500 transition active:scale-90">
+                        <i class="fas fa-list-check text-xl"></i>
+                    </button>
+                </div>
+
+                <!-- 2. 右侧：天气 + 用户 -->
+                <div class="flex items-center gap-2">
+                    <!-- 天气简报 -->
+                    <!-- <div v-if="weatherData" class="flex items-center bg-blue-50/50 px-3 py-1.5 rounded-2xl border border-blue-100 text-blue-600 gap-2">
+                        <i class="fas fa-cloud-sun text-sm"></i>
+                        <div class="flex flex-col">
+                            <span class="text-[9px] font-black leading-none mb-0.5">{{ weatherData.location?.name }}</span>
+                            <span class="text-[10px] font-black leading-none opacity-80">{{ weatherData.current?.condition }} {{ weatherData.current?.temp }}°</span>
+                        </div>
+                    </div> -->
+
+                    <!-- 用户信息 -->
+                    <div class="relative">
+                        <button @click="showUserMenu = !showUserMenu"
+                            class="flex items-center gap-2 bg-white border border-gray-100 p-1 pr-3 rounded-full shadow-sm hover:shadow-md transition active:scale-95">
+                            <img :src="user?.avatarUrl || 'assets/images/icons/profile.png'"
+                                class="w-8 h-8 rounded-full shadow-sm object-cover">
+                            <span class="text-[10px] font-black text-gray-700 max-w-[80px] truncate">{{ userDisplayName
+                                }}</span>
+                        </button>
+                        <!-- 用户下拉菜单 -->
+                        <div v-if="showUserMenu"
+                            class="absolute right-0 mt-3 w-40 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-fade-in">
+                            <div
+                                class="px-4 py-3 bg-gray-50 border-b border-gray-100 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                                设置</div>
+                            <button v-if="isLoggedIn && user?.userType !== 'anonymous'" @click="goProfile"
+                                class="w-full text-left px-4 py-4 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-b border-gray-50 transition">
+                                <i class="fas fa-user-circle text-green-500"></i> 个人资料
+                            </button>
+                            <button v-if="isLoggedIn && user?.isAdmin" @click="goAdmin"
+                                class="w-full text-left px-4 py-4 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-b border-gray-50 transition">
+                                <i class="fas fa-hammer text-orange-500"></i> 管理后台
+                            </button>
+                            <button v-if="isLoggedIn" @click="logout"
+                                class="w-full text-left px-4 py-4 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2 transition active:bg-red-100">
+                                <i class="fas fa-sign-out-alt"></i> 退出登录
+                            </button>
+                            <div v-else class="space-y-0.5 px-1 pb-1">
+                                <button @click="showLoginModal = true; showUserMenu = false"
+                                    class="w-full text-left px-4 py-3 text-sm text-green-600 hover:bg-green-50 flex items-center gap-2 transition rounded-lg active:scale-95">
+                                    <i class="fas fa-sign-in-alt w-4 text-center"></i> 登录
+                                </button>
+                                <button @click="showRegisterModal = true; showUserMenu = false"
+                                    class="w-full text-left px-4 py-3 text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2 transition rounded-lg active:scale-95">
+                                    <i class="fas fa-user-plus w-4 text-center"></i> 注册
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- 养护建议 -->
+        <div v-if="careAdvice.length > 0 && pots.length > 0" class="container mx-auto px-4 mt-4">
+            <div
+                class="bg-white rounded-2xl p-3 border border-gray-100 flex items-center gap-3 shadow-sm overflow-hidden">
+                <div
+                    class="bg-yellow-50 text-yellow-600 w-8 h-8 rounded-full flex items-center justify-center shrink-0">
+                    <i class="fas fa-lightbulb"></i>
+                </div>
+                <div class="flex-1 text-sm font-medium text-gray-600 truncate animate-pulse">
+                    {{ careAdvice[currentAdviceIndex]?.advice }}
+                </div>
+            </div>
+        </div>
+
+        <!-- 主列表区域 -->
+        <main class="container mx-auto px-4 mt-6">
+            <div v-if="isLoading" class="flex flex-col items-center justify-center py-20">
+                <div class="spinner mb-4"></div>
+                <p class="text-gray-400 text-sm">正在搬运您的花盆...</p>
+            </div>
+
+            <div v-else-if="pots.length === 0" class="flex flex-col items-center justify-center py-20 text-center">
+                <div class="w-32 h-32 bg-gray-100 rounded-full flex items-center justify-center mb-6 text-gray-300">
+                    <i class="fas fa-seedling text-5xl"></i>
+                </div>
+                <h3 class="text-lg font-bold text-gray-800">空空如也</h3>
+                <p class="text-gray-400 text-sm mt-2 px-10">您还没有添加任何花盆，点击下方按钮开始记录第一株植物吧</p>
+                <button @click="goAddPot" class="mt-8 btn btn-primary px-8 py-3 rounded-2xl shadow-lg shadow-green-100">
+                    添加我的花盆
+                </button>
+            </div>
+
+            <!-- 花盆卡片网格 -->
+            <div v-else ref="potsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div v-for="(pot, index) in pots" :key="pot.id"
+                    class="relative bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all duration-300">
+
+                    <!-- 背景操作层 (侧滑可见) -->
+                    <div class="absolute inset-y-0 right-0 w-32 flex">
+                        <button @click="goEditPot(pot.id)"
+                            class="flex-1 bg-blue-500 text-white flex flex-col items-center justify-center gap-1">
+                            <i class="fas fa-edit text-xs"></i>
+                            <span class="text-[10px] font-black">编辑</span>
+                        </button>
+                        <button @click="confirmDeleteSingle(pot.id)"
+                            class="flex-1 bg-red-500 text-white flex flex-col items-center justify-center gap-1">
+                            <i class="fas fa-trash-alt text-xs"></i>
+                            <span class="text-[10px] font-black">删除</span>
+                        </button>
+                    </div>
+
+                    <!-- 前景内容层 -->
+                    <div class="relative bg-white flex h-32 transition-all duration-300 ease-out"
+                        :class="[isEditMode ? 'pl-[4.5rem]' : '']"
+                        :style="{ transform: `translateX(${pot.swipeX || 0}px)` }"
+                        @touchstart="handleTouchStart(pot, $event)" @touchmove="handleTouchMove(pot, $event)"
+                        @touchend="handleTouchEnd(pot, $event)" @click="handleCardClick(pot)">
+
+                        <!-- 侧边操作台 (仅在管理模式显示) -->
+                        <div v-if="isEditMode"
+                            class="absolute inset-y-0 left-0 w-[4.5rem] flex flex-col items-center bg-gray-50 border-r border-gray-100 z-30 animate-fade-in">
+                            <!-- 1. 上半部：勾选 -->
+                            <div class="flex-1 w-full flex items-center justify-center cursor-pointer"
+                                @click.stop="pot.selected = !pot.selected">
+                                <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all"
+                                    :class="pot.selected ? 'border-green-500 bg-green-500 shadow-sm shadow-green-200' : 'border-gray-300 bg-white'">
+                                    <i class="fas fa-check text-white text-[10px]" v-show="pot.selected"></i>
+                                </div>
+                            </div>
+                            <!-- 分割点 -->
+                            <div class="w-1 h-1 rounded-full bg-gray-200"></div>
+                            <!-- 2. 下半部：拖拽 -->
+                            <div
+                                class="flex-1 w-full flex items-center justify-center text-gray-300 handle cursor-move active:text-blue-500 transition hover:bg-gray-100">
+                                <i class="fas fa-grip-vertical text-lg"></i>
+                            </div>
+                        </div>
+
+                        <div class="w-32 h-32 shrink-0 relative p-1">
+                            <img :src="pot.image_url || 'assets/images/icons/icons-default-pot.png'"
+                                class="w-full h-full object-cover rounded-xl" @error="handleImageError">
+                        </div>
+                        <div class="flex-1 p-4 flex flex-col justify-between min-w-0">
+                            <div>
+                                <h3 class="font-bold text-gray-800 truncate">{{ pot.name }}</h3>
+                                <p class="text-[11px] text-gray-400 mt-1 truncate">{{ pot.note || '暂无备注' }}</p>
+                            </div>
+                            <div class="flex justify-between items-end">
+                                <div class="text-xs text-gray-500 flex-1 min-w-0 space-y-1">
+                                    <!-- 种植信息 -->
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-gray-400 shrink-0">种植</span>
+                                        <span class="font-medium">{{ formatDate(pot.plant_date) }}</span>
+                                    </div>
+                                    <!-- 养护信息 -->
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-gray-400 shrink-0">养护</span>
+                                        <div
+                                            class="flex items-center min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                                            <span
+                                                :class="pot.last_care ? 'text-green-600 font-medium' : 'text-gray-400'"
+                                                class="shrink-0">
+                                                {{ pot.last_care ? (formatDate(pot.last_care) || '无') : '无' }}
+                                            </span>
+                                            <!-- 养护动作 (自动撑满剩余空间) -->
+                                            <template v-if="pot.last_care_action">
+                                                <span class="text-gray-300 mx-1.5 shrink-0">|</span>
+                                                <span class="text-gray-600 font-bold truncate">
+                                                    {{ pot.last_care_action }}
+                                                </span>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div v-if="!isEditMode" class="text-gray-300">
+                                    <i class="fas fa-chevron-right"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 底部悬浮操作栏 -->
+        <div v-if="pots.length > 0" class="fixed bottom-6 left-0 right-0 z-40 px-6 pointer-events-none">
+            <div class="container mx-auto flex justify-center pointer-events-auto">
+                <button v-if="isEditMode && selectedCount > 0" @click="deleteSelectedPots"
+                    class="bg-red-500 text-white px-8 py-4 rounded-3xl shadow-xl shadow-red-200 flex items-center gap-2 font-bold transition-all active:scale-95 animate-slide-up">
+                    <i class="fas fa-trash-alt"></i>
+                    <span>删除选中 ({{ selectedCount }})</span>
+                </button>
+                <button v-else-if="!isEditMode" @click="goAddPot"
+                    class="bg-green-500 text-white px-8 py-4 rounded-3xl shadow-xl shadow-green-200 flex items-center gap-2 font-bold transition-all active:scale-95">
+                    <i class="fas fa-plus"></i>
+                    <span>添加花盆</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 登录/注册 弹窗 -->
+        <div v-if="showLoginModal || showRegisterModal || showForgotPasswordModal"
+            class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeAuthModals"></div>
+            <div class="relative bg-white w-full max-sm rounded-3xl shadow-2xl overflow-hidden animate-slide-up">
+                <!-- 登录弹窗 -->
+                <div v-if="showLoginModal" class="p-8">
+                    <!-- 关闭按钮 -->
+                    <button @click="closeAuthModals"
+                        class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+
+                    <h3 class="text-2xl font-black text-gray-800 mb-2">欢迎回来</h3>
+                    <p class="text-gray-400 text-sm mb-8">登录以同步您的花盆数据</p>
+                    <form @submit.prevent="handleLogin" class="space-y-4">
+                        <input type="email" v-model="loginForm.email" placeholder="电子邮箱" required
+                            class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
+                        <input type="password" v-model="loginForm.password" placeholder="密码" required
+                            class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
+                        <button type="submit" :disabled="isAuthLoading"
+                            class="w-full btn btn-primary py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 disabled:opacity-50">
+                            {{ isAuthLoading ? '登录中...' : '立即登录' }}
+                        </button>
+                    </form>
+                    <div class="mt-4 text-right">
+                        <button @click="switchToForgotPassword"
+                            class="text-xs text-gray-400 hover:text-green-500 transition">忘记密码？</button>
+                    </div>
+                    <div class="mt-8 pt-6 border-t border-gray-50 text-center">
+                        <span class="text-gray-400 text-sm">还没有账号？</span>
+                        <button @click="switchToRegister" class="text-green-500 text-sm font-bold ml-1">注册一个</button>
+                    </div>
+                </div>
+
+                <!-- 注册弹窗 -->
+                <div v-if="showRegisterModal" class="p-8">
+                    <!-- 关闭按钮 -->
+                    <button @click="closeAuthModals"
+                        class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+
+                    <h3 class="text-2xl font-black text-gray-800 mb-2">创建账号</h3>
+                    <p class="text-gray-400 text-sm mb-8">开始您的智能养花之旅</p>
+                    <form @submit.prevent="handleRegister" class="space-y-4">
+                        <input type="email" v-model="registerForm.email" placeholder="电子邮箱" required
+                            class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4">
+                        <input type="text" v-model="registerForm.displayName" placeholder="昵称"
+                            class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4">
+                        <input type="password" v-model="registerForm.password" placeholder="密码 (至少8位)" required
+                            class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4">
+                        <div class="relative">
+                            <input type="password" v-model="registerForm.confirmPassword" placeholder="确认密码" required
+                                class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4">
+                            <div v-if="registerForm.password && registerForm.confirmPassword"
+                                class="absolute right-3 top-1/2 transform -translate-y-1/2">
+                                <i v-if="passwordsMatch" class="fas fa-check text-green-500"></i>
+                                <i v-else class="fas fa-times text-red-500"></i>
+                            </div>
+                        </div>
+                        <!-- 修复：只在密码不一致且两个密码框都有内容时显示错误提示 -->
+                        <div v-if="registerForm.password && registerForm.confirmPassword && !passwordsMatch"
+                            class="text-red-500 text-sm mt-1 px-2">
+                            两次输入的密码不一致
+                        </div>
+                        <button type="submit" :disabled="!isRegisterValid || isAuthLoading"
+                            class="w-full btn btn-primary py-4 rounded-2xl text-lg font-bold mt-4 disabled:opacity-50">
+                            {{ isAuthLoading ? '注册并合并数据' : '完成注册' }}
+                        </button>
+                    </form>
+                    <div class="mt-8 pt-6 border-t border-gray-50 text-center">
+                        <span class="text-gray-400 text-sm">已有账号？</span>
+                        <button @click="switchToLogin" class="text-green-500 text-sm font-bold ml-1">去登录</button>
+                    </div>
+                </div>
+
+                <!-- 忘记密码弹窗 -->
+                <div v-if="showForgotPasswordModal" class="p-8">
+                    <!-- 关闭按钮 -->
+                    <button @click="closeAuthModals"
+                        class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+
+                    <h3 class="text-2xl font-black text-gray-800 mb-2">重置您的密码</h3>
+                    <p class="text-gray-400 text-sm mb-8">我们将向您的邮箱发送重置链接</p>
+                    <form @submit.prevent="handleForgotPassword" class="space-y-4">
+                        <input type="email" v-model="loginForm.email" placeholder="电子邮箱" required
+                            class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
+                        <p v-if="loginForm.email && !isForgotPasswordEmailValid" class="text-red-500 text-xs px-4">
+                            请输入正确的邮箱地址
+                        </p>
+                        <button type="submit" :disabled="isAuthLoading || !isForgotPasswordEmailValid"
+                            class="w-full btn btn-primary py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 disabled:opacity-50">
+                            {{ isAuthLoading ? '发送中...' : '发送重置邮件' }}
+                        </button>
+                    </form>
+                    <div class="mt-8 pt-6 border-t border-gray-50 text-center">
+                        <button @click="switchToLogin" class="text-green-500 text-sm font-bold">返回登录</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, reactive, onMounted, computed, nextTick, watch } = Vue;
+
+        createApp({
+            setup() {
+                const isLoading = ref(true);
+                const pots = ref([]);
+                const user = ref(null);
+                const isLoggedIn = ref(false);
+                const userDisplayName = computed(() => {
+                    if (!isLoggedIn.value) return '匿名用户';
+                    if (user.value?.userType === 'anonymous') return '匿名用户';
+                    return user.value?.displayName || '未命名用户';
+                });
+                const weatherData = ref(null);
+                const careAdvice = ref([]);
+                const currentAdviceIndex = ref(0);
+                const isEditMode = ref(false); // 统一管理模式
+                const potsGrid = ref(null);    // 列表容器Ref
+                let sortableInstance = null;   // Sortable实例
+                const showUserMenu = ref(false);
+                const showLoginModal = ref(false);
+                const showRegisterModal = ref(false);
+                const showForgotPasswordModal = ref(false);
+                const isAuthLoading = ref(false);
+                const loginForm = reactive({ email: '', password: '' });
+                const registerForm = reactive({
+                    email: '',
+                    password: '',
+                    confirmPassword: '',
+                    displayName: ''
+                });
+
+                const passwordsMatch = computed(() =>
+                    registerForm.password === registerForm.confirmPassword
+                );
+
+                const isForgotPasswordEmailValid = computed(() => {
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    return emailRegex.test(loginForm.email);
+                });
+
+                const isRegisterValid = computed(() =>
+                    registerForm.email &&
+                    registerForm.password.length >= 8 &&
+                    passwordsMatch.value
+                );
+
+                const allSelected = computed(() => pots.value.length > 0 && pots.value.every(p => p.selected));
+                const selectedCount = computed(() => pots.value.filter(p => p.selected).length);
+
+                const init = async () => {
+                    checkLoginStatus();
+                    await fetchPots();
+                    loadWeather();
+                    startAdviceTimer();
+                };
+
+                const checkLoginStatus = () => {
+                    const token = localStorage.getItem('flowerpots_token');
+                    if (token) {
+                        isLoggedIn.value = true;
+                        apiClient.getCurrentUser().then(res => {
+                            if (res.success) user.value = res.user;
+                        }).catch(() => { });
+                    }
+                };
+
+                const fetchPots = async () => {
+                    try {
+                        isLoading.value = true;
+                        // 不在初始化时自动 identify
+                        const res = await apiClient.getPots();
+                        if (res.success) {
+                            pots.value = res.data.map(p => ({ ...p, selected: false, swipeX: 0, startX: 0 }));
+                        }
+                    } catch (e) { } finally { isLoading.value = false; }
+                };
+
+                const handleLogin = async () => {
+                    try {
+                        isAuthLoading.value = true;
+                        const res = await apiClient.login(loginForm.email, loginForm.password);
+                        if (res.token) location.reload();
+                    } catch (e) { alert('登录失败: ' + e.message); } finally { isAuthLoading.value = false; }
+                };
+
+                const handleForgotPassword = async () => {
+                    if (!loginForm.email) {
+                        alert('请输入您的电子邮箱');
+                        return;
+                    }
+                    try {
+                        isAuthLoading.value = true;
+                        const res = await apiClient.forgotPassword(loginForm.email);
+                        if (res.success) {
+                            alert('重置链接已发送到您的邮箱，请检查（包括垃圾箱）。');
+                            showForgotPasswordModal.value = false;
+                        }
+                    } catch (e) {
+                        alert('发送失败: ' + e.message);
+                    } finally {
+                        isAuthLoading.value = false;
+                    }
+                };
+
+                const handleRegister = async () => {
+                    // 前端验证：检查密码是否一致
+                    if (!passwordsMatch.value) {
+                        alert('两次输入的密码不一致，请重新输入');
+                        return;
+                    }
+
+                    // 前端验证：检查密码长度
+                    if (registerForm.password.length < 8) {
+                        alert('密码长度至少需要8位');
+                        return;
+                    }
+
+                    try {
+                        isAuthLoading.value = true;
+                        const anonymousUserId = localStorage.getItem('flowerpots_user_id');
+                        const isAnonymous = !user.value || user.value.userType === 'anonymous';
+
+                        let res;
+                        if (isAnonymous && anonymousUserId) {
+                            res = await apiClient.upgrade(registerForm.email, registerForm.password, registerForm.displayName, anonymousUserId);
+                        } else {
+                            res = await apiClient.register(registerForm.email, registerForm.password, registerForm.displayName);
+                        }
+
+                        if (res.success || res.token) {
+                            alert(isAnonymous ? '注册成功，您的匿名数据已合并！' : '注册成功！');
+                            location.reload();
+                        }
+                    } catch (e) {
+                        alert('注册失败: ' + e.message);
+                    } finally {
+                        isAuthLoading.value = false;
+                    }
+                };
+
+                const toggleSelectAll = () => {
+                    const target = !allSelected.value;
+                    pots.value.forEach(p => p.selected = target);
+                };
+
+                // 切换管理模式
+                const toggleEditMode = async () => {
+                    isEditMode.value = !isEditMode.value;
+                    if (isEditMode.value) {
+                        await nextTick();
+                        initSortable();
+                    } else {
+                        pots.value.forEach(p => p.selected = false);
+                        destroySortable();
+                    }
+                };
+
+                const initSortable = () => {
+                    if (!potsGrid.value) return;
+                    sortableInstance = new Sortable(potsGrid.value, {
+                        animation: 300, // 稍微调慢动画，更平滑
+                        handle: '.handle',
+                        delay: 0,
+                        forceFallback: true, // 关键：使用fallback
+                        fallbackClass: 'sortable-fallback',
+                        ghostClass: 'sortable-ghost',
+                        chosenClass: 'sortable-chosen',
+                        dragClass: 'sortable-drag',
+                        scroll: true,
+                        scrollSensitivity: 50, // 增加滚动敏感区域
+                        scrollSpeed: 20,
+                        bubbleScroll: true,
+                        fallbackTolerance: 3, // 防止误触
+                        // 关键修改：禁用GPU加速，迫使Sortable使用top/left定位，
+                        // 从而允许我们使用CSS transform: scale() 来制作“浮起”效果
+                        // 如果开启GPU加速，Sortable会覆盖transform属性
+                        gpuAcceleration: false,
+                        onChoose: () => {
+                            if (navigator.vibrate) navigator.vibrate(50);
+                        },
+                        onUnchoose: () => {
+                            if (navigator.vibrate) navigator.vibrate(30);
+                        },
+                        onEnd: async (evt) => {
+                            const item = pots.value.splice(evt.oldIndex, 1)[0];
+                            pots.value.splice(evt.newIndex, 0, item);
+                            try {
+                                await apiClient.reorderPots(pots.value.map(p => p.id));
+                            } catch (e) { console.error(e); }
+                        }
+                    });
+                };
+
+                const destroySortable = () => {
+                    if (sortableInstance) {
+                        sortableInstance.destroy();
+                        sortableInstance = null;
+                    }
+                };
+
+                // 移除原有的 isBatchMode 监听
+
+                // 侧滑逻辑
+                const handleTouchStart = (pot, e) => { if (!isEditMode.value) { pot.startX = e.touches[0].clientX; pots.value.forEach(p => { if (p !== pot) p.swipeX = 0; }); } };
+                const handleTouchMove = (pot, e) => { if (!isEditMode.value) { const dx = e.touches[0].clientX - pot.startX; if (dx < 0) pot.swipeX = Math.max(dx, -128); else if (pot.swipeX < 0) pot.swipeX = Math.min(0, -128 + dx); } };
+                const handleTouchEnd = (pot) => { if (!isEditMode.value) pot.swipeX = pot.swipeX < -64 ? -128 : 0; };
+                const handleCardClick = (pot) => { if (pot.swipeX < 0) pot.swipeX = 0; else if (!isEditMode.value) window.location.href = `pot-detail.html?id=${pot.id}`; };
+
+                const deleteSelectedPots = async () => {
+                    const toDelete = pots.value.filter(p => p.selected);
+                    if (confirm(`确定要删除选中的 ${toDelete.length} 个花盆吗？`)) {
+                        try {
+                            isLoading.value = true;
+                            for (const p of toDelete) await apiClient.deletePot(p.id);
+                            await fetchPots();
+                            isEditMode.value = false;
+                        } catch (e) { alert('删除失败'); } finally { isLoading.value = false; }
+                    }
+                };
+
+                const confirmDeleteSingle = async (id) => { if (confirm('确定要删除吗？')) { await apiClient.deletePot(id); await fetchPots(); } };
+                const logout = async () => { await apiClient.logout(); location.reload(); };
+                const closeAuthModals = () => {
+                    showLoginModal.value = false;
+                    showRegisterModal.value = false;
+                    showForgotPasswordModal.value = false;
+                };
+                const switchToRegister = () => {
+                    showLoginModal.value = false;
+                    showRegisterModal.value = true;
+                    showForgotPasswordModal.value = false;
+                };
+                const switchToLogin = () => {
+                    showRegisterModal.value = false;
+                    showLoginModal.value = true;
+                    showForgotPasswordModal.value = false;
+                };
+                const switchToForgotPassword = () => {
+                    showLoginModal.value = false;
+                    showForgotPasswordModal.value = true;
+                };
+                const loadWeather = async () => { try { const res = await apiClient.getWeather(); if (res.success) { weatherData.value = res.data; if (pots.value.length > 0) { const aRes = await apiClient.getCareAdvice({ weather: res.data, pots: pots.value }); if (aRes.success) careAdvice.value = aRes.data; } } } catch (e) { } };
+                const startAdviceTimer = () => setInterval(() => { if (careAdvice.value.length > 0) currentAdviceIndex.value = (currentAdviceIndex.value + 1) % careAdvice.value.length; }, 5000);
+                const formatDate = (d) => {
+                    if (!d) return '';
+                    const date = new Date(d);
+                    if (isNaN(date.getTime())) return ''; // 处理非法日期
+                    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+                };
+                const handleImageError = (e) => e.target.src = 'assets/images/icons/icons-default-pot.png';
+
+                onMounted(init);
+
+                return {
+                    isLoading, pots, user, isLoggedIn, userDisplayName, weatherData, careAdvice, currentAdviceIndex,
+                    isEditMode, potsGrid, showUserMenu, showLoginModal, showRegisterModal, showForgotPasswordModal, isAuthLoading,
+                    loginForm, registerForm, passwordsMatch, isRegisterValid, isForgotPasswordEmailValid, allSelected, selectedCount,
+                    handleLogin, handleRegister, handleForgotPassword, toggleSelectAll, toggleEditMode, deleteSelectedPots,
+                    handleTouchStart, handleTouchMove, handleTouchEnd, handleCardClick, confirmDeleteSingle,
+                    logout, closeAuthModals, switchToRegister, switchToLogin, switchToForgotPassword,
+                    formatDate, handleImageError,
+                    goEditPot: (id) => window.location.href = `edit-pot.html?id=${id}`,
+                    goAddPot: () => window.location.href = 'add-pot.html',
+                    goProfile: () => window.location.href = 'profile.html',
+                    goAdmin: () => window.location.href = 'admin-plants.html'
+                };
+            }
+        }).mount('#app');
+    </script>
+
+    <style>
+        [v-cloak] {
+            display: none;
+        }
+
+        .header {
+            background: #fff;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .animate-slide-up {
+            animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .animate-fade-in {
+            animation: fade-in 0.2s ease-out;
+        }
+
+        @keyframes slide-up {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .btn-primary {
+            background: #10b981;
+            color: #fff;
+            font-weight: 800;
+        }
+
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #10b981;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* 排序相关样式 */
+        .sortable-ghost {
+            opacity: 0;
+            /* 让原位置完全透明，形成“空洞”感 */
+        }
+
+        .sortable-fallback {
+            opacity: 1 !important;
+            background: #fff;
+            /* 加入旋转和放大，模拟“拿起”的效果 */
+            transform: scale(1.05) rotate(2deg);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            border-radius: 1.5rem;
+            /* rounded-3xl */
+            z-index: 9999 !important;
+            pointer-events: none;
+            /* 确保不阻挡底层事件 */
+            cursor: grabbing;
+        }
+
+        .sortable-drag {
+            cursor: grabbing;
+            opacity: 0;
+            /* 隐藏原生拖拽影像 */
+        }
+    </style>
+</body>
+
+</html>

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全部养护记录 - My Flower Pots</title>
+
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+    <!-- Tailwind CSS & Custom Styles (Optimized) -->
+    <link rel="stylesheet" href="css/tailwind-built.css">
+
+    <!-- 图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- 配置脚本 -->
+    <script src="js/config.js?v=20260111"></script>
+    <script src="js/api-client.js?v=20260111"></script>
+</head>
+
+<body class="bg-gray-50">
+    <div id="app" v-cloak>
+        <!-- 顶部导航栏 (全宽强制布局) -->
+        <header class="header bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-50 h-16 w-full">
+            <div class="relative flex items-center h-full px-4">
+                <div class="z-10">
+                    <button class="w-10 h-10 flex items-center justify-center text-gray-400 active:scale-90 transition"
+                        @click="goBack">
+                        <i class="fas fa-arrow-left text-xl"></i>
+                    </button>
+                </div>
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <h1 class="text-base sm:text-lg font-black text-gray-800">历史档案</h1>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主内容区域 -->
+        <main class="container mx-auto px-4 py-6">
+            <!-- 花盆简要信息 -->
+            <div v-if="pot" class="bg-white rounded-2xl p-4 mb-6 flex items-center shadow-sm border border-gray-100">
+                <img :src="pot.image_url || 'assets/images/icons/icons-default-pot.png'"
+                    class="w-12 h-12 rounded-lg object-cover mr-4">
+                <div class="flex-1 min-w-0">
+                    <h3 class="font-bold text-gray-800 truncate">{{ pot.name }}</h3>
+                    <p class="text-[10px] text-gray-400 mt-0.5">共 {{ records.length }} 条记录</p>
+                </div>
+                <button @click="goAddCare"
+                    class="bg-green-500 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+
+            <!-- 类型过滤器 -->
+            <div class="flex gap-2 overflow-x-auto pb-4 no-scrollbar">
+                <button v-for="t in filterOptions" :key="t.value" @click="filterType = t.value"
+                    :class="filterType === t.value ? 'bg-green-500 text-white shadow-md shadow-green-100' : 'bg-white text-gray-500 border-gray-100'"
+                    class="shrink-0 px-4 py-2 rounded-full text-xs font-bold border transition-all">
+                    {{ t.label }}
+                </button>
+            </div>
+
+            <!-- 记录列表 -->
+            <div v-if="isLoading" class="py-20 text-center">
+                <div class="spinner mx-auto mb-4"></div>
+                <p class="text-gray-400 text-sm">正在加载历史档案...</p>
+            </div>
+
+            <div v-else-if="filteredRecords.length === 0" class="py-20 text-center">
+                <p class="text-gray-400 text-sm">在此筛选条件下没有找到记录</p>
+            </div>
+
+            <div v-else class="space-y-4">
+                <div v-for="record in filteredRecords" :key="record.id"
+                    class="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 flex gap-4 transition-all hover:shadow-md">
+                    <!-- 左侧图标 -->
+                    <div class="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+                        :class="getCareTypeColor(record.type)">
+                        <i :class="getCareTypeIcon(record.type)" class="text-lg"></i>
+                    </div>
+
+                    <!-- 右侧内容 -->
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="text-sm font-black text-gray-800">{{ getCareTypeLabel(record.type) }}</span>
+                            <span class="text-[10px] font-bold text-gray-300">{{ formatDate(record.date) }}</span>
+                        </div>
+                        <p class="text-xs text-gray-500 leading-relaxed mb-3 line-clamp-2">
+                            {{ record.description || '常规养护任务，确保植物健康生长。' }}
+                        </p>
+
+                        <!-- 记录中的图片 -->
+                        <div v-if="record.imageUrl" class="mb-3">
+                            <img :src="record.imageUrl"
+                                class="w-20 h-20 rounded-xl object-cover cursor-pointer hover:opacity-80 transition"
+                                @click="previewImage(record.imageUrl)">
+                        </div>
+
+                        <!-- 操作按钮 -->
+                        <div class="flex justify-end gap-4 border-t border-gray-50 pt-3">
+                            <button @click="editRecord(record)"
+                                class="text-[11px] font-bold text-blue-500 flex items-center gap-1">
+                                <i class="fas fa-edit"></i> 修改
+                            </button>
+                            <button @click="deleteRecord(record)"
+                                class="text-[11px] font-bold text-red-400 flex items-center gap-1">
+                                <i class="fas fa-trash-alt"></i> 删除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 图片全屏预览 -->
+        <div v-if="previewUrl"
+            class="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 animate-fade-in"
+            @click="previewUrl = null">
+            <img :src="previewUrl" class="max-w-full max-h-full object-contain shadow-2xl">
+            <div class="absolute top-6 right-6 text-white text-2xl"><i class="fas fa-times"></i></div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, reactive, onMounted, computed } = Vue;
+
+        createApp({
+            setup() {
+                const isLoading = ref(true);
+                const potId = ref(null);
+                const pot = ref(null);
+                const records = ref([]);
+                const filterType = ref('all');
+                const previewUrl = ref(null);
+
+                const filterOptions = [
+                    { label: '全部记录', value: 'all' },
+                    { label: '浇水', value: 'water' },
+                    { label: '施肥', value: 'fertilize' },
+                    { label: '修剪', value: 'prune' },
+                    { label: '换盆', value: 'repot' },
+                    { label: '除虫', value: 'pest' },
+                    { label: '其他', value: 'other' }
+                ];
+
+                const init = async () => {
+                    const params = new URLSearchParams(window.location.search);
+                    potId.value = params.get('potId');
+
+                    if (!potId.value) {
+                        alert('缺少参数');
+                        window.location.href = 'index.html';
+                        return;
+                    }
+
+                    try {
+                        await Promise.all([
+                            loadPotInfo(),
+                            loadRecords()
+                        ]);
+                    } catch (e) {
+                        console.error(e);
+                    } finally {
+                        isLoading.value = false;
+                    }
+                };
+
+                const loadPotInfo = async () => {
+                    const res = await apiClient.getPotDetail(potId.value);
+                    if (res.success) pot.value = res.data;
+                };
+
+                const loadRecords = async () => {
+                    const res = await apiClient.getCareRecords(potId.value);
+                    if (res.success) records.value = res.data || [];
+                };
+
+                const filteredRecords = computed(() => {
+                    if (filterType.value === 'all') return records.value;
+                    return records.value.filter(r => r.type === filterType.value);
+                });
+
+                const editRecord = (record) => window.location.href = `care-record.html?id=${record.id}`;
+
+                const deleteRecord = async (record) => {
+                    if (!confirm('永久删除这条记录？')) return;
+                    try {
+                        const res = await apiClient.request(`/api/care-records/${record.id}`, { method: 'DELETE' });
+                        if (res.success) await loadRecords();
+                    } catch (e) { alert('删除失败'); }
+                };
+
+                const previewImage = (url) => previewUrl.value = url;
+
+                const goBack = () => {
+                    window.location.href = `pot-detail.html?id=${potId.value}`;
+                };
+
+                const goAddCare = () => window.location.href = `care-record.html?potId=${potId.value}`;
+
+                const formatDate = (d) => {
+                    if (!d) return '';
+                    const date = new Date(d);
+                    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+                };
+
+                const getCareTypeIcon = (type) => {
+                    const icons = { water: 'fas fa-tint', fertilize: 'fas fa-seedling', prune: 'fas fa-cut', repot: 'fas fa-exchange-alt', pest: 'fas fa-bug' };
+                    return icons[type] || 'fas fa-clipboard-check';
+                };
+
+                const getCareTypeColor = (type) => {
+                    const colors = { water: 'bg-blue-50 text-blue-500', fertilize: 'bg-green-50 text-green-500', prune: 'bg-orange-50 text-orange-500', repot: 'bg-purple-50 text-purple-500', pest: 'bg-red-50 text-red-500' };
+                    return colors[type] || 'bg-gray-50 text-gray-500';
+                };
+
+                const getCareTypeLabel = (type) => {
+                    const labels = { water: '浇水', fertilize: '施肥', prune: '修剪', repot: '换盆', pest: '病虫害' };
+                    return labels[type] || '其他记录';
+                };
+
+                onMounted(init);
+
+                return {
+                    isLoading, pot, filterType, filterOptions, filteredRecords, records, previewUrl,
+                    editRecord, deleteRecord, previewImage, goBack, goAddCare, formatDate,
+                    getCareTypeIcon, getCareTypeColor, getCareTypeLabel
+                };
+            }
+        }).mount('#app');
+    </script>
+
+    <style>
+        [v-cloak] {
+            display: none;
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .animate-fade-in {
+            animation: fade-in 0.3s ease-out;
+        }
+
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+    </style>
+</body>
+
+</html>
