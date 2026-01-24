@@ -146,14 +146,18 @@
                     <div class="px-6 py-6 overflow-hidden transition-all duration-500"
                         :style="{ maxHeight: showFullCareTips ? '3000px' : '650px' }">
 
-                        <!-- 1. 顶部总结横线 (Summary Line) -->
-                        <div class="flex items-center justify-center gap-4 mb-8 text-[11px] font-black text-gray-400">
+                        <!-- 1. 顶部总结横线 (Summary Line - Optimized V2 with Pills) -->
+                        <div
+                            class="flex flex-wrap items-center justify-center gap-x-10 gap-y-3 mb-8 text-[11px] font-black text-gray-400 px-4">
                             <template v-for="(item, idx) in careTipsGroups.summary" :key="item.key">
-                                <div class="flex items-center gap-2">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                                <div
+                                    class="flex items-center gap-2 whitespace-nowrap bg-blue-50/30 px-3 py-1.5 rounded-full border border-blue-100/20">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0"></span>
                                     <span>{{ item.label }}：<span class="text-blue-500">{{ item.val }}</span></span>
                                 </div>
-                                <span v-if="idx < careTipsGroups.summary.length - 1" class="text-gray-200">|</span>
+                                <!-- 窄屏下隐藏竖线，宽屏保持优雅的分隔 -->
+                                <span v-if="idx < careTipsGroups.summary.length - 1"
+                                    class="hidden md:inline text-gray-200">|</span>
                             </template>
                         </div>
 

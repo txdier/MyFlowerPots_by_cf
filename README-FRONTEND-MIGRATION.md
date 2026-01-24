@@ -284,13 +284,6 @@ npm run debug
 - D1查询性能
 - 边缘网络性能
 
-## 🤝 贡献指南
-
-1. Fork项目
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启Pull Request
 
 ## 📄 许可证
 
@@ -298,9 +291,7 @@ npm run debug
 
 ## 🙏 致谢
 
-- 感谢原微信小程序开发团队
 - 感谢Cloudflare提供的免费服务
-- 感谢所有贡献者和用户
 
 ## 📞 支持
 

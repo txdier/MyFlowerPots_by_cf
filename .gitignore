@@ -30,3 +30,5 @@ schema-full.sql
 migrate-pots-to-d1.js
 
 # Note: upload-static-wrangler.js is included in the repository
+plant_import_template.json
+expanded_plants.json

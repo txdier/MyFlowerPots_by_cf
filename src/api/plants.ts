@@ -272,16 +272,40 @@ async function handleSmartMatch(request: Request, env: any): Promise<Response> {
       return errorResponse('数据库未配置', 500);
     }
 
-    // 第一步：尝试直接匹配花盆名（最高优先级）
+    // 第一步：尝试直接匹配花盆名（最高优先级 - 先精确匹配主名称）
     if (potName && potName.trim()) {
-      const directMatch = await env.DB.prepare(`
-        SELECT DISTINCT p.id, p.name, p.category, p.care_difficulty,
-               p.basic_info, p.ornamental_features, p.care_guide
-        FROM plants p
-        LEFT JOIN plant_synonyms ps ON p.id = ps.plant_id
-        WHERE p.name = ? OR ps.synonym = ? OR p.name LIKE ? OR ps.synonym LIKE ?
+      // 优先级1：精确匹配主名称
+      let directMatch = await env.DB.prepare(`
+        SELECT id, name, category, care_difficulty,
+               basic_info, ornamental_features, care_guide
+        FROM plants
+        WHERE name = ?
         LIMIT 1
-      `).bind(potName.trim(), potName.trim(), `%${potName.trim()}%`, `%${potName.trim()}%`).first();
+      `).bind(potName.trim()).first();
+
+      // 优先级2：如果主名称无精确匹配，尝试别名精确匹配
+      if (!directMatch) {
+        directMatch = await env.DB.prepare(`
+          SELECT DISTINCT p.id, p.name, p.category, p.care_difficulty,
+                 p.basic_info, p.ornamental_features, p.care_guide
+          FROM plants p
+          INNER JOIN plant_synonyms ps ON p.id = ps.plant_id
+          WHERE ps.synonym = ?
+          LIMIT 1
+        `).bind(potName.trim()).first();
+      }
+
+      // 优先级3：如果仍无匹配，尝试模糊匹配（LIKE）
+      if (!directMatch) {
+        directMatch = await env.DB.prepare(`
+          SELECT DISTINCT p.id, p.name, p.category, p.care_difficulty,
+                 p.basic_info, p.ornamental_features, p.care_guide
+          FROM plants p
+          LEFT JOIN plant_synonyms ps ON p.id = ps.plant_id
+          WHERE p.name LIKE ? OR ps.synonym LIKE ?
+          LIMIT 1
+        `).bind(`%${potName.trim()}%`, `%${potName.trim()}%`).first();
+      }
 
       if (directMatch) {
         console.log('直接匹配成功:', directMatch.name);
