@@ -8,45 +8,51 @@ import {
 export async function handleCareRecordsRequest(
   request: Request,
   env: any,
-  path: string
+  path: string,
+  token: string | null
 ): Promise<Response> {
   // 1️⃣ 获取单条养护记录详情: GET /api/care-records/detail/{id}
   if (request.method === 'GET' && path.match(/^\/api\/care-records\/detail\/[^/]+$/)) {
     const id = path.split('/')[4];
-    return handleGetCareRecordDetail(request, env, id);
+    return handleGetCareRecordDetail(request, env, id, token);
   }
 
   // 2️⃣ 获取花盆的养护记录列表: GET /api/care-records/{potId}
   if (request.method === 'GET' && path.match(/^\/api\/care-records\/[^/]+$/)) {
     const potId = path.split('/')[3];
-    return handleGetCareRecords(request, env, potId);
+    return handleGetCareRecords(request, env, potId, token);
   }
 
   // 2️⃣ 创建养护记录: POST /api/care-records
   if (request.method === 'POST' && path === '/api/care-records') {
-    return handleCreateCareRecord(request, env);
+    return handleCreateCareRecord(request, env, token);
   }
 
   // 3️⃣ 更新养护记录: PUT /api/care-records/{id}
   if (request.method === 'PUT' && path.match(/^\/api\/care-records\/[^/]+$/)) {
     const id = path.split('/')[3];
-    return handleUpdateCareRecord(request, env, id);
+    return handleUpdateCareRecord(request, env, id, token);
   }
 
   // 4️⃣ 删除养护记录: DELETE /api/care-records/{id}
   if (request.method === 'DELETE' && path.match(/^\/api\/care-records\/[^/]+$/)) {
     const id = path.split('/')[3];
-    return handleDeleteCareRecord(request, env, id);
+    return handleDeleteCareRecord(request, env, id, token);
   }
 
   return errorResponse('Not Found', 404);
 }
 
-async function handleGetCareRecordDetail(request: Request, env: any, id: string): Promise<Response> {
+async function handleGetCareRecordDetail(request: Request, env: any, id: string, token: string | null): Promise<Response> {
   try {
+    // 安全加固：校验该记录所属的花盆是否属于当前用户
     const record = await env.DB
-      .prepare('SELECT * FROM care_records WHERE id = ?')
-      .bind(id)
+      .prepare(`
+        SELECT r.* FROM care_records r
+        JOIN pots p ON r.pot_id = p.id
+        WHERE r.id = ? AND p.user_id = ?
+      `)
+      .bind(id, token)
       .first();
 
     if (!record) {
@@ -72,10 +78,20 @@ async function handleGetCareRecordDetail(request: Request, env: any, id: string)
   }
 }
 
-async function handleGetCareRecords(request: Request, env: any, potId: string): Promise<Response> {
+async function handleGetCareRecords(request: Request, env: any, potId: string, token: string | null): Promise<Response> {
   try {
     if (!potId) {
       return errorResponse('Missing potId', 400);
+    }
+
+    // 安全加固：校验花盆归属权
+    const pot = await env.DB
+      .prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?')
+      .bind(potId, token)
+      .first();
+
+    if (!pot) {
+      return errorResponse('Pot not found or access denied', 404);
     }
 
     const { results } = await env.DB
@@ -115,13 +131,23 @@ async function handleGetCareRecords(request: Request, env: any, potId: string): 
   }
 }
 
-async function handleCreateCareRecord(request: Request, env: any): Promise<Response> {
+async function handleCreateCareRecord(request: Request, env: any, token: string | null): Promise<Response> {
   try {
     const body: any = await request.json();
     const { potId, type, types, action, actions, careDate, description, imageUrl, imageUrls } = body;
 
     if (!potId || !careDate) {
       return errorResponse('missing fields', 400);
+    }
+
+    // 安全加固：校验目标花盆归属权
+    const pot = await env.DB
+      .prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?')
+      .bind(potId, token)
+      .first();
+
+    if (!pot) {
+      return errorResponse('Pot not found or access denied', 404);
     }
 
     // 统一处理为数组
@@ -201,15 +227,19 @@ async function handleCreateCareRecord(request: Request, env: any): Promise<Respo
   }
 }
 
-async function handleUpdateCareRecord(request: Request, env: any, id: string): Promise<Response> {
+async function handleUpdateCareRecord(request: Request, env: any, id: string, token: string | null): Promise<Response> {
   try {
     const body: any = await request.json();
     const { type, action, careDate, description, imageUrl, imageUrls } = body;
 
-    // 检查记录是否存在
+    // 安全加固：检查记录是否存在且属于该用户
     const existing: any = await env.DB
-      .prepare('SELECT id, image_url FROM care_records WHERE id = ?')
-      .bind(id)
+      .prepare(`
+        SELECT r.id, r.image_url FROM care_records r
+        JOIN pots p ON r.pot_id = p.id
+        WHERE r.id = ? AND p.user_id = ?
+      `)
+      .bind(id, token)
       .first();
 
     if (!existing) {
@@ -275,12 +305,16 @@ async function handleUpdateCareRecord(request: Request, env: any, id: string): P
   }
 }
 
-async function handleDeleteCareRecord(request: Request, env: any, id: string): Promise<Response> {
+async function handleDeleteCareRecord(request: Request, env: any, id: string, token: string | null): Promise<Response> {
   try {
-    // 检查记录是否存在
+    // 安全加固：检查记录是否存在且属于该用户
     const existing = await env.DB
-      .prepare('SELECT id, image_url FROM care_records WHERE id = ?')
-      .bind(id)
+      .prepare(`
+        SELECT r.id, r.image_url FROM care_records r
+        JOIN pots p ON r.pot_id = p.id
+        WHERE r.id = ? AND p.user_id = ?
+      `)
+      .bind(id, token)
       .first();
 
     if (!existing) {

@@ -1,36 +1,37 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
-import { 
-  isDefaultImage, 
+import {
+  isDefaultImage,
   extractObjectKeyFromUrl,
-  deleteFileFromR2 
+  deleteFileFromR2
 } from '../utils/storage-utils';
 
 export async function handleTimelinesRequest(
   request: Request,
   env: any,
-  path: string
+  path: string,
+  token: string | null
 ): Promise<Response> {
   // 1️⃣ 创建时间线记录: POST /api/timelines
   if (request.method === 'POST' && path === '/api/timelines') {
-    return handleCreateTimeline(request, env);
+    return handleCreateTimeline(request, env, token);
   }
 
   // 2️⃣ 更新时间线记录: PUT /api/timelines/{id}
   if (request.method === 'PUT' && path.match(/^\/api\/timelines\/[^/]+$/)) {
     const id = path.split('/')[3];
-    return handleUpdateTimeline(request, env, id);
+    return handleUpdateTimeline(request, env, id, token);
   }
 
   // 3️⃣ 删除时间线记录: DELETE /api/timelines/{id}
   if (request.method === 'DELETE' && path.match(/^\/api\/timelines\/[^/]+$/)) {
     const id = path.split('/')[3];
-    return handleDeleteTimeline(request, env, id);
+    return handleDeleteTimeline(request, env, id, token);
   }
 
   return errorResponse('Not Found', 404);
 }
 
-async function handleCreateTimeline(request: Request, env: any): Promise<Response> {
+async function handleCreateTimeline(request: Request, env: any, token: string | null): Promise<Response> {
   try {
     const body = await request.json();
     const {
@@ -44,6 +45,16 @@ async function handleCreateTimeline(request: Request, env: any): Promise<Respons
 
     if (!potId || !date) {
       return errorResponse('missing fields', 400);
+    }
+
+    // 安全加固：校验目标花盆归属权
+    const pot = await env.DB
+      .prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?')
+      .bind(potId, token)
+      .first();
+
+    if (!pot) {
+      return errorResponse('Pot not found or access denied', 404);
     }
 
     // 处理图片：如果是数组，转为 JSON 字符串
@@ -78,15 +89,19 @@ async function handleCreateTimeline(request: Request, env: any): Promise<Respons
   }
 }
 
-async function handleUpdateTimeline(request: Request, env: any, id: string): Promise<Response> {
+async function handleUpdateTimeline(request: Request, env: any, id: string, token: string | null): Promise<Response> {
   try {
     const body = await request.json();
     const { date, description, images, video } = body;
 
-    // 检查记录是否存在
+    // 安全加固：检查记录是否存在且属于该用户
     const existing = await env.DB
-      .prepare('SELECT id, images, video FROM timelines WHERE id = ?')
-      .bind(id)
+      .prepare(`
+        SELECT t.id, t.images, t.video FROM timelines t
+        JOIN pots p ON t.pot_id = p.id
+        WHERE t.id = ? AND p.user_id = ?
+      `)
+      .bind(id, token)
       .first();
 
     if (!existing) {
@@ -152,12 +167,16 @@ async function handleUpdateTimeline(request: Request, env: any, id: string): Pro
   }
 }
 
-async function handleDeleteTimeline(request: Request, env: any, id: string): Promise<Response> {
+async function handleDeleteTimeline(request: Request, env: any, id: string, token: string | null): Promise<Response> {
   try {
-    // 检查记录是否存在
+    // 安全加固：检查记录是否存在且属于该用户
     const existing = await env.DB
-      .prepare('SELECT id, images, video FROM timelines WHERE id = ?')
-      .bind(id)
+      .prepare(`
+        SELECT t.id, t.images, t.video FROM timelines t
+        JOIN pots p ON t.pot_id = p.id
+        WHERE t.id = ? AND p.user_id = ?
+      `)
+      .bind(id, token)
       .first();
 
     if (!existing) {

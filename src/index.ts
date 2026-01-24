@@ -42,17 +42,17 @@ export default {
 
       // 养护记录API
       if (path.startsWith('/api/care-records')) {
-        return handleCareRecordsRequest(request, env, path);
+        return handleCareRecordsRequest(request, env, path, token);
       }
 
       // 时间线API
       if (path.startsWith('/api/timelines')) {
-        return handleTimelinesRequest(request, env, path);
+        return handleTimelinesRequest(request, env, path, token);
       }
 
       // 图片上传API
       if (path.startsWith('/api/upload/')) {
-        return handleUploadRequest(request, env, path);
+        return handleUploadRequest(request, env, path, token);
       }
 
       // 植物相关API

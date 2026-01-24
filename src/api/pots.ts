@@ -21,12 +21,12 @@ export async function handlePotsRequest(
 
   // 2️⃣ 花盆详情
   if (request.method === 'GET' && path.match(/^\/api\/pots\/[^/]+$/)) {
-    return handleGetPotDetail(path, env);
+    return handleGetPotDetail(path, env, url, token);
   }
 
   // 3️⃣ 创建花盆
   if (request.method === 'POST' && path === '/api/pots') {
-    return handleCreatePot(request, env);
+    return handleCreatePot(request, env, token);
   }
 
   // 8️⃣ 重新排序 (New) - 必须在通用 ID 匹配之前
@@ -47,12 +47,12 @@ export async function handlePotsRequest(
 
   // 6️⃣ 养护记录
   if (request.method === 'GET' && path.match(/^\/api\/pots\/[^/]+\/care-records$/)) {
-    return handleGetCareRecords(path, env);
+    return handleGetCareRecords(path, env, token);
   }
 
   // 7️⃣ 时间线
   if (request.method === 'GET' && path.match(/^\/api\/pots\/[^/]+\/timelines$/)) {
-    return handleGetTimelines(path, env);
+    return handleGetTimelines(path, env, token);
   }
 
   return errorResponse('Not Found', 404);
@@ -64,9 +64,10 @@ async function handleGetPots(
   url: URL,
   token: string | null
 ): Promise<Response> {
-  const userId = url.searchParams.get('userId') || token;
+  // 安全加固：强制使用 Token 中的 userId，忽略 URL 中的查询参数，防止越权查看他人列表
+  const userId = token;
   if (!userId) {
-    return errorResponse('userId required', 400);
+    return errorResponse('userId (token) required', 400);
   }
 
   const { results } = await env.DB
@@ -94,8 +95,14 @@ async function handleGetPots(
   });
 }
 
-async function handleGetPotDetail(path: string, env: any): Promise<Response> {
+async function handleGetPotDetail(path: string, env: any, url: URL, token: string | null): Promise<Response> {
   const potId = path.split('/')[3];
+
+  // 安全加固：必须登录且只能查看属于自己的花盆
+  const userId = token;
+  if (!userId) {
+    return errorResponse('Authentication required', 401);
+  }
 
   const pot = await env.DB
     .prepare(`
@@ -110,9 +117,9 @@ async function handleGetPotDetail(path: string, env: any): Promise<Response> {
         last_care,
         last_care_action
       FROM pots
-      WHERE id = ?
+      WHERE id = ? AND user_id = ?
     `)
-    .bind(potId)
+    .bind(potId, userId)
     .first();
 
   if (!pot) {
@@ -125,7 +132,7 @@ async function handleGetPotDetail(path: string, env: any): Promise<Response> {
   });
 }
 
-async function handleCreatePot(request: Request, env: any): Promise<Response> {
+async function handleCreatePot(request: Request, env: any, token: string | null): Promise<Response> {
   try {
     const body = await request.json();
     const {
@@ -141,6 +148,11 @@ async function handleCreatePot(request: Request, env: any): Promise<Response> {
 
     if (!id || !userId || !name) {
       return errorResponse('missing fields', 400);
+    }
+
+    // 安全加固：校验 Body 中的 userId 必须匹配 Token，防止给别人增加花盆
+    if (userId !== token) {
+      return errorResponse('Forbidden: You can only create pots for yourself', 403);
     }
 
     // 检查用户是否存在及获取状态
@@ -416,8 +428,18 @@ interface CareRecord {
   image_url: string | null;
 }
 
-async function handleGetCareRecords(path: string, env: any): Promise<Response> {
+async function handleGetCareRecords(path: string, env: any, token: string | null): Promise<Response> {
   const potId = path.split('/')[3];
+
+  // 安全加固：校验该花盆是否属于该用户
+  const pot = await env.DB
+    .prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?')
+    .bind(potId, token)
+    .first();
+
+  if (!pot) {
+    return errorResponse('Pot not found or access denied', 404);
+  }
 
   const { results } = await env.DB
     .prepare(`
@@ -445,8 +467,18 @@ async function handleGetCareRecords(path: string, env: any): Promise<Response> {
   });
 }
 
-async function handleGetTimelines(path: string, env: any): Promise<Response> {
+async function handleGetTimelines(path: string, env: any, token: string | null): Promise<Response> {
   const potId = path.split('/')[3];
+
+  // 安全加固：校验该花盆是否属于该用户
+  const pot = await env.DB
+    .prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?')
+    .bind(potId, token)
+    .first();
+
+  if (!pot) {
+    return errorResponse('Pot not found or access denied', 404);
+  }
 
   const { results } = await env.DB
     .prepare(`
