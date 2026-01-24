@@ -143,14 +143,39 @@ async function handleCreatePot(request: Request, env: any): Promise<Response> {
       return errorResponse('missing fields', 400);
     }
 
-    // 检查用户是否存在
+    // 检查用户是否存在及获取状态
     const user = await env.DB
-      .prepare('SELECT id FROM users WHERE id = ?')
+      .prepare('SELECT id, user_type, email_verified FROM users WHERE id = ?')
       .bind(userId)
       .first();
 
     if (!user) {
       return errorResponse('User not found', 400);
+    }
+
+    // 获取当前花盆数量
+    const potCountResult = await env.DB
+      .prepare('SELECT COUNT(*) as count FROM pots WHERE user_id = ?')
+      .bind(userId)
+      .first();
+    const count = (potCountResult?.count as number) || 0;
+
+    // 检查限制
+    const userType = user.user_type;
+    const isEmailVerified = user.email_verified === 1 || user.email_verified === true;
+
+    if (userType === 'anonymous' || userType === 'device') {
+      if (count >= 3) {
+        return errorResponse('您当前正以游客身份体验，最多可创建 3 个花盆。请注册账号以永久保存数据并解锁更多名额。', 403);
+      }
+    } else if (userType === 'email') {
+      if (!isEmailVerified) {
+        if (count >= 10) {
+          return errorResponse('您的邮箱尚未验证，最多可创建 10 个花盆。请前往邮箱完成验证以保护账号安全并解锁更多可用花盆数量。', 403);
+        }
+      } else if (count >= 50) {
+        return errorResponse('您已达到 50 个花盆的上限。如需管理更多植物，请联系支持。', 403);
+      }
     }
 
     await env.DB

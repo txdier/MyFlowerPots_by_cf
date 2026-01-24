@@ -127,9 +127,15 @@
                 </div>
                 <h3 class="text-lg font-bold text-gray-800">空空如也</h3>
                 <p class="text-gray-400 text-sm mt-2 px-10">您还没有添加任何花盆，点击下方按钮开始记录第一株植物吧</p>
-                <button @click="goAddPot" class="mt-8 btn btn-primary px-8 py-3 rounded-2xl shadow-lg shadow-green-100">
-                    添加我的花盆
-                </button>
+                <div class="flex flex-col sm:flex-row gap-3 mt-8">
+                    <button @click="goAddPot" class="btn btn-primary px-8 py-3 rounded-2xl shadow-lg shadow-green-100">
+                        添加我的花盆
+                    </button>
+                    <button @click="seedDemoData" :disabled="isAuthLoading"
+                        class="bg-white text-green-600 border border-green-200 px-8 py-3 rounded-2xl shadow-sm hover:bg-green-50 transition active:scale-95 disabled:opacity-50">
+                        {{ isAuthLoading ? '正在生成...' : '体验示例数据' }}
+                    </button>
+                </div>
             </div>
 
             <!-- 花盆卡片网格 -->
@@ -585,6 +591,22 @@
                     showLoginModal.value = true;
                     showForgotPasswordModal.value = false;
                 };
+
+                const seedDemoData = async () => {
+                    try {
+                        isAuthLoading.value = true;
+                        const res = await apiClient.seedDemoData();
+                        if (res.success) {
+                            await fetchPots();
+                            if (navigator.vibrate) navigator.vibrate(50);
+                        }
+                    } catch (e) {
+                        alert('生成失败: ' + e.message);
+                    } finally {
+                        isAuthLoading.value = false;
+                    }
+                };
+
                 const switchToForgotPassword = () => {
                     showLoginModal.value = false;
                     showForgotPasswordModal.value = true;
@@ -608,7 +630,7 @@
                     handleLogin, handleRegister, handleForgotPassword, toggleSelectAll, toggleEditMode, deleteSelectedPots,
                     handleTouchStart, handleTouchMove, handleTouchEnd, handleCardClick, confirmDeleteSingle,
                     logout, closeAuthModals, switchToRegister, switchToLogin, switchToForgotPassword,
-                    formatDate, handleImageError,
+                    formatDate, handleImageError, seedDemoData,
                     goEditPot: (id) => window.location.href = `edit-pot.html?id=${id}`,
                     goAddPot: () => window.location.href = 'add-pot.html',
                     goProfile: () => window.location.href = 'profile.html',

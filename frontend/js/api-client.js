@@ -100,7 +100,11 @@ class APIClient {
 
     // 用户认证API
     async identify() {
-        return this.request('/api/auth/identify', { method: 'POST' });
+        const result = await this.request('/api/auth/identify', { method: 'POST' });
+        if (result.success && result.userId) {
+            this.setToken(result.token || result.userId, result.userId);
+        }
+        return result;
     }
 
     async login(email, password) {
@@ -183,7 +187,8 @@ class APIClient {
         if (!this.userId) {
             const identifyResult = await this.identify();
             if (identifyResult.success && identifyResult.userId) {
-                potData.userId = identifyResult.userId;
+                // identify 内部已经调用了 setToken，所以 this.userId 现在已有值
+                potData.userId = this.userId;
             } else {
                 throw new Error('无法初始化匿名账户，请重试');
             }
@@ -372,6 +377,67 @@ class APIClient {
             method: 'POST',
             body: plants
         });
+    }
+
+    // 辅助功能：生成演示数据
+    async seedDemoData() {
+        // 1. 确保有匿名账户
+        if (!this.userId) {
+            const identifyResult = await this.identify();
+            if (!identifyResult.success || !identifyResult.userId) {
+                throw new Error('无法初始化匿名账户');
+            }
+        }
+
+        const samplePots = [
+            {
+                name: '示例：虎皮兰',
+                note: '这是一款非常适合新手的植物，耐阴且净化空气。',
+                plantDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30天前
+                imageUrl: 'assets/images/icons/icons-default-pot.png',
+                plantType: '虎皮兰'
+            },
+            {
+                name: '示例：薄荷',
+                note: '放在窗台边，叶子可以用来泡茶。保持土壤湿润。',
+                plantDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 15天前
+                imageUrl: 'assets/images/icons/icons-default-pot.png',
+                plantType: '薄荷'
+            }
+        ];
+
+        const results = [];
+        for (const potData of samplePots) {
+            // 1. 生成 ID (必须在前端生成并传递)
+            const potId = `pot_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+
+            // 2. 创建花盆
+            const potPayload = {
+                id: potId,
+                userId: this.userId,
+                name: potData.name,
+                plantType: potData.plantType,
+                note: potData.note,
+                plantDate: potData.plantDate,
+                imageUrl: potData.imageUrl
+            };
+
+            const potRes = await this.createPot(potPayload);
+            if (potRes.success) {
+                // 3. 为每个花盆创建一条示例养护记录
+                await this.createCareRecord({
+                    potId: potId,
+                    type: '浇水',
+                    action: '浇水',
+                    description: '系统自动生成的初始记录',
+                    careDate: potData.plantDate,
+                    imageUrl: ''
+                });
+                results.push({ id: potId, ...potData });
+            }
+        }
+
+        return { success: true, data: results };
     }
 }
 

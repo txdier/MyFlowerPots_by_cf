@@ -1,21 +1,7 @@
-name = "my-flower-pots"
+name = "my-flower-pots-api"
 main = "src/index.ts"
-compatibility_date = "2026-01-01"
+compatibility_date = "2025-01-01"
 
-# ========== Bindings (example only) ==========
-
-[[d1_databases]]
-binding = "DB"
-database_name = "your-database-name"
-database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-
-[[r2_buckets]]
-binding = "ASSETS"
-bucket_name = "your-bucket-name"
-
-[[kv_namespaces]]
-binding = "KV"
-id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 # 开发环境静态资源目录
 [dev]
@@ -23,3 +9,24 @@ port = 8787
 ip = "127.0.0.1"
 local_protocol = "http"
 # assets = "frontend"
+
+[vars]
+WEATHER_API_KEY = "YOUR_WEATHER_API_KEY"
+# Email service configuration (optional)
+RESEND_API_KEY = "YOUR_RESEND_API_KEY"
+EMAIL_FROM = "YOUR_VERIFIED_EMAIL"
+APP_BASE_URL = "https://your-app-domain.com"
+ADMIN_EMAILS = "your-email@example.com"
+
+[[kv_namespaces]]
+binding = "PLANTS_KV"
+id = "YOUR_KV_NAMESPACE_ID"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "my-flower-pots-db"
+database_id = "YOUR_D1_DATABASE_ID"
+
+[[r2_buckets]]
+binding = "STATIC_BUCKET"
+bucket_name = "your-bucket-name"
