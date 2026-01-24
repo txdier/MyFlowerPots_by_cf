@@ -4,7 +4,9 @@ import {
   generateToken,
   isValidEmail,
   isPasswordValid,
-  getTokenFromHeader
+  getTokenFromHeader,
+  generateJWT,
+  verifyJWT
 } from '../utils/auth-utils';
 
 import {
@@ -22,7 +24,8 @@ export async function handleAuthRequest(
   request: Request,
   env: any,
   path: string,
-  url: URL
+  url: URL,
+  userId: string | null
 ): Promise<Response> {
   // 1️⃣ 邮箱注册
   if (request.method === 'POST' && path === '/api/auth/register') {
@@ -61,22 +64,22 @@ export async function handleAuthRequest(
 
   // 8️⃣ 获取当前用户信息
   if (request.method === 'GET' && path === '/api/auth/me') {
-    return handleGetMe(request, env);
+    return handleGetMe(request, env, userId);
   }
 
   // 9️⃣ 更新用户资料
   if (request.method === 'PUT' && path === '/api/auth/profile') {
-    return handleUpdateProfile(request, env);
+    return handleUpdateProfile(request, env, userId);
   }
 
   // 🔟 修改密码
   if (request.method === 'PUT' && path === '/api/auth/password') {
-    return handleChangePassword(request, env);
+    return handleChangePassword(request, env, userId);
   }
 
   // 1️⃣1️⃣ 修改邮箱（请求发送验证邮件）
   if (request.method === 'POST' && path === '/api/auth/change-email') {
-    return handleChangeEmail(request, env);
+    return handleChangeEmail(request, env, userId);
   }
 
   // 1️⃣2️⃣ 验证新邮箱
@@ -86,7 +89,7 @@ export async function handleAuthRequest(
 
   // 1️⃣3️⃣ 发送验证邮件到当前邮箱
   if (request.method === 'POST' && path === '/api/auth/send-verification-email') {
-    return handleSendVerificationEmail(request, env);
+    return handleSendVerificationEmail(request, env, userId);
   }
 
   return errorResponse('Not Found', 404);
@@ -153,10 +156,13 @@ async function handleRegister(request: Request, env: any): Promise<Response> {
     );
     await sendEmail(welcomeEmail, env);
 
+    const secret = env.JWT_SECRET || 'default-secret';
+    const jwtToken = await generateJWT({ userId, email, type: 'email' }, secret);
+
     return jsonResponse({
       success: true,
       userId,
-      token: userId,
+      token: jwtToken,
       email,
       displayName: displayName || null,
       emailVerified: false,
@@ -180,12 +186,17 @@ async function handleLogin(request: Request, env: any): Promise<Response> {
 
     // 查找用户
     const user = await env.DB
-      .prepare('SELECT id, password_hash, display_name, email_verified FROM users WHERE email = ? AND user_type = ?')
+      .prepare('SELECT id, password_hash, display_name, email_verified, is_disabled FROM users WHERE email = ? AND user_type = ?')
       .bind(email, 'email')
       .first();
 
     if (!user) {
       return errorResponse('Invalid email or password', 401);
+    }
+
+    // 安全加固：校验账号是否被禁用
+    if (user.is_disabled === 1) {
+      return errorResponse('Account disabled. Please contact support.', 403);
     }
 
     // 验证密码
@@ -200,10 +211,14 @@ async function handleLogin(request: Request, env: any): Promise<Response> {
       .bind(user.id)
       .run();
 
+    // 生成 JWT 令牌
+    const secret = env.JWT_SECRET || 'default-secret';
+    const jwtToken = await generateJWT({ userId: user.id, email, type: 'email' }, secret);
+
     return jsonResponse({
       success: true,
       userId: user.id,
-      token: user.id,
+      token: jwtToken,
       email,
       displayName: user.display_name,
       emailVerified: user.email_verified === 1,
@@ -224,10 +239,13 @@ async function handleIdentify(env: any): Promise<Response> {
       .bind(userId)
       .run();
 
+    const secret = env.JWT_SECRET || 'default-secret';
+    const jwtToken = await generateJWT({ userId, type: 'anonymous' }, secret);
+
     return jsonResponse({
       success: true,
       userId,
-      token: userId,
+      token: jwtToken,
       userType: 'anonymous',
     });
   } catch (error) {
@@ -394,10 +412,13 @@ async function handleUpgrade(request: Request, env: any): Promise<Response> {
       .bind(anonymousUserId)
       .run();
 
+    const secret = env.JWT_SECRET || 'default-secret';
+    const jwtToken = await generateJWT({ userId: newUserId, email, type: 'email' }, secret);
+
     return jsonResponse({
       success: true,
       userId: newUserId,
-      token: newUserId,
+      token: jwtToken,
       email,
       displayName: displayName || null,
       emailVerified: false,
@@ -470,10 +491,9 @@ async function handleVerifyEmail(url: URL, env: any): Promise<Response> {
   }
 }
 
-async function handleGetMe(request: Request, env: any): Promise<Response> {
+async function handleGetMe(request: Request, env: any, userId: string | null): Promise<Response> {
   try {
-    const token = getTokenFromHeader(request);
-    if (!token) {
+    if (!userId) {
       return errorResponse('Authentication required', 401);
     }
 
@@ -482,11 +502,11 @@ async function handleGetMe(request: Request, env: any): Promise<Response> {
       .prepare(`
         SELECT 
           id, user_type, email, display_name, avatar_url,
-          email_verified, created_at, last_login
+          email_verified, is_disabled, created_at, last_login
         FROM users 
         WHERE id = ?
       `)
-      .bind(token)
+      .bind(userId)
       .first();
 
     if (!user) {
@@ -494,7 +514,7 @@ async function handleGetMe(request: Request, env: any): Promise<Response> {
     }
 
     // 检查是否为管理员
-    const adminStatus = await isAdmin(request, env);
+    const adminStatus = await isAdmin(request, env, userId);
 
     return jsonResponse({
       success: true,
@@ -505,6 +525,7 @@ async function handleGetMe(request: Request, env: any): Promise<Response> {
         displayName: user.display_name,
         avatarUrl: user.avatar_url,
         emailVerified: user.email_verified === 1,
+        isDisabled: user.is_disabled === 1,
         isAdmin: adminStatus,
         createdAt: user.created_at,
         lastLogin: user.last_login
@@ -517,10 +538,9 @@ async function handleGetMe(request: Request, env: any): Promise<Response> {
   }
 }
 
-async function handleUpdateProfile(request: Request, env: any): Promise<Response> {
+async function handleUpdateProfile(request: Request, env: any, userId: string | null): Promise<Response> {
   try {
-    const token = getTokenFromHeader(request);
-    if (!token) {
+    if (!userId) {
       return errorResponse('Authentication required', 401);
     }
 
@@ -544,7 +564,7 @@ async function handleUpdateProfile(request: Request, env: any): Promise<Response
       return errorResponse('No data to update', 400);
     }
 
-    params.push(token);
+    params.push(userId);
 
     // 更新用户资料
     await env.DB
@@ -563,10 +583,9 @@ async function handleUpdateProfile(request: Request, env: any): Promise<Response
   }
 }
 
-async function handleChangePassword(request: Request, env: any): Promise<Response> {
+async function handleChangePassword(request: Request, env: any, userId: string | null): Promise<Response> {
   try {
-    const token = getTokenFromHeader(request);
-    if (!token) {
+    if (!userId) {
       return errorResponse('Authentication required', 401);
     }
 
@@ -580,7 +599,7 @@ async function handleChangePassword(request: Request, env: any): Promise<Respons
     // 验证当前密码
     const user = await env.DB
       .prepare('SELECT id, password_hash, user_type FROM users WHERE id = ?')
-      .bind(token)
+      .bind(userId)
       .first();
 
     if (!user) {
@@ -624,10 +643,9 @@ async function handleChangePassword(request: Request, env: any): Promise<Respons
 /**
  * 处理修改邮箱请求（发送验证邮件到新邮箱）
  */
-async function handleChangeEmail(request: Request, env: any): Promise<Response> {
+async function handleChangeEmail(request: Request, env: any, userId: string | null): Promise<Response> {
   try {
-    const token = getTokenFromHeader(request);
-    if (!token) {
+    if (!userId) {
       return errorResponse('Authentication required', 401);
     }
 
@@ -645,7 +663,7 @@ async function handleChangeEmail(request: Request, env: any): Promise<Response> 
     // 检查当前用户
     const user = await env.DB
       .prepare('SELECT id, email, email_verified FROM users WHERE id = ?')
-      .bind(token)
+      .bind(userId)
       .first();
 
     if (!user) {
@@ -660,7 +678,7 @@ async function handleChangeEmail(request: Request, env: any): Promise<Response> 
     // 检查新邮箱是否已被其他用户使用
     const existingUser = await env.DB
       .prepare('SELECT id FROM users WHERE email = ? AND id != ?')
-      .bind(newEmail, token)
+      .bind(newEmail, userId)
       .first();
 
     if (existingUser) {
@@ -677,7 +695,7 @@ async function handleChangeEmail(request: Request, env: any): Promise<Response> 
         newEmail,
         verificationToken,
         new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24小时有效
-        token
+        userId
       )
       .run();
 
@@ -797,17 +815,16 @@ async function handleVerifyNewEmail(url: URL, env: any): Promise<Response> {
 /**
  * 处理发送验证邮件到当前邮箱
  */
-async function handleSendVerificationEmail(request: Request, env: any): Promise<Response> {
+async function handleSendVerificationEmail(request: Request, env: any, userId: string | null): Promise<Response> {
   try {
-    const token = getTokenFromHeader(request);
-    if (!token) {
+    if (!userId) {
       return errorResponse('Authentication required', 401);
     }
 
     // 获取用户信息
     const user = await env.DB
       .prepare('SELECT id, email, email_verified, verification_token FROM users WHERE id = ?')
-      .bind(token)
+      .bind(userId)
       .first();
 
     if (!user) {

@@ -157,12 +157,17 @@ async function handleCreatePot(request: Request, env: any, token: string | null)
 
     // 检查用户是否存在及获取状态
     const user = await env.DB
-      .prepare('SELECT id, user_type, email_verified FROM users WHERE id = ?')
+      .prepare('SELECT id, user_type, email_verified, max_pots, is_disabled FROM users WHERE id = ?')
       .bind(userId)
       .first();
 
     if (!user) {
-      return errorResponse('User not found', 400);
+      return errorResponse('User not found', 404);
+    }
+
+    // 安全加固：检查账号是否被禁用
+    if (user.is_disabled === 1) {
+      return errorResponse('Account disabled. Please contact support.', 403);
     }
 
     // 获取当前花盆数量
@@ -176,17 +181,27 @@ async function handleCreatePot(request: Request, env: any, token: string | null)
     const userType = user.user_type;
     const isEmailVerified = user.email_verified === 1 || user.email_verified === true;
 
-    if (userType === 'anonymous' || userType === 'device') {
-      if (count >= 3) {
-        return errorResponse('您当前正以游客身份体验，最多可创建 3 个花盆。请注册账号以永久保存数据并解锁更多名额。', 403);
+    // 确定上限
+    let limit = 3; // 默认游客限制
+    if (user.max_pots !== null && user.max_pots !== undefined) {
+      // 优先使用个性化限额
+      limit = user.max_pots;
+    } else {
+      // 否则使用系统默认阶梯
+      if (user.user_type === 'email') {
+        limit = user.email_verified === 1 ? 50 : 10;
       }
-    } else if (userType === 'email') {
-      if (!isEmailVerified) {
-        if (count >= 10) {
-          return errorResponse('您的邮箱尚未验证，最多可创建 10 个花盆。请前往邮箱完成验证以保护账号安全并解锁更多可用花盆数量。', 403);
-        }
-      } else if (count >= 50) {
+    }
+
+    if (count >= limit) {
+      if (userType === 'anonymous' || userType === 'device') {
+        return errorResponse('您当前正以游客身份体验，最多可创建 3 个花盆。请注册账号以永久保存数据并解锁更多名额。', 403);
+      } else if (userType === 'email' && !isEmailVerified) {
+        return errorResponse('您的邮箱尚未验证，最多可创建 10 个花盆。请前往邮箱完成验证以保护账号安全并解锁更多可用花盆数量。', 403);
+      } else if (userType === 'email' && isEmailVerified) {
         return errorResponse('您已达到 50 个花盆的上限。如需管理更多植物，请联系支持。', 403);
+      } else {
+        return errorResponse(`您已达到 ${limit} 个花盆的上限。`, 403);
       }
     }
 

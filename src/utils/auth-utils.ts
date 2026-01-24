@@ -18,8 +18,8 @@ export async function hashPassword(password: string, userId: string): Promise<st
  * Verify a password against a stored hash
  */
 export async function verifyPassword(
-  password: string, 
-  userId: string, 
+  password: string,
+  userId: string,
   storedHash: string
 ): Promise<boolean> {
   const hash = await hashPassword(password, userId);
@@ -92,12 +92,72 @@ export function getTokenFromHeader(request: Request): string | null {
   if (!authHeader) {
     return null;
   }
-  
+
   // Remove 'Bearer ' prefix if present
   if (authHeader.startsWith('Bearer ')) {
     return authHeader.substring(7);
   }
-  
+
   // If no Bearer prefix, assume the whole string is the token
   return authHeader;
+}
+/**
+ * Generate a simple JWT-like token (signed with HS256)
+ */
+export async function generateJWT(payload: any, secret: string): Promise<string> {
+  const header = { alg: 'HS256', typ: 'JWT' };
+  const encodedHeader = btoa(JSON.stringify(header)).replace(/=/g, '');
+  const encodedPayload = btoa(JSON.stringify({
+    ...payload,
+    exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
+  })).replace(/=/g, '');
+
+  const tokenToSign = `${encodedHeader}.${encodedPayload}`;
+  const signature = await signHS256(tokenToSign, secret);
+
+  return `${tokenToSign}.${signature}`;
+}
+
+/**
+ * Verify a JWT-like token
+ */
+export async function verifyJWT(token: string, secret: string): Promise<any | null> {
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+
+  const [header, payload, signature] = parts;
+  const tokenToSign = `${header}.${payload}`;
+  const expectedSignature = await signHS256(tokenToSign, secret);
+
+  if (signature !== expectedSignature) return null;
+
+  try {
+    const decodedPayload = JSON.parse(atob(payload));
+    if (decodedPayload.exp && decodedPayload.exp < Math.floor(Date.now() / 1000)) {
+      return null;
+    }
+    return decodedPayload;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function signHS256(message: string, secret: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secret);
+  const msgData = encoder.encode(message);
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign('HMAC', key, msgData);
+  return btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
 }

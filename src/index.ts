@@ -1,4 +1,4 @@
-import { getTokenFromHeader } from './utils/auth-utils';
+import { getTokenFromHeader, verifyJWT } from './utils/auth-utils';
 import { corsResponse, errorResponse } from './utils/response-utils';
 import { handleAuthRequest } from './api/auth';
 import { handlePotsRequest } from './api/pots';
@@ -23,36 +23,61 @@ export default {
 
     // 1️⃣ API路由处理
     if (path.startsWith('/api/')) {
-      const token = getTokenFromHeader(request);
+      const rawToken = getTokenFromHeader(request);
+      let userId: string | null = null;
+
+      // 验证 JWT 并提取 userId
+      if (rawToken) {
+        const secret = env.JWT_SECRET || 'default-secret';
+        const payload = await verifyJWT(rawToken, secret);
+        if (payload) {
+          userId = payload.userId;
+        } else {
+          // 如果提供了 token 但验证失败，可能是过期或伪造
+          // 注意：有些路由可能允许匿名访问，所以这里不直接报错，由具体处理程序决定
+          console.warn('Token verification failed for path:', path);
+        }
+      }
+
+      // 兼容：如果 token 本身就是一个 userId (旧版)，且验证失败，
+      // 这里的 userId 会是 null。为了平滑过滤，我们可以选择是否允许旧版 ID 直接作为 userId。
+      // 但出于安全考虑，既然要切换到 JWT，建议强制执行。
+      // 为方便测试，暂时保留旧版兼容逻辑（如果认证失败且 token 长度符合 UUID，则视为旧版）
+      if (!userId && rawToken && rawToken.length > 32) {
+        // 长度大于32通常是 JWT，如果验证失败了就不信任
+      } else if (!userId && rawToken) {
+        // 如果长度较短，可能是旧版 userId
+        // userId = rawToken; // ⚠️ 注释掉此行以切断旧版永久 ID 攻击
+      }
 
       // 认证相关API
       if (path.startsWith('/api/auth/')) {
-        return handleAuthRequest(request, env, path, url);
+        return handleAuthRequest(request, env, path, url, userId);
       }
 
       // 管理员专用API
       if (path.startsWith('/api/admin/')) {
-        return handleAdminRequest(request, env, path, url);
+        return handleAdminRequest(request, env, path, url, userId);
       }
 
       // 花盆相关API
       if (path.startsWith('/api/pots')) {
-        return handlePotsRequest(request, env, ctx, path, url, token);
+        return handlePotsRequest(request, env, ctx, path, url, userId);
       }
 
       // 养护记录API
       if (path.startsWith('/api/care-records')) {
-        return handleCareRecordsRequest(request, env, path, token);
+        return handleCareRecordsRequest(request, env, path, userId);
       }
 
       // 时间线API
       if (path.startsWith('/api/timelines')) {
-        return handleTimelinesRequest(request, env, path, token);
+        return handleTimelinesRequest(request, env, path, userId);
       }
 
       // 图片上传API
       if (path.startsWith('/api/upload/')) {
-        return handleUploadRequest(request, env, path, token);
+        return handleUploadRequest(request, env, path, userId);
       }
 
       // 植物相关API

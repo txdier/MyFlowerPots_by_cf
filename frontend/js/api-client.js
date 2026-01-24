@@ -365,6 +365,28 @@ class APIClient {
         });
     }
 
+    // --- 管理员专用 API (用户管理) ---
+
+    async adminGetUsers(page = 1, pageSize = 20, search = '') {
+        return this.request(`/api/admin/users?page=${page}&pageSize=${pageSize}&search=${encodeURIComponent(search)}`, {
+            method: 'GET'
+        });
+    }
+
+    async adminUpdateUser(userId, data) {
+        return this.request(`/api/admin/users/${userId}`, {
+            method: 'PUT',
+            body: data
+        });
+    }
+
+    // 删除用户及其所有关联数据
+    async adminDeleteUser(userId) {
+        return this.request(`/api/admin/users/${userId}`, {
+            method: 'DELETE'
+        });
+    }
+
     async adminBatchDelete(ids) {
         return this.request('/api/admin/plants/batch', {
             method: 'DELETE',

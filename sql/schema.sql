@@ -26,7 +26,11 @@ CREATE TABLE users (
     -- 邮箱更改流程字段
     new_email TEXT,
     new_email_verification_token TEXT,
-    new_email_verification_expires DATETIME
+    new_email_verification_expires DATETIME,
+    
+    -- 管理功能
+    max_pots INTEGER DEFAULT NULL,
+    is_disabled INTEGER DEFAULT 0
 );
 
 -- 2. 花盆基本信息表

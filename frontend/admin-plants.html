@@ -59,126 +59,213 @@
                 <div class="cursor-pointer group" onclick="window.location.href='index.html'">
                     <h1
                         class="text-3xl font-bold text-slate-800 flex items-center gap-3 transition-colors group-hover:text-emerald-600">
-                        <i class="fas fa-leaf text-emerald-500"></i>
-                        植物百科管理
+                        <i class="fas fa-shield-alt text-emerald-500"></i>
+                        后台管理中心
                     </h1>
                     <p class="text-slate-500 mt-1 flex items-center gap-1">
                         <i class="fas fa-arrow-left text-xs opacity-0 group-hover:opacity-100 transition-opacity"></i>
                         返回主页
                     </p>
                 </div>
-                <div class="flex items-center gap-3">
-                    <button @click="downloadTemplate"
-                        class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-all flex items-center gap-2">
-                        <i class="fas fa-download"></i> 下载模板
+                <!-- 顶部页签切换 -->
+                <div class="flex bg-slate-100 p-1 rounded-2xl">
+                    <button @click="currentTab = 'plants'"
+                        :class="currentTab === 'plants' ? 'bg-white shadow-sm text-emerald-600' : 'text-slate-500'"
+                        class="px-6 py-2 rounded-xl font-medium transition-all">
+                        植物百科
                     </button>
-                    <button @click="showImportModal = true"
-                        class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl hover:shadow-md transition-all flex items-center gap-2">
-                        <i class="fas fa-file-import"></i> 批量导入
-                    </button>
-                    <button @click="openCreateModal"
-                        class="px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 shadow-lg shadow-emerald-200 transition-all flex items-center gap-2">
-                        <i class="fas fa-plus"></i> 新增植物
+                    <button @click="currentTab = 'users'"
+                        :class="currentTab === 'users' ? 'bg-white shadow-sm text-emerald-600' : 'text-slate-500'"
+                        class="px-6 py-2 rounded-xl font-medium transition-all">
+                        用户管理
                     </button>
                 </div>
             </header>
 
-            <!-- Tools & Filters -->
-            <div
-                class="glass border border-white rounded-2xl p-4 mb-6 flex flex-col md:flex-row gap-4 items-center shadow-sm">
-                <div class="relative flex-1 w-full">
-                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                    <input type="text" v-model="searchQuery" @keyup.enter="fetchPlants" placeholder="搜索植物名称或 ID..."
-                        class="w-full pl-12 pr-4 py-3 rounded-xl border-none bg-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none transition-all">
+            <!-- 植物管理视图 -->
+            <div v-if="currentTab === 'plants'">
+                <!-- Tools & Filters -->
+                <div
+                    class="glass border border-white rounded-2xl p-4 mb-6 flex flex-col md:flex-row gap-4 items-center shadow-sm">
+                    <div class="relative flex-1 w-full">
+                        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" v-model="searchQuery" @keyup.enter="fetchPlants" placeholder="搜索植物名称或 ID..."
+                            class="w-full pl-12 pr-4 py-3 rounded-xl border-none bg-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none transition-all">
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button @click="downloadTemplate"
+                            class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-all flex items-center gap-2">
+                            <i class="fas fa-download"></i> 下载模板
+                        </button>
+                        <button @click="showImportModal = true"
+                            class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl hover:shadow-md transition-all flex items-center gap-2">
+                            <i class="fas fa-file-import"></i> 批量导入
+                        </button>
+                        <button @click="openCreateModal"
+                            class="px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 shadow-lg shadow-emerald-200 transition-all flex items-center gap-2">
+                            <i class="fas fa-plus"></i> 新增植物
+                        </button>
+                    </div>
                 </div>
-                <div class="flex items-center gap-4 w-full md:w-auto">
-                    <button @click="batchDelete" :disabled="selectedIds.length === 0"
-                        :class="selectedIds.length === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-50 text-red-500'"
-                        class="px-4 py-3 bg-white border border-slate-200 rounded-xl transition-all flex items-center gap-2">
-                        <i class="fas fa-trash"></i> 批量删除 {{ selectedIds.length > 0 ? `(${selectedIds.length})` : '' }}
-                    </button>
-                    <button @click="fetchPlants"
-                        class="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all">
+
+                <!-- Table -->
+                <div class="glass border border-white rounded-2xl overflow-hidden shadow-sm">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50 border-b border-slate-100">
+                            <tr>
+                                <th class="px-6 py-4 w-12 text-center">
+                                    <input type="checkbox" @change="toggleAll" :checked="isAllSelected"
+                                        class="rounded border-slate-300 text-emerald-500 focus:ring-emerald-500">
+                                </th>
+                                <th class="px-6 py-4 font-semibold text-slate-600">ID / 名称</th>
+                                <th class="px-6 py-4 font-semibold text-slate-600">分类</th>
+                                <th class="px-6 py-4 font-semibold text-slate-600">养护难度</th>
+                                <th class="px-6 py-4 font-semibold text-slate-600 text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr v-for="plant in plants" :key="plant.id" class="hover:bg-slate-50 transition-colors">
+                                <td class="px-6 py-4 text-center">
+                                    <input type="checkbox" v-model="selectedIds" :value="plant.id"
+                                        class="rounded border-slate-300 text-emerald-500 focus:ring-emerald-500">
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500 overflow-hidden shrink-0">
+                                            <img v-if="plant.image_url" :src="plant.image_url"
+                                                class="w-full h-full object-cover">
+                                            <i v-else class="fas fa-seedling"></i>
+                                        </div>
+                                        <div>
+                                            <div class="font-medium text-slate-800">{{ plant.name }}</div>
+                                            <div class="text-xs text-slate-400 font-mono">{{ plant.id }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="px-2 py-1 bg-slate-100 text-slate-600 rounded-md text-sm">{{
+                                        plant.category
+                                        || '未分类' }}</span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span :class="difficultyClass(plant.care_difficulty)"
+                                        class="px-2 py-1 rounded-md text-sm">{{ plant.care_difficulty || '未知' }}</span>
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button @click="openEditModal(plant)"
+                                            class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button @click="deleteSingle(plant)"
+                                            class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="flex items-center justify-between mt-6">
+                    <p class="text-sm text-slate-500">共 {{ pagination.total }} 条记录</p>
+                    <div class="flex items-center gap-2">
+                        <button @click="changePage(pagination.page - 1)" :disabled="pagination.page === 1"
+                            class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-slate-600 disabled:opacity-50">上一页</button>
+                        <span class="text-slate-600">{{ pagination.page }} / {{ totalPages }}</span>
+                        <button @click="changePage(pagination.page + 1)" :disabled="pagination.page === totalPages"
+                            class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-slate-600 disabled:opacity-50">下一页</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 用户管理视图 -->
+            <div v-else-if="currentTab === 'users'">
+                <!-- Tools & Filters -->
+                <div class="glass border border-white rounded-2xl p-4 mb-6 flex gap-4 items-center shadow-sm">
+                    <div class="relative flex-1">
+                        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" v-model="userSearchQuery" @keyup.enter="fetchUsers"
+                            placeholder="搜索用户邮箱或 ID..."
+                            class="w-full pl-12 pr-4 py-3 rounded-xl border-none bg-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none transition-all">
+                    </div>
+                    <button @click="fetchUsers"
+                        class="px-8 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all">
                         搜索
                     </button>
                 </div>
-            </div>
 
-            <!-- Table -->
-            <div class="glass border border-white rounded-2xl overflow-hidden shadow-sm">
-                <table class="w-full text-left">
-                    <thead class="bg-slate-50 border-b border-slate-100">
-                        <tr>
-                            <th class="px-6 py-4 w-12 text-center">
-                                <input type="checkbox" @change="toggleAll" :checked="isAllSelected"
-                                    class="rounded border-slate-300 text-emerald-500 focus:ring-emerald-500">
-                            </th>
-                            <th class="px-6 py-4 font-semibold text-slate-600">ID / 名称</th>
-                            <th class="px-6 py-4 font-semibold text-slate-600">分类</th>
-                            <th class="px-6 py-4 font-semibold text-slate-600">养护难度</th>
-                            <th class="px-6 py-4 font-semibold text-slate-600 text-right">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        <tr v-for="plant in plants" :key="plant.id" class="hover:bg-slate-50 transition-colors">
-                            <td class="px-6 py-4 text-center">
-                                <input type="checkbox" v-model="selectedIds" :value="plant.id"
-                                    class="rounded border-slate-300 text-emerald-500 focus:ring-emerald-500">
-                            </td>
-                            <td class="px-6 py-4">
-                                <div class="flex items-center gap-3">
-                                    <div
-                                        class="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500 overflow-hidden shrink-0">
-                                        <img v-if="plant.image_url" :src="plant.image_url"
-                                            class="w-full h-full object-cover">
-                                        <i v-else class="fas fa-seedling"></i>
+                <!-- Table -->
+                <div class="glass border border-white rounded-2xl overflow-hidden shadow-sm">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50 border-b border-slate-100">
+                            <tr>
+                                <th class="px-6 py-4 font-semibold text-slate-600">用户信息</th>
+                                <th class="px-6 py-4 font-semibold text-slate-600">类型 / 状态</th>
+                                <th class="px-6 py-4 font-semibold text-slate-600">花盆数 / 上限</th>
+                                <th class="px-6 py-4 font-semibold text-slate-600 text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr v-for="user in users" :key="user.id" class="hover:bg-slate-100 transition-colors">
+                                <td class="px-6 py-4">
+                                    <div class="font-medium text-slate-800">{{ user.email || '游客' }}</div>
+                                    <div class="text-xs text-slate-400 font-mono">{{ user.id }}</div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex flex-col gap-1">
+                                        <span class="text-xs px-2 py-0.5 rounded-full w-fit"
+                                            :class="user.user_type === 'email' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'">
+                                            {{ user.user_type === 'email' ? '邮箱用户' : '访客' }}
+                                        </span>
+                                        <span v-if="user.is_disabled"
+                                            class="text-xs px-2 py-0.5 bg-red-50 text-red-600 rounded-full w-fit">已禁用</span>
                                     </div>
-                                    <div>
-                                        <div class="font-medium text-slate-800">{{ plant.name }}</div>
-                                        <div class="text-xs text-slate-400 font-mono">{{ plant.id }}</div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-bold text-slate-700">{{ user.pot_count }}</span>
+                                        <span class="text-slate-300">/</span>
+                                        <span class="text-slate-500">{{ user.max_pots || (user.user_type === 'email' ?
+                                            (user.email_verified ? 50 : 10) : 3) }}</span>
                                     </div>
-                                </div>
-                            </td>
-                            <td class="px-6 py-4">
-                                <span class="px-2 py-1 bg-slate-100 text-slate-600 rounded-md text-sm">{{ plant.category
-                                    || '未分类' }}</span>
-                            </td>
-                            <td class="px-6 py-4">
-                                <span :class="difficultyClass(plant.care_difficulty)"
-                                    class="px-2 py-1 rounded-md text-sm">{{ plant.care_difficulty || '未知' }}</span>
-                            </td>
-                            <td class="px-6 py-4 text-right">
-                                <div class="flex items-center justify-end gap-2">
-                                    <button @click="openEditModal(plant)"
-                                        class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button @click="deleteSingle(plant)"
-                                        class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr v-if="plants.length === 0">
-                            <td colspan="5" class="px-6 py-12 text-center text-slate-400">
-                                <i class="fas fa-box-open text-4xl mb-3 opacity-20"></i>
-                                <p>未找到任何植物数据</p>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button @click="openLimitModal(user)"
+                                            class="px-3 py-1 text-sm bg-white border border-slate-200 text-slate-600 rounded-lg hover:border-emerald-500 hover:text-emerald-500 transition-all">
+                                            调整上限
+                                        </button>
+                                        <button @click="toggleUserStatus(user)"
+                                            :class="user.is_disabled ? 'text-emerald-600 hover:bg-emerald-50' : 'text-blue-500 hover:bg-blue-50'"
+                                            class="px-3 py-1 text-sm bg-white border border-slate-200 rounded-lg transition-all">
+                                            {{ user.is_disabled ? '启用' : '禁用' }}
+                                        </button>
+                                        <button @click="confirmDeleteUser(user)"
+                                            class="px-3 py-1 text-sm bg-white border border-slate-200 text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                                            彻底删除
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
 
-            <!-- Pagination -->
-            <div class="flex items-center justify-between mt-6">
-                <p class="text-sm text-slate-500">共 {{ pagination.total }} 条记录</p>
-                <div class="flex items-center gap-2">
-                    <button @click="changePage(pagination.page - 1)" :disabled="pagination.page === 1"
-                        class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-slate-600 disabled:opacity-50">上一页</button>
-                    <span class="text-slate-600">{{ pagination.page }} / {{ totalPages }}</span>
-                    <button @click="changePage(pagination.page + 1)" :disabled="pagination.page === totalPages"
-                        class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-slate-600 disabled:opacity-50">下一页</button>
+                <!-- Pagination -->
+                <div class="flex items-center justify-between mt-6">
+                    <p class="text-sm text-slate-500">共 {{ userPagination.total }} 条用户</p>
+                    <div class="flex items-center gap-2">
+                        <button @click="changeUserPage(userPagination.page - 1)" :disabled="userPagination.page === 1"
+                            class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-slate-600 disabled:opacity-50">上一页</button>
+                        <span class="text-slate-600">{{ userPagination.page }} / {{ totalUserPages }}</span>
+                        <button @click="changeUserPage(userPagination.page + 1)"
+                            :disabled="userPagination.page === totalUserPages"
+                            class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-slate-600 disabled:opacity-50">下一页</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -440,6 +527,42 @@
             </div>
         </div>
 
+        <!-- Limit Adjustment Modal -->
+        <div v-if="showLimitModal"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-xl font-bold text-slate-800">调整用户花盆上限</h3>
+                    <button @click="showLimitModal = false" class="text-slate-400 hover:text-slate-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-2">用户邮箱</label>
+                        <p class="text-slate-800 font-medium">{{ activeUser?.email || '访客' }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-2">新的上限值</label>
+                        <input type="number" v-model="newLimit"
+                            class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                            placeholder="留空即回复系统默认设置">
+                        <p class="text-xs text-slate-400 mt-2">
+                            * 留空表示跟随系统默认规则（普通 10 / 已验证 50）。设置极大数值（如 9999）即为无限名额。
+                        </p>
+                    </div>
+                </div>
+                <div class="flex gap-3 mt-8">
+                    <button @click="showLimitModal = false"
+                        class="flex-1 py-3 text-slate-600 hover:bg-slate-50 rounded-xl transition-all">取消</button>
+                    <button @click="saveLimit" :disabled="savingLimit"
+                        class="flex-1 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all">
+                        {{ savingLimit ? '正在保存...' : '确认修改' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Toast -->
         <div v-if="toast.show"
             class="fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 bg-slate-800 text-white rounded-2xl shadow-xl flex items-center gap-3 transition-all animate-bounce">
@@ -455,6 +578,9 @@
 
         createApp({
             setup() {
+                const currentTab = ref('plants'); // 'plants' or 'users'
+
+                // 植物管理相关
                 const plants = ref([]);
                 const pagination = ref({ page: 1, pageSize: 20, total: 0 });
                 const searchQuery = ref('');
@@ -467,6 +593,16 @@
                 const importing = ref(false);
                 const importJson = ref('');
                 const synonymsInput = ref('');
+
+                // 用户管理相关
+                const users = ref([]);
+                const userPagination = ref({ page: 1, pageSize: 20, total: 0 });
+                const userSearchQuery = ref('');
+                const showLimitModal = ref(false);
+                const activeUser = ref(null);
+                const newLimit = ref('');
+                const savingLimit = ref(false);
+
                 const toast = ref({ show: false, message: '', icon: '' });
                 const isCheckingAccess = ref(true);
 
@@ -488,6 +624,7 @@
                 });
 
                 const totalPages = computed(() => Math.ceil(pagination.value.total / pagination.value.pageSize));
+                const totalUserPages = computed(() => Math.ceil(userPagination.value.total / userPagination.value.pageSize));
                 const isAllSelected = computed(() => plants.value.length > 0 && selectedIds.value.length === plants.value.length);
 
                 const fetchPlants = async () => {
@@ -502,10 +639,34 @@
                     }
                 };
 
+                const fetchUsers = async () => {
+                    try {
+                        const res = await apiClient.adminGetUsers(userPagination.value.page, userPagination.value.pageSize, userSearchQuery.value);
+                        if (res.success) {
+                            users.value = res.data;
+                            userPagination.value.total = res.pagination.total;
+                        }
+                    } catch (err) {
+                        showToast(err.message, 'fas fa-exclamation-circle');
+                    }
+                };
+
+                // 监听页签切换自动加载数据
+                watch(currentTab, (newVal) => {
+                    if (newVal === 'plants') fetchPlants();
+                    if (newVal === 'users') fetchUsers();
+                });
+
                 const changePage = (p) => {
                     if (p < 1 || p > totalPages.value) return;
                     pagination.value.page = p;
                     fetchPlants();
+                };
+
+                const changeUserPage = (p) => {
+                    if (p < 1 || p > totalUserPages.value) return;
+                    userPagination.value.page = p;
+                    fetchUsers();
                 };
 
                 const toggleAll = () => {
@@ -523,6 +684,59 @@
                         case '较高': return 'bg-amber-50 text-amber-600';
                         case '极高': return 'bg-red-50 text-red-600';
                         default: return 'bg-slate-100 text-slate-500';
+                    }
+                };
+
+                const openLimitModal = (user) => {
+                    activeUser.value = user;
+                    newLimit.value = user.max_pots || '';
+                    showLimitModal.value = true;
+                };
+
+                const saveLimit = async () => {
+                    savingLimit.value = true;
+                    try {
+                        const res = await apiClient.adminUpdateUser(activeUser.value.id, { maxPots: newLimit.value });
+                        if (res.success) {
+                            showToast('限额更新成功', 'fas fa-check-circle');
+                            showLimitModal.value = false;
+                            fetchUsers();
+                        }
+                    } catch (err) {
+                        showToast(err.message, 'fas fa-exclamation-circle');
+                    } finally {
+                        savingLimit.value = false;
+                    }
+                };
+
+                const toggleUserStatus = async (user) => {
+                    const action = user.is_disabled ? '启用' : '禁用';
+                    if (!confirm(`确定要${action}用户 "${user.email || user.id}" 吗？`)) return;
+
+                    try {
+                        const res = await apiClient.adminUpdateUser(user.id, { isDisabled: !user.is_disabled });
+                        if (res.success) {
+                            showToast(`用户已${action}`, 'fas fa-check-circle');
+                            fetchUsers();
+                        }
+                    } catch (err) {
+                        showToast(err.message, 'fas fa-exclamation-circle');
+                    }
+                };
+
+                const confirmDeleteUser = async (user) => {
+                    const confirmMsg = `❗ 危险警告 ❗\n\n您确定要彻底删除用户 "${user.email || user.id}" 吗？\n\n该操作将：\n1. 永久删除该账号\n2. 物理删除所有关联花盆及成长记录\n3. 彻底清除 R2 存储中的所有相关图片文件\n\n此操作不可撤销，确定继续吗？`;
+                    if (!confirm(confirmMsg)) return;
+
+                    showToast('正在深度清理用户数据...', 'fas fa-spinner fa-spin');
+                    try {
+                        const res = await apiClient.adminDeleteUser(user.id);
+                        if (res.success) {
+                            showToast('用户及关联数据已彻底清除', 'fas fa-trash-alt');
+                            fetchUsers();
+                        }
+                    } catch (err) {
+                        showToast(err.message, 'fas fa-exclamation-circle');
                     }
                 };
 
@@ -631,7 +845,7 @@
 
                 const downloadTemplate = () => {
                     const template = [{
-                        id: "PlantId",
+                        id: "PinYin",
                         basicInfo: {
                             name: "名称", standard_name: "标准名", latinName: "拉丁名",
                             synonyms: ["别名1", "别名2"], family: "科属", origin: "产地"
@@ -643,7 +857,7 @@
                         },
                         careGuide: {
                             careDifficulty: "容易/中等/较高", lightRequirement: "光照",
-                            waterRequirement: "水分", temperature: "温度", humidity: "湿度",
+                            waterRequirement: "水分", temperature: "15–30℃", humidity: "湿度",
                             soilRequirement: "土壤", droughtTolerance: "耐旱", shadeTolerance: "耐阴",
                             coldTolerance: "耐寒", watering: "浇水建议", fertilizing: "施肥建议",
                             pruning: "修剪", propagation: "繁殖", pests: "病虫",
@@ -713,12 +927,13 @@
                 onMounted(checkAccess);
 
                 return {
-                    plants, pagination, searchQuery, selectedIds, totalPages, isAllSelected,
+                    currentTab, plants, pagination, searchQuery, selectedIds, totalPages, isAllSelected,
                     showModal, isEditing, activeTab, tabs, formData, saving, synonymsInput,
                     showImportModal, importJson, importing, toast, fileInput, isCheckingAccess,
-                    fetchPlants, changePage, toggleAll, difficultyClass, openCreateModal,
+                    users, userPagination, userSearchQuery, showLimitModal, activeUser, newLimit, savingLimit, totalUserPages,
+                    fetchPlants, fetchUsers, changePage, changeUserPage, toggleAll, difficultyClass, openCreateModal,
                     openEditModal, savePlant, deleteSingle, batchDelete, downloadTemplate,
-                    doImport, triggerUpload, handleUpload
+                    doImport, triggerUpload, handleUpload, openLimitModal, saveLimit, toggleUserStatus, confirmDeleteUser
                 };
             }
         }).mount('#app');
