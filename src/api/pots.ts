@@ -67,7 +67,7 @@ async function handleGetPots(
   // 安全加固：强制使用 Token 中的 userId，忽略 URL 中的查询参数，防止越权查看他人列表
   const userId = token;
   if (!userId) {
-    return errorResponse('userId (token) required', 400);
+    return errorResponse('Authentication required', 401);
   }
 
   const { results } = await env.DB
@@ -268,7 +268,7 @@ async function handleUpdatePot(
     // 验证用户权限
     const userId = url.searchParams.get('userId') || token;
     if (!userId) {
-      return errorResponse('userId required', 400);
+      return errorResponse('Authentication required', 401);
     }
 
     // 检查花盆是否存在且属于当前用户
@@ -351,7 +351,7 @@ async function handleDeletePot(
     // 验证用户权限
     const userId = url.searchParams.get('userId') || token;
     if (!userId) {
-      return errorResponse('userId required', 400);
+      return errorResponse('Authentication required', 401);
     }
 
     // 检查花盆是否存在且属于当前用户
@@ -533,7 +533,7 @@ async function handleReorderPots(
 
     const userId = url.searchParams.get('userId') || token;
     if (!userId) {
-      return errorResponse('userId required', 400);
+      return errorResponse('Authentication required', 401);
     }
 
     const stmts = potIds.map((id, index) => {

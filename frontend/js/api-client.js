@@ -47,6 +47,79 @@ class APIClient {
         localStorage.removeItem('flowerpots_user_id');
     }
 
+    // 刷新 JWT 令牌（使用 userId 换取新令牌）
+    // 使用锁机制防止并发刷新
+    _refreshPromise = null;
+
+    async refreshToken() {
+        // 如果已有刷新操作在进行，等待它完成
+        if (this._refreshPromise) {
+            console.log('Token refresh already in progress, waiting...');
+            return this._refreshPromise;
+        }
+
+        if (!this.userId) {
+            console.warn('No userId available for token refresh');
+            return false;
+        }
+
+        // 创建刷新 Promise 并存储
+        this._refreshPromise = this._doRefreshToken();
+
+        try {
+            return await this._refreshPromise;
+        } finally {
+            this._refreshPromise = null;
+        }
+    }
+
+    async _doRefreshToken() {
+        try {
+            const response = await fetch(`${this.config.baseUrl}/api/auth/refresh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: this.userId })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.token) {
+                    this.setToken(data.token, data.userId);
+                    console.log('Token refreshed successfully');
+                    return true;
+                }
+            }
+        } catch (error) {
+            console.error('Token refresh failed:', error);
+        }
+        return false;
+    }
+
+
+    // 检查令牌是否即将过期（默认 5 分钟内过期视为即将过期）
+    isTokenExpiringSoon(thresholdMinutes = 5) {
+        if (!this.token) return true;
+
+        try {
+            // 解析 JWT payload（第二部分）
+            const parts = this.token.split('.');
+            if (parts.length !== 3) return true;
+
+            const payload = JSON.parse(atob(parts[1]));
+            if (!payload.exp) return false; // 无过期时间则不处理
+
+            const expiresAt = payload.exp * 1000; // 转换为毫秒
+            const now = Date.now();
+            const threshold = thresholdMinutes * 60 * 1000;
+
+            return (expiresAt - now) < threshold;
+        } catch (error) {
+            console.error('Error parsing token:', error);
+            return true; // 解析失败视为过期
+        }
+    }
+
+
     // 通用请求方法
     async request(endpoint, options = {}) {
         const url = `${this.config.baseUrl}${endpoint}`;
@@ -77,6 +150,27 @@ class APIClient {
                 } catch {
                     errorData = { error: errorText || `HTTP ${response.status}` };
                 }
+
+                // 处理 401 未授权：JWT 令牌过期或无效
+                if (response.status === 401) {
+                    console.warn('Token expired or invalid, attempting refresh...');
+
+                    // 先尝试刷新令牌
+                    const refreshed = await this.refreshToken();
+                    if (refreshed) {
+                        console.log('Token refreshed, retrying request...');
+                        // 刷新成功，重试原始请求
+                        return this.request(endpoint, options);
+                    }
+
+                    // 刷新失败，清除认证并通知页面
+                    console.warn('Token refresh failed, clearing auth...');
+                    this.clearAuth();
+                    window.dispatchEvent(new CustomEvent('auth:expired', {
+                        detail: { message: errorData.error || '登录已过期，请重新登录' }
+                    }));
+                }
+
                 throw new APIError(response.status, errorData.error || '请求失败');
             }
 

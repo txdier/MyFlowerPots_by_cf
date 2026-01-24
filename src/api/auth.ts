@@ -92,6 +92,11 @@ export async function handleAuthRequest(
     return handleSendVerificationEmail(request, env, userId);
   }
 
+  // 1️⃣4️⃣ 刷新 JWT 令牌
+  if (request.method === 'POST' && path === '/api/auth/refresh') {
+    return handleRefreshToken(request, env);
+  }
+
   return errorResponse('Not Found', 404);
 }
 
@@ -867,5 +872,54 @@ async function handleSendVerificationEmail(request: Request, env: any, userId: s
   } catch (error) {
     console.error('Send verification email error:', error);
     return errorResponse('Failed to send verification email', 500);
+  }
+}
+
+/**
+ * 处理刷新 JWT 令牌请求
+ * 允许用户使用 userId 换取新的 JWT 令牌
+ */
+async function handleRefreshToken(request: Request, env: any): Promise<Response> {
+  try {
+    const body = await request.json();
+    const { userId } = body;
+
+    if (!userId) {
+      return errorResponse('userId is required', 400);
+    }
+
+    // 验证用户存在
+    const user = await env.DB
+      .prepare('SELECT id, user_type, email, is_disabled FROM users WHERE id = ?')
+      .bind(userId)
+      .first();
+
+    if (!user) {
+      return errorResponse('Invalid user', 401);
+    }
+
+    // 检查用户是否被禁用
+    if (user.is_disabled === 1) {
+      return errorResponse('Account disabled', 403);
+    }
+
+    // 生成新的 JWT 令牌
+    const secret = env.JWT_SECRET || 'default-secret';
+    const jwtToken = await generateJWT({
+      userId: user.id,
+      email: user.email || null,
+      type: user.user_type
+    }, secret);
+
+    return jsonResponse({
+      success: true,
+      token: jwtToken,
+      userId: user.id,
+      userType: user.user_type
+    });
+
+  } catch (error) {
+    console.error('Refresh token error:', error);
+    return errorResponse('Failed to refresh token', 500);
   }
 }

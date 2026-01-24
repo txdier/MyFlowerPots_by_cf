@@ -58,7 +58,7 @@
                     </div> -->
 
                     <!-- 用户信息 -->
-                    <div class="relative">
+                    <div class="relative user-menu-container">
                         <button @click="showUserMenu = !showUserMenu"
                             class="flex items-center gap-2 bg-white border border-gray-100 p-1 pr-3 rounded-full shadow-sm hover:shadow-md transition active:scale-95">
                             <img :src="user?.avatarUrl || 'assets/images/icons/profile.png'"
@@ -66,6 +66,8 @@
                             <span class="text-[10px] font-black text-gray-700 max-w-[80px] truncate">{{ userDisplayName
                                 }}</span>
                         </button>
+                        <!-- 透明遮罩层，点击关闭下拉菜单 -->
+                        <div v-if="showUserMenu" class="fixed inset-0 z-40" @click="showUserMenu = false"></div>
                         <!-- 用户下拉菜单 -->
                         <div v-if="showUserMenu"
                             class="absolute right-0 mt-3 w-40 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-fade-in">
@@ -80,9 +82,19 @@
                                 class="w-full text-left px-4 py-4 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-b border-gray-50 transition">
                                 <i class="fas fa-hammer text-orange-500"></i> 管理后台
                             </button>
+                            <!-- 匿名用户：显示注册入口 -->
+                            <button v-if="isLoggedIn && user?.userType === 'anonymous'"
+                                @click="showRegisterModal = true; showUserMenu = false"
+                                class="w-full text-left px-4 py-3 text-sm hover:bg-green-50 flex flex-col border-b border-gray-50 transition">
+                                <span class="text-green-600 font-medium flex items-center gap-2">
+                                    <i class="fas fa-user-plus"></i> 注册账号
+                                </span>
+                                <span class="text-[10px] text-gray-400 mt-0.5 ml-6">可合并保留当前数据</span>
+                            </button>
                             <button v-if="isLoggedIn" @click="logout"
                                 class="w-full text-left px-4 py-4 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2 transition active:bg-red-100">
-                                <i class="fas fa-sign-out-alt"></i> 退出登录
+                                <i class="fas fa-sign-out-alt"></i>
+                                {{ user?.userType === 'anonymous' ? '退出 (数据将丢失)' : '退出登录' }}
                             </button>
                             <div v-else class="space-y-0.5 px-1 pb-1">
                                 <button @click="showLoginModal = true; showUserMenu = false"
@@ -362,9 +374,14 @@
                 const user = ref(null);
                 const isLoggedIn = ref(false);
                 const userDisplayName = computed(() => {
-                    if (!isLoggedIn.value) return '匿名用户';
+                    // 匿名用户
                     if (user.value?.userType === 'anonymous') return '匿名用户';
-                    return user.value?.displayName || '未命名用户';
+                    // 正式用户已登录
+                    if (isLoggedIn.value && user.value) {
+                        return user.value.displayName || user.value.email?.split('@')[0] || '用户';
+                    }
+                    // 未登录
+                    return '未登录';
                 });
                 const weatherData = ref(null);
                 const careAdvice = ref([]);
@@ -404,6 +421,15 @@
                 const selectedCount = computed(() => pots.value.filter(p => p.selected).length);
 
                 const init = async () => {
+                    // 全局点击事件：点击页面其他区域时关闭下拉菜单
+                    document.addEventListener('click', (e) => {
+                        // 如果点击的不是用户菜单区域，则关闭菜单
+                        const userMenuArea = document.querySelector('.user-menu-container');
+                        if (userMenuArea && !userMenuArea.contains(e.target)) {
+                            showUserMenu.value = false;
+                        }
+                    });
+
                     checkLoginStatus();
                     await fetchPots();
                     loadWeather();
@@ -597,6 +623,9 @@
                         isAuthLoading.value = true;
                         const res = await apiClient.seedDemoData();
                         if (res.success) {
+                            // 更新用户状态为匿名用户
+                            user.value = { userType: 'anonymous' };
+                            isLoggedIn.value = true;
                             await fetchPots();
                             if (navigator.vibrate) navigator.vibrate(50);
                         }
