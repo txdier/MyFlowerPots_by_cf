@@ -55,6 +55,11 @@ export async function handlePotsRequest(
     return handleGetTimelines(path, env, token);
   }
 
+  // 8️⃣ 花盆统计 (新增)
+  if (request.method === 'GET' && path.match(/^\/api\/pots\/[^/]+\/stats$/)) {
+    return handleGetPotStats(path, env, token);
+  }
+
   return errorResponse('Not Found', 404);
 }
 
@@ -550,5 +555,67 @@ async function handleReorderPots(
   } catch (error) {
     console.error('Reorder pots error:', error);
     return errorResponse('Failed to reorder pots', 500);
+  }
+}
+
+// 花盆养护统计
+async function handleGetPotStats(path: string, env: any, token: string | null): Promise<Response> {
+  const potId = path.split('/')[3];
+
+  // 安全加固：校验该花盆是否属于该用户
+  const pot = await env.DB
+    .prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?')
+    .bind(potId, token)
+    .first();
+
+  if (!pot) {
+    return errorResponse('Pot not found or access denied', 404);
+  }
+
+  try {
+    // 1. 获取近30天养护记录统计 (按类型分组)
+    const recentStats = await env.DB.prepare(`
+      SELECT 
+        type, 
+        COUNT(*) as count,
+        MAX(care_date) as last_date
+      FROM care_records 
+      WHERE pot_id = ? 
+        AND care_date >= date('now', '-30 days')
+      GROUP BY type
+    `).bind(potId).all();
+
+    // 2. 获取总体统计
+    const totalStats = await env.DB.prepare(`
+      SELECT 
+        COUNT(*) as total_records,
+        MIN(care_date) as first_care,
+        MAX(care_date) as last_care,
+        COUNT(DISTINCT care_date) as care_days
+      FROM care_records WHERE pot_id = ?
+    `).bind(potId).first();
+
+    // 3. 按类型获取总计数
+    const typeStats = await env.DB.prepare(`
+      SELECT 
+        type,
+        COUNT(*) as total_count
+      FROM care_records 
+      WHERE pot_id = ?
+      GROUP BY type
+    `).bind(potId).all();
+
+    return jsonResponse({
+      success: true,
+      data: {
+        recent: recentStats.results || [],
+        total: totalStats || { total_records: 0, care_days: 0 },
+        byType: typeStats.results || []
+      }
+    });
+
+  } catch (error) {
+    console.error('Get pot stats error:', error);
+    return errorResponse('Failed to get pot stats', 500);
   }
 }

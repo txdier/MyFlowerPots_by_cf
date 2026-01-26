@@ -3,6 +3,7 @@ import { corsResponse, errorResponse } from './utils/response-utils';
 import { handleAuthRequest } from './api/auth';
 import { handlePotsRequest } from './api/pots';
 import { handleCareRecordsRequest } from './api/care-records';
+import { handleCareSchedulesRequest } from './api/care-schedules';
 import { handleTimelinesRequest } from './api/timelines';
 import { handleUploadRequest } from './api/upload';
 import { handlePlantsRequest } from './api/plants';
@@ -68,6 +69,11 @@ export default {
       // 养护记录API
       if (path.startsWith('/api/care-records')) {
         return handleCareRecordsRequest(request, env, path, userId);
+      }
+
+      // 养护计划API (新增)
+      if (path.startsWith('/api/care-schedules')) {
+        return handleCareSchedulesRequest(request, env, path, userId);
       }
 
       // 时间线API

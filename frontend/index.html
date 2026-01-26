@@ -126,6 +126,45 @@
             </div>
         </div>
 
+        <!-- 今日待养护 (可折叠) -->
+        <div v-if="careReminders.length > 0" class="container mx-auto px-4 mt-4">
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <!-- 头部：点击可展开/折叠 -->
+                <div @click="showRemindersExpanded = !showRemindersExpanded"
+                    class="p-4 flex items-center justify-between cursor-pointer active:bg-gray-50 transition">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-500">
+                            <i class="fas fa-bell"></i>
+                        </div>
+                        <span class="text-sm font-bold text-gray-800">今日待养护</span>
+                        <span class="text-xs font-bold text-orange-500 bg-orange-50 px-2 py-1 rounded-full">{{
+                            careReminders.length }}</span>
+                    </div>
+                    <i class="fas text-gray-400 text-sm transition-transform duration-200"
+                        :class="showRemindersExpanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                </div>
+                <!-- 展开内容 -->
+                <div v-show="showRemindersExpanded"
+                    class="divide-y divide-gray-50 max-h-48 overflow-y-auto border-t border-gray-50">
+                    <div v-for="reminder in careReminders" :key="reminder.scheduleId"
+                        @click.stop="goToPotDetail(reminder.potId)"
+                        class="flex items-center gap-3 p-3 cursor-pointer active:bg-gray-50 transition">
+                        <img :src="reminder.potImage || 'assets/images/icons/icons-default-pot.png'"
+                            class="w-10 h-10 rounded-xl object-cover shrink-0"
+                            @error="e => e.target.src = 'assets/images/icons/icons-default-pot.png'">
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-bold text-gray-800 truncate">{{ reminder.potName }}</div>
+                            <div class="text-[10px] text-gray-400">
+                                {{ reminder.careType === 'water' ? '💧 浇水' : '🌿 施肥' }}
+                                <span class="text-orange-500 ml-1">已过 {{ reminder.daysSinceCare }} 天</span>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 主列表区域 -->
         <main class="container mx-auto px-4 mt-6">
             <div v-if="isLoading" class="flex flex-col items-center justify-center py-20">
@@ -385,6 +424,8 @@
                 });
                 const weatherData = ref(null);
                 const careAdvice = ref([]);
+                const careReminders = ref([]); // 今日待养护
+                const showRemindersExpanded = ref(false); // 默认折叠
                 const currentAdviceIndex = ref(0);
                 const isEditMode = ref(false); // 统一管理模式
                 const potsGrid = ref(null);    // 列表容器Ref
@@ -454,7 +495,24 @@
                         if (res.success) {
                             pots.value = res.data.map(p => ({ ...p, selected: false, swipeX: 0, startX: 0 }));
                         }
+                        // 同时加载今日待养护
+                        loadCareReminders();
                     } catch (e) { } finally { isLoading.value = false; }
+                };
+
+                const loadCareReminders = async () => {
+                    try {
+                        const res = await apiClient.getCareReminders();
+                        if (res.success) {
+                            careReminders.value = res.data || [];
+                        }
+                    } catch (e) {
+                        console.warn('加载养护提醒失败:', e);
+                    }
+                };
+
+                const goToPotDetail = (potId) => {
+                    window.location.href = `pot-detail.html?id=${potId}`;
                 };
 
                 const handleLogin = async () => {
@@ -653,13 +711,13 @@
                 onMounted(init);
 
                 return {
-                    isLoading, pots, user, isLoggedIn, userDisplayName, weatherData, careAdvice, currentAdviceIndex,
+                    isLoading, pots, user, isLoggedIn, userDisplayName, weatherData, careAdvice, careReminders, showRemindersExpanded, currentAdviceIndex,
                     isEditMode, potsGrid, showUserMenu, showLoginModal, showRegisterModal, showForgotPasswordModal, isAuthLoading,
                     loginForm, registerForm, passwordsMatch, isRegisterValid, isForgotPasswordEmailValid, allSelected, selectedCount,
                     handleLogin, handleRegister, handleForgotPassword, toggleSelectAll, toggleEditMode, deleteSelectedPots,
                     handleTouchStart, handleTouchMove, handleTouchEnd, handleCardClick, confirmDeleteSingle,
                     logout, closeAuthModals, switchToRegister, switchToLogin, switchToForgotPassword,
-                    formatDate, handleImageError, seedDemoData,
+                    formatDate, handleImageError, seedDemoData, goToPotDetail,
                     goEditPot: (id) => window.location.href = `edit-pot.html?id=${id}`,
                     goAddPot: () => window.location.href = 'add-pot.html',
                     goProfile: () => window.location.href = 'profile.html',

@@ -205,6 +205,175 @@
                 </div>
                 <!-- 移除过早关闭的容器 div -->
 
+                <!-- 3.5 养护周期设置 (Care Schedules) - 增强版 -->
+                <div class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
+                    <!-- 头部：点击折叠 -->
+                    <div @click="showScheduleExpanded = !showScheduleExpanded"
+                        class="p-6 flex justify-between items-center border-b border-gray-50 cursor-pointer active:bg-gray-50 transition">
+                        <h3 class="text-lg font-black text-gray-800 flex items-center gap-2">
+                            <i class="fas fa-clock text-purple-400"></i> 养护提醒
+                            <i class="fas text-[10px] ml-1 text-gray-300 transition-transform duration-300"
+                                :class="showScheduleExpanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                        </h3>
+                        <!-- 仅展开时显示添加按钮，折叠时显示摘要 -->
+                        <div v-if="showScheduleExpanded">
+                            <button @click.stop="showAddScheduleModal = true"
+                                class="text-xs font-bold text-purple-500 bg-purple-50 px-3 py-1.5 rounded-full active:scale-95 transition">
+                                <i class="fas fa-plus mr-1"></i> 添加
+                            </button>
+                        </div>
+                        <div v-else class="text-xs font-bold text-gray-400">
+                            {{ careSchedules.filter(s => s.enabled).length }} 项启用
+                        </div>
+                    </div>
+
+                    <!-- 内容区域：默认展开 -->
+                    <div v-show="showScheduleExpanded" class="p-6 space-y-4 animate-fade-in">
+                        <!-- 已设置的周期列表 -->
+                        <template v-for="schedule in careSchedules" :key="schedule.id">
+                            <div class="flex items-center justify-between gap-3 p-3 bg-gray-50/50 rounded-2xl">
+                                <!-- 左侧：类型图标和名称 -->
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-lg shrink-0"
+                                        :class="getScheduleTypeStyle(schedule.care_type).bg">
+                                        {{ getScheduleTypeStyle(schedule.care_type).icon }}
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="text-sm font-bold text-gray-800">
+                                            {{ schedule.custom_action || getScheduleTypeName(schedule.care_type) }}
+                                        </div>
+                                        <!-- 内联编辑周期 -->
+                                        <div class="flex items-center gap-1 mt-0.5" @click.stop>
+                                            <span class="text-[10px] text-gray-400">每</span>
+                                            <input type="number" v-model.lazy.number="schedule.intervalDays"
+                                                class="w-8 h-5 text-center text-[10px] font-bold bg-white border border-gray-200 rounded px-0 py-0 focus:ring-1 focus:ring-purple-200"
+                                                @change="updateScheduleInterval(schedule)">
+                                            <span class="text-[10px] text-gray-400">天提醒</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- 右侧：开关和删除 -->
+                                <div class="flex items-center gap-2">
+                                    <button @click="toggleScheduleEnabled(schedule)"
+                                        class="w-12 h-7 rounded-full transition-all duration-300 relative"
+                                        :class="schedule.enabled ? getScheduleTypeStyle(schedule.care_type).toggle : 'bg-gray-200'">
+                                        <span
+                                            class="absolute w-5 h-5 bg-white rounded-full top-1 transition-all duration-300 shadow-sm"
+                                            :class="schedule.enabled ? 'right-1' : 'left-1'"></span>
+                                    </button>
+                                    <button @click="deleteSchedule(schedule)"
+                                        class="w-8 h-8 rounded-xl text-gray-300 hover:text-red-400 hover:bg-red-50 transition">
+                                        <i class="fas fa-trash-alt text-xs"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- 空状态 -->
+                        <div v-if="careSchedules.length === 0" class="py-8 text-center">
+                            <div class="text-3xl mb-2">⏰</div>
+                            <p class="text-sm text-gray-400">暂未设置养护提醒</p>
+                            <p class="text-xs text-gray-300 mt-1">点击上方"添加"按钮设置</p>
+                        </div>
+
+                        <!-- 提示信息 -->
+                        <div v-if="careSchedules.length > 0" class="pt-2 text-center text-[10px] text-gray-400">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            启用后将在首页显示待养护提醒
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 添加养护周期弹窗 -->
+                <teleport to="body">
+                    <transition name="fade">
+                        <div v-if="showAddScheduleModal"
+                            class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center"
+                            @click.self="showAddScheduleModal = false">
+                            <div class="bg-white w-full max-w-lg rounded-t-3xl p-6 pb-10 animate-slide-up">
+                                <div class="flex justify-between items-center mb-6">
+                                    <h3 class="text-lg font-black text-gray-800">添加养护提醒</h3>
+                                    <button @click="showAddScheduleModal = false" class="text-gray-400">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+
+                                <!-- 步骤1：选择类型 -->
+                                <div class="mb-6">
+                                    <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">选择类型
+                                    </div>
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <button v-for="type in scheduleTypeOptions" :key="type.value"
+                                            @click="newSchedule.careType = type.value; newSchedule.customAction = ''"
+                                            class="p-3 rounded-2xl border-2 transition-all text-center" :class="newSchedule.careType === type.value 
+                                                ? 'border-purple-400 bg-purple-50' 
+                                                : 'border-gray-100 bg-gray-50'">
+                                            <div class="text-2xl mb-1">{{ type.icon }}</div>
+                                            <div class="text-xs font-bold"
+                                                :class="newSchedule.careType === type.value ? 'text-purple-600' : 'text-gray-600'">
+                                                {{ type.label }}
+                                            </div>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- 自定义名称输入 (仅custom类型显示) -->
+                                <div v-if="newSchedule.careType === 'custom'" class="mb-6">
+                                    <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">自定义名称
+                                    </div>
+                                    <input type="text" v-model="newSchedule.customAction" placeholder="例如：松土、喷水、换土..."
+                                        class="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm focus:border-purple-400 focus:ring-1 focus:ring-purple-100">
+                                </div>
+
+                                <!-- 步骤2：设置周期 -->
+                                <div class="mb-6">
+                                    <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">提醒周期
+                                    </div>
+
+                                    <!-- 快捷选择标签 -->
+                                    <div class="flex gap-2 mb-4">
+                                        <button v-for="preset in intervalPresets" :key="preset.days"
+                                            @click="newSchedule.intervalDays = preset.days"
+                                            class="flex-1 py-2 rounded-xl text-xs font-bold transition-all" :class="newSchedule.intervalDays === preset.days 
+                                                ? 'bg-purple-500 text-white' 
+                                                : 'bg-gray-100 text-gray-600'">
+                                            {{ preset.label }}
+                                        </button>
+                                    </div>
+
+                                    <!-- 精细调整 + 直接输入 -->
+                                    <div class="flex items-center justify-center gap-4 py-4 bg-gray-50 rounded-2xl">
+                                        <button
+                                            @click="newSchedule.intervalDays = Math.max(1, newSchedule.intervalDays - 1)"
+                                            class="w-12 h-12 rounded-2xl bg-white border border-gray-200 text-gray-600 text-lg font-bold active:scale-95 transition shadow-sm">
+                                            −
+                                        </button>
+                                        <div class="text-center w-20"> <!-- 固定宽度防止跳动 -->
+                                            <input type="number" v-model.number="newSchedule.intervalDays"
+                                                class="w-full bg-transparent text-center text-3xl font-black text-gray-800 border-none p-0 focus:ring-0 appearance-none"
+                                                min="1" max="365">
+                                            <div class="text-xs text-gray-400 mt-1">天</div>
+                                        </div>
+                                        <button @click="newSchedule.intervalDays = newSchedule.intervalDays + 1"
+                                            class="w-12 h-12 rounded-2xl bg-white border border-gray-200 text-gray-600 text-lg font-bold active:scale-95 transition shadow-sm">
+                                            +
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- 保存按钮 -->
+                                <button @click="saveNewSchedule" :disabled="!canSaveSchedule"
+                                    class="w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider transition-all"
+                                    :class="canSaveSchedule 
+                                        ? 'bg-purple-500 text-white active:scale-[0.98]' 
+                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'">
+                                    添加提醒
+                                </button>
+                            </div>
+                        </div>
+                    </transition>
+                </teleport>
+
                 <!-- 4. 养护记录 (Care Records) -->
                 <div class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
                     <div class="p-6 flex justify-between items-center border-b border-gray-50">
@@ -215,6 +384,35 @@
                             class="bg-orange-400 text-white px-4 py-1.5 rounded-full text-xs font-black shadow-lg shadow-orange-100 active:scale-95 transition">
                             新增养护
                         </button>
+                    </div>
+
+                    <!-- 统计摘要区域 -->
+                    <div v-if="potStats && careRecords.length > 0"
+                        class="px-6 py-4 bg-gray-50/50 border-b border-gray-50">
+                        <!-- 统计数字 -->
+                        <div class="grid grid-cols-3 gap-3 mb-3">
+                            <div class="bg-white rounded-2xl p-3 text-center shadow-sm border border-gray-50">
+                                <div class="text-xl font-black text-blue-500">💧 {{ statsWaterCount }}</div>
+                                <div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">浇水</div>
+                            </div>
+                            <div class="bg-white rounded-2xl p-3 text-center shadow-sm border border-gray-50">
+                                <div class="text-xl font-black text-green-500">🌿 {{ statsFertilizeCount }}</div>
+                                <div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">施肥</div>
+                            </div>
+                            <div class="bg-white rounded-2xl p-3 text-center shadow-sm border border-gray-50">
+                                <div class="text-xl font-black text-orange-500">📅 {{ statsCareDays }}</div>
+                                <div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">养护天</div>
+                            </div>
+                        </div>
+                        <!-- 平均间隔 -->
+                        <div class="text-center text-[11px] text-gray-400 font-medium">
+                            <span v-if="avgWateringInterval !== '-'">平均浇水间隔 <span class="text-blue-500 font-bold">{{
+                                    avgWateringInterval }}</span> 天</span>
+                            <span v-if="avgWateringInterval !== '-' && avgFertilizingInterval !== '-'"
+                                class="mx-2">·</span>
+                            <span v-if="avgFertilizingInterval !== '-'">平均施肥间隔 <span class="text-green-500 font-bold">{{
+                                    avgFertilizingInterval }}</span> 天</span>
+                        </div>
                     </div>
 
                     <div v-if="careRecords.length === 0" class="p-10 text-center">
@@ -584,6 +782,7 @@
                 const activeCareDate = ref(null);
                 const showFullPlantInfo = ref(false); // 控制百科基本信息展开
                 const showFullCareTips = ref(false);  // 控制养护提示展开
+                const potStats = ref(null); // 养护统计数据
 
                 // UI 状态
                 const showPlantModal = ref(false);
@@ -605,6 +804,61 @@
                     tempImages: [] // { file, preview }
                 });
 
+                // 养护周期状态 (新版：统一管理)
+                const careSchedules = ref([]); // 已设置的养护计划列表
+                const showScheduleExpanded = ref(false); // 默认折叠
+                const showAddScheduleModal = ref(false);
+                const newSchedule = reactive({
+                    careType: 'water',
+                    customAction: '',
+                    intervalDays: 7
+                });
+
+                // 养护类型选项
+                const scheduleTypeOptions = [
+                    { value: 'water', icon: '💧', label: '浇水' },
+                    { value: 'fertilize', icon: '🌿', label: '施肥' },
+                    { value: 'trim', icon: '✂️', label: '修剪' },
+                    { value: 'repot', icon: '🪴', label: '换盆' },
+                    { value: 'pest', icon: '🐛', label: '除虫' },
+                    { value: 'custom', icon: '⚙️', label: '自定义' }
+                ];
+
+                // 周期快捷选项
+                const intervalPresets = [
+                    { days: 3, label: '3天' },
+                    { days: 7, label: '每周' },
+                    { days: 14, label: '2周' },
+                    { days: 30, label: '每月' }
+                ];
+
+                // 计算属性：能否保存
+                const canSaveSchedule = computed(() => {
+                    if (!newSchedule.careType) return false;
+                    if (newSchedule.careType === 'custom' && !newSchedule.customAction.trim()) return false;
+                    if (newSchedule.intervalDays < 1 || newSchedule.intervalDays > 90) return false;
+                    return true;
+                });
+
+                // 获取类型样式
+                const getScheduleTypeStyle = (type) => {
+                    const styles = {
+                        water: { bg: 'bg-blue-50', icon: '💧', toggle: 'bg-blue-500' },
+                        fertilize: { bg: 'bg-green-50', icon: '🌿', toggle: 'bg-green-500' },
+                        trim: { bg: 'bg-orange-50', icon: '✂️', toggle: 'bg-orange-500' },
+                        repot: { bg: 'bg-amber-50', icon: '🪴', toggle: 'bg-amber-500' },
+                        pest: { bg: 'bg-red-50', icon: '🐛', toggle: 'bg-red-500' },
+                        custom: { bg: 'bg-purple-50', icon: '⚙️', toggle: 'bg-purple-500' }
+                    };
+                    return styles[type] || styles.custom;
+                };
+
+                // 获取类型名称
+                const getScheduleTypeName = (type) => {
+                    const names = { water: '浇水', fertilize: '施肥', trim: '修剪', repot: '换盆', pest: '除虫', custom: '自定义' };
+                    return names[type] || type;
+                };
+
                 // --- 初始化加载 ---
                 const init = async () => {
                     const urlParams = new URLSearchParams(window.location.search);
@@ -620,7 +874,9 @@
                         await Promise.all([
                             loadPotDetail(),
                             loadCareRecords(),
-                            loadTimelineRecords()
+                            loadTimelineRecords(),
+                            loadPotStats(),
+                            loadCareSchedules()
                         ]);
                         if (pot.value) await loadPlantInfo();
                     } catch (err) {
@@ -628,6 +884,99 @@
                         error.value = '数据同步失败，请检查网络';
                     } finally {
                         isLoading.value = false;
+                    }
+                };
+
+                // 加载养护周期设置
+                const loadCareSchedules = async () => {
+                    try {
+                        const res = await apiClient.getCareSchedules(potId.value);
+                        if (res.success && res.data) {
+                            careSchedules.value = res.data.map(s => ({
+                                ...s,
+                                intervalDays: s.interval_days, // 映射字段名
+                                enabled: s.enabled === 1
+                            }));
+                        }
+                    } catch (e) {
+                        console.warn('加载养护周期失败:', e);
+                    }
+                };
+
+                // 保存新提醒
+                const saveNewSchedule = async () => {
+                    if (!canSaveSchedule.value) return;
+
+                    try {
+                        const res = await apiClient.createCareSchedule({
+                            potId: potId.value,
+                            careType: newSchedule.careType,
+                            customAction: newSchedule.careType === 'custom' ? newSchedule.customAction : null,
+                            intervalDays: newSchedule.intervalDays,
+                            enabled: true
+                        });
+
+                        if (res.success) {
+                            showAddScheduleModal.value = false;
+                            // 重置表单
+                            newSchedule.careType = 'water';
+                            newSchedule.customAction = '';
+                            newSchedule.intervalDays = 7;
+                            // 重新加载列表
+                            await loadCareSchedules();
+                        }
+                    } catch (e) {
+                        console.error('创建失败:', e);
+                        if (e.message && e.message.includes('already exists')) {
+                            alert('该类型的提醒已存在，请直接修改现有提醒。');
+                        } else {
+                            alert('创建失败，请重试');
+                        }
+                    }
+                };
+
+                // 切换启用状态
+                const toggleScheduleEnabled = async (schedule) => {
+                    const originalState = schedule.enabled;
+                    schedule.enabled = !originalState; // 乐观更新
+
+                    try {
+                        await apiClient.updateCareSchedule(schedule.id, {
+                            enabled: schedule.enabled
+                        });
+                    } catch (e) {
+                        console.error('切换状态失败:', e);
+                        schedule.enabled = originalState; // 回滚
+                    }
+                };
+
+                // 删除提醒
+                const deleteSchedule = async (schedule) => {
+                    if (!confirm('确定要删除这个提醒吗？')) return;
+
+                    try {
+                        const res = await apiClient.deleteCareSchedule(schedule.id);
+                        if (res.success) {
+                            careSchedules.value = careSchedules.value.filter(s => s.id !== schedule.id);
+                        }
+                    } catch (e) {
+                        console.error('删除失败:', e);
+                        alert('删除失败，请重试');
+                    }
+                };
+
+                // 更新提醒间隔
+                const updateScheduleInterval = async (schedule) => {
+                    if (schedule.intervalDays < 1) schedule.intervalDays = 1;
+                    if (schedule.intervalDays > 365) schedule.intervalDays = 365;
+
+                    try {
+                        await apiClient.updateCareSchedule(schedule.id, {
+                            intervalDays: schedule.intervalDays
+                        });
+                    } catch (e) {
+                        console.error('更新间隔失败:', e);
+                        alert('更新失败，请检查网络');
                     }
                 };
 
@@ -645,6 +994,40 @@
                     const res = await apiClient.getTimelines(potId.value);
                     if (res.success) timelineRecords.value = res.data || [];
                 };
+
+                const loadPotStats = async () => {
+                    try {
+                        const res = await apiClient.getPotStats(potId.value);
+                        if (res.success) potStats.value = res.data;
+                    } catch (e) {
+                        console.warn('加载统计数据失败:', e);
+                    }
+                };
+
+                // 统计计算属性
+                const statsWaterCount = computed(() => {
+                    const item = potStats.value?.byType?.find(t => t.type === 'water' || t.type === '浇水');
+                    return item?.total_count || 0;
+                });
+
+                const statsFertilizeCount = computed(() => {
+                    const item = potStats.value?.byType?.find(t => t.type === 'fertilize' || t.type === '施肥');
+                    return item?.total_count || 0;
+                });
+
+                const statsCareDays = computed(() => potStats.value?.total?.care_days || 0);
+
+                const avgWateringInterval = computed(() => {
+                    const recent = potStats.value?.recent?.find(t => t.type === 'water' || t.type === '浇水');
+                    if (recent && recent.count > 0) return (30 / recent.count).toFixed(1);
+                    return '-';
+                });
+
+                const avgFertilizingInterval = computed(() => {
+                    const recent = potStats.value?.recent?.find(t => t.type === 'fertilize' || t.type === '施肥');
+                    if (recent && recent.count > 0) return (30 / recent.count).toFixed(1);
+                    return '-';
+                });
 
                 const loadPlantInfo = async () => {
                     if (!pot.value?.name) return;
@@ -1052,7 +1435,15 @@
                     getCareIcon, getCareLabel, getOrnamentalLabel, careTipsGrid,
                     handleImageError, groupedCareRecords,
                     activeCareDate, showCareDetails, closeCareDetails, currentSheetGroup,
-                    showFullPlantInfo, showFullCareTips, plantInfoGroups, careTipsGroups
+                    showFullPlantInfo, showFullCareTips, plantInfoGroups, careTipsGroups,
+                    // 养护统计
+                    potStats, statsWaterCount, statsFertilizeCount, statsCareDays,
+                    avgWateringInterval, avgFertilizingInterval,
+                    // 养护周期 (新版)
+                    careSchedules, showScheduleExpanded, showAddScheduleModal, newSchedule,
+                    scheduleTypeOptions, intervalPresets, canSaveSchedule,
+                    loadCareSchedules, saveNewSchedule, toggleScheduleEnabled, deleteSchedule, updateScheduleInterval,
+                    getScheduleTypeStyle, getScheduleTypeName
                 };
             }
         }).mount('#app');

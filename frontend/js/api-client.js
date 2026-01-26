@@ -335,9 +335,46 @@ class APIClient {
         });
     }
 
+    // 养护计划API
+    async getCareSchedules(potId = null) {
+        if (potId) {
+            return this.request(`/api/care-schedules/pot/${potId}`);
+        }
+        return this.request('/api/care-schedules');
+    }
+
+    async getCareReminders() {
+        return this.request('/api/care-schedules/reminders');
+    }
+
+    async createCareSchedule(scheduleData) {
+        return this.request('/api/care-schedules', {
+            method: 'POST',
+            body: scheduleData
+        });
+    }
+
+    async updateCareSchedule(scheduleId, data) {
+        return this.request(`/api/care-schedules/${scheduleId}`, {
+            method: 'PUT',
+            body: data
+        });
+    }
+
+    async deleteCareSchedule(scheduleId) {
+        return this.request(`/api/care-schedules/${scheduleId}`, {
+            method: 'DELETE'
+        });
+    }
+
     // 时间线API
     async getTimelines(potId) {
         return this.request(`/api/pots/${potId}/timelines`);
+    }
+
+    // 花盆养护统计API
+    async getPotStats(potId) {
+        return this.request(`/api/pots/${potId}/stats`);
     }
 
     async createTimeline(timelineData) {
