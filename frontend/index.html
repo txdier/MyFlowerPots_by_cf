@@ -145,21 +145,76 @@
                 </div>
                 <!-- 展开内容 -->
                 <div v-show="showRemindersExpanded"
-                    class="divide-y divide-gray-50 max-h-48 overflow-y-auto border-t border-gray-50">
-                    <div v-for="reminder in careReminders" :key="reminder.scheduleId"
-                        @click.stop="goToPotDetail(reminder.potId)"
-                        class="flex items-center gap-3 p-3 cursor-pointer active:bg-gray-50 transition">
-                        <img :src="reminder.potImage || 'assets/images/icons/icons-default-pot.png'"
-                            class="w-10 h-10 rounded-xl object-cover shrink-0"
-                            @error="e => e.target.src = 'assets/images/icons/icons-default-pot.png'">
-                        <div class="flex-1 min-w-0">
-                            <div class="text-sm font-bold text-gray-800 truncate">{{ reminder.potName }}</div>
-                            <div class="text-[10px] text-gray-400">
-                                {{ reminder.careType === 'water' ? '💧 浇水' : '🌿 施肥' }}
-                                <span class="text-orange-500 ml-1">已过 {{ reminder.daysSinceCare }} 天</span>
+                    class="divide-y divide-gray-50 max-h-60 overflow-y-auto border-t border-gray-50">
+                    <div v-for="group in groupedReminders" :key="group.potId" @click.stop="goToPotDetail(group.potId)"
+                        class="flex gap-3 p-3 cursor-pointer active:bg-gray-50 transition items-start">
+                        <!-- 左侧大图 (固定方形) -->
+                        <div class="relative w-16 h-16 shrink-0">
+                            <img :src="group.potImage || 'assets/images/icons/icons-default-pot.png'"
+                                class="w-full h-full object-cover rounded-xl"
+                                @error="e => e.target.src = 'assets/images/icons/icons-default-pot.png'">
+                            <div v-if="group.tasks.length > 1"
+                                class="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white">
+                                {{ group.tasks.length }}
                             </div>
                         </div>
-                        <i class="fas fa-chevron-right text-gray-300 text-xs"></i>
+
+                        <!-- 右侧任务列表 -->
+                        <div class="flex-1 min-w-0 py-0.5 flex flex-col justify-center">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <span class="text-sm font-bold text-gray-800 truncate">{{ group.potName }}</span>
+                                <i class="fas fa-chevron-right text-gray-200 text-xs"></i>
+                            </div>
+
+                            <div class="space-y-2">
+                                <div v-for="(task, idx) in group.tasks" :key="idx">
+                                    <div class="flex items-center text-xs">
+                                        <span class="w-16 font-bold flex items-center shrink-0" :class="{
+                                            'text-blue-500': task.careType === 'water',
+                                            'text-green-500': task.careType === 'fertilize',
+                                            'text-orange-500': task.careType === 'trim',
+                                            'text-purple-500': task.careType === 'repot',
+                                            'text-red-500': task.careType === 'pest'
+                                        }">
+                                            <i class="fas w-5 text-center mr-1" :class="{
+                                                'fa-tint': task.careType === 'water',
+                                                'fa-seedling': task.careType === 'fertilize',
+                                                'fa-cut': task.careType === 'trim',
+                                                'fa-exchange-alt': task.careType === 'repot',
+                                                'fa-bug': task.careType === 'pest'
+                                            }"></i>
+                                            {{ task.customAction || (task.careType === 'water' ? '浇水' : (task.careType
+                                            ===
+                                            'fertilize' ? '施肥' : '养护')) }}
+                                        </span>
+                                        <span class="text-gray-400 scale-90 origin-left ml-1">已过 <span class="font-bold"
+                                                :class="task.daysSinceCare > 7 ? 'text-red-400' : 'text-orange-400'">{{
+                                                task.daysSinceCare }}</span> 天</span>
+                                    </div>
+
+                                    <!-- 季节性贴士 (Homepage Version) -->
+                                    <div v-if="getTaskSeasonalTip(group.potId, task.careType)"
+                                        class="mt-1 flex items-start text-[10px] bg-opacity-10 rounded px-2 py-1 ml-6"
+                                        :class="{
+                                            'bg-blue-100 text-blue-600': ['Winter', 'Summer'].includes(getTaskSeasonalTip(group.potId, task.careType).season),
+                                            'bg-green-100 text-green-600': getTaskSeasonalTip(group.potId, task.careType).season === 'Spring',
+                                            'bg-orange-100 text-orange-600': getTaskSeasonalTip(group.potId, task.careType).season === 'Autumn'
+                                        }">
+                                        <span class="mr-1 shrink-0">
+                                            <i v-if="getTaskSeasonalTip(group.potId, task.careType).season === 'Spring'"
+                                                class="fas fa-seedling"></i>
+                                            <i v-else-if="getTaskSeasonalTip(group.potId, task.careType).season === 'Summer'"
+                                                class="fas fa-sun"></i>
+                                            <i v-else-if="getTaskSeasonalTip(group.potId, task.careType).season === 'Autumn'"
+                                                class="fab fa-canadian-maple-leaf"></i>
+                                            <i v-else class="far fa-snowflake"></i>
+                                        </span>
+                                        <span class="truncate">{{ getTaskSeasonalTip(group.potId, task.careType).text
+                                            }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -461,6 +516,24 @@
                 const allSelected = computed(() => pots.value.length > 0 && pots.value.every(p => p.selected));
                 const selectedCount = computed(() => pots.value.filter(p => p.selected).length);
 
+                // 分组计算属性
+                const groupedReminders = computed(() => {
+                    const groups = {};
+                    careReminders.value.forEach(r => {
+                        if (!groups[r.potId]) {
+                            groups[r.potId] = {
+                                potId: r.potId,
+                                potName: r.potName,
+                                potImage: r.potImage,
+                                tasks: []
+                            };
+                        }
+                        groups[r.potId].tasks.push(r);
+                    });
+                    // 将对象转为数组
+                    return Object.values(groups);
+                });
+
                 const init = async () => {
                     // 全局点击事件：点击页面其他区域时关闭下拉菜单
                     document.addEventListener('click', (e) => {
@@ -505,6 +578,8 @@
                         const res = await apiClient.getCareReminders();
                         if (res.success) {
                             careReminders.value = res.data || [];
+                            // 加载完提醒后，为这些花盆加载季节性建议
+                            setTimeout(loadSeasonalTips, 100);
                         }
                     } catch (e) {
                         console.warn('加载养护提醒失败:', e);
@@ -708,10 +783,119 @@
                 };
                 const handleImageError = (e) => e.target.src = 'assets/images/icons/icons-default-pot.png';
 
+                // 季节性提醒缓存
+                const seasonalTipsMap = reactive({});
+
+                const getCurrentSeason = () => {
+                    const month = new Date().getMonth() + 1;
+                    if (month >= 3 && month <= 5) return 'Spring';
+                    if (month >= 6 && month <= 8) return 'Summer';
+                    if (month >= 9 && month <= 11) return 'Autumn';
+                    return 'Winter';
+                };
+
+                // 获取并解析特定植物的季节性建议
+                const fetchSeasonalTipForPot = async (potId, pName, pNote) => {
+                    // 使用 potId 作为唯一键，更稳健
+                    if (seasonalTipsMap[potId] !== undefined) return;
+
+                    seasonalTipsMap[potId] = null; // 标记占位
+
+                    try {
+                        const res = await apiClient.smartMatchPlant(pName, pNote);
+                        const plant = res.plant;
+                        // 后端返回 snake_case (care_guide)，兼容驼峰
+                        let guide = plant ? (plant.care_guide || plant.careGuide) : null;
+
+                        // 健壮性：如果是 JSON 字符串，尝试解析
+                        if (typeof guide === 'string') {
+                            try { guide = JSON.parse(guide); } catch (e) { console.warn('Parse guide failed', e); }
+                        }
+
+                        if (res.success && guide) {
+                            seasonalTipsMap[potId] = {
+                                careGuide: guide,
+                                season: getCurrentSeason()
+                            };
+                        }
+                    } catch (e) {
+                        console.warn('Failed to fetch seasonal tip for', pName);
+                        // 失败时不缓存 null，允许重试? 或者缓存 null 防止反复请求?
+                        // 这里保持 null
+                    }
+                };
+
+                // 批量加载首页提醒的季节性建议
+                const loadSeasonalTips = async () => {
+                    // 依赖 pots.value 获取 note 信息
+                    if (!pots.value || pots.value.length === 0) {
+                        // 如果 pots 还没加载完，延迟重试
+                        if (careReminders.value.length > 0) {
+                            setTimeout(loadSeasonalTips, 500);
+                        }
+                        return;
+                    }
+
+                    const uniquePots = new Map();
+                    groupedReminders.value.forEach(group => {
+                        const fullPot = pots.value.find(p => p.id === group.potId);
+                        if (fullPot) {
+                            // 收集需要请求的花盆
+                            if (seasonalTipsMap[group.potId] === undefined) {
+                                uniquePots.set(group.potId, { name: fullPot.name, note: fullPot.note });
+                            }
+                        }
+                    });
+
+                    for (const [id, data] of uniquePots) {
+                        fetchSeasonalTipForPot(id, data.name, data.note);
+                    }
+                };
+
+                // 从缓存中获取特定任务的建议文本
+                const getTaskSeasonalTip = (potId, careType) => {
+                    const data = seasonalTipsMap[potId];
+                    if (!data || !data.careGuide) return null;
+
+                    return extractSeasonalText(data.careGuide, careType, data.season);
+                };
+
+                const extractSeasonalText = (careGuide, careType, season) => {
+                    const seasonKeywords = {
+                        Spring: ['春', '萌芽', '复苏', '生长'],
+                        Summer: ['夏', '高温', '炎热'],
+                        Autumn: ['秋', '凉', '落叶'],
+                        Winter: ['冬', '寒', '休眠', '防冻']
+                    };
+
+                    const keywords = seasonKeywords[season];
+                    const guideKey = {
+                        water: 'watering',
+                        fertilize: 'fertilizing',
+                        trim: 'pruning',
+                        repot: 'soilRequirement',
+                        pest: 'pests'
+                    }[careType];
+
+                    if (!guideKey) return null;
+                    let text = careGuide[guideKey] || '';
+                    if (!text) return null;
+
+                    const segments = text.split(/[,，;；。.\n]/).filter(s => s.trim().length > 2);
+                    for (const segment of segments) {
+                        for (const kw of keywords) {
+                            if (segment.includes(kw)) {
+                                return { season, text: segment.trim() };
+                            }
+                        }
+                    }
+                    return null;
+                };
+
                 onMounted(init);
 
                 return {
-                    isLoading, pots, user, isLoggedIn, userDisplayName, weatherData, careAdvice, careReminders, showRemindersExpanded, currentAdviceIndex,
+                    isLoading, pots, user, isLoggedIn, userDisplayName, weatherData, careAdvice, careReminders, groupedReminders, showRemindersExpanded, currentAdviceIndex,
                     isEditMode, potsGrid, showUserMenu, showLoginModal, showRegisterModal, showForgotPasswordModal, isAuthLoading,
                     loginForm, registerForm, passwordsMatch, isRegisterValid, isForgotPasswordEmailValid, allSelected, selectedCount,
                     handleLogin, handleRegister, handleForgotPassword, toggleSelectAll, toggleEditMode, deleteSelectedPots,
@@ -721,7 +905,11 @@
                     goEditPot: (id) => window.location.href = `edit-pot.html?id=${id}`,
                     goAddPot: () => window.location.href = 'add-pot.html',
                     goProfile: () => window.location.href = 'profile.html',
-                    goAdmin: () => window.location.href = 'admin-plants.html'
+                    goAdmin: () => window.location.href = 'admin-plants.html',
+                    // Seasonal
+                    seasonalTipsMap,
+                    getTaskSeasonalTip,
+                    loadSeasonalTips
                 };
             }
         }).mount('#app');
