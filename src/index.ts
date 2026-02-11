@@ -11,6 +11,7 @@ import { handleAdminRequest } from './api/admin';
 import { handleWeatherRequest } from './api/weather';
 import { handleCareAdviceRequest } from './api/care-advice';
 import { serveStatic, serveStaticDev } from './static/server';
+import { recordPageVisit } from './api/analytics';
 
 export default {
   async fetch(request: Request, env: any, ctx: any): Promise<Response> {
@@ -110,6 +111,15 @@ export default {
     // 生产环境：从R2获取静态资源
     const isDevelopment = url.hostname === '127.0.0.1' || url.hostname === 'localhost';
 
+    // 📊 统计页面访问 (异步执行，不阻塞响应)
+    if (request.method === 'GET' && !path.startsWith('/api/')) {
+      // 简单判断是否是页面请求（根据需求可以调整过滤逻辑）
+      const isPageRequest = path === '/' || path.endsWith('.html');
+      if (isPageRequest) {
+        ctx.waitUntil(recordPageVisit(env, path));
+      }
+    }
+
     console.log('请求处理:', {
       path,
       hostname: url.hostname,
@@ -124,18 +134,14 @@ export default {
       path = '/index.html';
     }
 
+    // 尝试作为静态资源服务
     if (env.STATIC_BUCKET && !isDevelopment) {
-      // 生产环境：从R2获取静态资源
-      // console.log('生产环境：使用R2静态资源服务，路径:', path);
       return serveStatic(request, env, path);
     } else if (isDevelopment) {
-      // 开发环境：返回简化版页面
-      console.log('开发环境：返回简化版页面，路径:', path);
       return serveStaticDev(request, path);
-    } else {
-      // 其他情况：返回404
-      console.log('无法处理请求，返回404，路径:', path);
-      return errorResponse('Not Found', 404);
     }
+
+    console.log('无法处理请求，返回404，路径:', path);
+    return errorResponse('Not Found', 404);
   }
 };

@@ -547,15 +547,21 @@ class APIClient {
                 name: '示例：虎皮兰',
                 note: '这是一款非常适合新手的植物，耐阴且净化空气。',
                 plantDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30天前
-                imageUrl: 'assets/images/icons/icons-default-pot.png',
-                plantType: '虎皮兰'
+                imageUrl: 'assets/images/demo/snake-plant.png',
+                plantType: '虎皮兰',
+                careSchedules: [
+                    { careType: 'water', intervalDays: 14 } // 每两周浇水一次
+                ]
             },
             {
                 name: '示例：薄荷',
                 note: '放在窗台边，叶子可以用来泡茶。保持土壤湿润。',
                 plantDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 15天前
-                imageUrl: 'assets/images/icons/icons-default-pot.png',
-                plantType: '薄荷'
+                imageUrl: 'assets/images/demo/mint.png',
+                plantType: '薄荷',
+                careSchedules: [
+                    { careType: 'water', intervalDays: 3 } // 每3天浇水一次
+                ]
             }
         ];
 
@@ -577,15 +583,49 @@ class APIClient {
 
             const potRes = await this.createPot(potPayload);
             if (potRes.success) {
-                // 3. 为每个花盆创建一条示例养护记录
+                // 3. 创建养护计划
+                if (potData.careSchedules) {
+                    for (const schedule of potData.careSchedules) {
+                        await this.createCareSchedule({
+                            potId: potId,
+                            careType: schedule.careType,
+                            intervalDays: schedule.intervalDays,
+                            enabled: 1
+                        });
+                    }
+                }
+
+                // 4. 创建初始养护记录
+                // 浇水记录
                 await this.createCareRecord({
                     potId: potId,
-                    type: '浇水',
+                    type: 'water',
                     action: '浇水',
                     description: '系统自动生成的初始记录',
                     careDate: potData.plantDate,
-                    imageUrl: ''
+                    imageUrl: '' // 养护记录暂不带图
                 });
+
+                // 为薄荷额添加施肥记录
+                if (potData.plantType === '薄荷') {
+                    await this.createCareRecord({
+                        potId: potId,
+                        type: 'fertilize',
+                        action: '施肥',
+                        description: '补充生长所需养分',
+                        careDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                        imageUrl: ''
+                    });
+                }
+
+                // 5. 创建时间线记录 (种植日)
+                await this.createTimeline({
+                    potId: potId,
+                    date: potData.plantDate,
+                    description: '把植物带回家的第一天，希望它健康成长！',
+                    images: JSON.stringify([potData.imageUrl])
+                });
+
                 results.push({ id: potId, ...potData });
             }
         }

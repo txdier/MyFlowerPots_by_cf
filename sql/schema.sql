@@ -97,6 +97,34 @@ CREATE TABLE IF NOT EXISTS plant_synonyms (
     PRIMARY KEY (plant_id, synonym)
 );
 
+-- 7. 养护提醒计划表
+CREATE TABLE IF NOT EXISTS care_schedules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pot_id TEXT NOT NULL,
+    care_type TEXT NOT NULL,          -- 'water' | 'fertilize' | 'custom'
+    interval_days INTEGER NOT NULL,   -- 周期天数
+    custom_action TEXT,               -- 自定义动作名称 (仅 care_type='custom' 时使用)
+    enabled INTEGER DEFAULT 1,        -- 是否启用 (SQLite 无 BOOLEAN)
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (pot_id) REFERENCES pots(id) ON DELETE CASCADE
+);
+
+-- 8. 页面访问统计表（累计）
+CREATE TABLE IF NOT EXISTS page_visits (
+    path TEXT PRIMARY KEY,
+    visit_count INTEGER DEFAULT 0,
+    last_updated DATETIME
+);
+
+-- 9. 页面访问统计表（按日期）
+CREATE TABLE IF NOT EXISTS page_visits_daily (
+    path TEXT NOT NULL,
+    visit_date TEXT NOT NULL,
+    visit_count INTEGER DEFAULT 0,
+    PRIMARY KEY (path, visit_date)
+);
+
 -- ============================================
 -- 索引优化
 -- ============================================
@@ -117,3 +145,9 @@ CREATE INDEX idx_timelines_pot ON timelines(pot_id);
 CREATE INDEX IF NOT EXISTS idx_plants_name ON plants(name);
 CREATE INDEX IF NOT EXISTS idx_plants_category ON plants(category);
 CREATE INDEX IF NOT EXISTS idx_synonyms_name ON plant_synonyms(synonym);
+
+CREATE INDEX IF NOT EXISTS idx_care_schedules_pot ON care_schedules(pot_id);
+CREATE INDEX IF NOT EXISTS idx_care_schedules_enabled ON care_schedules(enabled);
+
+-- 统计索引
+CREATE INDEX IF NOT EXISTS idx_page_visits_daily_date ON page_visits_daily(visit_date);

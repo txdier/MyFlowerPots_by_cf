@@ -1,6 +1,7 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
 import { getTokenFromHeader } from '../utils/auth-utils';
 import { extractObjectKeysFromUrls, deleteFilesFromR2 } from '../utils/storage-utils';
+import { getAnalytics, getDailyTrend } from './analytics';
 
 export async function isAdmin(request: Request, env: any, userId: string | null): Promise<boolean> {
     if (!userId) {
@@ -128,7 +129,47 @@ export async function handleAdminRequest(
         return handleDeleteUser(env, id);
     }
 
+    // GET /api/admin/analytics - 获取访问统计（含趋势和今日/昨日对比）
+    if (path === '/api/admin/analytics' && request.method === 'GET') {
+        return handleGetAnalytics(env, url);
+    }
+
     return errorResponse('Not Found', 404);
+}
+
+async function handleGetAnalytics(env: any, url: URL): Promise<Response> {
+    try {
+        const startDate = url.searchParams.get('startDate') || undefined;
+        const endDate = url.searchParams.get('endDate') || undefined;
+
+        // 获取页面统计数据
+        const data = await getAnalytics(env, startDate, endDate);
+
+        // 获取趋势数据（使用筛选日期或默认近30天）
+        const today = new Date().toISOString().split('T')[0];
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+        const trendStart = startDate || thirtyDaysAgo;
+        const trendEnd = endDate || today;
+        const trend = await getDailyTrend(env, trendStart, trendEnd);
+
+        // 获取今日 & 昨日访问量
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        const todayData = await getDailyTrend(env, today, today);
+        const yesterdayData = await getDailyTrend(env, yesterday, yesterday);
+        const todayVisits = todayData.reduce((s: number, r: any) => s + r.total_visits, 0);
+        const yesterdayVisits = yesterdayData.reduce((s: number, r: any) => s + r.total_visits, 0);
+
+        return jsonResponse({
+            success: true,
+            data,
+            trend,
+            today: todayVisits,
+            yesterday: yesterdayVisits
+        });
+    } catch (error) {
+        console.error('Get analytics error:', error);
+        return errorResponse('Failed to fetch analytics', 500);
+    }
 }
 
 async function handleGetPlants(request: Request, env: any, url: URL): Promise<Response> {

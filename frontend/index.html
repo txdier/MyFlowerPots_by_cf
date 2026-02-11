@@ -8,7 +8,7 @@
     <!-- v2.0.3 - Selection UI Optimization -->
 
     <!-- Vue 3 CDN -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 
     <!-- Tailwind CSS & Custom Styles (Optimized) -->
     <link rel="stylesheet" href="css/tailwind-built.css">
@@ -861,33 +861,43 @@
                 };
 
                 const extractSeasonalText = (careGuide, careType, season) => {
-                    const seasonKeywords = {
-                        Spring: ['春', '萌芽', '复苏', '生长'],
-                        Summer: ['夏', '高温', '炎热'],
-                        Autumn: ['秋', '凉', '落叶'],
-                        Winter: ['冬', '寒', '休眠', '防冻']
-                    };
+                    try {
+                        if (!careGuide || typeof careGuide !== 'object') return null;
 
-                    const keywords = seasonKeywords[season];
-                    const guideKey = {
-                        water: 'watering',
-                        fertilize: 'fertilizing',
-                        trim: 'pruning',
-                        repot: 'soilRequirement',
-                        pest: 'pests'
-                    }[careType];
+                        const seasonKeywords = {
+                            Spring: ['春', '萌芽', '复苏', '生长'],
+                            Summer: ['夏', '高温', '炎热'],
+                            Autumn: ['秋', '凉', '落叶'],
+                            Winter: ['冬', '寒', '休眠', '防冻']
+                        };
 
-                    if (!guideKey) return null;
-                    let text = careGuide[guideKey] || '';
-                    if (!text) return null;
+                        const keywords = seasonKeywords[season];
+                        const guideKey = {
+                            water: 'watering',
+                            fertilize: 'fertilizing',
+                            trim: 'pruning',
+                            repot: 'soilRequirement',
+                            pest: 'pests'
+                        }[careType];
 
-                    const segments = text.split(/[,，;；。.\n]/).filter(s => s.trim().length > 2);
-                    for (const segment of segments) {
-                        for (const kw of keywords) {
-                            if (segment.includes(kw)) {
-                                return { season, text: segment.trim() };
+                        if (!guideKey) return null;
+
+                        // 强制转为字符串，防止非字符串类型导致 split 报错
+                        let val = careGuide[guideKey];
+                        let text = (val === null || val === undefined) ? '' : String(val);
+
+                        if (text.length < 2) return null;
+
+                        const segments = text.split(/[,，;；。.\n]/).filter(s => s.trim().length > 2);
+                        for (const segment of segments) {
+                            for (const kw of keywords) {
+                                if (segment.includes(kw)) {
+                                    return { season, text: segment.trim() };
+                                }
                             }
                         }
+                    } catch (e) {
+                        console.warn('Error extracting seasonal text:', e);
                     }
                     return null;
                 };
