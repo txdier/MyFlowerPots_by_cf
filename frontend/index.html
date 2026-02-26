@@ -8,19 +8,19 @@
     <!-- v2.0.3 - Selection UI Optimization -->
 
     <!-- Vue 3 CDN -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="js/vue.global.js"></script>
 
     <!-- Tailwind CSS & Custom Styles (Optimized) -->
     <link rel="stylesheet" href="css/tailwind-built.css">
 
     <!-- 图标库 -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/icons.css">
 
     <!-- 配置脚本 -->
     <script src="js/config.js?v=20260118"></script>
     <script src="js/api-client.js?v=20260118"></script>
     <!-- SortableJS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <script src="js/Sortable.min.js"></script>
 </head>
 
 <body class="bg-gray-50 pb-24">
@@ -42,7 +42,7 @@
                     </template>
                     <button v-else-if="pots.length > 0" @click="toggleEditMode"
                         class="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-blue-500 transition active:scale-90">
-                        <i class="fas fa-list-check text-xl"></i>
+                        <i class="fa fa-list-check text-xl"></i>
                     </button>
                 </div>
 
@@ -50,7 +50,7 @@
                 <div class="flex items-center gap-2">
                     <!-- 天气简报 -->
                     <!-- <div v-if="weatherData" class="flex items-center bg-blue-50/50 px-3 py-1.5 rounded-2xl border border-blue-100 text-blue-600 gap-2">
-                        <i class="fas fa-cloud-sun text-sm"></i>
+                        <i class="fa fa-cloud-sun text-sm"></i>
                         <div class="flex flex-col">
                             <span class="text-[9px] font-black leading-none mb-0.5">{{ weatherData.location?.name }}</span>
                             <span class="text-[10px] font-black leading-none opacity-80">{{ weatherData.current?.condition }} {{ weatherData.current?.temp }}°</span>
@@ -61,7 +61,7 @@
                     <div class="relative user-menu-container">
                         <button @click="showUserMenu = !showUserMenu"
                             class="flex items-center gap-2 bg-white border border-gray-100 p-1 pr-3 rounded-full shadow-sm hover:shadow-md transition active:scale-95">
-                            <img :src="user?.avatarUrl || 'assets/images/icons/profile.png'"
+                            <img :src="imgUrl(user?.avatarUrl, 32, 32) || 'assets/images/icons/profile.png'"
                                 class="w-8 h-8 rounded-full shadow-sm object-cover">
                             <span class="text-[10px] font-black text-gray-700 max-w-[80px] truncate">{{ userDisplayName
                                 }}</span>
@@ -76,34 +76,34 @@
                                 设置</div>
                             <button v-if="isLoggedIn && user?.userType !== 'anonymous'" @click="goProfile"
                                 class="w-full text-left px-4 py-4 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-b border-gray-50 transition">
-                                <i class="fas fa-user-circle text-green-500"></i> 个人资料
+                                <i class="fa fa-user-circle text-green-500"></i> 个人资料
                             </button>
                             <button v-if="isLoggedIn && user?.isAdmin" @click="goAdmin"
                                 class="w-full text-left px-4 py-4 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-b border-gray-50 transition">
-                                <i class="fas fa-hammer text-orange-500"></i> 管理后台
+                                <i class="fa fa-hammer text-orange-500"></i> 管理后台
                             </button>
                             <!-- 匿名用户：显示注册入口 -->
                             <button v-if="isLoggedIn && user?.userType === 'anonymous'"
                                 @click="showRegisterModal = true; showUserMenu = false"
                                 class="w-full text-left px-4 py-3 text-sm hover:bg-green-50 flex flex-col border-b border-gray-50 transition">
                                 <span class="text-green-600 font-medium flex items-center gap-2">
-                                    <i class="fas fa-user-plus"></i> 注册账号
+                                    <i class="fa fa-user-plus"></i> 注册账号
                                 </span>
                                 <span class="text-[10px] text-gray-400 mt-0.5 ml-6">可合并保留当前数据</span>
                             </button>
                             <button v-if="isLoggedIn" @click="logout"
                                 class="w-full text-left px-4 py-4 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2 transition active:bg-red-100">
-                                <i class="fas fa-sign-out-alt"></i>
+                                <i class="fa fa-sign-out-alt"></i>
                                 {{ user?.userType === 'anonymous' ? '退出 (数据将丢失)' : '退出登录' }}
                             </button>
                             <div v-else class="space-y-0.5 px-1 pb-1">
                                 <button @click="showLoginModal = true; showUserMenu = false"
                                     class="w-full text-left px-4 py-3 text-sm text-green-600 hover:bg-green-50 flex items-center gap-2 transition rounded-lg active:scale-95">
-                                    <i class="fas fa-sign-in-alt w-4 text-center"></i> 登录
+                                    <i class="fa fa-sign-in-alt w-4 text-center"></i> 登录
                                 </button>
                                 <button @click="showRegisterModal = true; showUserMenu = false"
                                     class="w-full text-left px-4 py-3 text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2 transition rounded-lg active:scale-95">
-                                    <i class="fas fa-user-plus w-4 text-center"></i> 注册
+                                    <i class="fa fa-user-plus w-4 text-center"></i> 注册
                                 </button>
                             </div>
                         </div>
@@ -118,7 +118,7 @@
                 class="bg-white rounded-2xl p-3 border border-gray-100 flex items-center gap-3 shadow-sm overflow-hidden">
                 <div
                     class="bg-yellow-50 text-yellow-600 w-8 h-8 rounded-full flex items-center justify-center shrink-0">
-                    <i class="fas fa-lightbulb"></i>
+                    <i class="fa fa-lightbulb"></i>
                 </div>
                 <div class="flex-1 text-sm font-medium text-gray-600 truncate animate-pulse">
                     {{ careAdvice[currentAdviceIndex]?.advice }}
@@ -134,7 +134,7 @@
                     class="p-4 flex items-center justify-between cursor-pointer active:bg-gray-50 transition">
                     <div class="flex items-center gap-2">
                         <div class="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-500">
-                            <i class="fas fa-bell"></i>
+                            <i class="fa fa-bell"></i>
                         </div>
                         <span class="text-sm font-bold text-gray-800">今日待养护</span>
                         <span class="text-xs font-bold text-orange-500 bg-orange-50 px-2 py-1 rounded-full">{{
@@ -150,7 +150,7 @@
                         class="flex gap-3 p-3 cursor-pointer active:bg-gray-50 transition items-start">
                         <!-- 左侧大图 (固定方形) -->
                         <div class="relative w-16 h-16 shrink-0">
-                            <img :src="group.potImage || 'assets/images/icons/icons-default-pot.png'"
+                            <img :src="imgUrl(group.potImage, 64, 64) || 'assets/images/icons/icons-default-pot.png'"
                                 class="w-full h-full object-cover rounded-xl"
                                 @error="e => e.target.src = 'assets/images/icons/icons-default-pot.png'">
                             <div v-if="group.tasks.length > 1"
@@ -163,7 +163,7 @@
                         <div class="flex-1 min-w-0 py-0.5 flex flex-col justify-center">
                             <div class="flex items-center justify-between mb-1.5">
                                 <span class="text-sm font-bold text-gray-800 truncate">{{ group.potName }}</span>
-                                <i class="fas fa-chevron-right text-gray-200 text-xs"></i>
+                                <i class="fa fa-chevron-right text-gray-200 text-xs"></i>
                             </div>
 
                             <div class="space-y-2">
@@ -202,12 +202,12 @@
                                         }">
                                         <span class="mr-1 shrink-0">
                                             <i v-if="getTaskSeasonalTip(group.potId, task.careType).season === 'Spring'"
-                                                class="fas fa-seedling"></i>
+                                                class="fa fa-seedling"></i>
                                             <i v-else-if="getTaskSeasonalTip(group.potId, task.careType).season === 'Summer'"
-                                                class="fas fa-sun"></i>
+                                                class="fa fa-sun"></i>
                                             <i v-else-if="getTaskSeasonalTip(group.potId, task.careType).season === 'Autumn'"
-                                                class="fab fa-canadian-maple-leaf"></i>
-                                            <i v-else class="far fa-snowflake"></i>
+                                                class="fa fa-canadian-maple-leaf"></i>
+                                            <i v-else class="fa fa-snowflake"></i>
                                         </span>
                                         <span class="truncate">{{ getTaskSeasonalTip(group.potId, task.careType).text
                                             }}</span>
@@ -229,7 +229,7 @@
 
             <div v-else-if="pots.length === 0" class="flex flex-col items-center justify-center py-20 text-center">
                 <div class="w-32 h-32 bg-gray-100 rounded-full flex items-center justify-center mb-6 text-gray-300">
-                    <i class="fas fa-seedling text-5xl"></i>
+                    <i class="fa fa-seedling text-5xl"></i>
                 </div>
                 <h3 class="text-lg font-bold text-gray-800">空空如也</h3>
                 <p class="text-gray-400 text-sm mt-2 px-10">您还没有添加任何花盆，点击下方按钮开始记录第一株植物吧</p>
@@ -253,12 +253,12 @@
                     <div class="absolute inset-y-0 right-0 w-32 flex">
                         <button @click="goEditPot(pot.id)"
                             class="flex-1 bg-blue-500 text-white flex flex-col items-center justify-center gap-1">
-                            <i class="fas fa-edit text-xs"></i>
+                            <i class="fa fa-edit text-xs"></i>
                             <span class="text-[10px] font-black">编辑</span>
                         </button>
                         <button @click="confirmDeleteSingle(pot.id)"
                             class="flex-1 bg-red-500 text-white flex flex-col items-center justify-center gap-1">
-                            <i class="fas fa-trash-alt text-xs"></i>
+                            <i class="fa fa-trash-alt text-xs"></i>
                             <span class="text-[10px] font-black">删除</span>
                         </button>
                     </div>
@@ -278,7 +278,7 @@
                                 @click.stop="pot.selected = !pot.selected">
                                 <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all"
                                     :class="pot.selected ? 'border-green-500 bg-green-500 shadow-sm shadow-green-200' : 'border-gray-300 bg-white'">
-                                    <i class="fas fa-check text-white text-[10px]" v-show="pot.selected"></i>
+                                    <i class="fa fa-check text-white text-[10px]" v-show="pot.selected"></i>
                                 </div>
                             </div>
                             <!-- 分割点 -->
@@ -286,12 +286,12 @@
                             <!-- 2. 下半部：拖拽 -->
                             <div
                                 class="flex-1 w-full flex items-center justify-center text-gray-300 handle cursor-move active:text-blue-500 transition hover:bg-gray-100">
-                                <i class="fas fa-grip-vertical text-lg"></i>
+                                <i class="fa fa-grip-vertical text-lg"></i>
                             </div>
                         </div>
 
                         <div class="w-32 h-32 shrink-0 relative p-1">
-                            <img :src="pot.image_url || 'assets/images/icons/icons-default-pot.png'"
+                            <img :src="imgUrl(pot.image_url, 128, 128) || 'assets/images/icons/icons-default-pot.png'"
                                 class="w-full h-full object-cover rounded-xl" @error="handleImageError">
                         </div>
                         <div class="flex-1 p-4 flex flex-col justify-between min-w-0">
@@ -327,7 +327,7 @@
                                     </div>
                                 </div>
                                 <div v-if="!isEditMode" class="text-gray-300">
-                                    <i class="fas fa-chevron-right"></i>
+                                    <i class="fa fa-chevron-right"></i>
                                 </div>
                             </div>
                         </div>
@@ -341,12 +341,12 @@
             <div class="container mx-auto flex justify-center pointer-events-auto">
                 <button v-if="isEditMode && selectedCount > 0" @click="deleteSelectedPots"
                     class="bg-red-500 text-white px-8 py-4 rounded-3xl shadow-xl shadow-red-200 flex items-center gap-2 font-bold transition-all active:scale-95 animate-slide-up">
-                    <i class="fas fa-trash-alt"></i>
+                    <i class="fa fa-trash-alt"></i>
                     <span>删除选中 ({{ selectedCount }})</span>
                 </button>
                 <button v-else-if="!isEditMode" @click="goAddPot"
                     class="bg-green-500 text-white px-8 py-4 rounded-3xl shadow-xl shadow-green-200 flex items-center gap-2 font-bold transition-all active:scale-95">
-                    <i class="fas fa-plus"></i>
+                    <i class="fa fa-plus"></i>
                     <span>添加花盆</span>
                 </button>
             </div>
@@ -362,7 +362,7 @@
                     <!-- 关闭按钮 -->
                     <button @click="closeAuthModals"
                         class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
-                        <i class="fas fa-times text-xl"></i>
+                        <i class="fa fa-times text-xl"></i>
                     </button>
 
                     <h3 class="text-2xl font-black text-gray-800 mb-2">欢迎回来</h3>
@@ -392,7 +392,7 @@
                     <!-- 关闭按钮 -->
                     <button @click="closeAuthModals"
                         class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
-                        <i class="fas fa-times text-xl"></i>
+                        <i class="fa fa-times text-xl"></i>
                     </button>
 
                     <h3 class="text-2xl font-black text-gray-800 mb-2">创建账号</h3>
@@ -409,8 +409,8 @@
                                 class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4">
                             <div v-if="registerForm.password && registerForm.confirmPassword"
                                 class="absolute right-3 top-1/2 transform -translate-y-1/2">
-                                <i v-if="passwordsMatch" class="fas fa-check text-green-500"></i>
-                                <i v-else class="fas fa-times text-red-500"></i>
+                                <i v-if="passwordsMatch" class="fa fa-check text-green-500"></i>
+                                <i v-else class="fa fa-times text-red-500"></i>
                             </div>
                         </div>
                         <!-- 修复：只在密码不一致且两个密码框都有内容时显示错误提示 -->
@@ -434,7 +434,7 @@
                     <!-- 关闭按钮 -->
                     <button @click="closeAuthModals"
                         class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
-                        <i class="fas fa-times text-xl"></i>
+                        <i class="fa fa-times text-xl"></i>
                     </button>
 
                     <h3 class="text-2xl font-black text-gray-800 mb-2">重置您的密码</h3>
@@ -783,6 +783,13 @@
                 };
                 const handleImageError = (e) => e.target.src = 'assets/images/icons/icons-default-pot.png';
 
+                // 图片优化：通过 Cloudflare cdn-cgi/image 按需缩放
+                // 仅对 img.kaside365.com 域名的图片生效，本地/占位图原样返回
+                const imgUrl = (src, w, h) => {
+                    if (!src || !src.includes('img.kaside365.com')) return src;
+                    return `/cdn-cgi/image/width=${w},height=${h},dpr=2,fit=cover,format=auto/${src}`;
+                };
+
                 // 季节性提醒缓存
                 const seasonalTipsMap = reactive({});
 
@@ -911,7 +918,7 @@
                     handleLogin, handleRegister, handleForgotPassword, toggleSelectAll, toggleEditMode, deleteSelectedPots,
                     handleTouchStart, handleTouchMove, handleTouchEnd, handleCardClick, confirmDeleteSingle,
                     logout, closeAuthModals, switchToRegister, switchToLogin, switchToForgotPassword,
-                    formatDate, handleImageError, seedDemoData, goToPotDetail,
+                    formatDate, handleImageError, imgUrl, seedDemoData, goToPotDetail,
                     goEditPot: (id) => window.location.href = `edit-pot.html?id=${id}`,
                     goAddPot: () => window.location.href = 'add-pot.html',
                     goProfile: () => window.location.href = 'profile.html',

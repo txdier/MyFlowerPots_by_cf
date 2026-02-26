@@ -7,13 +7,13 @@
     <title>全部养护记录 - My Flower Pots</title>
 
     <!-- Vue 3 CDN -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="js/vue.global.js"></script>
 
     <!-- Tailwind CSS & Custom Styles (Optimized) -->
     <link rel="stylesheet" href="css/tailwind-built.css">
 
     <!-- 图标库 -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/icons.css">
 
     <!-- 配置脚本 -->
     <script src="js/config.js?v=20260111"></script>
@@ -28,7 +28,7 @@
                 <div class="z-10">
                     <button class="w-10 h-10 flex items-center justify-center text-gray-400 active:scale-90 transition"
                         @click="goBack">
-                        <i class="fas fa-arrow-left text-xl"></i>
+                        <i class="fa fa-arrow-left text-xl"></i>
                     </button>
                 </div>
                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -41,7 +41,7 @@
         <main class="container mx-auto px-4 py-6">
             <!-- 花盆简要信息 -->
             <div v-if="pot" class="bg-white rounded-2xl p-4 mb-6 flex items-center shadow-sm border border-gray-100">
-                <img :src="pot.image_url || 'assets/images/icons/icons-default-pot.png'"
+                <img :src="imgUrl(pot.image_url, 48, 48) || 'assets/images/icons/icons-default-pot.png'"
                     class="w-12 h-12 rounded-lg object-cover mr-4">
                 <div class="flex-1 min-w-0">
                     <h3 class="font-bold text-gray-800 truncate">{{ pot.name }}</h3>
@@ -49,7 +49,7 @@
                 </div>
                 <button @click="goAddCare"
                     class="bg-green-500 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition">
-                    <i class="fas fa-plus"></i>
+                    <i class="fa fa-plus"></i>
                 </button>
             </div>
 
@@ -93,7 +93,7 @@
 
                         <!-- 记录中的图片 -->
                         <div v-if="record.imageUrl" class="mb-3">
-                            <img :src="record.imageUrl"
+                            <img :src="imgUrl(record.imageUrl, 80, 80)"
                                 class="w-20 h-20 rounded-xl object-cover cursor-pointer hover:opacity-80 transition"
                                 @click="previewImage(record.imageUrl)">
                         </div>
@@ -102,11 +102,11 @@
                         <div class="flex justify-end gap-4 border-t border-gray-50 pt-3">
                             <button @click="editRecord(record)"
                                 class="text-[11px] font-bold text-blue-500 flex items-center gap-1">
-                                <i class="fas fa-edit"></i> 修改
+                                <i class="fa fa-edit"></i> 修改
                             </button>
                             <button @click="deleteRecord(record)"
                                 class="text-[11px] font-bold text-red-400 flex items-center gap-1">
-                                <i class="fas fa-trash-alt"></i> 删除
+                                <i class="fa fa-trash-alt"></i> 删除
                             </button>
                         </div>
                     </div>
@@ -119,7 +119,7 @@
             class="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 animate-fade-in"
             @click="previewUrl = null">
             <img :src="previewUrl" class="max-w-full max-h-full object-contain shadow-2xl">
-            <div class="absolute top-6 right-6 text-white text-2xl"><i class="fas fa-times"></i></div>
+            <div class="absolute top-6 right-6 text-white text-2xl"><i class="fa fa-times"></i></div>
         </div>
     </div>
 
@@ -192,6 +192,12 @@
                     } catch (e) { alert('删除失败'); }
                 };
 
+                // 图片优化：Cloudflare cdn-cgi/image 按需缩放
+                const imgUrl = (src, w, h) => {
+                    if (!src || !src.includes('img.kaside365.com')) return src;
+                    return `/cdn-cgi/image/width=${w},height=${h},dpr=2,fit=cover,format=auto/${src}`;
+                };
+
                 const previewImage = (url) => previewUrl.value = url;
 
                 const goBack = () => {
@@ -207,8 +213,8 @@
                 };
 
                 const getCareTypeIcon = (type) => {
-                    const icons = { water: 'fas fa-tint', fertilize: 'fas fa-seedling', prune: 'fas fa-cut', repot: 'fas fa-exchange-alt', pest: 'fas fa-bug' };
-                    return icons[type] || 'fas fa-clipboard-check';
+                    const icons = { water: 'fa fa-tint', fertilize: 'fa fa-seedling', prune: 'fa fa-cut', repot: 'fa fa-exchange-alt', pest: 'fa fa-bug' };
+                    return icons[type] || 'fa fa-clipboard-check';
                 };
 
                 const getCareTypeColor = (type) => {
@@ -225,7 +231,7 @@
 
                 return {
                     isLoading, pot, filterType, filterOptions, filteredRecords, records, previewUrl,
-                    editRecord, deleteRecord, previewImage, goBack, goAddCare, formatDate,
+                    editRecord, deleteRecord, previewImage, goBack, goAddCare, formatDate, imgUrl,
                     getCareTypeIcon, getCareTypeColor, getCareTypeLabel
                 };
             }

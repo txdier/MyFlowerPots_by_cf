@@ -6,9 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>访问统计 - My Flower Pots</title>
     <link rel="stylesheet" href="css/tailwind-built.css">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="js/tailwindcss.js"></script>
+    <script src="js/vue.global.prod.js"></script>
+    <link rel="stylesheet" href="css/icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -163,11 +163,11 @@
                 <div class="cursor-pointer group" onclick="window.location.href='admin-plants.html'">
                     <h1
                         class="text-3xl font-bold text-slate-800 flex items-center gap-3 transition-colors group-hover:text-emerald-600">
-                        <i class="fas fa-chart-line text-emerald-500"></i>
+                        <i class="fa fa-chart-line text-emerald-500"></i>
                         页面访问统计
                     </h1>
                     <p class="text-slate-500 mt-1 flex items-center gap-1">
-                        <i class="fas fa-arrow-left text-xs opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                        <i class="fa fa-arrow-left text-xs opacity-0 group-hover:opacity-100 transition-opacity"></i>
                         返回管理中心
                     </p>
                 </div>
@@ -177,7 +177,7 @@
             <div class="glass border border-white rounded-2xl p-4 mb-6 shadow-sm">
                 <div class="flex flex-wrap items-center gap-2 mb-3">
                     <span class="text-sm text-slate-500 font-medium mr-1">
-                        <i class="fas fa-clock mr-1"></i>快捷:
+                        <i class="fa fa-clock mr-1"></i>快捷:
                     </span>
                     <button v-for="p in presets" :key="p.label" class="preset-btn"
                         :class="{ active: activePreset === p.label }" @click="applyPreset(p)">
@@ -195,12 +195,12 @@
                     </div>
                     <button @click="loadStats"
                         class="ml-auto px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 shadow-lg shadow-emerald-200 transition-all flex items-center gap-2 text-sm font-medium">
-                        <i class="fas fa-search" :class="{'fa-spin': loading}"></i>
+                        <i class="fa fa-search" :class="{'fa-spin': loading}"></i>
                         {{ loading ? '查询中...' : '查询' }}
                     </button>
                     <button @click="clearFilter"
                         class="px-4 py-2 border border-slate-200 text-slate-500 rounded-xl hover:border-emerald-300 hover:text-emerald-500 transition-all flex items-center gap-2 text-sm">
-                        <i class="fas fa-times"></i>
+                        <i class="fa fa-times"></i>
                         全部
                     </button>
                 </div>
@@ -213,7 +213,7 @@
                     <div class="text-2xl font-bold text-emerald-600">{{ todayVisits }}</div>
                     <div class="text-xs text-slate-400 mt-1">今日访问</div>
                     <div class="text-xs mt-1" :class="todayDiff >= 0 ? 'text-emerald-500' : 'text-red-400'">
-                        <i :class="todayDiff >= 0 ? 'fas fa-arrow-up' : 'fas fa-arrow-down'"></i>
+                        <i :class="todayDiff >= 0 ? 'fa fa-arrow-up' : 'fa fa-arrow-down'"></i>
                         {{ Math.abs(todayDiff) }} 较昨日
                     </div>
                 </div>
@@ -242,7 +242,7 @@
             <!-- 每日趋势图 -->
             <div class="glass border border-white rounded-2xl p-5 mb-6 shadow-sm" v-if="trend.length > 0">
                 <h3 class="text-sm font-semibold text-slate-600 mb-4 flex items-center gap-2">
-                    <i class="fas fa-chart-bar text-emerald-500"></i>
+                    <i class="fa fa-chart-bar text-emerald-500"></i>
                     每日访问趋势
                     <span class="text-xs font-normal text-slate-400">
                         ({{ trend.length }} 天)
@@ -291,7 +291,7 @@
                     <tbody class="divide-y divide-slate-100">
                         <tr v-if="stats.length === 0 && !loading">
                             <td colspan="5" class="px-6 py-12 text-center text-slate-400">
-                                <i class="fas fa-chart-bar text-3xl mb-3 block opacity-30"></i>
+                                <i class="fa fa-chart-bar text-3xl mb-3 block opacity-30"></i>
                                 {{ hasFilter ? '所选日期范围内暂无数据' : '暂无访问数据' }}
                             </td>
                         </tr>
@@ -325,7 +325,7 @@
 
             <!-- 底部信息 -->
             <div class="text-center text-xs text-slate-400 mt-6" v-if="hasFilter">
-                <i class="fas fa-info-circle mr-1"></i>
+                <i class="fa fa-info-circle mr-1"></i>
                 当前显示 {{ startDate }} 至 {{ endDate }} 的数据
             </div>
         </div>
@@ -376,7 +376,7 @@
                     return Math.round(sum / trend.value.length);
                 });
 
-                const showToast = (msg, icon = 'fas fa-info-circle') => {
+                const showToast = (msg, icon = 'fa fa-info-circle') => {
                     toast.value = { show: true, message: msg, icon };
                     setTimeout(() => toast.value.show = false, 3000);
                 };
@@ -442,7 +442,7 @@
                             throw new Error(data.message);
                         }
                     } catch (err) {
-                        showToast('加载失败: ' + err.message, 'fas fa-exclamation-circle');
+                        showToast('加载失败: ' + err.message, 'fa fa-exclamation-circle');
                     } finally {
                         loading.value = false;
                     }
