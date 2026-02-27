@@ -10,8 +10,15 @@
     <!-- Vue 3 CDN -->
     <script src="js/vue.global.js"></script>
 
+    <style>
+        [v-cloak] {
+            display: none !important;
+        }
+    </style>
+
     <!-- Tailwind CSS & Custom Styles (Optimized) -->
-    <link rel="stylesheet" href="css/tailwind-built.css">
+    <link rel="stylesheet" href="css/tailwind-built.css?v=20260227">
+    <link rel="stylesheet" href="css/app.css?v=20260227">
 
     <!-- 图标库 -->
     <link rel="stylesheet" href="css/icons.css">
@@ -27,7 +34,7 @@
     <div id="app" v-cloak>
         <!-- 顶部导航栏 (全宽分布) -->
         <header class="header bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-50 h-16 w-full">
-            <div class="w-full h-full px-4 flex justify-between items-center">
+            <div class="container flex justify-between items-center h-full">
                 <!-- 1. 左侧：管理模式 -->
                 <div class="flex items-center gap-2">
                     <template v-if="isEditMode">
@@ -113,7 +120,7 @@
         </header>
 
         <!-- 养护建议 -->
-        <div v-if="careAdvice.length > 0 && pots.length > 0" class="container mx-auto px-4 mt-4">
+        <div v-if="careAdvice.length > 0 && pots.length > 0" class="container mt-4">
             <div
                 class="bg-white rounded-2xl p-3 border border-gray-100 flex items-center gap-3 shadow-sm overflow-hidden">
                 <div
@@ -127,7 +134,7 @@
         </div>
 
         <!-- 今日待养护 (可折叠) -->
-        <div v-if="careReminders.length > 0" class="container mx-auto px-4 mt-4">
+        <div v-if="careReminders.length > 0" class="container mt-4">
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <!-- 头部：点击可展开/折叠 -->
                 <div @click="showRemindersExpanded = !showRemindersExpanded"
@@ -221,7 +228,7 @@
         </div>
 
         <!-- 主列表区域 -->
-        <main class="container mx-auto px-4 mt-6">
+        <main class="container mt-6">
             <div v-if="isLoading" class="flex flex-col items-center justify-center py-20">
                 <div class="spinner mb-4"></div>
                 <p class="text-gray-400 text-sm">正在搬运您的花盆...</p>
@@ -245,7 +252,7 @@
             </div>
 
             <!-- 花盆卡片网格 -->
-            <div v-else ref="potsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div v-else ref="potsGrid" class="grid grid-cols-1 gap-4">
                 <div v-for="(pot, index) in pots" :key="pot.id"
                     class="relative bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all duration-300">
 
@@ -337,8 +344,9 @@
         </main>
 
         <!-- 底部悬浮操作栏 -->
-        <div v-if="pots.length > 0" class="fixed bottom-6 left-0 right-0 z-40 px-6 pointer-events-none">
-            <div class="container mx-auto flex justify-center pointer-events-auto">
+        <div v-if="pots.length > 0"
+            class="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[650px] z-40 px-6 pointer-events-none">
+            <div class="flex justify-center pointer-events-auto">
                 <button v-if="isEditMode && selectedCount > 0" @click="deleteSelectedPots"
                     class="bg-red-500 text-white px-8 py-4 rounded-3xl shadow-xl shadow-red-200 flex items-center gap-2 font-bold transition-all active:scale-95 animate-slide-up">
                     <i class="fa fa-trash-alt"></i>
@@ -355,8 +363,9 @@
         <!-- 登录/注册 弹窗 -->
         <div v-if="showLoginModal || showRegisterModal || showForgotPasswordModal"
             class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <!-- 遮罩层也限制在 650px 范围内（可选，如果要完全模拟移动 App 在中心） -->
             <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeAuthModals"></div>
-            <div class="relative bg-white w-full max-sm rounded-3xl shadow-2xl overflow-hidden animate-slide-up">
+            <div class="relative bg-white w-full max-w-[500px] rounded-3xl shadow-2xl overflow-hidden animate-slide-up">
                 <!-- 登录弹窗 -->
                 <div v-if="showLoginModal" class="p-8">
                     <!-- 关闭按钮 -->
@@ -933,10 +942,6 @@
     </script>
 
     <style>
-        [v-cloak] {
-            display: none;
-        }
-
         .header {
             background: #fff;
             position: sticky;

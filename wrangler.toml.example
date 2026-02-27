@@ -8,7 +8,10 @@ compatibility_date = "2025-01-01"
 port = 8787
 ip = "127.0.0.1"
 local_protocol = "http"
-# assets = "frontend"
+
+[assets]
+directory = "./frontend"
+binding = "ASSETS"
 
 [vars]
 WEATHER_API_KEY = "YOUR_WEATHER_API_KEY"

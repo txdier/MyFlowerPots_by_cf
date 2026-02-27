@@ -138,6 +138,10 @@ export default {
     if (env.STATIC_BUCKET && !isDevelopment) {
       return serveStatic(request, env, path);
     } else if (isDevelopment) {
+      // 在开发环境中，如果配置了 ASSETS 绑定（通过 wrangler.toml 的 [assets] 配置），则优先使用它
+      if (env.ASSETS) {
+        return env.ASSETS.fetch(request);
+      }
       return serveStaticDev(request, path);
     }
 

@@ -6,25 +6,105 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>花盆详情 - My Flower Pots</title>
 
-    <!-- Vue 3 CDN -->
-    <script src="js/vue.global.js"></script>
+    <style>
+        [v-cloak] {
+            display: none !important;
+        }
+    </style>
 
     <!-- Tailwind CSS & Custom Styles (Optimized) -->
-    <link rel="stylesheet" href="css/tailwind-built.css">
+    <link rel="stylesheet" href="css/tailwind-built.css?v=20260227">
+    <link rel="stylesheet" href="css/app.css?v=20260227">
 
     <!-- 图标库 -->
     <link rel="stylesheet" href="css/icons.css">
 
-    <!-- 自定义脚本 -->
-    <script src="js/config.js?v=20260111"></script>
-    <script src="js/api-client.js?v=20260111"></script>
+    <style>
+        .animate-slide-up {
+            animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .animate-fade-in {
+            animation: fade-in 0.2s ease-out;
+        }
+
+        @keyframes slide-up {
+            from {
+                transform: translateY(100%);
+            }
+
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        /* Bottom Sheet 动画 */
+        .bottom-sheet-enter-active,
+        .bottom-sheet-leave-active {
+            transition: all 0.4s cubic-bezier(0.32, 1, 0.23, 1);
+        }
+
+        .bottom-sheet-enter-from,
+        .bottom-sheet-leave-to {
+            transform: translateY(100%);
+        }
+
+        .backdrop-enter-active,
+        .backdrop-leave-active {
+            transition: opacity 0.3s ease;
+        }
+
+        .backdrop-enter-from,
+        .backdrop-leave-to {
+            opacity: 0;
+        }
+
+        /* 隐藏滚动条但保留功能 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
 </head>
 
 <body class="bg-gray-50">
     <div id="app" v-cloak>
         <!-- 顶部导航栏 (强制靠左+居中) -->
         <header class="header bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-50 h-16 w-full">
-            <div class="relative flex items-center h-full px-4">
+            <div class="container relative flex items-center h-full">
                 <!-- 左侧按钮 -->
                 <div class="z-10">
                     <button class="w-10 h-10 flex items-center justify-center text-gray-400 active:scale-90 transition"
@@ -42,7 +122,7 @@
         <!-- 主内容区域 -->
         <main class="main pb-20">
             <!-- 骨架屏加载状态 (Skeleton Screen) -->
-            <div v-if="isLoading" class="container mx-auto px-4 py-6 space-y-6 animate-pulse">
+            <div v-if="isLoading" class="container py-6 space-y-6 animate-pulse">
                 <!-- 1. 花盆卡片骨架 -->
                 <div class="bg-gray-200 rounded-3xl h-64 md:h-80 w-full shadow-sm"></div>
 
@@ -72,7 +152,7 @@
             </div>
 
             <!-- 错误提示 -->
-            <div v-if="error" class="error-alert container mx-auto px-4 mt-4">
+            <div v-if="error" class="error-alert container mt-4">
                 <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
                     <i class="fa fa-exclamation-triangle mr-2"></i>
                     <span>{{ error }}</span>
@@ -83,7 +163,7 @@
             </div>
 
             <!-- 内容区域 -->
-            <div v-if="!isLoading && pot" class="container mx-auto px-4 py-6 space-y-6">
+            <div v-if="!isLoading && pot" class="container py-6 space-y-6">
                 <!-- 1. 花盆基本信息卡片 -->
                 <div class="bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-50">
                     <div class="relative h-64 md:h-80">
@@ -557,7 +637,7 @@
                     </div>
 
                     <div v-else class="p-6 space-y-6">
-                        <div v-for="record in sortedTimelineRecords" :key="record.id"
+                        <div v-for="record in sortedTimelineRecords.slice(0, 3)" :key="record.id"
                             class="relative pl-6 border-l-2 border-blue-50">
                             <!-- 时间点 -->
                             <div
@@ -578,12 +658,18 @@
                             <div v-if="getImages(record.images).length > 0" class="grid grid-cols-3 gap-2">
                                 <div v-for="(img, idx) in getImages(record.images)" :key="idx"
                                     class="aspect-square rounded-2xl overflow-hidden bg-gray-100 shadow-sm">
-                                    <img :src="imgUrl(img, 100, 100)"
+                                    <img :src="imgUrl(img, 100, 100)" loading="lazy"
                                         class="w-full h-full object-cover cursor-pointer active:opacity-75 transition"
                                         @click="openGallery(img, getImages(record.images))">
                                 </div>
                             </div>
                         </div>
+
+                        <!-- 展开所有记录按钮 -->
+                        <button v-if="timelineRecords.length > 3" @click="viewAllTimelines"
+                            class="w-full py-4 text-[10px] text-gray-300 font-black uppercase tracking-widest bg-gray-50/50 border-t border-gray-50 flex items-center justify-center gap-2 rounded-2xl">
+                            查看完整成长档案 ({{ timelineRecords.length }}) <i class="fa fa-camera"></i>
+                        </button>
                     </div>
                 </div>
 
@@ -776,7 +862,8 @@
                         <div v-for="(src, idx) in previewImages" :key="idx"
                             class="w-full h-full flex-shrink-0 flex items-center justify-center px-4"
                             @click="closeGallery">
-                            <img :src="src" class="max-w-full max-h-full object-contain select-none" draggable="false">
+                            <img :src="src" loading="lazy" class="max-w-full max-h-full object-contain select-none"
+                                draggable="false">
                         </div>
                     </div>
                 </div>
@@ -805,7 +892,7 @@
 
                 <transition name="bottom-sheet">
                     <div v-if="activeCareDate && currentSheetGroup"
-                        class="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl rounded-t-[3rem] p-8 pb-12 shadow-2xl z-[101] max-h-[85vh] overflow-hidden flex flex-col border-t border-white/20">
+                        class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[650px] bg-white/90 backdrop-blur-xl rounded-t-[3rem] p-8 pb-12 shadow-2xl z-[101] max-h-[85vh] overflow-hidden flex flex-col border-t border-white/20">
                         <!-- 顶部把手 -->
                         <div class="w-16 h-1.5 bg-gray-200/50 rounded-full mx-auto mb-10 shrink-0"></div>
 
@@ -861,6 +948,11 @@
             </teleport>
         </main>
     </div>
+
+    <!-- 移至底部的外部脚本，避免阻塞首屏骨架屏渲染 -->
+    <script src="js/vue.global.js"></script>
+    <script src="js/config.js?v=20260227"></script>
+    <script src="js/api-client.js?v=20260227"></script>
 
     <script>
         const { createApp, ref, reactive, onMounted, computed } = Vue;
@@ -970,18 +1062,27 @@
                     }
 
                     try {
-                        await Promise.all([
-                            loadPotDetail(),
+                        // 1. 首屏优先加载最核心的数据
+                        await loadPotDetail();
+
+                        // 结束全局全屏骨架屏，显示主要页面
+                        isLoading.value = false;
+
+                        // 2. 异步并行加载非关键数据（历史记录、照片墙、日历、统计数据）
+                        Promise.all([
                             loadCareRecords(),
                             loadTimelineRecords(),
                             loadPotStats(),
                             loadCareSchedules()
-                        ]);
-                        if (pot.value) await loadPlantInfo();
+                        ]).catch(err => console.error('背景数据加载出错:', err));
+
+                        // 3. 异步获取植物百科信息，延后处理减轻首屏网络和主线程压力
+                        if (pot.value) {
+                            loadPlantInfo().catch(err => console.warn('植物匹配或百科生成失败:', err));
+                        }
                     } catch (err) {
                         console.error('加载失败:', err);
-                        error.value = '数据同步失败，请检查网络';
-                    } finally {
+                        error.value = '核心数据同步失败，请检查网络';
                         isLoading.value = false;
                     }
                 };
@@ -1383,6 +1484,11 @@
                     window.location.href = `all-records.html?potId=${potId.value}`;
                 };
 
+                // 查看全部轨迹
+                const viewAllTimelines = () => {
+                    window.location.href = `all-timelines.html?potId=${potId.value}`;
+                };
+
                 // --- 辅助函数 ---
                 const formatDate = (dateStr) => {
                     if (!dateStr) return '';
@@ -1648,7 +1754,7 @@
                     openGallery, closeGallery, prevImg, nextImg, toggleTimelineSort,
                     handleGalleryTouchStart, handleGalleryTouchMove, handleGalleryTouchEnd,
                     triggerFileInput, onFilesSelected, removeNewImage, saveTimelineRecord, confirmDeleteTimeline,
-                    editRecord, deleteRecord, viewAllRecords,
+                    editRecord, deleteRecord, viewAllRecords, viewAllTimelines,
                     formatDate, getImages, getCareTypeIcon, getCareTypeColor, getCareTypeLabel,
                     getCareIcon, getCareLabel, getOrnamentalLabel, careTipsGrid,
                     handleImageError, imgUrl, groupedCareRecords,
@@ -1669,89 +1775,6 @@
         }).mount('#app');
     </script>
 
-    <style>
-        [v-cloak] {
-            display: none;
-        }
-
-        .animate-slide-up {
-            animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .animate-fade-in {
-            animation: fade-in 0.2s ease-out;
-        }
-
-        @keyframes slide-up {
-            from {
-                transform: translateY(100%);
-            }
-
-            to {
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes fade-in {
-            from {
-                opacity: 0;
-            }
-
-            to {
-                opacity: 1;
-            }
-        }
-
-        /* Bottom Sheet 动画 */
-        .bottom-sheet-enter-active,
-        .bottom-sheet-leave-active {
-            transition: all 0.4s cubic-bezier(0.32, 1, 0.23, 1);
-        }
-
-        .bottom-sheet-enter-from,
-        .bottom-sheet-leave-to {
-            transform: translateY(100%);
-        }
-
-        .backdrop-enter-active,
-        .backdrop-leave-active {
-            transition: opacity 0.3s ease;
-        }
-
-        .backdrop-enter-from,
-        .backdrop-leave-to {
-            opacity: 0;
-        }
-
-        /* 隐藏滚动条但保留功能 */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-
-        .spinner {
-            width: 30px;
-            height: 30px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #4CAF50;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-    </style>
 </body>
 
 </html>

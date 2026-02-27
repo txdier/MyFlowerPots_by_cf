@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>成长轨迹 - My Flower Pots</title>
+
+    <style>
+        [v-cloak] {
+            display: none !important;
+        }
+    </style>
+    <link rel="stylesheet" href="css/tailwind-built.css?v=20260227">
+    <link rel="stylesheet" href="css/app.css?v=20260227">
+    <link rel="stylesheet" href="css/icons.css">
+
+    <style>
+        [v-cloak] {
+            display: none;
+        }
+
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .animate-fade-in {
+            animation: fade-in 0.2s ease-out;
+        }
+
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50">
+    <div id="app" v-cloak>
+        <header class="header bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-50 h-16 w-full">
+            <div class="container relative flex items-center h-full">
+                <div class="z-10">
+                    <button class="w-10 h-10 flex items-center justify-center text-gray-400 active:scale-90 transition"
+                        @click="goBack">
+                        <i class="fa fa-arrow-left text-xl"></i>
+                    </button>
+                </div>
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <h1 class="text-base sm:text-lg font-black text-gray-800">全部成长轨迹</h1>
+                </div>
+            </div>
+        </header>
+
+        <main class="container py-6">
+            <div v-if="pot" class="bg-white rounded-2xl p-4 mb-6 flex items-center shadow-sm border border-gray-100">
+                <img :src="imgUrl(pot.image_url, 48, 48) || 'assets/images/icons/icons-default-pot.png'"
+                    class="w-12 h-12 rounded-lg object-cover mr-4" @error="handleImageError">
+                <div class="flex-1 min-w-0">
+                    <h3 class="font-bold text-gray-800 truncate">{{ pot.name }}</h3>
+                    <p class="text-[10px] text-gray-400 mt-0.5">共 {{ timelineRecords.length }} 条记录</p>
+                </div>
+                <!-- 排序控制按钮 -->
+                <button @click="toggleTimelineSort"
+                    class="bg-gray-100 text-gray-500 w-10 h-10 rounded-full flex items-center justify-center shadow-sm active:scale-95 transition">
+                    <i class="fas" :class="isTimelineDesc ? 'fa-sort-amount-down' : 'fa-sort-amount-up'"></i>
+                </button>
+            </div>
+
+            <div v-if="isLoading" class="py-20 text-center">
+                <div class="spinner mx-auto mb-4"></div>
+                <p class="text-gray-400 text-sm">正在加载成长记录...</p>
+            </div>
+
+            <div v-else-if="timelineRecords.length === 0" class="py-20 text-center">
+                <div
+                    class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
+                    <i class="fa fa-camera text-2xl"></i>
+                </div>
+                <p class="text-gray-400 text-sm">还没有留下它的成长瞬间</p>
+            </div>
+
+            <div v-else class="bg-white rounded-3xl shadow-sm border border-gray-50 p-6 space-y-6">
+                <!-- 循环渲染所有照片轨迹 -->
+                <div v-for="record in sortedTimelineRecords" :key="record.id"
+                    class="relative pl-6 border-l-2 border-blue-50">
+                    <div
+                        class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white border-4 border-blue-500 shadow-sm">
+                    </div>
+
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-xs font-black text-gray-400">{{ formatDate(record.date) }}</span>
+                        <button @click="confirmDeleteTimeline(record.id)"
+                            class="text-gray-300 hover:text-red-400 p-1 active:scale-90 transition">
+                            <i class="fa fa-trash-alt text-xs"></i>
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-700 mb-3 font-medium">{{ record.description || '这一天，有了新的成长...' }}</p>
+
+                    <div v-if="getImages(record.images).length > 0" class="grid grid-cols-3 gap-2">
+                        <div v-for="(img, idx) in getImages(record.images)" :key="idx"
+                            class="aspect-square rounded-2xl overflow-hidden bg-gray-100 shadow-sm">
+                            <img :src="imgUrl(img, 100, 100)" loading="lazy"
+                                class="w-full h-full object-cover cursor-pointer active:opacity-75 transition"
+                                @click="openGallery(img, getImages(record.images))">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 图片全屏画廊 -->
+        <div v-if="previewImages.length > 0"
+            class="fixed inset-0 z-[100] bg-black flex items-center justify-center animate-fade-in touch-none"
+            @click.self="closeGallery">
+            <button @click="closeGallery"
+                class="absolute top-6 right-6 text-white/50 hover:text-white p-4 z-[110] transition">
+                <i class="fa fa-times text-2xl drop-shadow-md"></i>
+            </button>
+            <button v-if="previewImages.length > 1" @click.stop="prevImg"
+                class="absolute left-2 top-1/2 -translate-y-1/2 p-4 text-white/50 hover:text-white z-[110] transition disabled:opacity-20"
+                :disabled="previewIndex === 0">
+                <i class="fa fa-chevron-left text-3xl drop-shadow-md"></i>
+            </button>
+            <button v-if="previewImages.length > 1" @click.stop="nextImg"
+                class="absolute right-2 top-1/2 -translate-y-1/2 p-4 text-white/50 hover:text-white z-[110] transition disabled:opacity-20"
+                :disabled="previewIndex === previewImages.length - 1">
+                <i class="fa fa-chevron-right text-3xl drop-shadow-md"></i>
+            </button>
+
+            <!-- 卡带式图片轨道 -->
+            <div class="absolute inset-0 overflow-hidden">
+                <div class="flex h-full items-center transition-transform" :style="{
+                        transform: `translateX(${-previewIndex * 100}%)`,
+                        transition: 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)'
+                    }">
+                    <div v-for="(src, idx) in previewImages" :key="idx"
+                        class="w-full h-full flex-shrink-0 flex items-center justify-center px-4" @click="closeGallery">
+                        <img :src="src" loading="lazy" class="max-w-full max-h-full object-contain select-none"
+                            draggable="false">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 底部：计数 + 小圆点 -->
+            <div class="absolute bottom-10 left-0 right-0 flex flex-col items-center gap-3 pointer-events-none">
+                <div v-if="previewImages.length > 1" class="flex gap-1.5">
+                    <span v-for="(_, idx) in previewImages" :key="idx"
+                        class="w-1.5 h-1.5 rounded-full transition-all duration-300"
+                        :class="idx === previewIndex ? 'bg-white w-4' : 'bg-white/40'">
+                    </span>
+                </div>
+                <span class="text-white/60 text-xs font-bold tracking-widest">
+                    {{ previewIndex + 1 }} / {{ previewImages.length }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/vue.global.js"></script>
+    <script src="js/config.js?v=20260111"></script>
+    <script src="js/api-client.js?v=20260111"></script>
+
+    <script>
+        const { createApp, ref, onMounted, computed } = Vue;
+
+        createApp({
+            setup() {
+                const isLoading = ref(true);
+                const potId = ref(null);
+                const pot = ref(null);
+                const timelineRecords = ref([]);
+                const isTimelineDesc = ref(true);
+
+                const previewImages = ref([]);
+                const previewIndex = ref(0);
+
+                const init = async () => {
+                    const params = new URLSearchParams(window.location.search);
+                    potId.value = params.get('potId');
+
+                    if (!potId.value) {
+                        alert('缺少参数');
+                        window.location.href = 'index.html';
+                        return;
+                    }
+
+                    try {
+                        await Promise.all([
+                            loadPotInfo(),
+                            loadTimelineRecords()
+                        ]);
+                    } catch (e) {
+                        console.error(e);
+                    } finally {
+                        isLoading.value = false;
+                    }
+                };
+
+                const loadPotInfo = async () => {
+                    const res = await apiClient.getPotDetail(potId.value);
+                    if (res.success) pot.value = res.data;
+                };
+
+                const loadTimelineRecords = async () => {
+                    const res = await apiClient.getTimelines(potId.value);
+                    if (res.success) timelineRecords.value = res.data || [];
+                };
+
+                const sortedTimelineRecords = computed(() => {
+                    return [...timelineRecords.value].sort((a, b) => {
+                        const dateA = new Date(a.date);
+                        const dateB = new Date(b.date);
+                        return isTimelineDesc.value ? dateB - dateA : dateA - dateB;
+                    });
+                });
+
+                const toggleTimelineSort = () => isTimelineDesc.value = !isTimelineDesc.value;
+
+                const confirmDeleteTimeline = async (id) => {
+                    if (confirm('确认删除这条生长记录？照片也将一并清理。')) {
+                        try {
+                            const res = await apiClient.request(`/api/timelines/${id}`, { method: 'DELETE' });
+                            if (res.success) await loadTimelineRecords();
+                        } catch (e) { alert('删除操作失败'); }
+                    }
+                };
+
+                const openGallery = (img, allImages) => {
+                    previewImages.value = allImages;
+                    const idx = allImages.indexOf(img);
+                    previewIndex.value = idx >= 0 ? idx : 0;
+                };
+
+                const closeGallery = () => {
+                    previewImages.value = [];
+                    previewIndex.value = 0;
+                };
+
+                const prevImg = () => {
+                    if (previewIndex.value > 0) previewIndex.value--;
+                };
+
+                const nextImg = () => {
+                    if (previewIndex.value < previewImages.value.length - 1) previewIndex.value++;
+                };
+
+                const getImages = (images) => {
+                    if (!images) return [];
+                    if (Array.isArray(images)) return images;
+                    try { return JSON.parse(images); } catch (e) { return []; }
+                };
+
+                const imgUrl = (src, w, h) => {
+                    if (!src || !src.includes('img.kaside365.com')) return src;
+                    return `/cdn-cgi/image/width=${w},height=${h},dpr=2,fit=cover,format=auto/${src}`;
+                };
+
+                const goBack = () => {
+                    window.location.href = `pot-detail.html?id=${potId.value}`;
+                };
+
+                const formatDate = (dateStr) => {
+                    if (!dateStr) return '';
+                    const date = new Date(dateStr);
+                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                };
+
+                const handleImageError = (e) => {
+                    e.target.src = 'assets/images/icons/icons-default-pot.png';
+                };
+
+                onMounted(init);
+
+                return {
+                    isLoading, pot, timelineRecords, sortedTimelineRecords, isTimelineDesc,
+                    previewImages, previewIndex,
+                    toggleTimelineSort, confirmDeleteTimeline, openGallery, closeGallery, prevImg, nextImg,
+                    getImages, imgUrl, goBack, formatDate, handleImageError
+                };
+            }
+        }).mount('#app');
+    </script>
+
+</body>
+
+</html>
