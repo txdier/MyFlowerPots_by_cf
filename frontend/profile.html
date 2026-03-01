@@ -125,7 +125,7 @@
                     </div>
 
                     <button @click="updateProfile" :disabled="isUpdatingProfile"
-                        class="w-full btn btn-primary py-4 rounded-2xl text-sm font-black shadow-lg shadow-green-100 disabled:opacity-50 mt-4">
+                        class="w-full bg-green-500 text-white py-4 rounded-2xl text-sm font-black shadow-lg shadow-green-100 hover:bg-green-600 disabled:opacity-50 mt-4 transition active:scale-95">
                         <span v-if="!isUpdatingProfile">保存个人资料</span>
                         <span v-else><i class="fa fa-spinner fa-spin mr-2"></i>更新中...</span>
                     </button>
@@ -388,11 +388,6 @@
     <style>
         [v-cloak] {
             display: none;
-        }
-
-        .btn-primary {
-            background: #10b981;
-            color: #fff;
         }
 
         .animate-slide-up {

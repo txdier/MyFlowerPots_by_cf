@@ -143,7 +143,7 @@
                 <!-- 提交按钮 -->
                 <div class="space-y-3">
                     <button type="button" @click="saveRecord" :disabled="isSaving"
-                        class="w-full btn btn-primary py-4 rounded-2xl text-lg shadow-lg shadow-green-100 disabled:opacity-50">
+                        class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                         <span v-if="!isSaving">{{ isEditMode ? '保存修改' : '确认添加' }}</span>
                         <span v-else><i class="fa fa-spinner fa-spin mr-2"></i>处理中...</span>
                     </button>
@@ -395,17 +395,6 @@
             color: #1a1a1a;
         }
 
-        .btn-primary {
-            background: #4CAF50;
-            color: #fff;
-            font-weight: bold;
-            transition: all 0.2s;
-        }
-
-        .btn-primary:hover {
-            background: #43A047;
-            transform: translateY(-1px);
-        }
     </style>
 </body>
 

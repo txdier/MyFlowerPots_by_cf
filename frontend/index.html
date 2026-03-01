@@ -119,43 +119,22 @@
             </div>
         </header>
 
-        <!-- 养护建议 -->
-        <div v-if="careAdvice.length > 0 && pots.length > 0" class="container mt-4">
-            <div
-                class="bg-white rounded-2xl p-3 border border-gray-100 flex items-center gap-3 shadow-sm overflow-hidden">
-                <div
-                    class="bg-yellow-50 text-yellow-600 w-8 h-8 rounded-full flex items-center justify-center shrink-0">
-                    <i class="fa fa-lightbulb"></i>
-                </div>
-                <div class="flex-1 text-sm font-medium text-gray-600 truncate animate-pulse">
-                    {{ careAdvice[currentAdviceIndex]?.advice }}
-                </div>
-            </div>
+        <div v-if="careReminders.length > 0" class="container mt-2">
+            <button @click="showRemindersExpanded = !showRemindersExpanded"
+                class="w-full py-1.5 text-center text-gray-700 transition active:scale-95">
+                <span class="inline-flex items-center gap-2">
+                    <i class="fa fa-bell text-[11px] text-orange-500"></i>
+                    <span class="text-xs font-bold">今日待养护</span>
+                    <span class="text-[11px] font-black text-orange-500">{{ careReminders.length }}</span>
+                </span>
+            </button>
         </div>
 
-        <!-- 今日待养护 (可折叠) -->
-        <div v-if="careReminders.length > 0" class="container mt-4">
+        <div v-if="careReminders.length > 0 && showRemindersExpanded" class="container mt-2 animate-fade-in">
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <!-- 头部：点击可展开/折叠 -->
-                <div @click="showRemindersExpanded = !showRemindersExpanded"
-                    class="p-4 flex items-center justify-between cursor-pointer active:bg-gray-50 transition">
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-500">
-                            <i class="fa fa-bell"></i>
-                        </div>
-                        <span class="text-sm font-bold text-gray-800">今日待养护</span>
-                        <span class="text-xs font-bold text-orange-500 bg-orange-50 px-2 py-1 rounded-full">{{
-                            careReminders.length }}</span>
-                    </div>
-                    <i class="fas text-gray-400 text-sm transition-transform duration-200"
-                        :class="showRemindersExpanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
-                </div>
-                <!-- 展开内容 -->
-                <div v-show="showRemindersExpanded"
-                    class="divide-y divide-gray-50 max-h-60 overflow-y-auto border-t border-gray-50">
+                <div class="divide-y divide-gray-50 max-h-60 overflow-y-auto">
                     <div v-for="group in groupedReminders" :key="group.potId" @click.stop="goToPotDetail(group.potId)"
                         class="flex gap-3 p-3 cursor-pointer active:bg-gray-50 transition items-start">
-                        <!-- 左侧大图 (固定方形) -->
                         <div class="relative w-16 h-16 shrink-0">
                             <img :src="imgUrl(group.potImage, 64, 64) || 'assets/images/icons/icons-default-pot.png'"
                                 class="w-full h-full object-cover rounded-xl"
@@ -166,7 +145,6 @@
                             </div>
                         </div>
 
-                        <!-- 右侧任务列表 -->
                         <div class="flex-1 min-w-0 py-0.5 flex flex-col justify-center">
                             <div class="flex items-center justify-between mb-1.5">
                                 <span class="text-sm font-bold text-gray-800 truncate">{{ group.potName }}</span>
@@ -199,7 +177,6 @@
                                                 task.daysSinceCare }}</span> 天</span>
                                     </div>
 
-                                    <!-- 季节性贴士 (Homepage Version) -->
                                     <div v-if="getTaskSeasonalTip(group.potId, task.careType)"
                                         class="mt-1 flex items-start text-[10px] bg-opacity-10 rounded px-2 py-1 ml-6"
                                         :class="{
@@ -227,7 +204,20 @@
             </div>
         </div>
 
-        <!-- 主列表区域 -->
+        <!-- 养护建议 -->
+        <div v-if="careAdvice.length > 0 && pots.length > 0" class="container mt-4">
+            <div
+                class="bg-white rounded-2xl p-3 border border-gray-100 flex items-center gap-3 shadow-sm overflow-hidden">
+                <div
+                    class="bg-yellow-50 text-yellow-600 w-8 h-8 rounded-full flex items-center justify-center shrink-0">
+                    <i class="fa fa-lightbulb"></i>
+                </div>
+                <div class="flex-1 text-sm font-medium text-gray-600 truncate animate-pulse">
+                    {{ careAdvice[currentAdviceIndex]?.advice }}
+                </div>
+            </div>
+        </div>
+
         <main class="container mt-6">
             <div v-if="isLoading" class="flex flex-col items-center justify-center py-20">
                 <div class="spinner mb-4"></div>
@@ -241,7 +231,8 @@
                 <h3 class="text-lg font-bold text-gray-800">空空如也</h3>
                 <p class="text-gray-400 text-sm mt-2 px-10">您还没有添加任何花盆，点击下方按钮开始记录第一株植物吧</p>
                 <div class="flex flex-col sm:flex-row gap-3 mt-8">
-                    <button @click="goAddPot" class="btn btn-primary px-8 py-3 rounded-2xl shadow-lg shadow-green-100">
+                    <button @click="goAddPot"
+                        class="bg-green-500 text-white px-8 py-3 rounded-2xl shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95">
                         添加我的花盆
                     </button>
                     <button @click="seedDemoData" :disabled="isAuthLoading"
@@ -381,8 +372,8 @@
                             class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
                         <input type="password" v-model="loginForm.password" placeholder="密码" required
                             class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
-                        <button type="submit" :disabled="isAuthLoading"
-                            class="w-full btn btn-primary py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 disabled:opacity-50">
+                        <button type="submit" :disabled="isAuthLoading || !isLoginValid"
+                            class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                             {{ isAuthLoading ? '登录中...' : '立即登录' }}
                         </button>
                     </form>
@@ -408,14 +399,14 @@
                     <p class="text-gray-400 text-sm mb-8">开始您的智能养花之旅</p>
                     <form @submit.prevent="handleRegister" class="space-y-4">
                         <input type="email" v-model="registerForm.email" placeholder="电子邮箱" required
-                            class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4">
+                            class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
                         <input type="text" v-model="registerForm.displayName" placeholder="昵称"
-                            class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4">
+                            class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
                         <input type="password" v-model="registerForm.password" placeholder="密码 (至少8位)" required
-                            class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4">
+                            class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
                         <div class="relative">
                             <input type="password" v-model="registerForm.confirmPassword" placeholder="确认密码" required
-                                class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4">
+                                class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
                             <div v-if="registerForm.password && registerForm.confirmPassword"
                                 class="absolute right-3 top-1/2 transform -translate-y-1/2">
                                 <i v-if="passwordsMatch" class="fa fa-check text-green-500"></i>
@@ -428,7 +419,7 @@
                             两次输入的密码不一致
                         </div>
                         <button type="submit" :disabled="!isRegisterValid || isAuthLoading"
-                            class="w-full btn btn-primary py-4 rounded-2xl text-lg font-bold mt-4 disabled:opacity-50">
+                            class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                             {{ isAuthLoading ? '注册并合并数据' : '完成注册' }}
                         </button>
                     </form>
@@ -455,7 +446,7 @@
                             请输入正确的邮箱地址
                         </p>
                         <button type="submit" :disabled="isAuthLoading || !isForgotPasswordEmailValid"
-                            class="w-full btn btn-primary py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 disabled:opacity-50">
+                            class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                             {{ isAuthLoading ? '发送中...' : '发送重置邮件' }}
                         </button>
                     </form>
@@ -515,6 +506,11 @@
                     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                     return emailRegex.test(loginForm.email);
                 });
+
+                const isLoginValid = computed(() =>
+                    isForgotPasswordEmailValid.value &&
+                    loginForm.password.trim().length > 0
+                );
 
                 const isRegisterValid = computed(() =>
                     registerForm.email &&
@@ -682,7 +678,8 @@
                 const initSortable = () => {
                     if (!potsGrid.value) return;
                     sortableInstance = new Sortable(potsGrid.value, {
-                        animation: 300, // 稍微调慢动画，更平滑
+                        animation: 220, // 更贴手的回弹速度
+                        easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
                         handle: '.handle',
                         delay: 0,
                         forceFallback: true, // 关键：使用fallback
@@ -700,12 +697,13 @@
                         // 如果开启GPU加速，Sortable会覆盖transform属性
                         gpuAcceleration: false,
                         onChoose: () => {
-                            if (navigator.vibrate) navigator.vibrate(50);
-                        },
-                        onUnchoose: () => {
                             if (navigator.vibrate) navigator.vibrate(30);
                         },
+                        onUnchoose: () => {
+                            if (navigator.vibrate) navigator.vibrate(20);
+                        },
                         onEnd: async (evt) => {
+                            if (navigator.vibrate) navigator.vibrate(15);
                             const item = pots.value.splice(evt.oldIndex, 1)[0];
                             pots.value.splice(evt.newIndex, 0, item);
                             try {
@@ -923,7 +921,7 @@
                 return {
                     isLoading, pots, user, isLoggedIn, userDisplayName, weatherData, careAdvice, careReminders, groupedReminders, showRemindersExpanded, currentAdviceIndex,
                     isEditMode, potsGrid, showUserMenu, showLoginModal, showRegisterModal, showForgotPasswordModal, isAuthLoading,
-                    loginForm, registerForm, passwordsMatch, isRegisterValid, isForgotPasswordEmailValid, allSelected, selectedCount,
+                    loginForm, registerForm, passwordsMatch, isLoginValid, isRegisterValid, isForgotPasswordEmailValid, allSelected, selectedCount,
                     handleLogin, handleRegister, handleForgotPassword, toggleSelectAll, toggleEditMode, deleteSelectedPots,
                     handleTouchStart, handleTouchMove, handleTouchEnd, handleCardClick, confirmDeleteSingle,
                     logout, closeAuthModals, switchToRegister, switchToLogin, switchToForgotPassword,
@@ -982,12 +980,6 @@
             }
         }
 
-        .btn-primary {
-            background: #10b981;
-            color: #fff;
-            font-weight: 800;
-        }
-
         .spinner {
             width: 30px;
             height: 30px;
@@ -1009,28 +1001,32 @@
 
         /* 排序相关样式 */
         .sortable-ghost {
-            opacity: 0;
-            /* 让原位置完全透明，形成“空洞”感 */
+            opacity: 0.35;
+            background: #f8fafc;
+            border: 2px dashed #cbd5e1;
+            border-radius: 1rem;
         }
 
         .sortable-fallback {
             opacity: 1 !important;
             background: #fff;
-            /* 加入旋转和放大，模拟“拿起”的效果 */
-            transform: scale(1.05) rotate(2deg);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-            border-radius: 1.5rem;
-            /* rounded-3xl */
+            transform: scale(1.02) rotate(0.8deg);
+            box-shadow: 0 16px 30px -14px rgba(15, 23, 42, 0.38);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            border-radius: 1rem;
             z-index: 9999 !important;
             pointer-events: none;
-            /* 确保不阻挡底层事件 */
             cursor: grabbing;
+        }
+
+        .sortable-chosen {
+            transform: scale(1.01);
+            box-shadow: 0 10px 20px -14px rgba(15, 23, 42, 0.35);
         }
 
         .sortable-drag {
             cursor: grabbing;
-            opacity: 0;
-            /* 隐藏原生拖拽影像 */
+            opacity: 0.15;
         }
     </style>
 </body>

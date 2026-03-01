@@ -114,23 +114,42 @@
                 </div>
                 <!-- 居中标题 -->
                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <h1 class="text-base sm:text-lg font-black text-gray-800">花盆详情</h1>
+                    <h1 class="text-base sm:text-lg font-black text-gray-800">{{ pot?.name || '花盆详情' }}</h1>
+                </div>
+                <!-- 右侧编辑按钮 -->
+                <div class="z-10 ml-auto">
+                    <button class="w-10 h-10 flex items-center justify-center text-gray-400 active:scale-90 transition"
+                        @click="goEditPage">
+                        <i class="fa fa-pen text-xl"></i>
+                    </button>
                 </div>
             </div>
         </header>
 
+        <!-- 页内导航（摘要跳转） -->
+        <div v-if="!isLoading && pot" class="container sticky top-16 z-40 bg-gray-50/95 backdrop-blur-sm py-2">
+            <div class="flex items-center gap-1 bg-white/80 border border-gray-100 rounded-2xl p-1 shadow-sm">
+                <button v-for="tab in sectionTabs" :key="tab.key" @click="scrollToSection(tab.id, tab.key)"
+                    class="flex-1 py-2 rounded-xl text-[11px] font-bold transition" :class="activeSection === tab.key
+                        ? 'bg-green-50 text-green-600'
+                        : 'text-gray-400 active:scale-95'">
+                    {{ tab.label }}
+                </button>
+            </div>
+        </div>
+
         <!-- 主内容区域 -->
         <main class="main pb-20">
             <!-- 骨架屏加载状态 (Skeleton Screen) -->
-            <div v-if="isLoading" class="container py-6 space-y-6 animate-pulse">
+            <div v-if="isLoading" class="container py-5 space-y-5 animate-pulse">
                 <!-- 1. 花盆卡片骨架 -->
-                <div class="bg-gray-200 rounded-3xl h-64 md:h-80 w-full shadow-sm"></div>
+                <div class="bg-gray-200 rounded-3xl h-56 md:h-72 w-full shadow-sm"></div>
 
                 <!-- 2. 信息卡片骨架 -->
-                <div class="bg-gray-200 rounded-3xl h-48 w-full shadow-sm border border-gray-100"></div>
+                <div class="bg-gray-200 rounded-3xl h-40 w-full shadow-sm border border-gray-100"></div>
 
                 <!-- 3. 养护统计/列表骨架 -->
-                <div class="bg-gray-200 rounded-3xl h-40 w-full shadow-sm"></div>
+                <div class="bg-gray-200 rounded-3xl h-32 w-full shadow-sm"></div>
 
                 <!-- 4. 列表条目骨架 (重复) -->
                 <div class="space-y-4">
@@ -165,25 +184,10 @@
             <!-- 内容区域 -->
             <div v-if="!isLoading && pot" class="container py-6 space-y-6">
                 <!-- 1. 花盆基本信息卡片 -->
-                <div class="bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-50">
-                    <div class="relative h-64 md:h-80">
+                <div id="section-overview" class="bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-50">
+                    <div class="relative h-56 md:h-72">
                         <img :src="imgUrl(pot.image_url, 800, 512) || 'assets/images/icons/icons-default-pot.png'"
                             class="w-full h-full object-cover" @error="handleImageError">
-                        <div
-                            class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6 text-white">
-                            <h2 class="text-2xl font-black">{{ pot.name }}</h2>
-                            <!-- <div class="flex items-center gap-2 mt-1">
-                                <span
-                                    class="bg-white/20 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{{
-                                    pot.plant_type || '普通植物' }}</span>
-                                <span class="text-xs opacity-80">种植于 {{ formatDate(pot.plant_date) }}</span>
-                            </div> -->
-                        </div>
-                        <!-- 编辑入口 -->
-                        <button @click="goEditPage"
-                            class="absolute top-4 right-4 w-10 h-10 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-white active:scale-90 transition">
-                            <i class="fa fa-pen text-sm"></i>
-                        </button>
                     </div>
                     <div class="p-6 space-y-4">
                         <div class="flex flex-col gap-2 text-sm">
@@ -203,135 +207,126 @@
                     </div>
                 </div>
 
-                <!-- 植物基本信息 (Basic Info Section - Optimized) -->
-                <div v-if="plantInfo" class="bg-white rounded-3xl shadow-sm p-6 border border-gray-50">
-                    <div class="flex justify-between items-center mb-6">
-                        <h3 class="text-lg font-black text-gray-800 flex items-center gap-2">
-                            <i class="fa fa-book text-green-500"></i> 基本信息
-                        </h3>
-                    </div>
-
-                    <div class="space-y-3.5 text-sm overflow-hidden transition-all duration-500"
-                        :style="{ maxHeight: showFullPlantInfo ? '1000px' : '300px' }">
-                        <!-- 优先显示 -->
-                        <div v-for="item in plantInfoGroups.priority" :key="item.key" class="flex gap-2">
-                            <span class="text-gray-900 font-bold shrink-0 w-20 whitespace-nowrap">{{ item.label
-                                }}：</span>
-                            <span class="text-gray-600 flex-1">{{ item.val }}</span>
-                        </div>
-
-                        <!-- 折叠显示项 -->
-                        <div v-if="showFullPlantInfo" v-for="item in plantInfoGroups.extended" :key="item.key"
-                            class="flex gap-2 animate-fade-in">
-                            <span class="text-gray-900 font-bold shrink-0 w-20 whitespace-nowrap">{{ item.label
-                                }}：</span>
-                            <span class="text-gray-600 flex-1">{{ item.val }}</span>
-                        </div>
-                    </div>
-
-                    <!-- 展开/收起按钮 (基本信息) -->
-                    <div v-if="plantInfoGroups.extended.length > 0"
-                        class="mt-4 flex justify-center border-t border-gray-50 pt-4">
-                        <button @click="showFullPlantInfo = !showFullPlantInfo"
-                            class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:text-green-500 hover:bg-green-50 transition active:scale-90">
-                            <i class="fas" :class="showFullPlantInfo ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- 2. 养护提示 (Care Tips Section - Optimized) -->
+                <!-- 植物信息（Tab 合并卡片） -->
                 <div v-if="plantInfo" class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
-                    <div class="px-6 py-5 bg-gray-50/30 border-b border-gray-50">
-                        <h3 class="text-lg font-black text-blue-500 flex items-center gap-2">
-                            <span>💡</span> 养护提示
-                        </h3>
+                    <div class="px-6 pt-5 border-b border-gray-50">
+                        <div class="flex">
+                            <button @click="plantInfoActiveTab = 'basic'"
+                                class="flex-1 py-3 text-sm font-black border-b-2 transition"
+                                :class="plantInfoActiveTab === 'basic' ? 'text-green-600 border-green-500' : 'text-gray-400 border-transparent'">
+                                基本信息
+                            </button>
+                            <button @click="plantInfoActiveTab = 'care'"
+                                class="flex-1 py-3 text-sm font-black border-b-2 transition"
+                                :class="plantInfoActiveTab === 'care' ? 'text-blue-600 border-blue-500' : 'text-gray-400 border-transparent'">
+                                养护提示
+                            </button>
+                        </div>
                     </div>
 
-                    <div class="px-6 py-6 overflow-hidden transition-all duration-500"
-                        :style="{ maxHeight: showFullCareTips ? '3000px' : '650px' }">
+                    <!-- 基本信息面板 -->
+                    <div v-show="plantInfoActiveTab === 'basic'" class="p-6">
+                        <div class="space-y-3.5 text-sm overflow-hidden transition-all duration-500"
+                            :style="{ maxHeight: showFullPlantInfo ? '1000px' : '280px' }">
+                            <div v-for="item in plantInfoGroups.priority" :key="item.key" class="flex gap-2">
+                                <span class="text-gray-900 font-bold shrink-0 w-20 whitespace-nowrap">{{ item.label
+                                    }}：</span>
+                                <span class="text-gray-600 flex-1">{{ item.val }}</span>
+                            </div>
 
-                        <!-- 1. 顶部总结横线 (Summary Line - Simple with Pipe Separator) -->
-                        <div
-                            class="flex flex-wrap items-center justify-center gap-x-2 gap-y-2 mb-8 text-[11px] font-bold text-gray-500 px-4">
-                            <template v-for="(item, idx) in careTipsGroups.summary" :key="item.key">
-                                <span class="whitespace-nowrap">{{ item.label }}：<span
-                                        class="text-blue-500 font-black">{{ item.val }}</span></span>
-                                <span v-if="idx < careTipsGroups.summary.length - 1" class="text-gray-300 mx-1">|</span>
-                            </template>
+                            <div v-if="showFullPlantInfo" v-for="item in plantInfoGroups.extended" :key="item.key"
+                                class="flex gap-2 animate-fade-in">
+                                <span class="text-gray-900 font-bold shrink-0 w-20 whitespace-nowrap">{{ item.label
+                                    }}：</span>
+                                <span class="text-gray-600 flex-1">{{ item.val }}</span>
+                            </div>
                         </div>
 
-                        <!-- 2. 日志详情列表 (Log Style) -->
-                        <div class="space-y-8">
-                            <div v-for="item in careTipsGroups.priorityDetails" :key="item.key"
-                                class="relative pl-6 border-l-2 border-blue-100/50">
-                                <!-- 左侧装饰原点 -->
-                                <div
-                                    class="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.3)]">
-                                </div>
+                        <div v-if="plantInfoGroups.extended.length > 0"
+                            class="mt-4 flex justify-center border-t border-gray-50 pt-4">
+                            <button @click="showFullPlantInfo = !showFullPlantInfo"
+                                class="h-10 px-4 rounded-full bg-gray-50 flex items-center justify-center gap-2 text-gray-500 hover:text-green-500 hover:bg-green-50 transition active:scale-95 shadow-sm border border-gray-100 text-xs font-bold">
+                                <i class="fas" :class="showFullPlantInfo ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                                <span>{{ showFullPlantInfo ? '收起信息' : '查看全部信息' }}</span>
+                            </button>
+                        </div>
+                    </div>
 
-                                <div class="space-y-2">
-                                    <div class="flex items-center gap-2">
-                                        <i :class="item.icon" class="text-blue-500 text-sm"></i>
-                                        <span class="text-xs font-black text-gray-800 uppercase tracking-widest">{{
-                                            item.label }}</span>
+                    <!-- 养护提示面板 -->
+                    <div v-show="plantInfoActiveTab === 'care'">
+                        <div class="px-6 py-6 overflow-hidden transition-all duration-500"
+                            :style="{ maxHeight: showFullCareTips ? '3000px' : '400px' }">
+                            <div
+                                class="flex flex-wrap items-center justify-center gap-x-2 gap-y-2 mb-8 text-[11px] font-bold text-gray-500 px-4">
+                                <template v-for="(item, idx) in careTipsGroups.summary" :key="item.key">
+                                    <span class="whitespace-nowrap">{{ item.label }}：<span
+                                            class="text-blue-500 font-black">{{ item.val }}</span></span>
+                                    <span v-if="idx < careTipsGroups.summary.length - 1"
+                                        class="text-gray-300 mx-1">|</span>
+                                </template>
+                            </div>
+
+                            <div class="space-y-7">
+                                <div v-for="item in careTipsGroups.priorityDetails" :key="item.key"
+                                    class="relative pl-6 border-l-2 border-blue-100/50">
+                                    <div
+                                        class="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.3)]">
                                     </div>
-                                    <p class="text-sm text-gray-600 leading-relaxed font-medium">{{ item.val }}</p>
+
+                                    <div class="space-y-2">
+                                        <div class="flex items-center gap-2">
+                                            <i :class="item.icon" class="text-blue-500 text-sm"></i>
+                                            <span class="text-xs font-black text-gray-800 uppercase tracking-widest">{{
+                                                item.label }}</span>
+                                        </div>
+                                        <p class="text-sm text-gray-600 leading-relaxed font-medium">{{ item.val }}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div v-if="showFullCareTips"
+                                class="mt-7 pt-7 border-t border-gray-50 space-y-7 animate-fade-in">
+                                <div v-for="item in careTipsGroups.extended" :key="item.key"
+                                    class="relative pl-6 border-l-2 border-gray-100">
+                                    <div class="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-gray-300"></div>
+
+                                    <div class="space-y-2">
+                                        <div class="flex items-center gap-2">
+                                            <i :class="item.icon" class="text-gray-400 text-sm"></i>
+                                            <span class="text-xs font-black text-gray-500 uppercase tracking-widest">{{
+                                                item.label }}</span>
+                                        </div>
+                                        <p class="text-sm text-gray-600 leading-relaxed font-medium">{{ item.val }}</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- 3. 折叠扩展部分 -->
-                        <div v-if="showFullCareTips"
-                            class="mt-8 pt-8 border-t border-gray-50 space-y-8 animate-fade-in">
-                            <div v-for="item in careTipsGroups.extended" :key="item.key"
-                                class="relative pl-6 border-l-2 border-gray-100">
-                                <div class="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-gray-300"></div>
-
-                                <div class="space-y-2">
-                                    <div class="flex items-center gap-2">
-                                        <i :class="item.icon" class="text-gray-400 text-sm"></i>
-                                        <span class="text-xs font-black text-gray-500 uppercase tracking-widest">{{
-                                            item.label }}</span>
-                                    </div>
-                                    <p class="text-sm text-gray-600 leading-relaxed font-medium">{{ item.val }}</p>
-                                </div>
-                            </div>
+                        <div v-if="careTipsGroups.extended.length > 0" class="pb-6 flex justify-center">
+                            <button @click="showFullCareTips = !showFullCareTips"
+                                class="h-10 px-4 rounded-full bg-gray-50 flex items-center justify-center gap-2 text-gray-500 hover:text-blue-500 hover:bg-blue-50 transition active:scale-95 shadow-sm border border-gray-100 text-xs font-bold">
+                                <i class="fas" :class="showFullCareTips ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                                <span>{{ showFullCareTips ? '收起要点' : '查看全部要点' }}</span>
+                            </button>
                         </div>
-                    </div>
-
-                    <!-- 展开/收起按钮 (养护提示) -->
-                    <div v-if="careTipsGroups.extended.length > 0" class="pb-6 flex justify-center">
-                        <button @click="showFullCareTips = !showFullCareTips"
-                            class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition active:scale-90 shadow-sm border border-gray-100">
-                            <i class="fas" :class="showFullCareTips ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
-                        </button>
                     </div>
                 </div>
                 <!-- 移除过早关闭的容器 div -->
 
                 <!-- 3.5 养护周期设置 (Care Schedules) - 增强版 -->
-                <div class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
-                    <!-- 头部：点击折叠 -->
-                    <div @click="showScheduleExpanded = !showScheduleExpanded"
-                        class="p-6 flex justify-between items-center border-b border-gray-50 cursor-pointer active:bg-gray-50 transition">
+                <div id="section-schedules"
+                    class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
+                    <div class="p-6 flex justify-between items-center border-b border-gray-50">
                         <h3 class="text-lg font-black text-gray-800 flex items-center gap-2">
                             <i class="fa fa-clock text-purple-400"></i> 养护提醒
-                            <i class="fas text-[10px] ml-1 text-gray-300 transition-transform duration-300"
-                                :class="showScheduleExpanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                         </h3>
-                        <!-- 仅展开时显示添加按钮，折叠时显示摘要 -->
-                        <div v-if="showScheduleExpanded">
-                            <button @click.stop="showAddScheduleModal = true"
-                                class="text-xs font-bold text-purple-500 bg-purple-50 px-3 py-1.5 rounded-full active:scale-95 transition">
-                                <i class="fa fa-plus mr-1"></i> 添加
-                            </button>
-                        </div>
-                        <div v-else class="text-xs font-bold text-gray-400">
-                            {{ careSchedules.filter(s => s.enabled).length }} 项启用
-                        </div>
+                        <button @click="showAddScheduleModal = true"
+                            class="text-xs font-bold text-purple-500 bg-purple-50 px-3 py-1.5 rounded-full active:scale-95 transition">
+                            <i class="fa fa-plus mr-1"></i> 添加
+                        </button>
                     </div>
 
-                    <!-- 内容区域：默认展开 -->
+                    <!-- 内容区域 -->
                     <div v-show="showScheduleExpanded" class="p-6 space-y-4 animate-fade-in">
                         <!-- 已设置的周期列表 -->
                         <template v-for="schedule in careSchedules" :key="schedule.id">
@@ -416,7 +411,7 @@
                         <!-- 提示信息 -->
                         <div v-if="careSchedules.length > 0" class="pt-2 text-center text-[10px] text-gray-400">
                             <i class="fa fa-info-circle mr-1"></i>
-                            启用后将在首页显示待养护提醒
+                            启用后将在首页显示符合条件的待养护提醒
                         </div>
                     </div>
                 </div>
@@ -532,10 +527,12 @@
                 </teleport>
 
                 <!-- 4. 养护记录 (Care Records) -->
-                <div class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
+                <div id="section-records" class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
                     <div class="p-6 flex justify-between items-center border-b border-gray-50">
                         <h3 class="text-lg font-black text-gray-800 flex items-center gap-2">
                             <i class="fa fa-history text-orange-400"></i> 养护历史
+                            <span class="text-[10px] text-gray-400 font-black uppercase tracking-wider ml-1">最近 5
+                                条</span>
                         </h3>
                         <button @click="goAddCarePage"
                             class="bg-orange-400 text-white px-4 py-1.5 rounded-full text-xs font-black shadow-lg shadow-orange-100 active:scale-95 transition">
@@ -579,7 +576,7 @@
                     <div v-else class="divide-y divide-gray-50">
                         <div v-for="group in groupedCareRecords.slice(0, 5)" :key="group.date"
                             @click="showCareDetails(group)"
-                            class="group py-4 px-6 active:bg-gray-50 transition cursor-pointer flex items-center justify-between">
+                            class="group py-4 px-6 active:bg-gray-50 transition cursor-pointer flex items-center justify-between overflow-hidden">
                             <div class="flex items-baseline gap-4 min-w-0">
                                 <!-- 日期在前 -->
                                 <span class="text-xs font-black text-gray-800 uppercase shrink-0 w-24 leading-none">
@@ -602,16 +599,19 @@
 
                         <button v-if="careRecords.length > 0" @click="viewAllRecords"
                             class="w-full py-4 text-[10px] text-gray-300 font-black uppercase tracking-widest bg-gray-50/50 border-t border-gray-50 flex items-center justify-center gap-2">
-                            查看完整历史档案 ({{ careRecords.length }}) <i class="fa fa-history"></i>
+                            查看全部养护记录 ({{ careRecords.length }}) <i class="fa fa-history"></i>
                         </button>
                     </div>
                 </div>
 
                 <!-- 3. 生长记录入口 (Entry Logic) -->
-                <div class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
+                <div id="section-timelines"
+                    class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
                     <div class="p-6 flex justify-between items-center border-b border-gray-50">
                         <h3 class="text-lg font-black text-gray-800 flex items-center gap-2">
                             <i class="fa fa-chart-line text-blue-500"></i> 生长轨迹
+                            <span class="text-[10px] text-gray-400 font-black uppercase tracking-wider ml-1">最近 3
+                                条</span>
                         </h3>
                         <div class="flex gap-2">
                             <button v-if="timelineRecords.length >= 2" @click="toggleTimelineSort"
@@ -668,7 +668,7 @@
                         <!-- 展开所有记录按钮 -->
                         <button v-if="timelineRecords.length > 3" @click="viewAllTimelines"
                             class="w-full py-4 text-[10px] text-gray-300 font-black uppercase tracking-widest bg-gray-50/50 border-t border-gray-50 flex items-center justify-center gap-2 rounded-2xl">
-                            查看完整成长档案 ({{ timelineRecords.length }}) <i class="fa fa-camera"></i>
+                            查看全部成长记录 ({{ timelineRecords.length }}) <i class="fa fa-camera"></i>
                         </button>
                     </div>
                 </div>
@@ -971,12 +971,14 @@
                 const activeCareDate = ref(null);
                 const showFullPlantInfo = ref(false); // 控制百科基本信息展开
                 const showFullCareTips = ref(false);  // 控制养护提示展开
+                const plantInfoActiveTab = ref('basic');
                 const potStats = ref(null); // 养护统计数据
 
                 // UI 状态
                 const showPlantModal = ref(false);
                 const showAddTimelineModal = ref(false);
                 const isTimelineDesc = ref(true); // 默认倒序
+                const activeSection = ref('overview');
                 const previewImages = ref([]);
                 const previewIndex = ref(0);
                 const galleryDragOffset = ref(0);  // 拖拽时的实时偏移量(px)
@@ -997,7 +999,7 @@
 
                 // 养护周期状态 (新版：统一管理)
                 const careSchedules = ref([]); // 已设置的养护计划列表
-                const showScheduleExpanded = ref(false); // 默认折叠
+                const showScheduleExpanded = ref(true); // 默认展开
                 const showAddScheduleModal = ref(false);
                 const newSchedule = reactive({
                     careType: 'water',
@@ -1022,6 +1024,21 @@
                     { days: 14, label: '2周' },
                     { days: 30, label: '每月' }
                 ];
+
+                const sectionTabs = [
+                    { key: 'overview', label: '概览', id: 'section-overview' },
+                    { key: 'schedules', label: '提醒', id: 'section-schedules' },
+                    { key: 'records', label: '养护历史', id: 'section-records' },
+                    { key: 'timelines', label: '生长轨迹', id: 'section-timelines' }
+                ];
+
+                const scrollToSection = (sectionId, sectionKey) => {
+                    const el = document.getElementById(sectionId);
+                    if (!el) return;
+                    activeSection.value = sectionKey;
+                    const y = el.getBoundingClientRect().top + window.scrollY - 120;
+                    window.scrollTo({ top: y, behavior: 'smooth' });
+                };
 
                 // 计算属性：能否保存
                 const canSaveSchedule = computed(() => {
@@ -1759,7 +1776,7 @@
                     getCareIcon, getCareLabel, getOrnamentalLabel, careTipsGrid,
                     handleImageError, imgUrl, groupedCareRecords,
                     activeCareDate, showCareDetails, closeCareDetails, currentSheetGroup,
-                    showFullPlantInfo, showFullCareTips, plantInfoGroups, careTipsGroups,
+                    showFullPlantInfo, showFullCareTips, plantInfoActiveTab, plantInfoGroups, careTipsGroups,
                     // 养护统计
                     potStats, statsWaterCount, statsFertilizeCount, statsCareDays,
                     avgWateringInterval, avgFertilizingInterval,
@@ -1769,7 +1786,9 @@
                     loadCareSchedules, saveNewSchedule, toggleScheduleEnabled, deleteSchedule, updateScheduleInterval,
                     getScheduleTypeStyle, getScheduleTypeName,
                     getScheduleHint, currentCareHint, smartIntervalSuggestion, applySmartInterval,
-                    getSeasonalTip
+                    getSeasonalTip,
+                    // 页内导航
+                    activeSection, sectionTabs, scrollToSection
                 };
             }
         }).mount('#app');

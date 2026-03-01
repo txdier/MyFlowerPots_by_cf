@@ -108,7 +108,7 @@
                     <!-- 提交按钮 -->
                     <div class="pt-4">
                         <button type="submit" :disabled="isSaving"
-                            class="w-full btn btn-primary py-5 rounded-[1.5rem] text-lg font-black shadow-xl shadow-green-100 disabled:opacity-50 transition-all active:scale-[0.98]">
+                            class="w-full bg-green-500 text-white py-5 rounded-[1.5rem] text-lg font-black shadow-xl shadow-green-100 hover:bg-green-600 disabled:opacity-50 transition-all active:scale-[0.98]">
                             <span v-if="!isSaving">创建我的花盆</span>
                             <span v-else><i class="fa fa-spinner fa-spin mr-2"></i>正在入库...</span>
                         </button>
@@ -221,10 +221,6 @@
             display: none;
         }
 
-        .btn-primary {
-            background: #10b981;
-            color: #fff;
-        }
     </style>
 </body>
 
