@@ -52,6 +52,23 @@
                 <p>正在读取花盆信息...</p>
             </div>
 
+            <div v-else-if="loadError" class="bg-white rounded-[2rem] shadow-sm p-8 text-center">
+                <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center">
+                    <i class="fa fa-exclamation-triangle text-xl"></i>
+                </div>
+                <h3 class="text-base font-black text-gray-800 mb-2">读取花盆信息失败</h3>
+                <p class="text-sm text-gray-500 mb-6">{{ loadError }}</p>
+                <div class="space-y-3">
+                    <button type="button" @click="retryInit"
+                        class="w-full bg-green-500 text-white py-4 rounded-2xl text-sm font-black shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95">
+                        重试加载
+                    </button>
+                    <button type="button" @click="goBack" class="w-full py-3 text-gray-400 font-bold text-sm">
+                        返回详情页
+                    </button>
+                </div>
+            </div>
+
             <div v-else class="bg-white rounded-[2rem] shadow-sm p-8">
                 <form @submit.prevent="updatePot" class="space-y-6">
                     <!-- 1. 图片修改 -->
@@ -80,8 +97,17 @@
                     <div class="relative">
                         <label
                             class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">花盆名称</label>
-                        <input type="text" v-model="form.name" required placeholder="请输入名称"
-                            class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-green-500 transition-all font-bold text-gray-800">
+                        <div class="relative">
+                            <input type="text" v-model="form.name" @input="onNameInput" required placeholder="请输入名称"
+                                class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-green-500 transition-all font-bold text-gray-800">
+                            <div v-if="suggestions.length > 0"
+                                class="absolute left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-30">
+                                <button v-for="s in suggestions" :key="s" type="button" @click="selectSuggestion(s)"
+                                    class="w-full text-left px-6 py-3 text-sm hover:bg-green-50 border-b border-gray-50 last:border-none transition">
+                                    {{ s }}
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- 3. 种植日期 -->
@@ -114,6 +140,13 @@
                 </form>
             </div>
         </main>
+
+        <div v-if="toast.show"
+            class="fixed top-20 left-1/2 -translate-x-1/2 z-[100] px-4 py-3 rounded-2xl text-sm font-bold text-white shadow-xl transition-all duration-300"
+            :class="toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'">
+            <i class="fa mr-2" :class="toast.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
+            {{ toast.message }}
+        </div>
     </div>
 
     <script>
@@ -122,11 +155,15 @@
         createApp({
             setup() {
                 const isLoading = ref(true);
+                const loadError = ref('');
                 const isSaving = ref(false);
                 const potId = ref(null);
                 const imageFile = ref(null);
                 const imagePreview = ref(null);
                 const originalImageUrl = ref(null);
+                const suggestions = ref([]);
+                const toast = ref({ show: false, message: '', type: 'success' });
+                let toastTimer = null;
 
                 const form = reactive({
                     name: '',
@@ -135,12 +172,14 @@
                 });
 
                 const init = async () => {
+                    isLoading.value = true;
+                    loadError.value = '';
                     const params = new URLSearchParams(window.location.search);
                     potId.value = params.get('id');
 
                     if (!potId.value) {
-                        alert('未找到花盆ID');
-                        window.location.href = 'index.html';
+                        loadError.value = '未找到花盆 ID，请返回列表后重试。';
+                        isLoading.value = false;
                         return;
                     }
 
@@ -153,12 +192,18 @@
                             form.note = p.note || '';
                             imagePreview.value = p.image_url;
                             originalImageUrl.value = p.image_url;
+                        } else {
+                            loadError.value = '数据返回异常，请稍后重试。';
                         }
                     } catch (e) {
-                        alert('获取详情失败');
+                        loadError.value = e.message || '网络异常，请稍后重试。';
                     } finally {
                         isLoading.value = false;
                     }
+                };
+
+                const retryInit = () => {
+                    init();
                 };
 
                 const onFileSelected = (e) => {
@@ -169,6 +214,32 @@
                         reader.onload = (ev) => imagePreview.value = ev.target.result;
                         reader.readAsDataURL(file);
                     }
+                };
+
+                const onNameInput = async () => {
+                    if (form.name.length < 2) {
+                        suggestions.value = [];
+                        return;
+                    }
+                    try {
+                        const res = await apiClient.searchPlants(form.name);
+                        if (res.success) {
+                            suggestions.value = res.data.slice(0, 5).map(p => p.name);
+                        }
+                    } catch (e) { }
+                };
+
+                const selectSuggestion = (name) => {
+                    form.name = name;
+                    suggestions.value = [];
+                };
+
+                const showToast = (message, type = 'success') => {
+                    toast.value = { show: true, message, type };
+                    if (toastTimer) clearTimeout(toastTimer);
+                    toastTimer = setTimeout(() => {
+                        toast.value.show = false;
+                    }, 2200);
                 };
 
                 const updatePot = async () => {
@@ -194,36 +265,35 @@
 
                         const res = await apiClient.updatePot(potId.value, payload);
                         if (res.success) {
-                            alert('修改成功！');
-                            window.location.href = `pot-detail.html?id=${potId.value}`;
+                            showToast('修改成功！');
+                            setTimeout(() => {
+                                window.location.href = `pot-detail.html?id=${potId.value}`;
+                            }, 500);
                         }
                     } catch (err) {
-                        alert('修改失败: ' + err.message);
+                        showToast('修改失败: ' + err.message, 'error');
                     } finally {
                         isSaving.value = false;
                     }
                 };
 
                 const goBack = () => {
-                    window.location.href = `pot-detail.html?id=${potId.value}`;
+                    if (potId.value) {
+                        window.location.href = `pot-detail.html?id=${potId.value}`;
+                        return;
+                    }
+                    window.location.href = 'index.html';
                 };
 
                 onMounted(init);
 
                 return {
-                    isLoading, form, isSaving, imagePreview,
-                    onFileSelected, updatePot, goBack
+                    isLoading, loadError, form, isSaving, imagePreview, suggestions, toast,
+                    onFileSelected, onNameInput, selectSuggestion, updatePot, retryInit, goBack
                 };
             }
         }).mount('#app');
     </script>
-
-    <style>
-        [v-cloak] {
-            display: none;
-        }
-
-    </style>
 </body>
 
 </html>

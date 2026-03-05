@@ -59,7 +59,7 @@
                 <span>{{ error }}</span>
             </div>
 
-            <div v-if="!isLoading">
+                <div v-if="!isLoading">
                 <!-- 花盆信息展示 -->
                 <div v-if="pot"
                     class="bg-white rounded-2xl p-4 mb-6 flex items-center shadow-sm border border-gray-100">
@@ -96,68 +96,79 @@
                             </div>
                         </div>
                         <!-- 自定义内容输入 (仅当选择“其他”时显示) -->
-                        <div v-if="form.types.includes('other')" class="mt-4 animate-fade-in">
+                        <div v-if="form.types.includes('other')" class="mb-6 animate-fade-in">
                             <label class="block text-sm font-bold text-gray-700 mb-2">自定义内容</label>
-                            <input v-model="form.description" type="text" placeholder="比如：移动位置、清理枯叶..."
+                            <input v-model="form.customAction" type="text" placeholder="比如：移动位置、清理枯叶..."
                                 class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500 focus:border-green-500 transition">
                         </div>
-                </div>
 
-
-
-                <!-- 4. 照片上传 (多选) -->
-                <div class="mb-8">
-                    <label class="block text-sm font-bold text-gray-700 mb-2">现场照片 (可选)</label>
-
-                    <!-- 图片网格 -->
-                    <div class="grid grid-cols-4 gap-2 mb-2">
-                        <!-- 已有的/新上传的图片预览 -->
-                        <div v-for="(img, idx) in form.images" :key="idx"
-                            class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group border border-gray-100">
-                            <img :src="img.preview || img.url" class="w-full h-full object-cover">
-                            <!-- 删除按钮 -->
-                            <button @click.stop="removeImage(idx)" type="button"
-                                class="absolute top-1 right-1 bg-black/50 text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition z-10">
-                                <i class="fa fa-times"></i>
-                            </button>
+                        <!-- 3. 备注说明 -->
+                        <div class="mb-8">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">备注说明</label>
+                            <textarea v-model="form.description" rows="3" placeholder="记录今天做了什么，植物状态如何..."
+                                class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500 focus:border-green-500 transition resize-none"></textarea>
                         </div>
 
-                        <!-- 添加按钮 -->
-                        <button v-if="form.images.length < 9" @click="triggerFileInput" type="button"
-                            class="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-300 hover:border-green-500 hover:text-green-500 transition active:scale-95 bg-gray-50/50">
-                            <i class="fa fa-camera text-xl mb-1"></i>
-                            <span class="text-[8px] font-black uppercase tracking-tighter">添加</span>
-                        </button>
-                    </div>
+                        <!-- 4. 照片上传 (多选) -->
+                        <div class="mb-8">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">现场照片 (可选)</label>
 
-                    <input type="file" ref="fileInput" @change="onFilesSelected" multiple accept="image/*"
-                        class="hidden">
+                            <!-- 图片网格 -->
+                            <div class="grid grid-cols-4 gap-2 mb-2">
+                                <!-- 已有的/新上传的图片预览 -->
+                                <div v-for="(img, idx) in form.images" :key="idx"
+                                    class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden group border border-gray-100">
+                                    <img :src="img.preview || img.url" class="w-full h-full object-cover">
+                                    <!-- 删除按钮 -->
+                                    <button @click.stop="removeImage(idx)" type="button"
+                                        class="absolute top-1 right-1 bg-black/50 text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition z-10">
+                                        <i class="fa fa-times"></i>
+                                    </button>
+                                </div>
 
-                    <p class="text-xs text-gray-400">
-                        <span class="text-green-500 bg-green-50 px-2 py-0.5 rounded-full inline-block text-[10px]">
-                            <i class="fa fa-magic mr-1"></i>会自动同步到生长轨迹
-                        </span>
-                    </p>
+                                <!-- 添加按钮 -->
+                                <button v-if="form.images.length < 9" @click="triggerFileInput" type="button"
+                                    class="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-300 hover:border-green-500 hover:text-green-500 transition active:scale-95 bg-gray-50/50">
+                                    <i class="fa fa-camera text-xl mb-1"></i>
+                                    <span class="text-[8px] font-black uppercase tracking-tighter">添加</span>
+                                </button>
+                            </div>
+
+                            <input type="file" ref="fileInput" @change="onFilesSelected" multiple accept="image/*"
+                                class="hidden">
+
+                            <p class="text-xs text-gray-400">
+                                <span class="text-green-500 bg-green-50 px-2 py-0.5 rounded-full inline-block text-[10px]">
+                                    <i class="fa fa-magic mr-1"></i>会自动同步到生长轨迹
+                                </span>
+                            </p>
+                        </div>
+
+                        <!-- 提交按钮 -->
+                        <div class="space-y-3">
+                            <button type="submit" :disabled="isSaving"
+                                class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+                                <span v-if="!isSaving">{{ isEditMode ? '保存修改' : '确认添加' }}</span>
+                                <span v-else><i class="fa fa-spinner fa-spin mr-2"></i>处理中...</span>
+                            </button>
+                            <button type="button" @click="goBack" class="w-full py-3 text-gray-400 font-bold text-sm">
+                                取消并返回
+                            </button>
+                        </div>
+                    </form>
                 </div>
-
-                <!-- 提交按钮 -->
-                <div class="space-y-3">
-                    <button type="button" @click="saveRecord" :disabled="isSaving"
-                        class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
-                        <span v-if="!isSaving">{{ isEditMode ? '保存修改' : '确认添加' }}</span>
-                        <span v-else><i class="fa fa-spinner fa-spin mr-2"></i>处理中...</span>
-                    </button>
-                    <button type="button" @click="goBack" class="w-full py-3 text-gray-400 font-bold text-sm">
-                        取消并返回
-                    </button>
-                </div>
-                </form>
             </div>
 
+            <!-- 页面提示 -->
+            <div v-if="toast.show"
+                class="fixed top-20 left-1/2 -translate-x-1/2 z-[100] px-4 py-3 rounded-2xl text-sm font-bold text-white shadow-xl transition-all duration-300"
+                :class="toast.type === 'error' ? 'bg-red-500' : 'bg-green-500'">
+                <i class="fa mr-2" :class="toast.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
+                {{ toast.message }}
+            </div>
+        </main>
     </div>
-    </main>
-    </div>
-
+    
     <script>
         const { createApp, ref, reactive, onMounted } = Vue;
 
@@ -170,6 +181,8 @@
                 const isEditMode = ref(false);
                 const recordId = ref(null);
                 const potId = ref(null);
+                const toast = ref({ show: false, message: '', type: 'success' });
+                let toastTimer = null;
 
                 const careTypes = [
                     { value: 'water', label: '浇水', icon: 'fa fa-tint' },
@@ -186,8 +199,17 @@
                     types: [],
                     date: new Date().toISOString().split('T')[0],
                     description: '',
+                    customAction: '',
                     images: [] // { file?, preview?, url? }
                 });
+
+                const showToast = (message, type = 'success') => {
+                    toast.value = { show: true, message, type };
+                    if (toastTimer) clearTimeout(toastTimer);
+                    toastTimer = setTimeout(() => {
+                        toast.value.show = false;
+                    }, 2200);
+                };
 
                 const init = async () => {
                     const params = new URLSearchParams(window.location.search);
@@ -217,6 +239,7 @@
                         form.types = [data.type];
                         form.date = data.date;
                         form.description = data.description || '';
+                        form.customAction = data.type === 'other' ? (data.action || data.description || '') : '';
 
                         // 解析图片
                         form.images = [];
@@ -283,17 +306,12 @@
                 };
 
                 const saveRecord = async () => {
-                    // DEBUG: 确认点击生效
-                    console.log('按钮被点击');
-
-                    // 校验
                     if (form.types.length === 0) {
-                        alert('请至少选择一种养护类型');
+                        showToast('请至少选择一种养护类型', 'error');
                         return;
                     }
 
                     try {
-                        console.log('开始保存, 表单:', JSON.parse(JSON.stringify(form)));
                         isSaving.value = true;
 
                         // 1. 上传新图片
@@ -318,8 +336,8 @@
 
                         // 准备动作列表，如果类型是“其他”，优先使用描述内容
                         const actions = form.types.map(t => {
-                            if (t === 'other' && form.description.trim()) {
-                                const d = form.description.trim();
+                            if (t === 'other' && form.customAction.trim()) {
+                                const d = form.customAction.trim();
                                 return d.length > 10 ? d.substring(0, 10) + '...' : d;
                             }
                             return careTypes.find(ct => ct.value === t).label;
@@ -346,12 +364,14 @@
                         }
 
                         if (result.success) {
-                            alert('保存成功');
-                            window.location.href = `pot-detail.html?id=${potId.value}`;
+                            showToast('保存成功');
+                            setTimeout(() => {
+                                window.location.href = `pot-detail.html?id=${potId.value}`;
+                            }, 500);
                         }
                     } catch (err) {
                         console.error('保存失败:', err);
-                        alert(`保存失败: ${err.message || '未知错误'}`);
+                        showToast(`保存失败: ${err.message || '未知错误'}`, 'error');
                     } finally {
                         isSaving.value = false;
                     }
@@ -376,7 +396,7 @@
                 onMounted(init);
 
                 return {
-                    isLoading, isSaving, error, pot, isEditMode, careTypes, form, fileInput,
+                    isLoading, isSaving, error, pot, isEditMode, careTypes, form, fileInput, toast,
                     toggleCareType, isTypeSelected,
                     triggerFileInput, onFilesSelected, removeImage, saveRecord, goBack, formatDate, imgUrl,
                     potId
@@ -386,10 +406,6 @@
     </script>
 
     <style>
-        [v-cloak] {
-            display: none;
-        }
-
         .header h1 {
             font-weight: 800;
             color: #1a1a1a;

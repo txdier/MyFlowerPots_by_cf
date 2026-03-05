@@ -6,42 +6,53 @@
 
 ```
 my-flower-pots/                # R2 存储桶名称
-├── index.html                  # 首页 (SPA 入口)
+├── index.html                  # 首页 (花盆列表)
 ├── pot-detail.html             # 花盆详情页
 ├── add-pot.html                # 新增花盆页
 ├── edit-pot.html               # 编辑花盆页
 ├── care-record.html            # 养护记录页
 ├── profile.html                # 个人中心页
 ├── all-records.html            # 历史记录页
+├── all-timelines.html          # 全部生长轨迹页
 ├── reset-password.html         # 密码重置页
 ├── admin-plants.html           # 植物后台管理 (管理员)
+├── admin-stats.html            # 统计数据看板 (管理员)
 ├── css/
-│   └── tailwind-built.css      # 构建后的样式文件
+│   ├── tailwind-built.css      # Tailwind CSS 构建产物
+│   ├── app.css                 # 自定义样式
+│   └── icons.css               # 自定义 SVG 图标 (替代 Font Awesome)
 ├── js/
-│   ├── api-client.js           # API 客户端
+│   ├── api-client.js           # API 客户端封装
 │   ├── config.js               # 线上实际配置文件 (本地已忽略)
-│   ├── router.js               # 极简路由逻辑
-│   └── app.js                  # 核心应用逻辑
+│   ├── config.js.example       # 配置模板
+│   ├── router.js               # 页面跳转辅助工具
+│   ├── app.js                  # 全局应用逻辑
+│   ├── vue.global.js           # Vue 3 运行时 (本地引入)
+│   ├── vue.global.prod.js      # Vue 3 生产版
+│   ├── Sortable.min.js         # 拖拽排序库
+│   └── tailwindcss.js          # Tailwind CSS 运行时
 └── assets/
     └── images/
-        ├── default-pot.png     # 默认图
-        └── icons/              # UI 图标资源
+        └── default-pot.png     # 默认花盆图片
 ```
 
 ### 文件说明
 
 1. **核心页面 (HTML)**
-   - `index.html` 等共 9 个主页面，负责渲染 UI 和执行业务逻辑。
-   - 每个页面均内置了针对该场景的 Vue 3 组件逻辑。
+   - 共 11 个独立 HTML 页面，每个页面内置该场景的 Vue 3 组件逻辑。
+   - 采用多页面架构（MPA），页面间通过跳转导航。
 
 2. **样式与资源**
-   - `css/tailwind-built.css` - 包含所有 UI 样式（由 Tailwind 构建生成）。
-   - `assets/images/icons/` - 系统所需的全部矢量及位图图标。
+   - `css/tailwind-built.css` - Tailwind CSS 构建产物（由 `npm run build-css` 生成）。
+   - `css/app.css` - 自定义样式。
+   - `css/icons.css` - 自定义 SVG 图标系统（替代 Font Awesome）。
 
 3. **脚本逻辑 (JS)**
-   - `api-client.js` - 处理与 Cloudflare Workers 的所有网络通信。
-   - `config.js` - 定义生产环境域名及功能开关。
-   - `router.js` - 简单的路由跳转辅助工具。
+   - `api-client.js` - 处理与 Cloudflare Workers 的所有网络通信，包含 JWT 自动刷新机制。
+   - `config.js` - 定义生产环境域名及功能开关（从模板 `config.js.example` 创建）。
+   - `router.js` - 页面跳转辅助工具。
+   - `vue.global.js` / `vue.global.prod.js` - Vue 3 运行时（本地引入）。
+   - `Sortable.min.js` - 花盆拖拽排序库。
 
 3. **MIME类型配置**
    - `.html` → `text/html;charset=UTF-8`

@@ -11,7 +11,7 @@
 - **后端**: [Cloudflare Workers](https://workers.cloudflare.com/) (TypeScript)
 - **数据库**: [Cloudflare D1](https://developers.cloudflare.com/d1/) (SQLite 兼容)
 - **存储**: [Cloudflare R2](https://developers.cloudflare.com/r2/) (S3 兼容)
-- **前端**: Vue 3 + Tailwind CSS + Font Awesome 6
+- **前端**: Vue 3 (本地引入) + Tailwind CSS (CLI 构建) + 自定义 SVG 图标系统
 - **部署**: 自研批量增量上传脚本 (`upload-static-wrangler.js`)
 
 ## 🚀 快速开始

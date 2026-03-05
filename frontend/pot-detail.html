@@ -531,8 +531,6 @@
                     <div class="p-6 flex justify-between items-center border-b border-gray-50">
                         <h3 class="text-lg font-black text-gray-800 flex items-center gap-2">
                             <i class="fa fa-history text-orange-400"></i> 养护历史
-                            <span class="text-[10px] text-gray-400 font-black uppercase tracking-wider ml-1">最近 5
-                                条</span>
                         </h3>
                         <button @click="goAddCarePage"
                             class="bg-orange-400 text-white px-4 py-1.5 rounded-full text-xs font-black shadow-lg shadow-orange-100 active:scale-95 transition">
@@ -610,8 +608,6 @@
                     <div class="p-6 flex justify-between items-center border-b border-gray-50">
                         <h3 class="text-lg font-black text-gray-800 flex items-center gap-2">
                             <i class="fa fa-chart-line text-blue-500"></i> 生长轨迹
-                            <span class="text-[10px] text-gray-400 font-black uppercase tracking-wider ml-1">最近 3
-                                条</span>
                         </h3>
                         <div class="flex gap-2">
                             <button v-if="timelineRecords.length >= 2" @click="toggleTimelineSort"
@@ -1051,12 +1047,12 @@
                 // 获取类型样式
                 const getScheduleTypeStyle = (type) => {
                     const styles = {
-                        water: { bg: 'bg-blue-50', icon: '💧', toggle: 'bg-blue-500' },
+                        water: { bg: 'bg-blue-50', icon: '💧', toggle: 'bg-green-500' },
                         fertilize: { bg: 'bg-green-50', icon: '🌿', toggle: 'bg-green-500' },
-                        trim: { bg: 'bg-orange-50', icon: '✂️', toggle: 'bg-orange-500' },
-                        repot: { bg: 'bg-amber-50', icon: '🪴', toggle: 'bg-amber-500' },
-                        pest: { bg: 'bg-red-50', icon: '🐛', toggle: 'bg-red-500' },
-                        custom: { bg: 'bg-purple-50', icon: '⚙️', toggle: 'bg-purple-500' }
+                        trim: { bg: 'bg-orange-50', icon: '✂️', toggle: 'bg-green-500' },
+                        repot: { bg: 'bg-amber-50', icon: '🪴', toggle: 'bg-green-500' },
+                        pest: { bg: 'bg-red-50', icon: '🐛', toggle: 'bg-green-500' },
+                        custom: { bg: 'bg-purple-50', icon: '⚙️', toggle: 'bg-green-500' }
                     };
                     return styles[type] || styles.custom;
                 };

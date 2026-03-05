@@ -154,46 +154,34 @@
                             <div class="space-y-2">
                                 <div v-for="(task, idx) in group.tasks" :key="idx">
                                     <div class="flex items-center text-xs">
-                                        <span class="w-16 font-bold flex items-center shrink-0" :class="{
-                                            'text-blue-500': task.careType === 'water',
-                                            'text-green-500': task.careType === 'fertilize',
-                                            'text-orange-500': task.careType === 'trim',
-                                            'text-purple-500': task.careType === 'repot',
-                                            'text-red-500': task.careType === 'pest'
-                                        }">
-                                            <i class="fas w-5 text-center mr-1" :class="{
-                                                'fa-tint': task.careType === 'water',
-                                                'fa-seedling': task.careType === 'fertilize',
-                                                'fa-cut': task.careType === 'trim',
-                                                'fa-exchange-alt': task.careType === 'repot',
-                                                'fa-bug': task.careType === 'pest'
-                                            }"></i>
-                                            {{ task.customAction || (task.careType === 'water' ? '浇水' : (task.careType
-                                            ===
-                                            'fertilize' ? '施肥' : '养护')) }}
+                                        <span class="w-16 font-bold flex items-center shrink-0"
+                                            :class="getReminderTypeColor(task.careType, task.customAction)">
+                                            <i class="fa w-5 text-center mr-1"
+                                                :class="getReminderTypeIcon(task.careType, task.customAction)"></i>
+                                            {{ task.customAction || getReminderTypeLabel(task.careType, task.customAction) }}
                                         </span>
                                         <span class="text-gray-400 scale-90 origin-left ml-1">已过 <span class="font-bold"
                                                 :class="task.daysSinceCare > 7 ? 'text-red-400' : 'text-orange-400'">{{
                                                 task.daysSinceCare }}</span> 天</span>
                                     </div>
 
-                                    <div v-if="getTaskSeasonalTip(group.potId, task.careType)"
+                                    <div v-if="getTaskSeasonalTip(group.potId, task.careType, task.customAction)"
                                         class="mt-1 flex items-start text-[10px] bg-opacity-10 rounded px-2 py-1 ml-6"
                                         :class="{
-                                            'bg-blue-100 text-blue-600': ['Winter', 'Summer'].includes(getTaskSeasonalTip(group.potId, task.careType).season),
-                                            'bg-green-100 text-green-600': getTaskSeasonalTip(group.potId, task.careType).season === 'Spring',
-                                            'bg-orange-100 text-orange-600': getTaskSeasonalTip(group.potId, task.careType).season === 'Autumn'
+                                            'bg-blue-100 text-blue-600': ['Winter', 'Summer'].includes(getTaskSeasonalTip(group.potId, task.careType, task.customAction).season),
+                                            'bg-green-100 text-green-600': getTaskSeasonalTip(group.potId, task.careType, task.customAction).season === 'Spring',
+                                            'bg-orange-100 text-orange-600': getTaskSeasonalTip(group.potId, task.careType, task.customAction).season === 'Autumn'
                                         }">
                                         <span class="mr-1 shrink-0">
-                                            <i v-if="getTaskSeasonalTip(group.potId, task.careType).season === 'Spring'"
+                                            <i v-if="getTaskSeasonalTip(group.potId, task.careType, task.customAction).season === 'Spring'"
                                                 class="fa fa-seedling"></i>
-                                            <i v-else-if="getTaskSeasonalTip(group.potId, task.careType).season === 'Summer'"
+                                            <i v-else-if="getTaskSeasonalTip(group.potId, task.careType, task.customAction).season === 'Summer'"
                                                 class="fa fa-sun"></i>
-                                            <i v-else-if="getTaskSeasonalTip(group.potId, task.careType).season === 'Autumn'"
+                                            <i v-else-if="getTaskSeasonalTip(group.potId, task.careType, task.customAction).season === 'Autumn'"
                                                 class="fa fa-canadian-maple-leaf"></i>
                                             <i v-else class="fa fa-snowflake"></i>
                                         </span>
-                                        <span class="truncate">{{ getTaskSeasonalTip(group.potId, task.careType).text
+                                        <span class="truncate">{{ getTaskSeasonalTip(group.potId, task.careType, task.customAction).text
                                             }}</span>
                                     </div>
                                 </div>
@@ -782,6 +770,56 @@
                 };
                 const loadWeather = async () => { try { const res = await apiClient.getWeather(); if (res.success) { weatherData.value = res.data; if (pots.value.length > 0) { const aRes = await apiClient.getCareAdvice({ weather: res.data, pots: pots.value }); if (aRes.success) careAdvice.value = aRes.data; } } } catch (e) { } };
                 const startAdviceTimer = () => setInterval(() => { if (careAdvice.value.length > 0) currentAdviceIndex.value = (currentAdviceIndex.value + 1) % careAdvice.value.length; }, 5000);
+                const normalizeReminderType = (careType, customAction = '') => {
+                    const raw = String(careType || '').trim().toLowerCase();
+                    if (['water', 'watering', 'change_water', 'water_change', 'changewater', '换水', '浇水'].includes(raw)) return 'water';
+                    if (['fertilize', 'fertilizer', 'feed', '施肥'].includes(raw)) return 'fertilize';
+                    if (['trim', 'prune', 'pruning', '修剪'].includes(raw)) return 'trim';
+                    if (['repot', 're-pot', '换盆'].includes(raw)) return 'repot';
+                    if (['pest', 'pests', '除虫', '病虫害'].includes(raw)) return 'pest';
+
+                    const action = String(customAction || '').trim();
+                    if (!action) return raw || 'custom';
+                    if (/换水|浇水|补水/.test(action)) return 'water';
+                    if (/施肥|追肥/.test(action)) return 'fertilize';
+                    if (/修剪|打顶|摘心/.test(action)) return 'trim';
+                    if (/换盆|翻盆/.test(action)) return 'repot';
+                    if (/除虫|病虫害|杀虫/.test(action)) return 'pest';
+                    return 'custom';
+                };
+                const getReminderTypeColor = (careType, customAction = '') => {
+                    const type = normalizeReminderType(careType, customAction);
+                    return {
+                        water: 'text-blue-500',
+                        fertilize: 'text-green-500',
+                        trim: 'text-orange-500',
+                        repot: 'text-purple-500',
+                        pest: 'text-red-500',
+                        custom: 'text-gray-500'
+                    }[type] || 'text-gray-500';
+                };
+                const getReminderTypeIcon = (careType, customAction = '') => {
+                    const type = normalizeReminderType(careType, customAction);
+                    return {
+                        water: 'fa-tint',
+                        fertilize: 'fa-seedling',
+                        trim: 'fa-cut',
+                        repot: 'fa-exchange-alt',
+                        pest: 'fa-bug',
+                        custom: 'fa-clipboard-check'
+                    }[type] || 'fa-clipboard-check';
+                };
+                const getReminderTypeLabel = (careType, customAction = '') => {
+                    const type = normalizeReminderType(careType, customAction);
+                    return {
+                        water: '浇水',
+                        fertilize: '施肥',
+                        trim: '修剪',
+                        repot: '换盆',
+                        pest: '病虫害',
+                        custom: '养护'
+                    }[type] || '养护';
+                };
                 const formatDate = (d) => {
                     if (!d) return '';
                     const date = new Date(d);
@@ -867,11 +905,11 @@
                 };
 
                 // 从缓存中获取特定任务的建议文本
-                const getTaskSeasonalTip = (potId, careType) => {
+                const getTaskSeasonalTip = (potId, careType, customAction = '') => {
                     const data = seasonalTipsMap[potId];
                     if (!data || !data.careGuide) return null;
 
-                    return extractSeasonalText(data.careGuide, careType, data.season);
+                    return extractSeasonalText(data.careGuide, normalizeReminderType(careType, customAction), data.season);
                 };
 
                 const extractSeasonalText = (careGuide, careType, season) => {
@@ -933,6 +971,7 @@
                     // Seasonal
                     seasonalTipsMap,
                     getTaskSeasonalTip,
+                    getReminderTypeColor, getReminderTypeIcon, getReminderTypeLabel,
                     loadSeasonalTips
                 };
             }

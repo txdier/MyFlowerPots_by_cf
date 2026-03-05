@@ -53,14 +53,16 @@
 
 ### 1.3 环境变量配置（后端配置）
 
-在 `wrangler.toml` 中配置后端环境变量：
+在 `wrangler.toml` 中配置后端环境变量（参考 `wrangler.toml.example`）：
 
 ```toml
 [vars]
 WEATHER_API_KEY = "your-weather-api-key"  # 可选：天气API密钥
 RESEND_API_KEY = "your-resend-api-key"  # 可选：邮件服务API密钥
-EMAIL_FROM = "noreply@myflowerpots.com"  # 发件人邮箱
-APP_BASE_URL = "https://your-actual-workers-url.workers.dev"  # 你的Workers URL（后端使用）
+EMAIL_FROM = "noreply@yourdomain.com"  # 发件人邮箱
+APP_BASE_URL = "https://your-app-domain.com"  # 你的Workers URL
+ADMIN_EMAILS = "admin@example.com"  # 管理员邮箱（英文逗号分隔多个）
+JWT_SECRET = "your-jwt-secret-key"  # JWT 签名密钥（生产环境必须修改）
 ```
 
 **注意**：`APP_BASE_URL` 是后端使用的配置，前端API地址在 `frontend/js/config.js` 中配置。
@@ -78,16 +80,14 @@ APP_BASE_URL = "https://your-actual-workers-url.workers.dev"  # 你的Workers UR
 
 2. 上传前端文件到R2：
    ```bash
-   node scripts/upload-static.js
+   npm run upload
    ```
+
+   > 此命令会自动先执行 `build-css`（构建 Tailwind CSS），再调用 `upload-static-wrangler.js` 增量上传到 R2。
 
    或者手动上传：
    ```bash
-   # 安装R2命令行工具
-   npm install -g @cloudflare/r2
-
-   # 上传文件
-   r2 cp frontend/* r2://my-flower-pots/ --recursive
+   node upload-static-wrangler.js
    ```
 
 ### 2.2 使用其他静态托管服务
@@ -289,5 +289,4 @@ https://your-frontend-domain.com/frontend/
 
 如有问题，请参考项目中的其他文档：
 - `DEPLOYMENT_GUIDE.md` - 详细部署指南
-- `LOCAL_DEVELOPMENT_GUIDE.md` - 本地开发指南
 - `README-API-MIGRATION.md` - API迁移说明

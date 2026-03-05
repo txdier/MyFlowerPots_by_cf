@@ -13,24 +13,48 @@ my-flowerpots/
 │   ├── api/                     # API 路由模块
 │   │   ├── auth.ts             # 认证 API
 │   │   ├── pots.ts             # 花盆管理 API
+│   │   ├── care-records.ts     # 养护记录 API
+│   │   ├── care-schedules.ts   # 养护计划 API
 │   │   ├── timelines.ts        # 生长轨迹 API
-│   │   └── ...                 # 其他业务模块
-│   └── utils/                   # 工具函数 (邮件、认证等)
+│   │   ├── plants.ts           # 植物数据 API
+│   │   ├── upload.ts           # 图片上传 API
+│   │   ├── admin.ts            # 管理员 API
+│   │   ├── weather.ts          # 天气 API
+│   │   ├── care-advice.ts      # 养护建议 API
+│   │   └── analytics.ts        # 页面访问统计
+│   ├── static/                  # 静态资源服务
+│   │   └── server.ts           # R2 服务及 SPA 回退
+│   └── utils/                   # 工具函数
 ├── frontend/                    # 前端 Web 应用
-│   ├── index.html              # 主页面 (SPA 入口)
+│   ├── index.html              # 首页 (花盆列表)
 │   ├── pot-detail.html         # 花盆详情页
+│   ├── add-pot.html            # 添加花盆页
+│   ├── edit-pot.html           # 编辑花盆页
+│   ├── care-record.html        # 养护记录页
+│   ├── all-records.html        # 历史记录页
+│   ├── all-timelines.html      # 全部生长轨迹页
 │   ├── profile.html            # 个人中心页
+│   ├── reset-password.html     # 密码重置页
+│   ├── admin-plants.html       # 植物管理页 (管理员)
+│   ├── admin-stats.html        # 统计看板页 (管理员)
 │   ├── css/
-│   │   ├── tailwind-input.css  # CSS 源码
-│   │   └── tailwind-built.css  # 构建后的 CSS (已忽略)
+│   │   ├── tailwind-input.css  # Tailwind CSS 源码
+│   │   ├── tailwind-built.css  # Tailwind CSS 构建产物
+│   │   ├── app.css             # 自定义样式
+│   │   └── icons.css           # 自定义 SVG 图标
 │   ├── js/
 │   │   ├── api-client.js      # API 封装
 │   │   ├── config.js.example  # 配置模板
-│   │   └── router.js          # 极简路由逻辑
-│   └── assets/                 # 图片及图标资源
+│   │   ├── router.js          # 页面跳转工具
+│   │   ├── app.js             # 全局应用逻辑
+│   │   ├── vue.global.js      # Vue 3 运行时 (本地引入)
+│   │   ├── Sortable.min.js    # 拖拽排序库
+│   │   └── tailwindcss.js     # Tailwind CSS 运行时
+│   └── assets/                 # 图片资源
 ├── sql/                         # 数据库初始化脚本
 ├── upload-static-wrangler.js    # 核心部署工具
 ├── wrangler.toml               # Workers 配置文件
+├── tailwind.config.cjs         # Tailwind CSS 配置
 └── package.json                # 项目依赖
 ```
 
@@ -43,15 +67,15 @@ my-flowerpots/
 - **TypeScript** - 类型安全的JavaScript
 
 ### 前端
-- **Vue.js 3 (CDN)** - 轻量级响应式 MVVM 框架
-- **Tailwind CSS** - 实用优先的 CSS 框架 (通过 CLI 构建优化)
+- **Vue.js 3 (本地引入)** - 响应式 MVVM 框架（`vue.global.js`）
+- **Tailwind CSS (CLI 构建)** - 实用优先 CSS 框架（通过 `npm run build-css` 生成精简版）
+- **自定义 SVG 图标系统** - 通过 CSS `mask-image` 实现（`icons.css`，替代 Font Awesome）
 - **原生 JavaScript (ES6+)** - 现代化 JS 特性及 Fetch API
-- **Font Awesome 6** - 矢量图标库
 
 ### 开发与部署工具
-- **Wrangler CLI 3** - Cloudflare 官方开发工具
+- **Wrangler CLI** - Cloudflare 官方开发工具
 - **Node.js 18+** - 运行时环境
-- **Git** - 版本控制系统 (GitHub 托管)
+- **Git** - 版本控制系统
 - **Tailwind CLI** - 用于生成精简版 CSS 文件
 
 ## 🔧 部署步骤
@@ -170,45 +194,64 @@ npm run deploy-all
 
 ### 养护记录
 - `GET /api/pots/:id/care-records` - 获取养护记录
+- `GET /api/care-records/:potId` - 获取某花盆的养护记录
 - `POST /api/care-records` - 创建养护记录
 
 ### 时间线
 - `GET /api/pots/:id/timelines` - 获取时间线记录
 - `POST /api/timelines` - 创建时间线记录
 
+### 养护计划
+- `GET /api/care-schedules` - 获取所有养护计划
+- `GET /api/care-schedules/pot/:potId` - 获取某花盆的养护计划
+- `GET /api/care-schedules/reminders` - 获取养护提醒
+- `POST /api/care-schedules` - 创建养护计划
+- `PUT /api/care-schedules/:id` - 更新养护计划
+- `DELETE /api/care-schedules/:id` - 删除养护计划
+
+### 管理员
+- `GET /api/admin/check` - 管理员权限检查
+- `GET /api/admin/plants` - 植物列表
+- `POST /api/admin/plants` - 创建植物
+- `PUT /api/admin/plants/:id` - 更新植物
+- `DELETE /api/admin/plants/:id` - 删除植物
+- `GET /api/admin/users` - 用户列表
+- `PUT /api/admin/users/:id` - 更新用户
+- `DELETE /api/admin/users/:id` - 删除用户
+
+### 其他
+- `GET /api/weather` - 获取天气信息
+- `POST /api/care-advice` - 获取养护建议
+- `POST /api/plants/smart-match` - 智能植物匹配
+
 ## 🎨 前端架构
 
-### 组件结构
+### 页面架构
+项目采用多页面架构（MPA），每个功能为独立的 HTML 文件，内置 Vue 3 组件逻辑：
+
 ```
-App (Vue.js 3 数据驱动)
-├── Header (导航栏)
-├── Main (主内容区)
-│   ├── HomePage (首页-花盆列表)
-│   ├── PotDetailPage (花盆详情页)
-│   ├── LoginPage (登录页)
-│   └── RegisterPage (注册页)
-├── Modals (模态框)
-│   ├── AddPotModal (添加花盆)
-│   └── EditPotModal (编辑花盆)
-└── Footer (页脚)
+页面结构（每个 HTML 文件）
+├── 头部导航         # 统一导航栏
+├── 主内容区         # Vue 3 数据驱动的业务逻辑
+└── 底部导航 (index)  # 仅首页有底部Tab导航
 ```
 
 ### 状态管理
-- **Alpine.js响应式状态** - 组件级状态管理
-- **LocalStorage** - 用户认证状态持久化
-- **URL Hash路由** - 页面状态管理
+- **Vue 3 响应式状态** - 页面级别的数据管理
+- **LocalStorage** - 用户认证状态持久化（JWT 令牌 + 用户ID）
+- **URL 参数** - 页面间数据传递（如 `pot-detail.html?id=xxx`）
 
-### 路由系统
-- **Hash-based路由** - 兼容性好，无需服务器配置
-- **动态参数支持** - `/pots/:id` 格式
-- **历史记录管理** - 前进/后退支持
+### 页面跳转
+- **多页面架构** - 每个功能独立 HTML 文件，通过链接跳转
+- **参数传递** - 通过 URL 查询参数传递数据
+- **`router.js`** - 页面跳转辅助工具
 
 ## 🔍 开发指南
 
 ### 添加新页面
-1. 在 `frontend/index.html` 中添加页面HTML结构
-2. 在 `frontend/js/router.js` 中添加路由配置
-3. 在 `frontend/js/app.js` 中添加页面逻辑
+1. 在 `frontend/` 目录下创建新的 HTML 文件
+2. 在页面内嵌入 Vue 3 组件逻辑
+3. 引入必要的 CSS 和 JS 文件（`tailwind-built.css`、`app.css`、`icons.css`、`api-client.js` 等）
 
 ### 添加新API
 1. 在 `src/api/` 目录下创建新的API模块
@@ -216,9 +259,9 @@ App (Vue.js 3 数据驱动)
 3. 在 `frontend/js/api-client.js` 中添加API调用方法
 
 ### 样式定制
-1. 修改 `frontend/css/app.css` 中的样式
-2. 添加响应式断点（移动端优先）
-3. 使用CSS变量统一设计系统
+1. 修改 `frontend/css/app.css` 中的自定义样式
+2. 如需新图标，在 `frontend/css/icons.css` 中添加 SVG 图标定义
+3. 修改后执行 `npm run build-css` 重新构建 Tailwind CSS
 
 ## 🧪 测试
 

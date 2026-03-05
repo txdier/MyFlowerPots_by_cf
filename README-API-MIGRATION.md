@@ -33,22 +33,50 @@
 - **`GET /api/pots/:id`** - 获取花盆详情
 - **`GET /api/pots/:id/care-records`** - 获取养护记录
 - **`GET /api/pots/:id/timelines`** - 获取时间线记录
+- **`GET /api/pots/:id/stats`** - 获取花盆养护统计
 - **`POST /api/pots`** - 创建花盆
 - **`PUT /api/pots/:id`** - 更新花盆
+- **`PUT /api/pots/reorder`** - 花盆排序
 - **`DELETE /api/pots/:id`** - 删除花盆
 - **`POST /api/care-records`** - 创建养护记录
+- **`GET /api/care-records/:potId`** - 获取某花盆的养护记录
 - **`POST /api/timelines`** - 创建时间线记录
 - **`GET /api/plants/search`** - 搜索植物数据库
 - **`GET /api/plants/:id`** - 获取植物详情
+- **`POST /api/plants/smart-match`** - 智能植物名称匹配
 - **`POST /api/upload/image`** - 上传图片到 R2 存储
+
+#### 养护计划API
+- **`GET /api/care-schedules`** - 获取所有养护计划
+- **`GET /api/care-schedules/pot/:potId`** - 获取某花盆的养护计划
+- **`GET /api/care-schedules/reminders`** - 获取养护提醒
+- **`POST /api/care-schedules`** - 创建养护计划
+- **`PUT /api/care-schedules/:id`** - 更新养护计划
+- **`DELETE /api/care-schedules/:id`** - 删除养护计划
+
+#### 管理员API
+- **`GET /api/admin/check`** - 管理员权限检查
+- **`GET /api/admin/plants`** - 植物列表（分页+搜索）
+- **`POST /api/admin/plants`** - 创建植物
+- **`PUT /api/admin/plants/:id`** - 更新植物
+- **`DELETE /api/admin/plants/:id`** - 删除植物
+- **`POST /api/admin/plants/batch`** - 批量导入植物
+- **`DELETE /api/admin/plants/batch`** - 批量删除植物
+- **`GET /api/admin/users`** - 用户列表（分页+搜索）
+- **`PUT /api/admin/users/:id`** - 更新用户信息
+- **`DELETE /api/admin/users/:id`** - 删除用户
+
+#### 其他API
+- **`GET /api/weather`** - 获取天气信息
+- **`POST /api/care-advice`** - 获取养护建议
 
 ### 2. 前端迁移（第二阶段）
 #### 现代化 Web 应用架构
-- **Vue.js 3 (CDN)** - 通过 CDN 引入的响应式前端框架
-- **Tailwind CSS (CDN)** - 通过 CDN 引入的实用优先 CSS 框架
-- **Font Awesome (CDN)** - 通过 CDN 引入的图标库
+- **Vue.js 3 (本地引入)** - 响应式前端框架（`vue.global.js`）
+- **Tailwind CSS (CLI 构建)** - 实用优先 CSS 框架（通过 `npm run build-css` 构建）
+- **自定义 SVG 图标系统** - 通过 CSS `mask-image` 实现（`icons.css`）
 - **响应式设计** - 适配移动端和桌面端
-- **无构建工具** - 纯静态 HTML/CSS/JavaScript，部署简单
+- **多页面架构 (MPA)** - 每个功能独立 HTML 页面，内置 Vue 3 组件逻辑
 
 #### 完整页面实现
 - **首页 (`index.html`)** - 花盆列表展示，支持侧滑操作和批量管理
@@ -57,7 +85,11 @@
 - **编辑花盆页 (`edit-pot.html`)** - 修改花盆信息
 - **养护记录页 (`care-record.html`)** - 记录养护操作
 - **所有记录页 (`all-records.html`)** - 查看所有养护记录
+- **全部生长轨迹页 (`all-timelines.html`)** - 查看所有时间线记录
 - **个人资料页 (`profile.html`)** - 用户账户管理
+- **密码重置页 (`reset-password.html`)** - 密码重置
+- **植物管理页 (`admin-plants.html`)** - 管理员植物数据管理
+- **统计看板页 (`admin-stats.html`)** - 管理员数据统计
 
 #### API 客户端集成
 - **`frontend/js/api-client.js`** - 完整的 API 客户端封装
@@ -82,14 +114,15 @@
 - **R2 Storage** - 对象存储（用于图片存储）
 
 ### 前端技术栈
-- **Vue.js 3 (CDN)** - 通过 CDN 引入的响应式 JavaScript 框架
-- **Tailwind CSS (CDN)** - 通过 CDN 引入的实用优先 CSS 框架
-- **Font Awesome 6 (CDN)** - 通过 CDN 引入的图标库
-- **原生 JavaScript API** - Fetch API、LocalStorage 等
-- **无构建工具** - 纯静态 HTML/CSS/JavaScript，无需构建步骤
+- **Vue.js 3 (本地引入)** - 响应式 JavaScript 框架（`vue.global.js`）
+- **Tailwind CSS (CLI 构建)** - 实用优先 CSS 框架（通过 `npm run build-css` 生成精简版）
+- **自定义 SVG 图标系统** - 通过 CSS `mask-image` 实现（`icons.css`，替代 Font Awesome）
+- **原生 JavaScript (ES6+)** - Fetch API、LocalStorage 等
+- **多页面架构 (MPA)** - 每个功能独立 HTML 文件
 
 ### 安全特性
 - 密码使用 SHA-256 哈希（结合用户ID作为盐）
+- 基于 JWT 的认证机制，支持令牌自动刷新
 - 支持多设备同时登录
 - 密码重置令牌24小时有效期
 - CORS 配置支持跨域请求
@@ -141,9 +174,11 @@ npm run upload-static
 ```toml
 [vars]
 WEATHER_API_KEY = "your-weather-api-key"
+RESEND_API_KEY = "your-resend-api-key"
 EMAIL_FROM = "noreply@example.com"
 APP_BASE_URL = "https://api.example.com"  # 生产环境 API 地址
-FRONTEND_URL = "https://app.example.com"  # 前端部署地址
+ADMIN_EMAILS = "admin@example.com"  # 管理员邮箱
+JWT_SECRET = "your-jwt-secret-key"  # JWT 签名密钥
 ```
 
 ## 下一步工作（优化与扩展）
@@ -159,23 +194,49 @@ FRONTEND_URL = "https://app.example.com"  # 前端部署地址
 ### 文件结构
 ```
 frontend/                    # 现代化 Web 前端
-├── index.html              # 首页 (内置 Vue 3 逻辑)
+├── index.html              # 首页 (花盆列表)
 ├── pot-detail.html         # 花盆详情页
 ├── add-pot.html            # 添加花盆页
 ├── edit-pot.html           # 编辑花盆页
 ├── care-record.html        # 养护记录页
+├── all-records.html        # 历史记录页
+├── all-timelines.html      # 全部生长轨迹页
 ├── profile.html            # 个人资料页
-├── assets/                 # 核心图标及图片资源
-├── css/                    # Tailwind CSS 源文件
-└── js/                     # JavaScript 逻辑封装
+├── reset-password.html     # 密码重置页
+├── admin-plants.html       # 植物管理页 (管理员)
+├── admin-stats.html        # 统计看板页 (管理员)
+├── assets/                 # 图片资源
+├── css/
+│   ├── tailwind-input.css  # Tailwind CSS 源码
+│   ├── tailwind-built.css  # Tailwind CSS 构建产物
+│   ├── app.css             # 自定义样式
+│   └── icons.css           # 自定义 SVG 图标
+└── js/
     ├── api-client.js       # API 客户端封装
     ├── config.js.example   # 预设配置模板
-    └── router.js           # 前端路由工具
+    ├── router.js           # 页面跳转工具
+    ├── app.js              # 全局应用逻辑
+    ├── vue.global.js       # Vue 3 运行时 (本地引入)
+    ├── Sortable.min.js     # 拖拽排序库
+    └── tailwindcss.js      # Tailwind CSS 运行时
 
 src/                        # Cloudflare Workers 后端代码 (TypeScript)
 ├── index.ts               # API 主入口及路由分发
-├── api/                   # 各业务模块 (auth, pots, plants 等)
-└── utils/                 # 公用工具 (email, response 等)
+├── api/                   # 各业务模块
+│   ├── auth.ts            # 认证 API
+│   ├── pots.ts            # 花盆管理 API
+│   ├── care-records.ts    # 养护记录 API
+│   ├── care-schedules.ts  # 养护计划 API
+│   ├── timelines.ts       # 生长轨迹 API
+│   ├── plants.ts          # 植物数据 API
+│   ├── upload.ts          # 图片上传 API
+│   ├── admin.ts           # 管理员 API
+│   ├── weather.ts         # 天气 API
+│   ├── care-advice.ts     # 养护建议 API
+│   └── analytics.ts       # 页面访问统计
+├── static/                # 静态资源服务
+│   └── server.ts          # R2 静态资源服务及 SPA 回退
+└── utils/                 # 公用工具
 ```
 
 ## 部署到生产环境

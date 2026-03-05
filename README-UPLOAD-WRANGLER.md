@@ -36,7 +36,7 @@ npm run deploy-full
 
 | 命令 | 说明 |
 |------|------|
-| `npm run upload` | 使用wrangler上传前端文件到R2（增量上传） |
+| `npm run upload` | 构建CSS + 使用wrangler上传前端文件到R2（增量上传） |
 | `npm run upload-wrangler` | 同上，直接调用脚本 |
 | `npm run upload-static` | 使用原有脚本上传（AWS SDK方式） |
 | `npm run deploy-full` | 上传前端文件 + 部署Worker |
