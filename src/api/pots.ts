@@ -86,12 +86,14 @@ async function handleGetPots(
         plant_date,
         image_url,
         last_care,
-        last_care_action
+        last_care_action,
+        (user_id != ?) as is_collaborator,
+        (SELECT COUNT(*) FROM pot_collaborators WHERE pot_id = pots.id) as collaborator_count
       FROM pots
-      WHERE user_id = ?
+      WHERE user_id = ? OR id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?)
       ORDER BY sort_order ASC, plant_date DESC
     `)
-    .bind(userId)
+    .bind(userId, userId, userId)
     .all();
 
   return jsonResponse({
@@ -112,19 +114,25 @@ async function handleGetPotDetail(path: string, env: any, url: URL, token: strin
   const pot = await env.DB
     .prepare(`
       SELECT
-        id,
-        user_id,
-        name,
-        plant_type,
-        note,
-        plant_date,
-        image_url,
-        last_care,
-        last_care_action
+        pots.id,
+        pots.user_id,
+        pots.name,
+        pots.plant_type,
+        pots.note,
+        pots.plant_date,
+        pots.image_url,
+        pots.last_care,
+        pots.last_care_action,
+        pots.share_token,
+        pots.is_shared,
+        (pots.user_id != ?) as is_collaborator,
+        (SELECT COUNT(*) FROM pot_collaborators WHERE pot_id = pots.id) as collaborator_count,
+        u.display_name as owner_name
       FROM pots
-      WHERE id = ? AND user_id = ?
+      LEFT JOIN users u ON pots.user_id = u.id
+      WHERE pots.id = ? AND (pots.user_id = ? OR pots.id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?))
     `)
-    .bind(potId, userId)
+    .bind(userId, potId, userId, userId)
     .first();
 
   if (!pot) {
@@ -451,10 +459,14 @@ interface CareRecord {
 async function handleGetCareRecords(path: string, env: any, token: string | null): Promise<Response> {
   const potId = path.split('/')[3];
 
-  // 安全加固：校验该花盆是否属于该用户
+  // 安全加固：校验该花盆是否属于该用户 (主或协作者)
   const pot = await env.DB
-    .prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?')
-    .bind(potId, token)
+    .prepare(`
+      SELECT id FROM pots WHERE id = ? AND user_id = ?
+      UNION
+      SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?
+    `)
+    .bind(potId, token, potId, token)
     .first();
 
   if (!pot) {
@@ -464,25 +476,28 @@ async function handleGetCareRecords(path: string, env: any, token: string | null
   const { results } = await env.DB
     .prepare(`
       SELECT
-        id,
-        type,
-        action,
-        care_date,
-        description,
-        image_url
-      FROM care_records
-      WHERE pot_id = ?
-      ORDER BY care_date DESC, id DESC
+        cr.id,
+        cr.type,
+        cr.action,
+        cr.care_date,
+        cr.description,
+        cr.image_url,
+        u.display_name as operator_name
+      FROM care_records cr
+      LEFT JOIN users u ON cr.user_id = u.id
+      WHERE cr.pot_id = ?
+      ORDER BY cr.care_date DESC, cr.id DESC
     `)
     .bind(potId)
     .all();
 
   return jsonResponse({
     success: true,
-    data: (results as unknown as CareRecord[]).map(r => ({
+    data: (results as unknown as (CareRecord & { operator_name: string | null })[]).map(r => ({
       ...r,
       date: r.care_date,
-      imageUrl: r.image_url
+      imageUrl: r.image_url,
+      operatorName: r.operator_name || null
     }))
   });
 }
@@ -490,10 +505,14 @@ async function handleGetCareRecords(path: string, env: any, token: string | null
 async function handleGetTimelines(path: string, env: any, token: string | null): Promise<Response> {
   const potId = path.split('/')[3];
 
-  // 安全加固：校验该花盆是否属于该用户
+  // 安全加固：校验该花盆是否属于该用户 (主或协作者)
   const pot = await env.DB
-    .prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?')
-    .bind(potId, token)
+    .prepare(`
+      SELECT id FROM pots WHERE id = ? AND user_id = ?
+      UNION
+      SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?
+    `)
+    .bind(potId, token, potId, token)
     .first();
 
   if (!pot) {
@@ -503,22 +522,27 @@ async function handleGetTimelines(path: string, env: any, token: string | null):
   const { results } = await env.DB
     .prepare(`
       SELECT
-        id,
-        date,
-        description,
-        images,
-        video,
-        created_at
-      FROM timelines
-      WHERE pot_id = ?
-      ORDER BY date DESC, id DESC
+        t.id,
+        t.date,
+        t.description,
+        t.images,
+        t.video,
+        t.created_at,
+        u.display_name as operator_name
+      FROM timelines t
+      LEFT JOIN users u ON t.user_id = u.id
+      WHERE t.pot_id = ?
+      ORDER BY t.date DESC, t.id DESC
     `)
     .bind(potId)
     .all();
 
   return jsonResponse({
     success: true,
-    data: results
+    data: (results as any[]).map(r => ({
+      ...r,
+      operatorName: r.operator_name || null
+    }))
   });
 }
 
@@ -562,10 +586,14 @@ async function handleReorderPots(
 async function handleGetPotStats(path: string, env: any, token: string | null): Promise<Response> {
   const potId = path.split('/')[3];
 
-  // 安全加固：校验该花盆是否属于该用户
+  // 安全加固：校验该花盆是否属于该用户 (主或协作者)
   const pot = await env.DB
-    .prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?')
-    .bind(potId, token)
+    .prepare(`
+      SELECT id FROM pots WHERE id = ? AND user_id = ?
+      UNION
+      SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?
+    `)
+    .bind(potId, token, potId, token)
     .first();
 
   if (!pot) {

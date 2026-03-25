@@ -406,10 +406,21 @@ async function handleUpgrade(request: Request, env: any): Promise<Response> {
       .run();
 
     // 迁移数据：将原匿名用户的所有数据转移到新用户
-    await env.DB
-      .prepare('UPDATE pots SET user_id = ? WHERE user_id = ?')
-      .bind(newUserId, anonymousUserId)
-      .run();
+    const migrationStatements = [
+      env.DB.prepare('UPDATE pots SET user_id = ? WHERE user_id = ?').bind(newUserId, anonymousUserId),
+      env.DB.prepare('UPDATE care_records SET user_id = ? WHERE user_id = ?').bind(newUserId, anonymousUserId),
+      env.DB.prepare('UPDATE timelines SET user_id = ? WHERE user_id = ?').bind(newUserId, anonymousUserId),
+      env.DB.prepare('UPDATE pot_collaborators SET user_id = ? WHERE user_id = ?').bind(newUserId, anonymousUserId),
+      env.DB.prepare('UPDATE messages SET user_id = ? WHERE user_id = ?').bind(newUserId, anonymousUserId),
+      env.DB.prepare('UPDATE messages SET sender_id = ? WHERE sender_id = ?').bind(newUserId, anonymousUserId)
+    ];
+
+    try {
+      await env.DB.batch(migrationStatements);
+    } catch (migrateError) {
+      console.error('Data migration failed during upgrade:', migrateError);
+      // 继续执行，不要因为迁移失败导致注册失败，但记录错误
+    }
 
     // 标记原匿名用户为已升级（或删除）
     await env.DB

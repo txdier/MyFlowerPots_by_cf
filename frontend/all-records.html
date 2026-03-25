@@ -39,7 +39,7 @@
                     </button>
                 </div>
                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <h1 class="text-base sm:text-lg font-black text-gray-800">历史档案</h1>
+                    <h1 class="text-base sm:text-lg font-black text-gray-800">养护记录</h1>
                 </div>
             </div>
         </header>
@@ -72,7 +72,7 @@
             <!-- 记录列表 -->
             <div v-if="isLoading" class="py-20 text-center">
                 <div class="spinner mx-auto mb-4"></div>
-                <p class="text-gray-400 text-sm">正在加载历史档案...</p>
+                <p class="text-gray-400 text-sm">正在加载养护记录...</p>
             </div>
 
             <div v-else-if="filteredRecords.length === 0" class="py-20 text-center">
@@ -89,10 +89,15 @@
                     </div>
 
                     <!-- 右侧内容 -->
-                    <div class="flex-1 min-w-0">
-                        <div class="flex justify-between items-start mb-1">
+                    <div class="flex-1 min-w-0 relative">
+                        <div class="absolute top-0 right-0 text-[10px] font-bold text-gray-300">{{
+                            formatDate(record.date) }}</div>
+                        <div class="flex flex-wrap items-center gap-2 mb-2">
                             <span class="text-sm font-black text-gray-800">{{ getCareTypeLabel(record.type) }}</span>
-                            <span class="text-[10px] font-bold text-gray-300">{{ formatDate(record.date) }}</span>
+                            <span v-if="record.operatorName"
+                                class="px-2 py-0.5 bg-gray-100 text-gray-400 text-[9px] font-bold rounded-md">
+                                <i class="fa fa-user-edit mr-0.5"></i> {{ record.operatorName }}
+                            </span>
                         </div>
                         <p class="text-xs text-gray-500 leading-relaxed mb-3 line-clamp-2">
                             {{ record.description || '常规养护任务，确保植物健康生长。' }}

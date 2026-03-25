@@ -10,6 +10,10 @@ import { handlePlantsRequest } from './api/plants';
 import { handleAdminRequest } from './api/admin';
 import { handleWeatherRequest } from './api/weather';
 import { handleCareAdviceRequest } from './api/care-advice';
+import { handleShareRequest } from './api/share';
+import { handleCollaboratorsRequest } from './api/collaborators';
+import { handleTransferRequest } from './api/transfer';
+import { handleMessagesRequest } from './api/messages';
 import { serveStatic, serveStaticDev } from './static/server';
 import { recordPageVisit } from './api/analytics';
 
@@ -100,6 +104,23 @@ export default {
       // 养护建议API
       if (path === '/api/care-advice') {
         return handleCareAdviceRequest(request, env);
+      }
+
+      // 分享、协作与转移API (新增)
+      if (path.startsWith('/api/share/') || path.startsWith('/api/public/pots/')) {
+        return handleShareRequest(request, env, path, userId);
+      }
+
+      if (path.startsWith('/api/transfer/') || path.startsWith('/api/public/transfer/')) {
+        return handleTransferRequest(request, env, path, userId);
+      }
+
+      if (path.startsWith('/api/collaborators/')) {
+        return handleCollaboratorsRequest(request, env, path, userId);
+      }
+
+      if (path.startsWith('/api/messages')) {
+        return handleMessagesRequest(request, env, path, userId);
       }
 
       // 其他API路由可以在这里添加

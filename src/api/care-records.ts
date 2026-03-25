@@ -48,11 +48,12 @@ async function handleGetCareRecordDetail(request: Request, env: any, id: string,
     // 安全加固：校验该记录所属的花盆是否属于当前用户
     const record = await env.DB
       .prepare(`
-        SELECT r.* FROM care_records r
+        SELECT r.*, u.display_name as operator_name FROM care_records r
         JOIN pots p ON r.pot_id = p.id
-        WHERE r.id = ? AND p.user_id = ?
+        LEFT JOIN users u ON r.user_id = u.id
+        WHERE r.id = ? AND (p.user_id = ? OR r.pot_id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?))
       `)
-      .bind(id, token)
+      .bind(id, token, token)
       .first();
 
     if (!record) {
@@ -69,7 +70,8 @@ async function handleGetCareRecordDetail(request: Request, env: any, id: string,
         description: record.description,
         imageUrl: record.image_url,
         date: record.care_date,
-        createdAt: record.created_at
+        createdAt: record.created_at,
+        operatorName: record.operator_name || null
       }
     });
   } catch (error) {
@@ -84,30 +86,36 @@ async function handleGetCareRecords(request: Request, env: any, potId: string, t
       return errorResponse('Missing potId', 400);
     }
 
-    // 安全加固：校验花盆归属权
+    // 安全加固：校验花盆归属权或协作权
     const pot = await env.DB
-      .prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?')
-      .bind(potId, token)
+      .prepare(`
+        SELECT id FROM pots WHERE id = ? AND user_id = ?
+        UNION
+        SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?
+      `)
+      .bind(potId, token, potId, token)
       .first();
 
     if (!pot) {
-      return errorResponse('Pot not found or access denied', 404);
+      return errorResponse('Pot not found or access denied', 403);
     }
 
     const { results } = await env.DB
       .prepare(`
         SELECT 
-          id,
-          pot_id,
-          type,
-          action,
-          description,
-          care_date,
-          created_at
-        FROM care_records
-        WHERE pot_id = ?
-        ORDER BY care_date DESC
-        LIMIT 20
+          cr.id,
+          cr.pot_id,
+          cr.type,
+          cr.action,
+          cr.description,
+          cr.care_date,
+          cr.created_at,
+          u.display_name as operator_name
+        FROM care_records cr
+        LEFT JOIN users u ON cr.user_id = u.id
+        WHERE cr.pot_id = ?
+        ORDER BY cr.care_date DESC
+        LIMIT 50
       `)
       .bind(potId)
       .all();
@@ -121,7 +129,8 @@ async function handleGetCareRecords(request: Request, env: any, potId: string, t
         action: record.action,
         description: record.description,
         date: record.care_date,
-        createdAt: record.created_at
+        createdAt: record.created_at,
+        operatorName: record.operator_name || null
       }))
     });
 
@@ -140,14 +149,18 @@ async function handleCreateCareRecord(request: Request, env: any, token: string 
       return errorResponse('missing fields', 400);
     }
 
-    // 安全加固：校验目标花盆归属权
+    // 安全加固：校验目标花盆归属权或协作权
     const pot = await env.DB
-      .prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?')
-      .bind(potId, token)
+      .prepare(`
+        SELECT id FROM pots WHERE id = ? AND user_id = ?
+        UNION
+        SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?
+      `)
+      .bind(potId, token, potId, token)
       .first();
 
     if (!pot) {
-      return errorResponse('Pot not found or access denied', 404);
+      return errorResponse('Pot not found or access denied', 403);
     }
 
     // 统一处理为数组
@@ -173,8 +186,9 @@ async function handleCreateCareRecord(request: Request, env: any, token: string 
           care_date,
           description,
           image_url,
-          created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+          created_at,
+          user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         potId,
         t,
@@ -182,7 +196,8 @@ async function handleCreateCareRecord(request: Request, env: any, token: string 
         careDate,
         description || null,
         storedImageValue, // 存储 JSON 字符串
-        new Date().toISOString()
+        new Date().toISOString(),
+        token
       );
     });
 
@@ -232,14 +247,15 @@ async function handleUpdateCareRecord(request: Request, env: any, id: string, to
     const body: any = await request.json();
     const { type, action, careDate, description, imageUrl, imageUrls } = body;
 
-    // 安全加固：检查记录是否存在且属于该用户
+    // 安全加固：检查记录是否存在且属于该用户或协作者
     const existing: any = await env.DB
       .prepare(`
         SELECT r.id, r.image_url FROM care_records r
         JOIN pots p ON r.pot_id = p.id
-        WHERE r.id = ? AND p.user_id = ?
+        LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
+        WHERE r.id = ? AND (p.user_id = ? OR pc.user_id = ?)
       `)
-      .bind(id, token)
+      .bind(id, token, token)
       .first();
 
     if (!existing) {
@@ -307,18 +323,19 @@ async function handleUpdateCareRecord(request: Request, env: any, id: string, to
 
 async function handleDeleteCareRecord(request: Request, env: any, id: string, token: string | null): Promise<Response> {
   try {
-    // 安全加固：检查记录是否存在且属于该用户
-    const existing = await env.DB
+    // 安全加固：检查记录是否存在且属于该用户或其协作者
+    const existing: any = await env.DB
       .prepare(`
         SELECT r.id, r.image_url FROM care_records r
         JOIN pots p ON r.pot_id = p.id
-        WHERE r.id = ? AND p.user_id = ?
+        LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
+        WHERE r.id = ? AND (p.user_id = ? OR pc.user_id = ?)
       `)
-      .bind(id, token)
+      .bind(id, token, token)
       .first();
 
     if (!existing) {
-      return errorResponse('Record not found', 404);
+      return errorResponse('Record not found or access denied', 404);
     }
 
     // 如果有图片，执行清理逻辑

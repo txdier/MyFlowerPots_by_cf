@@ -409,6 +409,12 @@ body {
     color: #333;
 }
 
+/* 弹窗高度限制类 */
+.modal-height-limit {
+    max-height: 65vh !important;
+    max-height: 65dvh !important;
+}
+
 /* 底部样式 */
 .footer {
     background-color: #333;

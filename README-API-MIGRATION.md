@@ -10,6 +10,7 @@
 #### 数据库架构更新
 - 已将所有历史迁移及结构补丁合并至 `sql/schema.sql`
 - 数据库架构现在支持：匿名用户、邮箱注册用户（带验证）、花盆排序及植物百科参考。
+- **新增模块支持**: 协作记录 (`collaborators`)、消息系统 (`messages`)、公共分享 (`share_links`)。
 
 #### 认证API实现
 - **`POST /api/auth/identify`** - 匿名用户标识（保持原有功能）
@@ -65,6 +66,17 @@
 - **`GET /api/admin/users`** - 用户列表（分页+搜索）
 - **`PUT /api/admin/users/:id`** - 更新用户信息
 - **`DELETE /api/admin/users/:id`** - 删除用户
+
+#### 协同与分享 API
+- **`GET /api/pots/:id/collaborators`** - 获取花盆协作者列表
+- **`POST /api/pots/:id/collaborators`** - 添加协作者
+- **`DELETE /api/pots/:id/collaborators/:userId`** - 移除协作者
+- **`POST /api/pots/:id/transfer`** - 转移花盆所有权
+- **`POST /api/pots/:id/share`** - 生成分享二维码及链接
+- **`GET /api/share/:token`** - 匿名访问分享内容
+- **`GET /api/messages`** - 获取用户消息通知
+- **`PUT /api/messages/:id/read`** - 标记消息已读
+- **`POST /api/messages/clear`** - 清空消息列表
 
 #### 其他API
 - **`GET /api/weather`** - 获取天气信息
@@ -233,6 +245,10 @@ src/                        # Cloudflare Workers 后端代码 (TypeScript)
 │   ├── admin.ts           # 管理员 API
 │   ├── weather.ts         # 天气 API
 │   ├── care-advice.ts     # 养护建议 API
+│   ├── collaborators.ts   # 协作者管理 API [NEW]
+│   ├── messages.ts        # 消息系统 API [NEW]
+│   ├── share.ts           # 分享系统 API [NEW]
+│   ├── transfer.ts        # 所有权转移 API [NEW]
 │   └── analytics.ts       # 页面访问统计
 ├── static/                # 静态资源服务
 │   └── server.ts          # R2 静态资源服务及 SPA 回退

@@ -19,6 +19,9 @@
     <!-- 图标库 -->
     <link rel="stylesheet" href="css/icons.css">
 
+    <!-- QR Code Styling Library -->
+    <script src="https://unpkg.com/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
+
     <style>
         .animate-slide-up {
             animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -116,15 +119,54 @@
                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <h1 class="text-base sm:text-lg font-black text-gray-800">{{ pot?.name || '花盆详情' }}</h1>
                 </div>
-                <!-- 右侧编辑按钮 -->
-                <div class="z-10 ml-auto">
-                    <button class="w-10 h-10 flex items-center justify-center text-gray-400 active:scale-90 transition"
-                        @click="goEditPage">
-                        <i class="fa fa-pen text-xl"></i>
-                    </button>
+                <!-- 右侧按钮组 -->
+                <div class="z-10 ml-auto flex items-center gap-1">
+                    <!-- '...' 折叠菜单 (仅主人可见) -->
+                    <div v-if="isOwner && !isLoading" class="relative ml-1">
+                        <button @click="showActionMenu = !showActionMenu"
+                            class="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-gray-700 active:scale-95 transition">
+                            <i class="fa fa-ellipsis-h text-xl"></i>
+                        </button>
+                        <!-- 透明遮罩层 -->
+                        <div v-if="showActionMenu" class="fixed inset-0 z-40" @click="showActionMenu = false"></div>
+                        <!-- 动作下拉菜单 -->
+                        <div v-if="showActionMenu"
+                            class="absolute right-0 mt-2 w-36 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-fade-in pointer-events-auto">
+                            <button @click="goEditPage"
+                                class="w-full text-left px-4 py-3.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 border-b border-gray-50 transition active:bg-gray-100">
+                                <i class="fa fa-pen text-blue-500 w-4 text-center"></i> 编辑花盆
+                            </button>
+                            <button @click="showShareModal = true; showActionMenu = false"
+                                class="w-full text-left px-4 py-3.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition active:bg-gray-100">
+                                <i class="fa fa-share-alt text-green-500 w-4 text-center"></i> 分享花盆
+                            </button>
+                        </div>
+                    </div>
+
+
                 </div>
             </div>
         </header>
+
+        <!-- 移交状态提示 (仅主人可见) -->
+        <div v-if="isOwner && pot?.transfer_token" class="container mt-4 animate-fade-in relative z-30">
+            <div class="bg-blue-50 border border-blue-100 p-4 rounded-3xl flex items-center justify-between shadow-sm">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-blue-500/10 rounded-full flex items-center justify-center shrink-0">
+                        <i class="fa fa-exchange-alt text-blue-500 animate-pulse"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <p class="text-sm font-black text-blue-900 leading-none mb-1">移交申请处理中</p>
+                        <p class="text-[10px] text-blue-700 opacity-80 truncate">目标：{{ pot.transfer_target_email || '待定'
+                            }} (系统已发邮件)</p>
+                    </div>
+                </div>
+                <button @click="cancelTransfer"
+                    class="px-4 py-2 bg-white text-blue-600 text-[10px] font-bold rounded-xl border border-blue-100 shadow-sm active:scale-95 transition shrink-0">
+                    撤销
+                </button>
+            </div>
+        </div>
 
         <!-- 页内导航（摘要跳转） -->
         <div v-if="!isLoading && pot" class="container sticky top-16 z-40 bg-gray-50/95 backdrop-blur-sm py-2">
@@ -142,24 +184,10 @@
         <main class="main pb-20">
             <!-- 骨架屏加载状态 (Skeleton Screen) -->
             <div v-if="isLoading" class="container py-5 space-y-5 animate-pulse">
-                <!-- 1. 花盆卡片骨架 -->
                 <div class="bg-gray-200 rounded-3xl h-56 md:h-72 w-full shadow-sm"></div>
-
-                <!-- 2. 信息卡片骨架 -->
                 <div class="bg-gray-200 rounded-3xl h-40 w-full shadow-sm border border-gray-100"></div>
-
-                <!-- 3. 养护统计/列表骨架 -->
                 <div class="bg-gray-200 rounded-3xl h-32 w-full shadow-sm"></div>
-
-                <!-- 4. 列表条目骨架 (重复) -->
                 <div class="space-y-4">
-                    <div class="flex items-center gap-4">
-                        <div class="w-16 h-16 rounded-full bg-gray-200 shrink-0"></div>
-                        <div class="flex-1 space-y-2">
-                            <div class="h-4 bg-gray-200 rounded w-1/3"></div>
-                            <div class="h-3 bg-gray-200 rounded w-1/2"></div>
-                        </div>
-                    </div>
                     <div class="flex items-center gap-4">
                         <div class="w-16 h-16 rounded-full bg-gray-200 shrink-0"></div>
                         <div class="flex-1 space-y-2">
@@ -190,6 +218,13 @@
                             class="w-full h-full object-cover" @error="handleImageError">
                     </div>
                     <div class="p-6 space-y-4">
+                        <div class="flex items-center gap-2">
+                            <h2 class="text-2xl font-black text-gray-800 tracking-tight">{{ pot.name }}</h2>
+                            <span v-if="pot.is_collaborator || (isOwner && pot.collaborator_count > 0)"
+                                class="px-2 py-0.5 bg-orange-100 text-orange-600 text-[10px] font-black rounded-lg">
+                                <i class="fa fa-users mr-0.5"></i> 共同照料中
+                            </span>
+                        </div>
                         <div class="flex flex-col gap-2 text-sm">
                             <div class="flex items-baseline gap-2">
                                 <span class="text-gray-900 font-bold shrink-0 w-20">种植日期：</span>
@@ -199,15 +234,11 @@
                                 <span class="text-gray-900 font-bold shrink-0 w-20">花盆备注：</span>
                                 <span class="text-gray-600">{{ pot.note || '无' }}</span>
                             </div>
-                            <div v-if="matchedPlantName" class="flex items-baseline gap-2">
-                                <span class="text-gray-900 font-bold shrink-0 w-20">匹配植物：</span>
-                                <span class="text-gray-600 font-bold text-green-600">{{ matchedPlantName }}</span>
-                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 植物信息（Tab 合并卡片） -->
+                <!-- 植物信息 -->
                 <div v-if="plantInfo" class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
                     <div class="px-6 pt-5 border-b border-gray-50">
                         <div class="flex">
@@ -233,7 +264,6 @@
                                     }}：</span>
                                 <span class="text-gray-600 flex-1">{{ item.val }}</span>
                             </div>
-
                             <div v-if="showFullPlantInfo" v-for="item in plantInfoGroups.extended" :key="item.key"
                                 class="flex gap-2 animate-fade-in">
                                 <span class="text-gray-900 font-bold shrink-0 w-20 whitespace-nowrap">{{ item.label
@@ -241,8 +271,7 @@
                                 <span class="text-gray-600 flex-1">{{ item.val }}</span>
                             </div>
                         </div>
-
-                        <div v-if="plantInfoGroups.extended.length > 0"
+                        <div v-if="plantInfoGroups.extended?.length > 0"
                             class="mt-4 flex justify-center border-t border-gray-50 pt-4">
                             <button @click="showFullPlantInfo = !showFullPlantInfo"
                                 class="h-10 px-4 rounded-full bg-gray-50 flex items-center justify-center gap-2 text-gray-500 hover:text-green-500 hover:bg-green-50 transition active:scale-95 shadow-sm border border-gray-100 text-xs font-bold">
@@ -258,21 +287,19 @@
                             :style="{ maxHeight: showFullCareTips ? '3000px' : '400px' }">
                             <div
                                 class="flex flex-wrap items-center justify-center gap-x-2 gap-y-2 mb-8 text-[11px] font-bold text-gray-500 px-4">
-                                <template v-for="(item, idx) in careTipsGroups.summary" :key="item.key">
+                                <template v-for="(item, idx) in careTipsGroups.summary" :key="item.label">
                                     <span class="whitespace-nowrap">{{ item.label }}：<span
                                             class="text-blue-500 font-black">{{ item.val }}</span></span>
-                                    <span v-if="idx < careTipsGroups.summary.length - 1"
+                                    <span v-if="idx < (careTipsGroups.summary?.length || 0) - 1"
                                         class="text-gray-300 mx-1">|</span>
                                 </template>
                             </div>
-
                             <div class="space-y-7">
-                                <div v-for="item in careTipsGroups.priorityDetails" :key="item.key"
+                                <div v-for="item in careTipsGroups.priorityDetails" :key="item.label"
                                     class="relative pl-6 border-l-2 border-blue-100/50">
                                     <div
                                         class="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.3)]">
                                     </div>
-
                                     <div class="space-y-2">
                                         <div class="flex items-center gap-2">
                                             <i :class="item.icon" class="text-blue-500 text-sm"></i>
@@ -282,27 +309,26 @@
                                         <p class="text-sm text-gray-600 leading-relaxed font-medium">{{ item.val }}</p>
                                     </div>
                                 </div>
-                            </div>
-
-                            <div v-if="showFullCareTips"
-                                class="mt-7 pt-7 border-t border-gray-50 space-y-7 animate-fade-in">
-                                <div v-for="item in careTipsGroups.extended" :key="item.key"
-                                    class="relative pl-6 border-l-2 border-gray-100">
-                                    <div class="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-gray-300"></div>
-
-                                    <div class="space-y-2">
-                                        <div class="flex items-center gap-2">
-                                            <i :class="item.icon" class="text-gray-400 text-sm"></i>
-                                            <span class="text-xs font-black text-gray-500 uppercase tracking-widest">{{
-                                                item.label }}</span>
+                                <div v-if="showFullCareTips"
+                                    class="mt-7 pt-7 border-t border-gray-50 space-y-7 animate-fade-in">
+                                    <div v-for="item in careTipsGroups.extended" :key="item.key"
+                                        class="relative pl-6 border-l-2 border-gray-100">
+                                        <div class="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-gray-300"></div>
+                                        <div class="space-y-2">
+                                            <div class="flex items-center gap-2">
+                                                <i :class="item.icon" class="text-gray-400 text-sm"></i>
+                                                <span
+                                                    class="text-xs font-black text-gray-500 uppercase tracking-widest">{{
+                                                    item.label }}</span>
+                                            </div>
+                                            <p class="text-sm text-gray-600 leading-relaxed font-medium">{{ item.val }}
+                                            </p>
                                         </div>
-                                        <p class="text-sm text-gray-600 leading-relaxed font-medium">{{ item.val }}</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
-
-                        <div v-if="careTipsGroups.extended.length > 0" class="pb-6 flex justify-center">
+                        <div v-if="careTipsGroups.extended?.length > 0" class="pb-6 flex justify-center">
                             <button @click="showFullCareTips = !showFullCareTips"
                                 class="h-10 px-4 rounded-full bg-gray-50 flex items-center justify-center gap-2 text-gray-500 hover:text-blue-500 hover:bg-blue-50 transition active:scale-95 shadow-sm border border-gray-100 text-xs font-bold">
                                 <i class="fas" :class="showFullCareTips ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
@@ -311,27 +337,22 @@
                         </div>
                     </div>
                 </div>
-                <!-- 移除过早关闭的容器 div -->
 
-                <!-- 3.5 养护周期设置 (Care Schedules) - 增强版 -->
-                <div id="section-schedules"
+                <!-- 2. 养护周期 (Care Schedules) -->
+                <div v-if="!isPublicVisitor" id="section-schedules"
                     class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
                     <div class="p-6 flex justify-between items-center border-b border-gray-50">
                         <h3 class="text-lg font-black text-gray-800 flex items-center gap-2">
                             <i class="fa fa-clock text-purple-400"></i> 养护提醒
                         </h3>
-                        <button @click="showAddScheduleModal = true"
+                        <button v-if="!isReadOnly" @click="showAddScheduleModal = true"
                             class="text-xs font-bold text-purple-500 bg-purple-50 px-3 py-1.5 rounded-full active:scale-95 transition">
                             <i class="fa fa-plus mr-1"></i> 添加
                         </button>
                     </div>
-
-                    <!-- 内容区域 -->
                     <div v-show="showScheduleExpanded" class="p-6 space-y-4 animate-fade-in">
-                        <!-- 已设置的周期列表 -->
                         <template v-for="schedule in careSchedules" :key="schedule.id">
                             <div class="flex items-center justify-between gap-3 p-3 bg-gray-50/50 rounded-2xl">
-                                <!-- 左侧：类型图标和名称 -->
                                 <div class="flex items-center gap-3 min-w-0">
                                     <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-lg shrink-0"
                                         :class="getScheduleTypeStyle(schedule.care_type).bg">
@@ -341,54 +362,22 @@
                                         <div class="text-sm font-bold text-gray-800">
                                             {{ schedule.custom_action || getScheduleTypeName(schedule.care_type) }}
                                         </div>
-                                        <!-- 内联编辑周期 -->
                                         <div class="flex items-center gap-1 mt-0.5" @click.stop>
                                             <span class="text-[10px] text-gray-400">每</span>
-                                            <input type="number" v-model.lazy.number="schedule.intervalDays"
+                                            <input v-if="!isReadOnly" type="number"
+                                                v-model.lazy.number="schedule.intervalDays"
                                                 class="w-8 h-5 text-center text-[10px] font-bold bg-white border border-gray-200 rounded px-0 py-0 focus:ring-1 focus:ring-purple-200"
                                                 @change="updateScheduleInterval(schedule)">
+                                            <span v-else class="text-[10px] font-bold text-gray-600">{{
+                                                schedule.intervalDays }}</span>
                                             <span class="text-[10px] text-gray-400">天提醒</span>
-                                        </div>
-                                        <div v-if="getScheduleHint(schedule.care_type)"
-                                            class="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
-                                            <i class="fa fa-info-circle text-blue-400"></i>
-                                            <span>{{ getScheduleHint(schedule.care_type) }}</span>
-                                        </div>
-
-                                        <!-- 季节性贴士 (New) -->
-                                        <div v-if="getSeasonalTip(schedule.care_type)"
-                                            class="mt-1.5 flex items-start text-[10px] bg-opacity-10 rounded px-2 py-1 max-w-[200px]"
-                                            :class="{
-                                                'bg-blue-100 text-blue-600': ['Winter', 'Summer'].includes(getSeasonalTip(schedule.care_type).season),
-                                                'bg-green-100 text-green-600': getSeasonalTip(schedule.care_type).season === 'Spring',
-                                                'bg-orange-100 text-orange-600': getSeasonalTip(schedule.care_type).season === 'Autumn'
-                                            }">
-                                            <span class="mr-1.5 shrink-0">
-                                                <i v-if="getSeasonalTip(schedule.care_type).season === 'Spring'"
-                                                    class="fa fa-seedling"></i>
-                                                <i v-else-if="getSeasonalTip(schedule.care_type).season === 'Summer'"
-                                                    class="fa fa-sun"></i>
-                                                <i v-else-if="getSeasonalTip(schedule.care_type).season === 'Autumn'"
-                                                    class="fa fa-canadian-maple-leaf"></i>
-                                                <i v-else class="fa fa-snowflake"></i>
-                                            </span>
-                                            <div class="leading-tight">
-                                                <span class="font-bold mr-1">{{
-                                                    getSeasonalTip(schedule.care_type).season === 'Spring' ? '春季贴士:' :
-                                                    (getSeasonalTip(schedule.care_type).season === 'Summer' ? '夏季贴士:' :
-                                                    (getSeasonalTip(schedule.care_type).season === 'Autumn' ? '秋季贴士:' :
-                                                    '冬季贴士:'))
-                                                    }}</span>
-                                                <span>{{ getSeasonalTip(schedule.care_type).text }}</span>
-                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                                <!-- 右侧：开关和删除 -->
-                                <div class="flex items-center gap-2">
+                                <div v-if="!isReadOnly" class="flex items-center gap-2">
                                     <button @click="toggleScheduleEnabled(schedule)"
                                         class="w-12 h-7 rounded-full transition-all duration-300 relative"
-                                        :class="schedule.enabled ? getScheduleTypeStyle(schedule.care_type).toggle : 'bg-gray-200'">
+                                        :class="schedule.enabled ? 'bg-green-500' : 'bg-gray-200'">
                                         <span
                                             class="absolute w-5 h-5 bg-white rounded-full top-1 transition-all duration-300 shadow-sm"
                                             :class="schedule.enabled ? 'right-1' : 'left-1'"></span>
@@ -400,148 +389,24 @@
                                 </div>
                             </div>
                         </template>
-
-                        <!-- 空状态 -->
-                        <div v-if="careSchedules.length === 0" class="py-8 text-center">
-                            <div class="text-3xl mb-2">⏰</div>
-                            <p class="text-sm text-gray-400">暂未设置养护提醒</p>
-                            <p class="text-xs text-gray-300 mt-1">点击上方"添加"按钮设置</p>
-                        </div>
-
-                        <!-- 提示信息 -->
-                        <div v-if="careSchedules.length > 0" class="pt-2 text-center text-[10px] text-gray-400">
-                            <i class="fa fa-info-circle mr-1"></i>
-                            启用后将在首页显示符合条件的待养护提醒
-                        </div>
+                        <div v-if="careSchedules?.length === 0" class="py-8 text-center text-gray-400">暂未设置养护提醒</div>
                     </div>
                 </div>
 
-                <!-- 添加养护周期弹窗 -->
-                <teleport to="body">
-                    <transition name="fade">
-                        <div v-if="showAddScheduleModal"
-                            class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center"
-                            @click.self="showAddScheduleModal = false">
-                            <div class="bg-white w-full max-w-lg rounded-t-3xl p-6 pb-10 animate-slide-up">
-                                <div class="flex justify-between items-center mb-6">
-                                    <h3 class="text-lg font-black text-gray-800">添加养护提醒</h3>
-                                    <button @click="showAddScheduleModal = false" class="text-gray-400">
-                                        <i class="fa fa-times"></i>
-                                    </button>
-                                </div>
-
-                                <!-- 步骤1：选择类型 -->
-                                <div class="mb-6">
-                                    <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">选择类型
-                                    </div>
-                                    <div class="grid grid-cols-3 gap-2">
-                                        <button v-for="type in scheduleTypeOptions" :key="type.value"
-                                            @click="newSchedule.careType = type.value; newSchedule.customAction = ''"
-                                            class="p-3 rounded-2xl border-2 transition-all text-center" :class="newSchedule.careType === type.value 
-                                                ? 'border-purple-400 bg-purple-50' 
-                                                : 'border-gray-100 bg-gray-50'">
-                                            <div class="text-2xl mb-1">{{ type.icon }}</div>
-                                            <div class="text-xs font-bold"
-                                                :class="newSchedule.careType === type.value ? 'text-purple-600' : 'text-gray-600'">
-                                                {{ type.label }}
-                                            </div>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <!-- 养护要点参考 (New) -->
-                                <div v-if="currentCareHint"
-                                    class="mb-6 bg-blue-50 p-4 rounded-2xl border border-blue-100/50">
-                                    <div class="text-xs font-bold text-blue-500 mb-1 flex items-center gap-1">
-                                        <i class="fa fa-lightbulb"></i> 养护要点
-                                    </div>
-                                    <p class="text-xs text-blue-800/80 leading-relaxed">{{ currentCareHint }}</p>
-                                </div>
-
-                                <!-- 自定义名称输入 (仅custom类型显示) -->
-                                <div v-if="newSchedule.careType === 'custom'" class="mb-6">
-                                    <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">自定义名称
-                                    </div>
-                                    <input type="text" v-model="newSchedule.customAction" placeholder="例如：松土、喷水、换土..."
-                                        class="w-full px-4 py-3 rounded-2xl border border-gray-200 text-sm focus:border-purple-400 focus:ring-1 focus:ring-purple-100">
-                                </div>
-
-                                <!-- 步骤2：设置周期 -->
-                                <div class="mb-6">
-                                    <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">提醒周期
-                                    </div>
-
-                                    <!-- 智能推荐 (New) -->
-                                    <div v-if="smartIntervalSuggestion" class="mb-4">
-                                        <button @click="applySmartInterval"
-                                            class="w-full py-3 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-2xl shadow-lg shadow-purple-100 flex items-center justify-center gap-2 active:scale-[0.98] transition">
-                                            <i class="fa fa-magic"></i>
-                                            <span class="text-xs font-bold">引用历史平均周期 ({{ smartIntervalSuggestion
-                                                }}天)</span>
-                                        </button>
-                                        <p class="text-[10px] text-gray-400 text-center mt-2">基于您过去的养护记录分析</p>
-                                    </div>
-
-                                    <!-- 快捷选择标签 -->
-                                    <div class="flex gap-2 mb-4">
-                                        <button v-for="preset in intervalPresets" :key="preset.days"
-                                            @click="newSchedule.intervalDays = preset.days"
-                                            class="flex-1 py-2 rounded-xl text-xs font-bold transition-all" :class="newSchedule.intervalDays === preset.days 
-                                                ? 'bg-purple-500 text-white' 
-                                                : 'bg-gray-100 text-gray-600'">
-                                            {{ preset.label }}
-                                        </button>
-                                    </div>
-
-                                    <!-- 精细调整 + 直接输入 -->
-                                    <div class="flex items-center justify-center gap-4 py-4 bg-gray-50 rounded-2xl">
-                                        <button
-                                            @click="newSchedule.intervalDays = Math.max(1, newSchedule.intervalDays - 1)"
-                                            class="w-12 h-12 rounded-2xl bg-white border border-gray-200 text-gray-600 text-lg font-bold active:scale-95 transition shadow-sm">
-                                            −
-                                        </button>
-                                        <div class="text-center w-20"> <!-- 固定宽度防止跳动 -->
-                                            <input type="number" v-model.number="newSchedule.intervalDays"
-                                                class="w-full bg-transparent text-center text-3xl font-black text-gray-800 border-none p-0 focus:ring-0 appearance-none"
-                                                min="1" max="365">
-                                            <div class="text-xs text-gray-400 mt-1">天</div>
-                                        </div>
-                                        <button @click="newSchedule.intervalDays = newSchedule.intervalDays + 1"
-                                            class="w-12 h-12 rounded-2xl bg-white border border-gray-200 text-gray-600 text-lg font-bold active:scale-95 transition shadow-sm">
-                                            +
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <!-- 保存按钮 -->
-                                <button @click="saveNewSchedule" :disabled="!canSaveSchedule"
-                                    class="w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider transition-all"
-                                    :class="canSaveSchedule 
-                                        ? 'bg-purple-500 text-white active:scale-[0.98]' 
-                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'">
-                                    添加提醒
-                                </button>
-                            </div>
-                        </div>
-                    </transition>
-                </teleport>
-
-                <!-- 4. 养护记录 (Care Records) -->
+                <!-- 3. 养护记录 (Care Records) -->
                 <div id="section-records" class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
                     <div class="p-6 flex justify-between items-center border-b border-gray-50">
                         <h3 class="text-lg font-black text-gray-800 flex items-center gap-2">
                             <i class="fa fa-history text-orange-400"></i> 养护历史
                         </h3>
-                        <button @click="goAddCarePage"
+                        <button v-if="!isReadOnly" @click="goAddCarePage"
                             class="bg-orange-400 text-white px-4 py-1.5 rounded-full text-xs font-black shadow-lg shadow-orange-100 active:scale-95 transition">
                             新增养护
                         </button>
                     </div>
 
-                    <!-- 统计摘要区域 -->
-                    <div v-if="potStats && careRecords.length > 0"
+                    <div v-if="potStats && careRecords?.length > 0"
                         class="px-6 py-4 bg-gray-50/50 border-b border-gray-50">
-                        <!-- 统计数字 -->
                         <div class="grid grid-cols-3 gap-3 mb-3">
                             <div class="bg-white rounded-2xl p-3 text-center shadow-sm border border-gray-50">
                                 <div class="text-xl font-black text-blue-500">💧 {{ statsWaterCount }}</div>
@@ -556,53 +421,39 @@
                                 <div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">养护天</div>
                             </div>
                         </div>
-                        <!-- 平均间隔 -->
-                        <div class="text-center text-[11px] text-gray-400 font-medium">
-                            <span v-if="avgWateringInterval !== '-'">平均浇水间隔 <span class="text-blue-500 font-bold">{{
-                                    avgWateringInterval }}</span> 天</span>
-                            <span v-if="avgWateringInterval !== '-' && avgFertilizingInterval !== '-'"
-                                class="mx-2">·</span>
-                            <span v-if="avgFertilizingInterval !== '-'">平均施肥间隔 <span class="text-green-500 font-bold">{{
-                                    avgFertilizingInterval }}</span> 天</span>
-                        </div>
                     </div>
 
-                    <div v-if="careRecords.length === 0" class="p-10 text-center">
-                        <p class="text-gray-400 text-sm">暂无养护记录</p>
-                    </div>
-
+                    <div v-if="careRecords?.length === 0" class="p-10 text-center text-gray-400">暂无养护记录</div>
                     <div v-else class="divide-y divide-gray-50">
                         <div v-for="group in groupedCareRecords.slice(0, 5)" :key="group.date"
                             @click="showCareDetails(group)"
-                            class="group py-4 px-6 active:bg-gray-50 transition cursor-pointer flex items-center justify-between overflow-hidden">
+                            class="group py-4 px-6 active:bg-gray-50 transition cursor-pointer flex items-center justify-between">
                             <div class="flex items-baseline gap-4 min-w-0">
-                                <!-- 日期在前 -->
-                                <span class="text-xs font-black text-gray-800 uppercase shrink-0 w-24 leading-none">
-                                    {{ group.date }}
-                                </span>
-
-                                <!-- 概括在后 -->
+                                <span class="text-xs font-black text-gray-800 uppercase shrink-0 w-24">{{ group.date
+                                    }}</span>
                                 <div class="min-w-0">
-                                    <div class="text-xs font-bold text-gray-400 truncate">
-                                        {{ group.displayAction }}
+                                    <div class="flex items-center gap-2">
+                                        <div class="text-xs font-bold text-gray-400 truncate">{{ group.displayAction }}
+                                        </div>
+                                        <span v-if="showOperatorName"
+                                            class="text-[9px] px-1.5 py-0.5 bg-gray-50 text-gray-400 rounded-md font-bold shrink-0">{{
+                                            group.records[0].operatorName || pot.owner_name || '主人' }}</span>
                                     </div>
-                                    <p v-if="group.displayDescription" class="text-[10px] text-gray-300 mt-1 truncate">
-                                        {{ group.displayDescription }}
-                                    </p>
+                                    <p v-if="group.displayDescription"
+                                        class="text-[10px] text-gray-300 truncate max-w-[200px] mt-0.5">{{
+                                        group.displayDescription }}</p>
                                 </div>
                             </div>
-                            <i
-                                class="fa fa-chevron-right text-[10px] text-gray-200 group-active:text-gray-400 transition"></i>
+                            <i class="fa fa-chevron-right text-[10px] text-gray-200"></i>
                         </div>
-
-                        <button v-if="careRecords.length > 0" @click="viewAllRecords"
+                        <button v-if="careRecords?.length > 0" @click="viewAllRecords"
                             class="w-full py-4 text-[10px] text-gray-300 font-black uppercase tracking-widest bg-gray-50/50 border-t border-gray-50 flex items-center justify-center gap-2">
-                            查看全部养护记录 ({{ careRecords.length }}) <i class="fa fa-history"></i>
+                            查看全部养护记录 ({{ careRecords?.length || 0 }}) <i class="fa fa-history"></i>
                         </button>
                     </div>
                 </div>
 
-                <!-- 3. 生长记录入口 (Entry Logic) -->
+                <!-- 4. 生长记录 (Timelines) -->
                 <div id="section-timelines"
                     class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
                     <div class="p-6 flex justify-between items-center border-b border-gray-50">
@@ -610,67 +461,58 @@
                             <i class="fa fa-chart-line text-blue-500"></i> 生长轨迹
                         </h3>
                         <div class="flex gap-2">
-                            <button v-if="timelineRecords.length >= 2" @click="toggleTimelineSort"
+                            <button v-if="timelineRecords?.length >= 2" @click="toggleTimelineSort"
                                 class="w-8 h-8 rounded-full bg-gray-100/80 text-gray-500 flex items-center justify-center active:scale-90 transition">
                                 <i class="fas text-[12px]"
                                     :class="isTimelineDesc ? 'fa-sort-amount-down' : 'fa-sort-amount-up'"></i>
                             </button>
-                            <button @click="showAddTimelineModal = true"
+                            <button v-if="!isReadOnly" @click="showAddTimelineModal = true"
                                 class="bg-blue-500 text-white px-4 py-1.5 rounded-full text-xs font-black shadow-lg shadow-blue-100 active:scale-95 transition">
                                 记录这一刻
                             </button>
                         </div>
                     </div>
-
-                    <!-- 时间轴内容 -->
-                    <div v-if="timelineRecords.length === 0" class="p-10 text-center">
-                        <div
-                            class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
-                            <i class="fa fa-camera text-2xl"></i>
-                        </div>
-                        <p class="text-gray-400 text-sm">还没有留下它的成长瞬间</p>
-                        <p class="text-[10px] text-gray-300 mt-1">上传照片，记录它的每一个变化</p>
-                    </div>
-
+                    <div v-if="timelineRecords?.length === 0" class="p-10 text-center text-gray-400">还没有留下它的成长瞬间</div>
                     <div v-else class="p-6 space-y-6">
                         <div v-for="record in sortedTimelineRecords.slice(0, 3)" :key="record.id"
                             class="relative pl-6 border-l-2 border-blue-50">
-                            <!-- 时间点 -->
                             <div
                                 class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white border-4 border-blue-500 shadow-sm">
                             </div>
-
                             <div class="flex justify-between items-start mb-2">
-                                <span class="text-xs font-black text-gray-400">{{ formatDate(record.date) }}</span>
-                                <button @click="confirmDeleteTimeline(record.id)"
+                                <div class="flex items-center gap-3">
+                                    <span class="text-xs font-black text-gray-400 uppercase leading-none">{{
+                                        formatDate(record.date) }}</span>
+                                    <span v-if="showOperatorName"
+                                        class="text-[9px] font-bold text-blue-300/80 bg-blue-50/50 px-1.5 py-0.5 rounded-md tracking-tighter">由
+                                        {{
+                                        record.operatorName || pot.owner_name || '主人' }} 记录</span>
+                                </div>
+                                <button v-if="!isReadOnly" @click="confirmDeleteTimeline(record.id)"
                                     class="text-gray-300 hover:text-red-400 p-1 active:scale-90 transition">
                                     <i class="fa fa-trash-alt text-xs"></i>
                                 </button>
                             </div>
                             <p class="text-sm text-gray-700 mb-3 font-medium">{{ record.description || '这一天，有了新的成长...'
                                 }}</p>
-
-                            <!-- 图片展示网格 -->
-                            <div v-if="getImages(record.images).length > 0" class="grid grid-cols-3 gap-2">
+                            <div v-if="getImages(record.images)?.length > 0" class="grid grid-cols-3 gap-2">
                                 <div v-for="(img, idx) in getImages(record.images)" :key="idx"
                                     class="aspect-square rounded-2xl overflow-hidden bg-gray-100 shadow-sm">
                                     <img :src="imgUrl(img, 100, 100)" loading="lazy"
-                                        class="w-full h-full object-cover cursor-pointer active:opacity-75 transition"
+                                        class="w-full h-full object-cover cursor-pointer"
                                         @click="openGallery(img, getImages(record.images))">
                                 </div>
                             </div>
                         </div>
-
-                        <!-- 展开所有记录按钮 -->
-                        <button v-if="timelineRecords.length > 3" @click="viewAllTimelines"
+                        <button v-if="timelineRecords?.length > 3" @click="viewAllTimelines"
                             class="w-full py-4 text-[10px] text-gray-300 font-black uppercase tracking-widest bg-gray-50/50 border-t border-gray-50 flex items-center justify-center gap-2 rounded-2xl">
-                            查看全部成长记录 ({{ timelineRecords.length }}) <i class="fa fa-camera"></i>
+                            查看全部成长记录 ({{ timelineRecords?.length || 0 }}) <i class="fa fa-camera"></i>
                         </button>
                     </div>
                 </div>
 
-                <!-- 5. 删除按钮 (移至最底部) -->
-                <div class="pt-8 pb-10 flex flex-col items-center gap-4">
+                <!-- 5. 危险区域 (仅主人可见) -->
+                <div v-if="isOwner" class="pt-8 pb-10 flex flex-col items-center gap-4">
                     <button @click="confirmDeletePot"
                         class="w-full py-4 rounded-2xl text-red-500 font-black text-sm bg-red-50 border border-red-100 hover:bg-red-100 transition active:scale-95">
                         <i class="fa fa-trash-alt mr-2"></i> 删除此花盆
@@ -679,6 +521,137 @@
                         ID: {{ potId }} • 更新于 {{ formatDate(new Date().toISOString()) }}
                     </p>
                 </div>
+
+                <!-- 访客转换栏 (仅外部访客可见) -->
+                <div v-if="isPublicVisitor" class="sticky bottom-4 left-0 right-0 z-50 px-4">
+                    <div
+                        class="bg-green-600 rounded-3xl p-5 shadow-2xl flex items-center justify-between text-white border border-green-500">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-2xl">🪴
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-black">喜欢这盆花吗？</h4>
+                                <p class="text-[10px] text-green-100 font-bold mt-1">立即开启您的数字化养花之旅</p>
+                            </div>
+                        </div>
+                        <button @click="goCreatePot"
+                            class="bg-white text-green-700 px-5 py-2.5 rounded-2xl text-xs font-black shadow-xl active:scale-95 transition">
+                            我也要种
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 弹窗：接收所有权转移 (Handshake) -->
+            <div v-if="showAcceptTransferModal" class="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/80 backdrop-blur-md"></div>
+                <div
+                    class="relative bg-white w-full max-w-sm rounded-[2.5rem] overflow-hidden shadow-2xl animate-fade-in">
+                    <div class="p-8 text-center">
+                        <div
+                            class="w-20 h-20 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl">
+                            <i class="fa fa-handshake"></i>
+                        </div>
+                        <h3 class="text-xl font-black text-gray-800 mb-2">接收所有权转移</h3>
+                        <p class="text-gray-400 text-sm mb-8">
+                            您正准备接收花盆 <span class="text-orange-600 font-bold">“{{ transferPot?.name }}”</span>
+                            的所有权。接收后，您将成为该花盆的新主人。
+                        </p>
+
+                        <div v-if="transferPot"
+                            class="bg-gray-50 rounded-2xl p-4 mb-8 flex items-center gap-4 text-left">
+                            <img :src="imgUrl(transferPot.image_url, 64, 64) || 'assets/images/icons/icons-default-pot.png'"
+                                class="w-16 h-16 rounded-xl object-cover">
+                            <div class="min-w-0">
+                                <div class="font-bold text-gray-800 truncate">{{ transferPot.name }}</div>
+                                <div class="text-[10px] text-gray-400 mt-1">创建于 {{ formatDate(transferPot.plant_date) }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <button @click="acceptTransfer" :disabled="isAcceptingTransfer"
+                                class="w-full bg-orange-500 text-white py-4 rounded-2xl text-base font-black shadow-lg shadow-orange-100 transition active:scale-95 disabled:opacity-50">
+                                <span v-if="!isAcceptingTransfer">确认接收</span>
+                                <span v-else><i class="fa fa-spinner fa-spin mr-2"></i>处理中...</span>
+                            </button>
+                            <button @click="showAcceptTransferModal = false"
+                                class="w-full py-4 text-gray-400 text-sm font-bold active:scale-95 transition">
+                                稍后再说
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 弹窗：分享花盆 (QR Code) -->
+            <div v-if="showShareModal" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showShareModal = false"></div>
+                <div
+                    class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
+                    <!-- 固定头部 -->
+                    <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-xl font-black text-gray-800">分享此花盆</h3>
+                            <button @click="showShareModal = false"
+                                class="text-gray-300 hover:text-gray-500 transition active:scale-95">
+                                <i class="fa fa-times text-xl"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- 可滚动内容区 -->
+                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar">
+
+                        <!-- 分享开关 -->
+                        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl mb-6">
+                            <div>
+                                <h4 class="text-sm font-black text-gray-800">允许公开分享</h4>
+                                <p class="text-[10px] text-gray-400 mt-0.5">开启后，任何人通过该二维码或链接即可查看详情</p>
+                            </div>
+                            <button @click="toggleShare"
+                                class="w-12 h-7 rounded-full transition-all duration-300 relative"
+                                :class="pot.is_shared ? 'bg-green-500' : 'bg-gray-200'">
+                                <span
+                                    class="absolute w-5 h-5 bg-white rounded-full top-1 transition-all duration-300 shadow-sm"
+                                    :class="pot.is_shared ? 'right-1' : 'left-1'"></span>
+                            </button>
+                        </div>
+
+                        <!-- 二维码展示区 -->
+                        <div v-show="pot.is_shared" class="flex flex-col items-center">
+                            <div id="qrcode-container"
+                                class="bg-white p-4 rounded-3xl shadow-inner border border-gray-50 mb-4 overflow-hidden">
+                                <!-- QR Code will be rendered here -->
+                            </div>
+                            <p class="text-xs text-gray-500 mb-6 text-center leading-relaxed">
+                                保存上方二维码分享给好友<br>
+                                <span class="font-bold text-blue-500">或直接打印贴在花盆上，方便识别与记录</span>
+                            </p>
+                            <div class="grid grid-cols-2 gap-3 w-full">
+                                <button @click="downloadQRCode"
+                                    class="bg-blue-500 text-white py-4 rounded-2xl text-sm font-black active:scale-95 transition">
+                                    保存到相册
+                                </button>
+                                <button @click="copyShareLink"
+                                    class="bg-gray-100 text-gray-800 py-4 rounded-2xl text-sm font-black active:scale-95 transition">
+                                    复制链接
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 协作管理入口 (仅限已开启且是主人) -->
+                        <div v-if="isOwner" class="mt-8 pt-6 border-t border-gray-50 flex flex-col gap-3">
+                            <button @click="showCollaboratorModal = true"
+                                class="w-full py-4 rounded-2xl bg-orange-50 text-orange-600 text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition">
+                                <i class="fa fa-users"></i> 管理共同照料成员
+                            </button>
+                            <button @click="showTransferModal = true; showShareModal = false"
+                                class="w-full py-4 rounded-2xl bg-red-50 text-red-500 text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition">
+                                <i class="fa fa-exchange-alt"></i> 永久移交所有权
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- 弹窗：添加生长记录 -->
@@ -686,31 +659,34 @@
                 class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showAddTimelineModal = false"></div>
                 <div
-                    class="relative bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up">
-                    <div class="p-8">
-                        <div class="flex justify-between items-center mb-8">
+                    class="relative bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
+                    <!-- 固定头部 -->
+                    <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
+                        <div class="flex justify-between items-center">
                             <div>
                                 <h3 class="text-xl font-black text-gray-800">增加生长记录</h3>
                                 <p class="text-xs text-gray-400 mt-1">记录并见证它的成长蜕变</p>
                             </div>
                             <button @click="showAddTimelineModal = false"
-                                class="text-gray-300 hover:text-gray-500 transition">
+                                class="text-gray-300 hover:text-gray-500 transition active:scale-95">
                                 <i class="fa fa-times text-xl"></i>
                             </button>
                         </div>
-
+                    </div>
+                    <!-- 可滚动内容区 -->
+                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar">
                         <div class="space-y-6">
                             <div>
                                 <label
                                     class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">记录日期</label>
                                 <input type="date" v-model="newTimeline.date"
-                                    class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-blue-500 transition-all font-bold text-gray-800">
+                                    class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 font-bold text-gray-800">
                             </div>
                             <div>
                                 <label
                                     class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">文字说明</label>
                                 <textarea v-model="newTimeline.description" rows="3" placeholder="写点什么，记录这一刻的喜悦..."
-                                    class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-blue-500 transition-all font-bold text-gray-800 resize-none"></textarea>
+                                    class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 font-bold text-gray-800 resize-none"></textarea>
                             </div>
                             <div>
                                 <label
@@ -735,7 +711,6 @@
                                     class="hidden">
                             </div>
                         </div>
-
                         <div class="mt-10">
                             <button @click="saveTimelineRecord" :disabled="isSavingTimeline"
                                 class="w-full bg-blue-500 text-white py-4 rounded-2xl text-lg font-black shadow-xl shadow-blue-100 disabled:opacity-50 transition active:scale-[0.98]">
@@ -747,80 +722,63 @@
                 </div>
             </div>
 
-            <!-- 弹窗：植物百科详细 -->
-            <div v-if="showPlantModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
-                <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="showPlantModal = false"></div>
+            <!-- TODO: Rest of the modals and plant info details go here -->
+
+            <!-- 弹窗：添加养护提醒 -->
+            <div v-if="showAddScheduleModal"
+                class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showAddScheduleModal = false"></div>
                 <div
-                    class="relative bg-white w-full max-w-xl max-h-[90vh] rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col">
-                    <div class="p-8 border-b border-gray-50 flex justify-between items-center bg-green-50/50">
-                        <div>
-                            <h3 class="text-xl font-black text-green-800">{{ plantInfo?.basicInfo?.name }}</h3>
-                            <p class="text-[10px] font-black text-green-600 uppercase tracking-widest mt-1">{{
-                                plantInfo.basicInfo?.latinName }}</p>
+                    class="relative bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
+                    <!-- 固定头部 -->
+                    <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-xl font-black text-gray-800">设置养护提醒</h3>
+                            <button @click="showAddScheduleModal = false"
+                                class="text-gray-300 hover:text-gray-500 transition active:scale-95">
+                                <i class="fa fa-times text-xl"></i>
+                            </button>
                         </div>
-                        <button @click="showPlantModal = false"
-                            class="text-green-800 opacity-40 hover:opacity-100 transition">
-                            <i class="fa fa-times text-xl"></i>
-                        </button>
                     </div>
-                    <div class="p-8 overflow-y-auto flex-1 space-y-8">
-                        <section>
-                            <h4
-                                class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                <i class="fa fa-info-circle text-green-500"></i> 基本资料
-                            </h4>
-                            <div class="grid grid-cols-2 gap-4 text-sm">
-                                <div class="bg-gray-50 p-4 rounded-2xl col-span-2"
-                                    v-if="plantInfo.basicInfo?.synonyms?.length">
-                                    <span class="text-[10px] text-gray-400 font-bold block mb-1 uppercase">别名</span>
-                                    <span class="font-bold">{{ plantInfo.basicInfo.synonyms.join('、') }}</span>
-                                </div>
-                                <div class="bg-gray-50 p-4 rounded-2xl"><span
-                                        class="text-[10px] text-gray-400 font-bold block mb-1 uppercase">科属</span><span
-                                        class="font-bold">{{ plantInfo.basicInfo?.family }}</span></div>
-                                <div class="bg-gray-50 p-4 rounded-2xl"><span
-                                        class="text-[10px] text-gray-400 font-bold block mb-1 uppercase">原产地</span><span
-                                        class="font-bold">{{ plantInfo.basicInfo?.origin }}</span></div>
-                            </div>
-                        </section>
-
-                        <section v-if="plantInfo.ornamentalFeatures">
-                            <h4
-                                class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                <i class="fa fa-eye text-green-500"></i> 观赏特征
-                            </h4>
-                            <div class="grid grid-cols-2 gap-4 text-sm">
-                                <div v-for="(val, key) in plantInfo.ornamentalFeatures" :key="key" v-show="val"
-                                    class="bg-gray-50 p-4 rounded-2xl">
-                                    <span class="text-[10px] text-gray-400 font-bold block mb-1 uppercase">{{
-                                        getOrnamentalLabel(key) }}</span>
-                                    <span class="font-bold">{{ val === true ? '是' : (val === false ? '否' : val)
-                                        }}</span>
+                    <!-- 可滚动内容区 -->
+                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar">
+                        <div class="space-y-6">
+                            <div>
+                                <label
+                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">提醒类型</label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <button v-for="opt in scheduleTypeOptions" :key="opt.value"
+                                        @click="newSchedule.careType = opt.value"
+                                        class="flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition"
+                                        :class="newSchedule.careType === opt.value ? 'border-purple-500 bg-purple-50' : 'border-gray-50 bg-gray-50'">
+                                        <span class="text-xl mb-1">{{ opt.icon }}</span>
+                                        <span class="text-[10px] font-bold text-gray-600">{{ opt.label }}</span>
+                                    </button>
                                 </div>
                             </div>
-                        </section>
-
-                        <section>
-                            <h4
-                                class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                <i class="fa fa-hand-holding-heart text-green-500"></i> 全方位养护指南
-                            </h4>
-                            <div class="grid grid-cols-1 gap-4">
-                                <div v-for="(val, key) in plantInfo.careGuide" v-show="val"
-                                    class="flex gap-4 p-4 bg-gray-50 rounded-2xl">
-                                    <div
-                                        class="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-sm">
-                                        <i :class="getCareIcon(key)" class="text-green-500"></i>
-                                    </div>
-                                    <div>
-                                        <span
-                                            class="text-[10px] text-gray-400 font-black uppercase tracking-widest block mb-0.5">{{
-                                            getCareLabel(key) }}</span>
-                                        <span class="text-gray-700 text-sm font-medium leading-relaxed">{{ val }}</span>
-                                    </div>
+                            <div v-if="newSchedule.careType === 'custom'">
+                                <label
+                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">自定义名称</label>
+                                <input type="text" v-model="newSchedule.customAction" placeholder="例：检查叶片情况"
+                                    class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 font-bold text-gray-800">
+                            </div>
+                            <div>
+                                <label
+                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">提醒频率</label>
+                                <div class="flex items-center gap-4 bg-gray-50 rounded-2xl p-4">
+                                    <span class="text-sm font-bold text-gray-500">每隔</span>
+                                    <input type="number" v-model.number="newSchedule.intervalDays"
+                                        class="w-20 bg-white border border-gray-100 rounded-xl py-2 px-3 text-center font-black text-purple-600">
+                                    <span class="text-sm font-bold text-gray-500">天提醒我</span>
                                 </div>
                             </div>
-                        </section>
+                        </div>
+                        <div class="mt-10">
+                            <button @click="saveNewSchedule"
+                                class="w-full bg-purple-500 text-white py-4 rounded-2xl text-lg font-black shadow-xl shadow-purple-100 transition active:scale-[0.98]">
+                                确认添加
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -830,14 +788,10 @@
                 class="fixed inset-0 z-[100] bg-black flex items-center justify-center animate-fade-in touch-none"
                 @click.self="closeGallery" @touchstart="handleGalleryTouchStart"
                 @touchmove.prevent="handleGalleryTouchMove" @touchend="handleGalleryTouchEnd">
-
-                <!-- 关闭按钮 -->
                 <button @click="closeGallery"
                     class="absolute top-6 right-6 text-white/50 hover:text-white p-4 z-[110] transition">
                     <i class="fa fa-times text-2xl drop-shadow-md"></i>
                 </button>
-
-                <!-- 左右切换按钮 -->
                 <button v-if="previewImages.length > 1" @click.stop="prevImg"
                     class="absolute left-2 top-1/2 -translate-y-1/2 p-4 text-white/50 hover:text-white z-[110] transition disabled:opacity-20"
                     :disabled="previewIndex === 0">
@@ -848,8 +802,6 @@
                     :disabled="previewIndex === previewImages.length - 1">
                     <i class="fa fa-chevron-right text-3xl drop-shadow-md"></i>
                 </button>
-
-                <!-- 卡带式图片轨道 -->
                 <div class="absolute inset-0 overflow-hidden">
                     <div class="flex h-full items-center" :style="{
                             transform: `translateX(calc(${-previewIndex * 100}% + ${galleryDragOffset}px))`,
@@ -863,45 +815,38 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- 底部：计数 + 小圆点 -->
                 <div class="absolute bottom-10 left-0 right-0 flex flex-col items-center gap-3 pointer-events-none">
-                    <!-- 小圆点指示器 -->
                     <div v-if="previewImages.length > 1" class="flex gap-1.5">
                         <span v-for="(_, idx) in previewImages" :key="idx"
                             class="w-1.5 h-1.5 rounded-full transition-all duration-300"
-                            :class="idx === previewIndex ? 'bg-white w-4' : 'bg-white/40'">
-                        </span>
+                            :class="idx === previewIndex ? 'bg-white w-4' : 'bg-white/40'"></span>
                     </div>
-                    <span class="text-white/60 text-xs font-bold tracking-widest">
-                        {{ previewIndex + 1 }} / {{ previewImages.length }}
-                    </span>
+                    <span class="text-white/60 text-xs font-bold tracking-widest">{{ previewIndex + 1 }} / {{
+                        previewImages.length }}</span>
                 </div>
             </div>
 
             <!-- 养护详情 Bottom Sheet -->
             <teleport to="body">
                 <transition name="backdrop">
-                    <div v-if="activeCareDate" @click="closeCareDetails"
+                    <div v-if="activeCareDate && currentSheetGroup?.records" @click="closeCareDetails"
                         class="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-[100]"></div>
                 </transition>
-
                 <transition name="bottom-sheet">
-                    <div v-if="activeCareDate && currentSheetGroup"
-                        class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[650px] bg-white/90 backdrop-blur-xl rounded-t-[3rem] p-8 pb-12 shadow-2xl z-[101] max-h-[85vh] overflow-hidden flex flex-col border-t border-white/20">
-                        <!-- 顶部把手 -->
+                    <div v-if="activeCareDate && currentSheetGroup?.records"
+                        class="fixed bottom-0 left-0 right-0 mx-auto w-full max-w-[650px] bg-white rounded-t-[3rem] p-8 pb-8 shadow-2xl z-[101] max-h-[70vh] overflow-hidden flex flex-col">
                         <div class="w-16 h-1.5 bg-gray-200/50 rounded-full mx-auto mb-10 shrink-0"></div>
-
                         <div class="flex justify-between items-start mb-10 shrink-0">
-                            <div>
-                                <h2 class="text-2xl font-black text-gray-800">{{ activeCareDate }}</h2>
+                            <h2 class="text-2xl font-black text-gray-800">{{ activeCareDate }}</h2>
+                            <div class="flex gap-2">
+                                <button v-if="!isReadOnly" @click="goAddCarePageWithDate(activeCareDate)"
+                                    class="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-500 transition"><i
+                                        class="fa fa-plus"></i></button>
+                                <button @click="closeCareDetails"
+                                    class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 transition"><i
+                                        class="fa fa-times"></i></button>
                             </div>
-                            <button @click="closeCareDetails"
-                                class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 active:scale-95 transition">
-                                <i class="fa fa-times"></i>
-                            </button>
                         </div>
-
                         <div class="space-y-4 overflow-y-auto pr-2 flex-1 no-scrollbar">
                             <div v-for="record in currentSheetGroup.records" :key="record.id"
                                 class="flex items-center justify-between p-5 bg-white rounded-3xl border border-gray-50 shadow-sm">
@@ -911,91 +856,386 @@
                                         <i :class="getCareTypeIcon(record.type)"></i>
                                     </div>
                                     <div>
-                                        <p class="text-sm font-black text-gray-700">
+                                        <p class="text-sm font-black text-gray-700 flex items-center gap-2">
                                             {{ record.action || getCareTypeLabel(record.type) }}
+                                            <span v-if="showOperatorName"
+                                                class="text-[9px] text-blue-400 bg-blue-50 px-1.5 py-0.5 rounded-md font-bold">
+                                                {{ record.operatorName || pot.owner_name || '主人' }}
+                                            </span>
                                         </p>
-                                        <p v-if="record.description && record.description !== record.action"
-                                            class="text-[10px] text-gray-400 mt-0.5">
-                                            {{ record.description }}
-                                        </p>
+                                        <p v-if="record.description" class="text-[10px] text-gray-400 mt-1">{{
+                                            record.description }}</p>
                                     </div>
                                 </div>
-                                <div class="flex gap-3">
+                                <div v-if="!isReadOnly" class="flex gap-3">
                                     <button @click="editRecord(record)"
-                                        class="w-11 h-11 flex items-center justify-center rounded-2xl bg-orange-50 text-orange-400 active:scale-90 transition">
+                                        class="w-11 h-11 flex items-center justify-center rounded-2xl bg-orange-50 text-orange-400 transition">
                                         <i class="fa fa-edit"></i>
                                     </button>
                                     <button @click="deleteRecord(record)"
-                                        class="w-11 h-11 flex items-center justify-center rounded-2xl bg-red-50 text-red-400 active:scale-90 transition">
-                                        <i class="fa fa-trash-alt"></i>
+                                        :class="confirmingDeleteId === record.id ? 'bg-red-500 text-white w-20' : 'bg-red-50 text-red-400 w-11'"
+                                        class="h-11 flex items-center justify-center rounded-2xl transition-all duration-300 overflow-hidden">
+                                        <i v-if="confirmingDeleteId !== record.id" class="fa fa-trash-alt"></i>
+                                        <span v-else class="text-[10px] font-bold whitespace-nowrap">确定删除?</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </transition>
+            </teleport>
+
+            <!-- 弹窗：协作管理 -->
+            <div v-if="showCollaboratorModal"
+                class="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showCollaboratorModal = false"></div>
+                <div
+                    class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
+                    <!-- 固定头部 -->
+                    <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h3 class="text-xl font-black text-gray-800">共同照料</h3>
+                                <p class="text-xs text-gray-400 mt-1">邀请好友共同照料您的植物</p>
+                            </div>
+                            <button @click="showCollaboratorModal = false"
+                                class="text-gray-300 hover:text-gray-500 transition active:scale-95">
+                                <i class="fa fa-times text-xl"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- 可滚动内容区 -->
+                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar">
+
+                        <!-- 协作成员列表 -->
+                        <div class="space-y-4 mb-8 max-h-[40vh] overflow-y-auto no-scrollbar">
+                            <div v-for="collab in collaborators" :key="collab.id"
+                                class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+                                <div class="flex items-center gap-3">
+                                    <div
+                                        class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 font-black">
+                                        {{ (collab.display_name || collab.email || '?')[0].toUpperCase() }}
+                                    </div>
+                                    <div>
+                                        <h4 class="text-sm font-black text-gray-800">{{ collab.display_name || '未设置昵称'
+                                            }}
+                                        </h4>
+                                        <p class="text-[10px] text-gray-400">{{ collab.email }}</p>
+                                    </div>
+                                </div>
+                                <button v-if="isOwner" @click="removeCollaborator(collab)"
+                                    class="text-gray-300 hover:text-red-500 p-2 transition">
+                                    <i class="fa fa-user-minus"></i>
+                                </button>
+                            </div>
+                            <div v-if="collaborators?.length === 0"
+                                class="py-10 text-center text-gray-300 text-xs font-bold">
+                                还没有邀请成员一起照料
+                            </div>
+                        </div>
+
+                        <!-- 添加成员 -->
+                        <div v-if="isOwner" class="space-y-4">
+                            <div class="flex gap-2">
+                                <input type="email" v-model="newCollaboratorEmail" placeholder="输入好友注册邮箱"
+                                    class="flex-1 bg-gray-50 border-none rounded-2xl py-4 px-6 font-bold text-gray-800 text-sm focus:ring-2 focus:ring-orange-200 transition">
+                                <button @click="addCollaborator" :disabled="!newCollaboratorEmail"
+                                    class="bg-orange-500 text-white px-6 rounded-2xl font-black text-sm disabled:opacity-50 active:scale-95 transition">
+                                    添加
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- 弹窗：所有权移交 -->
+            <div v-if="showTransferModal"
+                class="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showTransferModal = false"></div>
+                 <div
+                    class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
+                    <!-- 固定头部 -->
+                    <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-xl font-black text-gray-800">移交花盆</h3>
+                            <button @click="showTransferModal = false"
+                                class="text-gray-300 hover:text-gray-500 transition active:scale-95">
+                                <i class="fa fa-times text-xl"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- 可滚动内容区 -->
+                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar">
+
+                        <div class="bg-red-50 p-6 rounded-3xl border border-red-100 mb-8">
+                            <h4 class="text-red-600 font-black text-sm mb-2 flex items-center gap-2">
+                                <i class="fa fa-exclamation-triangle"></i> 重要提示
+                            </h4>
+                            <p class="text-xs text-red-500 leading-relaxed font-bold">
+                                移交所有权后，您将失去该花盆的管理权限（包括删除、分享、管理成员等），仅保留作为共同照料成员的权限（如果对方保留您）。
+                            </p>
+                        </div>
+
+                        <div class="space-y-6">
+                            <div class="relative">
+                                <label
+                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">接收者邮箱</label>
+                                <div class="relative group">
+                                    <input type="email" v-model="transferEmail" placeholder="输入对方注册邮箱"
+                                        class="w-full bg-gray-50 border-2 border-transparent focus:border-red-100 rounded-3xl py-5 px-8 font-black text-gray-800 text-base shadow-inner transition-all outline-none"
+                                        @input="selectedTransferUser = null" @focus="showTransferSuggestions = true">
+                                    <div class="absolute right-6 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none transition-transform"
+                                        :class="showTransferSuggestions ? 'rotate-180' : ''">
+                                        <i class="fa fa-chevron-down text-xs"></i>
+                                    </div>
+                                </div>
+
+                                <!-- 联想列表 (仅在有协作者且聚焦时显示) -->
+                                <div v-if="showTransferSuggestions && collaborators?.length > 0"
+                                    class="absolute left-0 right-0 top-full mt-2 bg-white rounded-3xl shadow-2xl border border-gray-100 z-[100] overflow-hidden animate-fade-in">
+                                    <div class="p-3 border-b border-gray-50 bg-gray-50/50">
+                                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-3">
+                                            我的好友</p>
+                                    </div>
+                                    <div class="max-h-[35vh] overflow-y-auto no-scrollbar">
+                                        <button v-for="collab in collaborators" :key="collab.user_id"
+                                            @click="selectTransferCollab(collab)"
+                                            class="w-full flex items-center justify-between p-4 hover:bg-red-50 transition-colors text-left border-b last:border-none border-gray-50">
+                                            <div class="flex items-center gap-4">
+                                                <div
+                                                    class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-xs font-black text-gray-400">
+                                                    {{ (collab.display_name || collab.email || '?')[0].toUpperCase() }}
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <div class="text-sm font-black text-gray-800 truncate">{{
+                                                        collab.display_name || '未设置昵称' }}</div>
+                                                    <div class="text-[10px] text-gray-400 truncate">{{ collab.email }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <i v-if="transferEmail === collab.email"
+                                                class="fa fa-check text-red-500 text-xs"></i>
+                                        </button>
+                                    </div>
+                                    <button @click="showTransferSuggestions = false"
+                                        class="w-full py-3 text-[10px] font-black text-gray-300 uppercase tracking-widest border-t border-gray-50">
+                                        收起列表
                                     </button>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="mt-10 shrink-0">
-                            <button @click="closeCareDetails"
-                                class="w-full py-5 bg-gray-900 text-white rounded-3xl font-black text-xs uppercase tracking-[0.2em] active:scale-[0.98] transition">
-                                好的
+                        <div class="mt-10">
+                            <button @click="initTransfer"
+                                class="w-full bg-red-500 text-white py-4 rounded-2xl text-lg font-black shadow-xl shadow-red-100 transition active:scale-[0.98]">
+                                <i class="fa fa-exchange-alt mr-2"></i> 确认发起移交握手
                             </button>
+                            <p class="text-[10px] text-gray-400 text-center mt-4">分享生成的链接给接收者，对方需在 24 小时内确认</p>
                         </div>
                     </div>
-                </transition>
-            </teleport>
+                </div>
+            </div>
+
+            <!-- 登录/注册 弹窗 (与 index.html 保持一致) -->
+            <div v-if="showLoginModal || showRegisterModal || showForgotPasswordModal"
+                class="fixed inset-0 z-[120] flex items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeAuthModals"></div>
+                <div
+                    class="relative bg-white w-full max-w-[500px] rounded-3xl shadow-2xl overflow-hidden animate-slide-up">
+                    <!-- 登录弹窗 -->
+                    <div v-if="showLoginModal" class="p-8">
+                        <button @click="closeAuthModals"
+                            class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
+                            <i class="fa fa-times text-xl"></i>
+                        </button>
+                        <h3 class="text-2xl font-black text-gray-800 mb-2">欢迎回来</h3>
+                        <p class="text-gray-400 text-sm mb-8">登录以同步您的花盆数据</p>
+                        <form @submit.prevent="handleLogin" class="space-y-4">
+                            <input type="email" name="email" autocomplete="username" v-model="loginForm.email"
+                                placeholder="电子邮箱" required
+                                class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
+                            <input type="password" name="password" autocomplete="current-password"
+                                v-model="loginForm.password" placeholder="密码" required
+                                class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
+                            <button type="submit" :disabled="isAuthLoading || !isLoginValid"
+                                class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+                                {{ isAuthLoading ? '登录中...' : '立即登录' }}
+                            </button>
+                        </form>
+                        <div class="mt-4 text-right">
+                            <button @click="switchToForgotPassword"
+                                class="text-xs text-gray-400 hover:text-green-500 transition">忘记密码？</button>
+                        </div>
+                        <div class="mt-8 pt-6 border-t border-gray-50 text-center">
+                            <span class="text-gray-400 text-sm">还没有账号？</span>
+                            <button @click="switchToRegister"
+                                class="text-green-500 text-sm font-bold ml-1">注册一个</button>
+                        </div>
+                    </div>
+
+                    <!-- 注册弹窗 -->
+                    <div v-if="showRegisterModal" class="p-8">
+                        <button @click="closeAuthModals"
+                            class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
+                            <i class="fa fa-times text-xl"></i>
+                        </button>
+                        <h3 class="text-2xl font-black text-gray-800 mb-2">创建账号</h3>
+                        <p class="text-gray-400 text-sm mb-8">开始您的智能养花之旅</p>
+                        <form @submit.prevent="handleRegister" class="space-y-4">
+                            <input type="email" name="email" autocomplete="email" v-model="registerForm.email"
+                                placeholder="电子邮箱" required
+                                class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
+                            <input type="text" name="nickname" autocomplete="nickname"
+                                v-model="registerForm.displayName" placeholder="昵称"
+                                class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
+                            <input type="password" name="password" autocomplete="new-password"
+                                v-model="registerForm.password" placeholder="密码 (至少8位)" required
+                                class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
+                            <div class="relative">
+                                <input type="password" name="confirmPassword" autocomplete="new-password"
+                                    v-model="registerForm.confirmPassword" placeholder="确认密码" required
+                                    class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
+                                <div v-if="registerForm.password && registerForm.confirmPassword"
+                                    class="absolute right-3 top-1/2 transform -translate-y-1/2">
+                                    <i v-if="passwordsMatch" class="fa fa-check text-green-500"></i>
+                                    <i v-else class="fa fa-times text-red-500"></i>
+                                </div>
+                            </div>
+                            <button type="submit" :disabled="!isRegisterValid || isAuthLoading"
+                                class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+                                {{ isAuthLoading ? '注册中...' : '完成注册' }}
+                            </button>
+                        </form>
+                        <div class="mt-8 pt-6 border-t border-gray-50 text-center">
+                            <span class="text-gray-400 text-sm">已有账号？</span>
+                            <button @click="switchToLogin" class="text-green-500 text-sm font-bold ml-1">去登录</button>
+                        </div>
+                    </div>
+
+                    <!-- 忘记密码弹窗 -->
+                    <div v-if="showForgotPasswordModal" class="p-8">
+                        <button @click="closeAuthModals"
+                            class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
+                            <i class="fa fa-times text-xl"></i>
+                        </button>
+                        <h3 class="text-2xl font-black text-gray-800 mb-2">重置您的密码</h3>
+                        <p class="text-gray-400 text-sm mb-8">我们将向您的邮箱发送重置链接</p>
+                        <form @submit.prevent="handleForgotPassword" class="space-y-4">
+                            <input type="email" name="email" autocomplete="email" v-model="loginForm.email"
+                                placeholder="电子邮箱" required
+                                class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
+                            <button type="submit" :disabled="isAuthLoading || !isForgotPasswordEmailValid"
+                                class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+                                {{ isAuthLoading ? '发送中...' : '发送重置邮件' }}
+                            </button>
+                        </form>
+                        <div class="mt-8 pt-6 border-t border-gray-50 text-center">
+                            <button @click="switchToLogin" class="text-green-500 text-sm font-bold">返回登录</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
-    <!-- 移至底部的外部脚本，避免阻塞首屏骨架屏渲染 -->
     <script src="js/vue.global.js"></script>
     <script src="js/config.js?v=20260227"></script>
     <script src="js/api-client.js?v=20260227"></script>
 
     <script>
-        const { createApp, ref, reactive, onMounted, computed } = Vue;
+        const { createApp, ref, reactive, onMounted, computed, watch } = Vue;
 
         createApp({
             setup() {
-                // --- 状态变量 ---
                 const isLoading = ref(true);
                 const error = ref(null);
                 const potId = ref(null);
+                const shareToken = ref(null);
                 const pot = ref(null);
+                const currentUser = ref(null);
                 const careRecords = ref([]);
                 const timelineRecords = ref([]);
+                const confirmingDeleteId = ref(null);
+                const collaborators = ref([]);
                 const plantInfo = ref(null);
                 const matchedPlantName = ref(null);
                 const activeCareDate = ref(null);
-                const showFullPlantInfo = ref(false); // 控制百科基本信息展开
-                const showFullCareTips = ref(false);  // 控制养护提示展开
+                const showFullPlantInfo = ref(false);
+                const showFullCareTips = ref(false);
                 const plantInfoActiveTab = ref('basic');
-                const potStats = ref(null); // 养护统计数据
+                const potStats = ref(null);
 
                 // UI 状态
                 const showPlantModal = ref(false);
                 const showAddTimelineModal = ref(false);
-                const isTimelineDesc = ref(true); // 默认倒序
-                const activeSection = ref('overview');
+                const showShareModal = ref(false);
+                const showCollaboratorModal = ref(false);
+                const showTransferModal = ref(false);
+                const showAcceptTransferModal = ref(false);
+                const transferToken = ref(null);
+                const transferPot = ref(null);
+                const isAcceptingTransfer = ref(false);
+                const isTimelineDesc = ref(true);
+                const newCollaboratorEmail = ref('');
+                const transferEmail = ref('');
+                const showTransferSuggestions = ref(false);
+                const selectedTransferUser = ref(null);
+
+                const activeSection = ref('');
+                const showActionMenu = ref(false);
                 const previewImages = ref([]);
                 const previewIndex = ref(0);
-                const galleryDragOffset = ref(0);  // 拖拽时的实时偏移量(px)
-                const galleryIsDragging = ref(false); // 是否正在拖拽（禁用过渡动画）
+                const galleryDragOffset = ref(0);
+                const galleryIsDragging = ref(false);
                 const isSavingTimeline = ref(false);
                 const fileInput = ref(null);
-
-                // 触摸相关状态
                 const touchStartX = ref(0);
                 const touchEndX = ref(0);
 
-                // 新记录表单
+                // Auth UI 状态
+                const showUserMenu = ref(false);
+                const showLoginModal = ref(false);
+                const showRegisterModal = ref(false);
+                const showForgotPasswordModal = ref(false);
+                const isAuthLoading = ref(false);
+                const loginForm = reactive({ email: '', password: '' });
+                const registerForm = reactive({
+                    email: '',
+                    password: '',
+                    confirmPassword: '',
+                    displayName: ''
+                });
+
+                const passwordsMatch = computed(() =>
+                    registerForm.password === registerForm.confirmPassword
+                );
+
+                const isForgotPasswordEmailValid = computed(() => {
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    return emailRegex.test(loginForm.email);
+                });
+
+                const isLoginValid = computed(() =>
+                    isForgotPasswordEmailValid.value &&
+                    loginForm.password.trim()?.length > 0
+                );
+
+                const isRegisterValid = computed(() =>
+                    registerForm.email &&
+                    registerForm.password?.length >= 8 &&
+                    passwordsMatch.value
+                );
+
                 const newTimeline = reactive({
                     date: new Date().toISOString().split('T')[0],
                     description: '',
-                    tempImages: [] // { file, preview }
+                    tempImages: []
                 });
 
-                // 养护周期状态 (新版：统一管理)
-                const careSchedules = ref([]); // 已设置的养护计划列表
-                const showScheduleExpanded = ref(true); // 默认展开
+                const careSchedules = ref([]);
+                const showScheduleExpanded = ref(true);
                 const showAddScheduleModal = ref(false);
                 const newSchedule = reactive({
                     careType: 'water',
@@ -1003,7 +1243,6 @@
                     intervalDays: 7
                 });
 
-                // 养护类型选项
                 const scheduleTypeOptions = [
                     { value: 'water', icon: '💧', label: '浇水' },
                     { value: 'fertilize', icon: '🌿', label: '施肥' },
@@ -1013,183 +1252,79 @@
                     { value: 'custom', icon: '⚙️', label: '自定义' }
                 ];
 
-                // 周期快捷选项
-                const intervalPresets = [
-                    { days: 3, label: '3天' },
-                    { days: 7, label: '每周' },
-                    { days: 14, label: '2周' },
-                    { days: 30, label: '每月' }
-                ];
-
-                const sectionTabs = [
-                    { key: 'overview', label: '概览', id: 'section-overview' },
-                    { key: 'schedules', label: '提醒', id: 'section-schedules' },
-                    { key: 'records', label: '养护历史', id: 'section-records' },
-                    { key: 'timelines', label: '生长轨迹', id: 'section-timelines' }
-                ];
-
-                const scrollToSection = (sectionId, sectionKey) => {
-                    const el = document.getElementById(sectionId);
-                    if (!el) return;
-                    activeSection.value = sectionKey;
-                    const y = el.getBoundingClientRect().top + window.scrollY - 120;
-                    window.scrollTo({ top: y, behavior: 'smooth' });
-                };
-
-                // 计算属性：能否保存
-                const canSaveSchedule = computed(() => {
-                    if (!newSchedule.careType) return false;
-                    if (newSchedule.careType === 'custom' && !newSchedule.customAction.trim()) return false;
-                    if (newSchedule.intervalDays < 1 || newSchedule.intervalDays > 90) return false;
-                    return true;
+                const sectionTabs = computed(() => {
+                    const tabs = [
+                        { key: 'overview', label: '概览', id: 'section-overview' },
+                        { key: 'records', label: '养护历史', id: 'section-records' },
+                        { key: 'timelines', label: '生长轨迹', id: 'section-timelines' }
+                    ];
+                    if (!isPublicVisitor.value) {
+                        // 在概览后插入提醒
+                        tabs.splice(1, 0, { key: 'schedules', label: '提醒', id: 'section-schedules' });
+                    }
+                    return tabs;
                 });
 
-                // 获取类型样式
-                const getScheduleTypeStyle = (type) => {
-                    const styles = {
-                        water: { bg: 'bg-blue-50', icon: '💧', toggle: 'bg-green-500' },
-                        fertilize: { bg: 'bg-green-50', icon: '🌿', toggle: 'bg-green-500' },
-                        trim: { bg: 'bg-orange-50', icon: '✂️', toggle: 'bg-green-500' },
-                        repot: { bg: 'bg-amber-50', icon: '🪴', toggle: 'bg-green-500' },
-                        pest: { bg: 'bg-red-50', icon: '🐛', toggle: 'bg-green-500' },
-                        custom: { bg: 'bg-purple-50', icon: '⚙️', toggle: 'bg-green-500' }
-                    };
-                    return styles[type] || styles.custom;
-                };
+                // 核心权限逻辑
+                // 确保 user_id 存在且匹配，防止 undefined === undefined 的误判
+                const isOwner = computed(() => {
+                    return pot.value && pot.value.user_id && 
+                           currentUser.value && currentUser.value.id && 
+                           pot.value.user_id === currentUser.value.id;
+                });
+                const isReadOnly = computed(() => !!shareToken.value && !isOwner.value);
+                const isPublicVisitor = computed(() => !!shareToken.value && !currentUser.value);
+                const showOperatorName = computed(() => pot.value && (pot.value.is_collaborator || pot.value.collaborator_count > 0));
 
-                // 获取类型名称
-                const getScheduleTypeName = (type) => {
-                    const names = { water: '浇水', fertilize: '施肥', trim: '修剪', repot: '换盆', pest: '除虫', custom: '自定义' };
-                    return names[type] || type;
-                };
-
-                // --- 初始化加载 ---
                 const init = async () => {
                     const urlParams = new URLSearchParams(window.location.search);
                     potId.value = urlParams.get('id');
-
-                    if (!potId.value) {
-                        error.value = '未找到花盆ID';
-                        isLoading.value = false;
-                        return;
-                    }
+                    shareToken.value = urlParams.get('token');
+                    transferToken.value = urlParams.get('transferToken');
 
                     try {
-                        // 1. 首屏优先加载最核心的数据
-                        await loadPotDetail();
+                        // 获取当前用户信息
+                        const userRes = await apiClient.getUserProfile().catch(() => null);
+                        if (userRes && userRes.success) currentUser.value = userRes.user;
 
-                        // 结束全局全屏骨架屏，显示主要页面
+                        if (transferToken.value) {
+                            await loadTransferPotDetail();
+                        } else if (shareToken.value) {
+                            await loadPublicPotDetail();
+                        } else if (potId.value) {
+                            await loadPotDetail();
+                        } else {
+                            error.value = '参数缺失';
+                            isLoading.value = false;
+                            return;
+                        }
+
                         isLoading.value = false;
 
-                        // 2. 异步并行加载非关键数据（历史记录、照片墙、日历、统计数据）
-                        Promise.all([
-                            loadCareRecords(),
-                            loadTimelineRecords(),
-                            loadPotStats(),
-                            loadCareSchedules()
-                        ]).catch(err => console.error('背景数据加载出错:', err));
-
-                        // 3. 异步获取植物百科信息，延后处理减轻首屏网络和主线程压力
                         if (pot.value) {
-                            loadPlantInfo().catch(err => console.warn('植物匹配或百科生成失败:', err));
+                            // 仅在非公开分享模式（有 ID 没 Token），或者是本人访问分享链接时，才加载完整私有数据
+                            // 若是纯访客（有 Token 没登录）或他人的分享链接，绝不触发私有接口
+                            if (!shareToken.value || isOwner.value) {
+                                Promise.all([
+                                    loadCareRecords(),
+                                    loadTimelineRecords(),
+                                    loadPotStats(),
+                                    loadCareSchedules()
+                                ]).catch(err => {
+                                    // 给访客模式留一道防线，如果是鉴权错误则不报 error
+                                    if (!isOwner.value && err.message?.includes('Authentication')) {
+                                        console.warn('Skipping private data for non-owner');
+                                    } else {
+                                        console.error('Background load error:', err);
+                                    }
+                                });
+                            }
+
+                            loadPlantInfo().catch(err => console.warn('Plant info load error:', err));
                         }
                     } catch (err) {
-                        console.error('加载失败:', err);
-                        error.value = '核心数据同步失败，请检查网络';
+                        error.value = '加载失败: ' + err.message;
                         isLoading.value = false;
-                    }
-                };
-
-                // 加载养护周期设置
-                const loadCareSchedules = async () => {
-                    try {
-                        const res = await apiClient.getCareSchedules(potId.value);
-                        if (res.success && res.data) {
-                            careSchedules.value = res.data.map(s => ({
-                                ...s,
-                                intervalDays: s.interval_days, // 映射字段名
-                                enabled: s.enabled === 1
-                            }));
-                        }
-                    } catch (e) {
-                        console.warn('加载养护周期失败:', e);
-                    }
-                };
-
-                // 保存新提醒
-                const saveNewSchedule = async () => {
-                    if (!canSaveSchedule.value) return;
-
-                    try {
-                        const res = await apiClient.createCareSchedule({
-                            potId: potId.value,
-                            careType: newSchedule.careType,
-                            customAction: newSchedule.careType === 'custom' ? newSchedule.customAction : null,
-                            intervalDays: newSchedule.intervalDays,
-                            enabled: true
-                        });
-
-                        if (res.success) {
-                            showAddScheduleModal.value = false;
-                            // 重置表单
-                            newSchedule.careType = 'water';
-                            newSchedule.customAction = '';
-                            newSchedule.intervalDays = 7;
-                            // 重新加载列表
-                            await loadCareSchedules();
-                        }
-                    } catch (e) {
-                        console.error('创建失败:', e);
-                        if (e.message && e.message.includes('already exists')) {
-                            alert('该类型的提醒已存在，请直接修改现有提醒。');
-                        } else {
-                            alert('创建失败，请重试');
-                        }
-                    }
-                };
-
-                // 切换启用状态
-                const toggleScheduleEnabled = async (schedule) => {
-                    const originalState = schedule.enabled;
-                    schedule.enabled = !originalState; // 乐观更新
-
-                    try {
-                        await apiClient.updateCareSchedule(schedule.id, {
-                            enabled: schedule.enabled
-                        });
-                    } catch (e) {
-                        console.error('切换状态失败:', e);
-                        schedule.enabled = originalState; // 回滚
-                    }
-                };
-
-                // 删除提醒
-                const deleteSchedule = async (schedule) => {
-                    if (!confirm('确定要删除这个提醒吗？')) return;
-
-                    try {
-                        const res = await apiClient.deleteCareSchedule(schedule.id);
-                        if (res.success) {
-                            careSchedules.value = careSchedules.value.filter(s => s.id !== schedule.id);
-                        }
-                    } catch (e) {
-                        console.error('删除失败:', e);
-                        alert('删除失败，请重试');
-                    }
-                };
-
-                // 更新提醒间隔
-                const updateScheduleInterval = async (schedule) => {
-                    if (schedule.intervalDays < 1) schedule.intervalDays = 1;
-                    if (schedule.intervalDays > 365) schedule.intervalDays = 365;
-
-                    try {
-                        await apiClient.updateCareSchedule(schedule.id, {
-                            intervalDays: schedule.intervalDays
-                        });
-                    } catch (e) {
-                        console.error('更新间隔失败:', e);
-                        alert('更新失败，请检查网络');
                     }
                 };
 
@@ -1198,9 +1333,163 @@
                     if (res.success) pot.value = res.data;
                 };
 
+                const loadPublicPotDetail = async () => {
+                    const res = await apiClient.getPublicPotDetail(shareToken.value);
+                    if (res.success) {
+                        pot.value = res.data.pot;
+                        potId.value = pot.value.id;
+                        // 公开分享接口已包含脱敏后的记录，直接使用
+                        if (res.data.careRecords) careRecords.value = res.data.careRecords;
+                        if (res.data.timelines) timelineRecords.value = res.data.timelines;
+                    }
+                };
+
+                const loadTransferPotDetail = async () => {
+                    const res = await apiClient.getTransferPotDetail(transferToken.value);
+                    if (res.success) {
+                        transferPot.value = res.data.data;
+                        showAcceptTransferModal.value = true;
+                    }
+                };
+
+                const acceptTransfer = async (token = null) => {
+                    const tToken = token || transferToken.value;
+                    if (!currentUser.value) {
+                        alert('请先登录后再接收转让');
+                        showLoginModal.value = true;
+                        return;
+                    }
+                    try {
+                        isAcceptingTransfer.value = true;
+                        const res = await apiClient.acceptTransfer(tToken);
+                        if (res.success) {
+                            alert('接收成功！您现在是该花盆的主人了。');
+                            window.location.href = `pot-detail.html?id=${pot.value.id}`;
+                        }
+                    } catch (e) {
+                        alert('接收失败: ' + e.message);
+                    } finally {
+                        isAcceptingTransfer.value = false;
+                    }
+                };
+
+                const rejectTransfer = async (token = null) => {
+                    const tToken = token || transferToken.value;
+                    if (!confirm('确定要拒绝本次移交吗？')) return;
+                    try {
+                        const res = await apiClient.rejectTransfer(tToken);
+                        if (res.success) {
+                            alert('已拒绝移交');
+                            window.location.href = 'index.html';
+                        }
+                    } catch (e) { alert('操作失败: ' + e.message); }
+                };
+
+                const cancelTransfer = async () => {
+                    if (!confirm('确定要撤销本次移交申请吗？')) return;
+                    try {
+                        const res = await apiClient.cancelTransfer(potId.value);
+                        if (res.success) {
+                            alert('移交已撤销');
+                            loadPotDetail();
+                        }
+                    } catch (e) { alert('撤销失败: ' + e.message); }
+                };
+
+                const handleLogin = async () => {
+                    try {
+                        isAuthLoading.value = true;
+                        const res = await apiClient.login(loginForm.email, loginForm.password);
+                        if (res.token) location.reload();
+                    } catch (e) { alert('登录失败: ' + e.message); } finally { isAuthLoading.value = false; }
+                };
+
+                const handleForgotPassword = async () => {
+                    if (!loginForm.email) {
+                        alert('请输入您的电子邮箱');
+                        return;
+                    }
+                    try {
+                        isAuthLoading.value = true;
+                        const res = await apiClient.forgotPassword(loginForm.email);
+                        if (res.success) {
+                            alert('重置链接已发送到您的邮箱，请检查（包括垃圾箱）。');
+                            showForgotPasswordModal.value = false;
+                        }
+                    } catch (e) {
+                        alert('发送失败: ' + e.message);
+                    } finally {
+                        isAuthLoading.value = false;
+                    }
+                };
+
+                const handleRegister = async () => {
+                    if (!passwordsMatch.value) {
+                        alert('两次输入的密码不一致，请重新输入');
+                        return;
+                    }
+                    if (registerForm.password?.length < 8) {
+                        alert('密码长度至少需要8位');
+                        return;
+                    }
+                    try {
+                        isAuthLoading.value = true;
+                        const anonymousUserId = localStorage.getItem('flowerpots_user_id');
+                        const isAnonymous = !currentUser.value || currentUser.value.userType === 'anonymous';
+
+                        let res;
+                        if (isAnonymous && anonymousUserId) {
+                            res = await apiClient.upgrade(registerForm.email, registerForm.password, registerForm.displayName, anonymousUserId);
+                        } else {
+                            res = await apiClient.register(registerForm.email, registerForm.password, registerForm.displayName);
+                        }
+
+                        if (res.success || res.token) {
+                            alert(isAnonymous ? '注册成功，您的匿名数据已合并！' : '注册成功！');
+                            location.reload();
+                        }
+                    } catch (e) {
+                        alert('注册失败: ' + e.message);
+                    } finally {
+                        isAuthLoading.value = false;
+                    }
+                };
+
+                const logout = async () => { await apiClient.logout(); location.reload(); };
+                const closeAuthModals = () => {
+                    showLoginModal.value = false;
+                    showRegisterModal.value = false;
+                    showForgotPasswordModal.value = false;
+                };
+                const switchToRegister = () => {
+                    showLoginModal.value = false;
+                    showRegisterModal.value = true;
+                    showForgotPasswordModal.value = false;
+                };
+                const switchToLogin = () => {
+                    showRegisterModal.value = false;
+                    showLoginModal.value = true;
+                    showForgotPasswordModal.value = false;
+                };
+                const switchToForgotPassword = () => {
+                    showLoginModal.value = false;
+                    showForgotPasswordModal.value = true;
+                };
+
                 const loadCareRecords = async () => {
                     const res = await apiClient.getCareRecords(potId.value);
-                    if (res.success) careRecords.value = res.data || [];
+                    if (res.success) {
+                        careRecords.value = res.data || [];
+                        // 同步更新当前弹出的详情列表
+                        if (activeCareDate.value) {
+                            const group = groupedCareRecords.value.find(g => g.date === activeCareDate.value);
+                            if (group && group.records.length > 0) {
+                                currentSheetGroup.value = { ...group };
+                            } else {
+                                closeCareDetails();
+                            }
+                        }
+                    }
                 };
 
                 const loadTimelineRecords = async () => {
@@ -1209,312 +1498,46 @@
                 };
 
                 const loadPotStats = async () => {
-                    try {
-                        const res = await apiClient.getPotStats(potId.value);
-                        if (res.success) potStats.value = res.data;
-                    } catch (e) {
-                        console.warn('加载统计数据失败:', e);
-                    }
+                    const res = await apiClient.getPotStats(potId.value);
+                    if (res.success) potStats.value = res.data;
                 };
 
-                // 统计计算属性
-                const statsWaterCount = computed(() => {
-                    const item = potStats.value?.byType?.find(t => t.type === 'water' || t.type === '浇水');
-                    return item?.total_count || 0;
-                });
-
-                const statsFertilizeCount = computed(() => {
-                    const item = potStats.value?.byType?.find(t => t.type === 'fertilize' || t.type === '施肥');
-                    return item?.total_count || 0;
-                });
-
-                const statsCareDays = computed(() => potStats.value?.total?.care_days || 0);
-
-                const avgWateringInterval = computed(() => {
-                    const recent = potStats.value?.recent?.find(t => t.type === 'water' || t.type === '浇水');
-                    if (recent && recent.count > 0) return (30 / recent.count).toFixed(1);
-                    return '-';
-                });
-
-                const avgFertilizingInterval = computed(() => {
-                    const recent = potStats.value?.recent?.find(t => t.type === 'fertilize' || t.type === '施肥');
-                    if (recent && recent.count > 0) return (30 / recent.count).toFixed(1);
-                    return '-';
-                });
+                const loadCareSchedules = async () => {
+                    const res = await apiClient.getCareSchedules(potId.value);
+                    if (res.success && res.data) {
+                        careSchedules.value = res.data.map(s => ({
+                            ...s,
+                            intervalDays: s.interval_days,
+                            enabled: s.enabled === 1
+                        }));
+                    }
+                };
 
                 const loadPlantInfo = async () => {
                     if (!pot.value?.name) return;
                     try {
-                        // 使用智能匹配API，同时传递花盆名和备注
-                        const matchRes = await apiClient.smartMatchPlant(
-                            pot.value.name,
-                            pot.value.note || ''
-                        );
-
+                        const matchRes = await apiClient.smartMatchPlant(pot.value.name, pot.value.note || '');
                         if (matchRes.success && matchRes.data) {
                             plantInfo.value = transformPlantData(matchRes.data);
-                            // 如果匹配到的植物名与花盆名不同，显示匹配提示
-                            if (matchRes.data.name !== pot.value.name) {
-                                matchedPlantName.value = matchRes.data.name;
-                            }
-                            console.log('智能匹配成功:', matchRes.message, '关键词:', matchRes.keywords);
+                            if (matchRes.data.name !== pot.value.name) matchedPlantName.value = matchRes.data.name;
                         }
-                    } catch (e) { console.warn('百科匹配失败', e); }
+                    } catch (e) { console.warn('Plant match failed', e); }
                 };
 
-                const sortedTimelineRecords = computed(() => {
-                    return [...timelineRecords.value].sort((a, b) => {
-                        const dateA = new Date(a.date);
-                        const dateB = new Date(b.date);
-                        return isTimelineDesc.value ? dateB - dateA : dateA - dateB;
-                    });
-                });
-
-                const toggleTimelineSort = () => isTimelineDesc.value = !isTimelineDesc.value;
-
-                // --- 交互逻辑 ---
-                const goBack = () => {
-                    // 详情页强制回首页
-                    window.location.href = 'index.html';
-                };
-                const goEditPage = () => window.location.href = `edit-pot.html?id=${potId.value}`;
-                const goAddCarePage = () => window.location.href = `care-record.html?potId=${potId.value}`;
-
-                const confirmDeletePot = async () => {
-                    if (confirm('确定要删除这盆花吗？所有养护记录和成长轨迹都将被永久删除。')) {
-                        try {
-                            const res = await apiClient.deletePot(potId.value);
-                            if (res.success) {
-                                window.location.href = 'index.html';
-                            }
-                        } catch (err) {
-                            alert('删除失败: ' + err.message);
-                        }
-                    }
-                };
-
-                // 抽屉管理
-                const showCareDetails = (group) => {
-                    activeCareDate.value = group.date;
-                };
-                const closeCareDetails = () => {
-                    activeCareDate.value = null;
-                };
-                const currentSheetGroup = computed(() => {
-                    if (!activeCareDate.value) return null;
-                    const group = groupedCareRecords.value.find(g => g.date === activeCareDate.value);
-                    if (!group) activeCareDate.value = null; // 如果记录全被删了，自动关闭
-                    return group;
-                });
-
-                // --- 百科信息显示过滤逻辑 ---
-                const plantBasicPriorityKeys = ['synonyms', 'flowerColor', 'floweringSeason', 'fragrance', 'symbolism', 'safetyInfo'];
-                const careGuidePriorityKeys = ['careDifficulty', 'lightRequirement', 'watering', 'temperature', 'fertilizing', 'pests'];
-
-                // 拆分基本信息
-                const plantInfoGroups = computed(() => {
-                    if (!plantInfo.value) return { priority: [], extended: [] };
-
-                    const allFields = [
-                        { key: 'synonyms', label: '别　名', val: plantInfo.value.basicInfo?.synonyms?.join('、'), section: 'basicInfo' },
-                        { key: 'origin', label: '原产地', val: plantInfo.value.basicInfo?.origin, section: 'basicInfo' },
-                        { key: 'family', label: '科　属', val: plantInfo.value.basicInfo?.family, section: 'basicInfo' },
-                        { key: 'category', label: '类　别', val: plantInfo.value.ornamentalFeatures?.category, section: 'ornamentalFeatures' },
-                        { key: 'flowerColor', label: '花　色', val: plantInfo.value.ornamentalFeatures?.flowerColor, section: 'ornamentalFeatures' },
-                        { key: 'floweringSeason', label: '花　期', val: plantInfo.value.ornamentalFeatures?.floweringSeason, section: 'ornamentalFeatures' },
-                        { key: 'fragrance', label: '香　味', val: plantInfo.value.ornamentalFeatures?.fragrance, section: 'ornamentalFeatures' },
-                        { key: 'symbolism', label: '象　征', val: plantInfo.value.ornamentalFeatures?.symbolism, section: 'ornamentalFeatures' },
-                        { key: 'safetyInfo', label: '安全性', val: plantInfo.value.careGuide?.safetyInfo, section: 'careGuide' }
-                    ].filter(item => item.val);
-
-                    return {
-                        priority: allFields.filter(f => plantBasicPriorityKeys.includes(f.key)),
-                        extended: allFields.filter(f => !plantBasicPriorityKeys.includes(f.key))
+                const transformPlantData = (d) => {
+                    const safeParse = (val) => {
+                        if (!val) return {};
+                        if (typeof val === 'string') { try { return JSON.parse(val); } catch (e) { return {}; } }
+                        return val;
                     };
-                });
-
-                // 拆分养护提示 (方案B：顶部总结 + 下方日志块)
-                const careTipsGroups = computed(() => {
-                    if (!plantInfo.value || !plantInfo.value.careGuide) return { summary: [], priorityDetails: [], extended: [] };
-
-                    const careGuide = plantInfo.value.careGuide;
-                    const summaryKeys = ['careDifficulty', 'temperature'];
-                    const detailPriorityKeys = ['lightRequirement', 'watering', 'fertilizing', 'pests'];
-
-                    const allFields = Object.keys(careGuide)
-                        .filter(k => careGuide[k])
-                        .map(key => ({
-                            key,
-                            label: getCareLabel(key),
-                            val: careGuide[key],
-                            icon: getCareIcon(key)
-                        }));
-
                     return {
-                        summary: allFields.filter(f => summaryKeys.includes(f.key)),
-                        priorityDetails: allFields.filter(f => detailPriorityKeys.includes(f.key)),
-                        extended: allFields.filter(f => !summaryKeys.includes(f.key) && !detailPriorityKeys.includes(f.key))
+                        basicInfo: safeParse(d.basic_info || d.basicInfo),
+                        ornamentalFeatures: safeParse(d.ornamental_features || d.ornamentalFeatures),
+                        careGuide: safeParse(d.care_guide || d.careGuide)
                     };
-                });
-
-                const openGallery = (img, allImages) => {
-                    previewImages.value = allImages;
-                    const idx = allImages.indexOf(img);
-                    previewIndex.value = idx >= 0 ? idx : 0;
-                };
-
-                const closeGallery = () => {
-                    previewImages.value = [];
-                    previewIndex.value = 0;
-                };
-
-                const prevImg = () => {
-                    if (previewIndex.value > 0) previewIndex.value--;
-                };
-
-                const nextImg = () => {
-                    if (previewIndex.value < previewImages.value.length - 1) previewIndex.value++;
-                };
-
-                // 画廊触摸滑动逻辑（跟手拖拽版）
-                const handleGalleryTouchStart = (e) => {
-                    touchStartX.value = e.changedTouches[0].screenX;
-                    touchEndX.value = e.changedTouches[0].screenX;
-                    galleryIsDragging.value = true;
-                    galleryDragOffset.value = 0;
-                };
-
-                const handleGalleryTouchMove = (e) => {
-                    touchEndX.value = e.changedTouches[0].screenX;
-                    const diff = touchEndX.value - touchStartX.value;
-                    // 边界阻尼：第一张/最后一张继续拖有橡皮筋感
-                    const isAtStart = previewIndex.value === 0 && diff > 0;
-                    const isAtEnd = previewIndex.value === previewImages.value.length - 1 && diff < 0;
-                    galleryDragOffset.value = (isAtStart || isAtEnd) ? diff * 0.25 : diff;
-                };
-
-                const handleGalleryTouchEnd = () => {
-                    const threshold = 60; // 达到此偏移才翻页
-                    const diff = touchStartX.value - touchEndX.value;
-                    galleryIsDragging.value = false;
-                    galleryDragOffset.value = 0; // 回弹或翻页，都归零（翻页由 previewIndex 驱动）
-
-                    if (Math.abs(diff) > threshold) {
-                        if (diff > 0) nextImg(); else prevImg();
-                    }
-                    touchStartX.value = 0;
-                    touchEndX.value = 0;
-                };
-
-                // --- 生长记录功能 ---
-                const triggerFileInput = () => fileInput.value.click();
-
-                const onFilesSelected = (e) => {
-                    const files = Array.from(e.target.files);
-                    const remaining = 9 - newTimeline.tempImages.length;
-
-                    files.slice(0, remaining).forEach(file => {
-                        const reader = new FileReader();
-                        reader.onload = (ev) => {
-                            newTimeline.tempImages.push({
-                                file,
-                                preview: ev.target.result
-                            });
-                        };
-                        reader.readAsDataURL(file);
-                    });
-                    e.target.value = '';
-                };
-
-                const removeNewImage = (idx) => newTimeline.tempImages.splice(idx, 1);
-
-                const saveTimelineRecord = async () => {
-                    if (newTimeline.tempImages.length === 0 && !newTimeline.description.trim()) {
-                        alert('请至少上传一张照片或写点描述');
-                        return;
-                    }
-
-                    try {
-                        isSavingTimeline.value = true;
-                        let uploadedUrls = [];
-
-                        for (const item of newTimeline.tempImages) {
-                            const res = await apiClient.uploadImage(item.file, {
-                                potId: potId.value,
-                                uploadType: 'timeline'
-                            });
-                            if (res.success && res.data?.url) {
-                                uploadedUrls.push(res.data.url);
-                            }
-                        }
-
-                        const recordData = {
-                            potId: potId.value,
-                            date: newTimeline.date,
-                            description: newTimeline.description,
-                            images: uploadedUrls
-                        };
-
-                        const saveRes = await apiClient.createTimeline(recordData);
-                        if (saveRes.success) {
-                            showAddTimelineModal.value = false;
-                            newTimeline.description = '';
-                            newTimeline.tempImages = [];
-                            await loadTimelineRecords();
-                        }
-                    } catch (e) {
-                        alert('保存失败，请检查网络后重试');
-                    } finally {
-                        isSavingTimeline.value = false;
-                    }
-                };
-
-                const confirmDeleteTimeline = async (id) => {
-                    if (confirm('确认删除这条生长记录？照片也将一并清理。')) {
-                        try {
-                            const res = await apiClient.request(`/api/timelines/${id}`, { method: 'DELETE' });
-                            if (res.success) await loadTimelineRecords();
-                        } catch (e) { alert('删除操作失败'); }
-                    }
-                };
-
-                // 编辑记录
-                const editRecord = (record) => {
-                    window.location.href = `care-record.html?id=${record.id}`;
-                };
-
-                // 删除记录
-                const deleteRecord = async (record) => {
-                    if (!confirm('确认删除这条养护记录？')) return;
-                    try {
-                        const res = await apiClient.request(`/api/care-records/${record.id}`, { method: 'DELETE' });
-                        if (res.success) await loadCareRecords();
-                    } catch (e) { alert('操作失败'); }
-                };
-
-                // 查看全部记录
-                const viewAllRecords = () => {
-                    window.location.href = `all-records.html?potId=${potId.value}`;
-                };
-
-                // 查看全部轨迹
-                const viewAllTimelines = () => {
-                    window.location.href = `all-timelines.html?potId=${potId.value}`;
                 };
 
                 // --- 辅助函数 ---
-                const formatDate = (dateStr) => {
-                    if (!dateStr) return '';
-                    const date = new Date(dateStr);
-                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                };
-
-                const getImages = (images) => {
-                    if (!images) return [];
-                    if (Array.isArray(images)) return images;
-                    try { return JSON.parse(images); } catch (e) { return []; }
-                };
-
                 const getCareTypeIcon = (type) => {
                     const icons = { water: 'fa fa-tint', fertilize: 'fa fa-seedling', prune: 'fa fa-cut', repot: 'fa fa-exchange-alt', pest: 'fa fa-bug' };
                     return icons[type] || 'fa fa-clipboard-check';
@@ -1530,266 +1553,596 @@
                     return labels[type] || '日常';
                 };
 
-                const getCareIcon = (key) => {
-                    const icons = {
-                        careDifficulty: 'fa fa-tachometer-alt',
-                        lightRequirement: 'fa fa-sun',
-                        waterRequirement: 'fa fa-tint',
-                        temperature: 'fa fa-thermometer-half',
-                        humidity: 'fa fa-wind',
-                        soilRequirement: 'fa fa-mountain',
-                        droughtTolerance: 'fa fa-cactus',
-                        shadeTolerance: 'fa fa-cloud',
-                        coldTolerance: 'fa fa-snowflake',
-                        watering: 'fa fa-shower',
-                        fertilizing: 'fa fa-seedling',
-                        pruning: 'fa fa-cut',
-                        propagation: 'fa fa-vial',
-                        pests: 'fa fa-bug',
-                        safetyInfo: 'fa fa-shield-alt',
-                        specialNotes: 'fa fa-exclamation-circle'
-                    };
-                    return icons[key] || 'fa fa-leaf';
-                };
-
-                const getCareLabel = (key) => {
-                    const labels = {
-                        careDifficulty: '养护难度',
-                        lightRequirement: '光照需求',
-                        waterRequirement: '水分需求',
-                        temperature: '生长温度',
-                        humidity: '环境湿度',
-                        soilRequirement: '土壤要求',
-                        droughtTolerance: '抗旱特性',
-                        shadeTolerance: '耐阴特性',
-                        coldTolerance: '耐寒特性',
-                        watering: '浇水要点',
-                        fertilizing: '施肥建议',
-                        pruning: '修剪技巧',
-                        propagation: '繁殖方式',
-                        pests: '病虫防治',
-                        safetyInfo: '安全提示',
-                        specialNotes: '特别说明'
-                    };
-                    return labels[key] || key;
-                };
-
-                const getOrnamentalLabel = (key) => {
-                    const labels = {
-                        category: '类别',
-                        growthHabit: '生长习性',
-                        flowerColor: '花色',
-                        floweringSeason: '花期',
-                        fragrance: '香味',
-                        landscapeUse: '园林用途',
-                        potSuitable: '适合盆栽',
-                        symbolism: '象征意义'
-                    };
-                    return labels[key] || key;
+                const getImages = (images) => {
+                    if (!images) return [];
+                    if (Array.isArray(images)) return images;
+                    try { return JSON.parse(images); } catch (e) { return []; }
                 };
 
                 const groupedCareRecords = computed(() => {
-                    if (!careRecords.value.length) return [];
+                    if (!careRecords.value || !careRecords.value.length) return [];
                     const groups = {};
                     careRecords.value.forEach(r => {
-                        const d = formatDate(r.date);
+                        const d = formatDate(r.care_date || r.date);
                         if (!groups[d]) groups[d] = [];
                         groups[d].push(r);
                     });
 
                     return Object.keys(groups)
-                        .sort((a, b) => new Date(b) - new Date(a)) // 按日期倒序
+                        .sort((a, b) => new Date(b) - new Date(a))
                         .map(date => {
                             const list = groups[date];
-                            // 优先显示有描述的，或者合并动作名
                             const actions = [...new Set(list.map(i => i.action || getCareTypeLabel(i.type)))];
-                            const types = [...new Set(list.map(i => i.type))];
-
-                            // 合并描述（去重）
-                            const descriptions = list
-                                .map(i => i.description)
-                                .filter(d => d && !actions.includes(d)) // 排除只是重复动作名的描述
-                                .filter((v, i, a) => a.indexOf(v) === i); // 去重
-
+                            const descriptions = list.map(i => i.description).filter(Boolean);
                             return {
-                                id: list[0].id, // 主ID，用于key
-                                date: date,
-                                records: list, // 原始记录列表
-                                isGroup: list.length > 1,
+                                date,
+                                records: list,
                                 displayAction: actions.join('、'),
-                                displayType: types[0], // 用于取主颜色
-                                allTypes: types,
-                                displayDescription: descriptions.join('；')
+                                displayDescription: descriptions.length > 0 ? descriptions[0] : ''
                             };
                         });
                 });
 
-                const careTipsGrid = computed(() => {
-                    if (!plantInfo.value?.careGuide) return {};
-                    return plantInfo.value.careGuide;
+                const currentSheetGroup = computed(() => {
+                    if (!activeCareDate.value) return null;
+                    return groupedCareRecords.value.find(g => g.date === activeCareDate.value);
                 });
 
-                const transformPlantData = (d) => {
-                    const safeParse = (val) => {
-                        if (!val) return {};
-                        if (typeof val === 'string') {
-                            try { return JSON.parse(val); } catch (e) { console.warn('JSON parse failed', e); return {}; }
+                const showCareDetails = (group) => {
+                    activeCareDate.value = group.date;
+                };
+
+                const closeCareDetails = () => {
+                    activeCareDate.value = null;
+                };
+
+                const goAddCarePageWithDate = (date) => {
+                    window.location.href = `care-record.html?potId=${potId.value}&date=${date}`;
+                };
+
+                const sortedTimelineRecords = computed(() => {
+                    return [...timelineRecords.value].sort((a, b) => {
+                        const dateA = new Date(a.date);
+                        const dateB = new Date(b.date);
+                        return isTimelineDesc.value ? dateB - dateA : dateA - dateB;
+                    });
+                });
+
+                const toggleTimelineSort = () => isTimelineDesc.value = !isTimelineDesc.value;
+
+                const openGallery = (img, allImages) => {
+                    previewImages.value = allImages;
+                    const idx = allImages.indexOf(img);
+                    previewIndex.value = idx >= 0 ? idx : 0;
+                };
+
+                const closeGallery = () => {
+                    previewImages.value = [];
+                    previewIndex.value = 0;
+                };
+
+                const prevImg = () => { if (previewIndex.value > 0) previewIndex.value--; };
+                const nextImg = () => { if (previewIndex.value < previewImages.value.length - 1) previewIndex.value++; };
+
+                const handleGalleryTouchStart = (e) => {
+                    touchStartX.value = e.changedTouches[0].screenX;
+                    galleryIsDragging.value = true;
+                    galleryDragOffset.value = 0;
+                };
+
+                const handleGalleryTouchMove = (e) => {
+                    const currentX = e.changedTouches[0].screenX;
+                    const diff = currentX - touchStartX.value;
+                    const isAtStart = previewIndex.value === 0 && diff > 0;
+                    const isAtEnd = previewIndex.value === previewImages.value.length - 1 && diff < 0;
+                    galleryDragOffset.value = (isAtStart || isAtEnd) ? diff * 0.25 : diff;
+                };
+
+                const handleGalleryTouchEnd = (e) => {
+                    const touchEndX = e.changedTouches[0].screenX;
+                    const threshold = 60;
+                    const diff = touchStartX.value - touchEndX;
+                    galleryIsDragging.value = false;
+                    galleryDragOffset.value = 0;
+
+                    if (Math.abs(diff) > threshold) {
+                        if (diff > 0) nextImg(); else prevImg();
+                    }
+                };
+
+                const handleKeydown = (e) => {
+                    if (previewImages.value.length === 0) return;
+                    if (e.key === 'ArrowLeft') {
+                        prevImg();
+                    } else if (e.key === 'ArrowRight') {
+                        nextImg();
+                    } else if (e.key === 'Escape') {
+                        closeGallery();
+                    }
+                };
+
+                onMounted(() => {
+                    init();
+                    window.addEventListener('keydown', handleKeydown);
+                });
+
+                // 组件卸载时移除事件监听
+                // 注意：在普通 HTML 环境中使用 Vue.createApp().mount() 时，
+                // 如果没有显式处理卸载，可能需要小心内存泄漏，但在这里通常刷新页面即重置。
+
+                const triggerFileInput = () => fileInput.value.click();
+
+                const onFilesSelected = (e) => {
+                    const files = Array.from(e.target.files);
+                    const remaining = 9 - newTimeline.tempImages.length;
+                    files.slice(0, remaining).forEach(file => {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                            newTimeline.tempImages.push({ file, preview: ev.target.result });
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                    e.target.value = '';
+                };
+
+                const removeNewImage = (idx) => newTimeline.tempImages.splice(idx, 1);
+
+                const saveTimelineRecord = async () => {
+                    if (newTimeline.tempImages?.length === 0 && !newTimeline.description?.trim()) {
+                        alert('请至少上传一张照片或写点描述');
+                        return;
+                    }
+                    try {
+                        isSavingTimeline.value = true;
+                        let uploadedUrls = [];
+                        for (const item of newTimeline.tempImages) {
+                            const res = await apiClient.uploadImage(item.file, { potId: potId.value, uploadType: 'timeline' });
+                            if (res.success && res.data?.url) uploadedUrls.push(res.data.url);
                         }
-                        return val;
-                    };
-
-                    return {
-                        basicInfo: safeParse(d.basic_info || d.basicInfo),
-                        ornamentalFeatures: safeParse(d.ornamental_features || d.ornamentalFeatures),
-                        careGuide: safeParse(d.care_guide || d.careGuide)
-                    };
+                        const saveRes = await apiClient.createTimeline({ potId: potId.value, date: newTimeline.date, description: newTimeline.description, images: uploadedUrls });
+                        if (saveRes.success) {
+                            showAddTimelineModal.value = false;
+                            newTimeline.description = '';
+                            newTimeline.tempImages = [];
+                            await loadTimelineRecords();
+                        }
+                    } catch (e) { alert('保存失败，请检查网络后重试'); }
+                    finally { isSavingTimeline.value = false; }
                 };
 
-                const handleImageError = (e) => {
-                    e.target.src = 'assets/images/icons/icons-default-pot.png';
-                };
-
-                // --- 智能提醒逻辑 ---
-                const getScheduleHint = (type) => {
-                    if (!plantInfo.value || !plantInfo.value.careGuide) return '';
-                    const guide = plantInfo.value.careGuide;
-
-                    switch (type) {
-                        case 'water':
-                            return guide.watering || guide.waterRequirement || '';
-                        case 'fertilize':
-                            return guide.fertilizing || '';
-                        case 'trim':
-                            return guide.pruning || '';
-                        case 'repot':
-                            return guide.soilRequirement || '';
-                        case 'pest':
-                            return guide.pests || '';
-                        default:
-                            return '';
+                const confirmDeleteTimeline = async (id) => {
+                    if (confirm('确认删除这条生长记录？照片也将一并清理。')) {
+                        try {
+                            const res = await apiClient.request(`/api/timelines/${id}`, { method: 'DELETE' });
+                            if (res.success) await loadTimelineRecords();
+                        } catch (e) { alert('删除操作失败'); }
                     }
                 };
 
-                const currentCareHint = computed(() => {
-                    return getScheduleHint(newSchedule.careType);
-                });
-
-                const smartIntervalSuggestion = computed(() => {
-                    const type = newSchedule.careType;
-                    if (type === 'water' && avgWateringInterval.value !== '-') return avgWateringInterval.value;
-                    if (type === 'fertilize' && avgFertilizingInterval.value !== '-') return avgFertilizingInterval.value;
-                    return null;
-                });
-
-                const applySmartInterval = () => {
-                    if (smartIntervalSuggestion.value) {
-                        newSchedule.intervalDays = Math.round(Number(smartIntervalSuggestion.value));
+                const confirmDeletePot = async () => {
+                    if (confirm('确定要删除这盆花吗？所有养护记录和成长轨迹都将被永久删除。')) {
+                        try {
+                            const res = await apiClient.deletePot(potId.value);
+                            if (res.success) window.location.href = 'index.html';
+                        } catch (err) { alert('删除失败: ' + err.message); }
                     }
                 };
 
-                const getCurrentSeason = () => {
-                    const month = new Date().getMonth() + 1;
-                    if (month >= 3 && month <= 5) return 'Spring';
-                    if (month >= 6 && month <= 8) return 'Summer';
-                    if (month >= 9 && month <= 11) return 'Autumn';
-                    return 'Winter';
+                // 编辑记录
+                const editRecord = (record) => {
+                    window.location.href = `care-record.html?id=${record.id}`;
                 };
 
-                const getSeasonalTip = (careType) => {
-                    if (!plantInfo.value || !plantInfo.value.careGuide) return null;
+                // 删除记录
+                const deleteRecord = async (record) => {
+                    // 自定义二次确认逻辑：点击第一次变色/变字，点击第二次执行删除
+                    if (confirmingDeleteId.value !== record.id) {
+                        confirmingDeleteId.value = record.id;
+                        // 3秒后自动重置确认状态
+                        setTimeout(() => {
+                            if (confirmingDeleteId.value === record.id) confirmingDeleteId.value = null;
+                        }, 3000);
+                        return;
+                    }
 
-                    const season = getCurrentSeason();
-                    const seasonKeywords = {
-                        Spring: ['春', '萌芽', '复苏', '生长'],
-                        Summer: ['夏', '高温', '炎热'],
-                        Autumn: ['秋', '凉', '落叶'],
-                        Winter: ['冬', '寒', '休眠', '防冻']
+                    try {
+                        confirmingDeleteId.value = null; // 立即清除状态
+                        const res = await apiClient.request(`/api/care-records/${record.id}`, { method: 'DELETE' });
+                        if (res.success) {
+                            await loadCareRecords();
+                            if (currentSheetGroup.value?.records) {
+                                // 同步更新当前弹窗内的数据列表
+                                currentSheetGroup.value.records = currentSheetGroup.value.records.filter(r => r.id !== record.id);
+                                if (currentSheetGroup.value.records.length === 0) closeCareDetails();
+                            }
+                        } else {
+                            alert(res.error || '删除失败');
+                        }
+                    } catch (e) {
+                        console.error('Delete record error:', e);
+                        alert(e.message || '操作失败');
+                    }
+                };
+
+                // --- 养护提醒逻辑 ---
+                const getScheduleTypeStyle = (type) => {
+                    const styles = {
+                        water: { bg: 'bg-blue-50 text-blue-500', icon: '💧' },
+                        fertilize: { bg: 'bg-green-50 text-green-500', icon: '🌿' },
+                        trim: { bg: 'bg-orange-50 text-orange-500', icon: '✂️' },
+                        repot: { bg: 'bg-purple-50 text-purple-500', icon: '🪴' },
+                        pest: { bg: 'bg-red-50 text-red-500', icon: '🐛' },
+                        custom: { bg: 'bg-gray-50 text-gray-500', icon: '⚙️' }
+                    };
+                    return styles[type] || styles.custom;
+                };
+
+                const getScheduleTypeName = (type) => {
+                    const names = { water: '浇水', fertilize: '施肥', trim: '修剪', repot: '换盆', pest: '病虫害' };
+                    return names[type] || '自定义提醒';
+                };
+
+                const saveNewSchedule = async () => {
+                    if (newSchedule.careType === 'custom' && !newSchedule.customAction) {
+                        alert('请输入自定义名称');
+                        return;
+                    }
+                    try {
+                        const res = await apiClient.createCareSchedule({
+                            potId: potId.value,
+                            careType: newSchedule.careType,
+                            customAction: newSchedule.customAction,
+                            intervalDays: newSchedule.intervalDays
+                        });
+                        if (res.success) {
+                            showAddScheduleModal.value = false;
+                            newSchedule.customAction = '';
+                            await loadCareSchedules();
+                        }
+                    } catch (e) { alert('添加失败'); }
+                };
+
+                const toggleScheduleEnabled = async (schedule) => {
+                    try {
+                        const nextState = !schedule.enabled;
+                        const res = await apiClient.updateCareSchedule(schedule.id, {
+                            enabled: nextState ? 1 : 0
+                        });
+                        if (res.success) schedule.enabled = nextState;
+                    } catch (e) { alert('操作失败'); }
+                };
+
+                const deleteSchedule = async (schedule) => {
+                    if (!confirm('确定要删除这个提醒吗？')) return;
+                    try {
+                        const res = await apiClient.deleteCareSchedule(schedule.id);
+                        if (res.success) await loadCareSchedules();
+                    } catch (e) { alert('删除失败'); }
+                };
+
+                const updateScheduleInterval = async (schedule) => {
+                    if (schedule.intervalDays < 1) schedule.intervalDays = 1;
+                    try {
+                        await apiClient.updateCareSchedule(schedule.id, {
+                            intervalDays: schedule.intervalDays
+                        });
+                    } catch (e) { alert('更新失败'); }
+                };
+
+                // 查看全部记录/轨迹
+                const viewAllRecords = () => window.location.href = `all-records.html?potId=${potId.value}`;
+                const viewAllTimelines = () => window.location.href = `all-timelines.html?potId=${potId.value}`;
+
+                // 统计
+                const statsWaterCount = computed(() => potStats.value?.byType?.find(t => t.type === 'water')?.total_count || 0);
+                const statsFertilizeCount = computed(() => potStats.value?.byType?.find(t => t.type === 'fertilize')?.total_count || 0);
+                const statsCareDays = computed(() => potStats.value?.total?.care_days || 0);
+
+                const formatDate = (dateStr) => {
+                    if (!dateStr) return '';
+                    const date = new Date(dateStr);
+                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                };
+
+                const handleImageError = (e) => e.target.src = 'assets/images/icons/icons-default-pot.png';
+
+                const goBack = () => window.location.href = 'index.html';
+                const goEditPage = () => window.location.href = `edit-pot.html?id=${potId.value}`;
+                const goAddCarePage = () => window.location.href = `care-record.html?potId=${potId.value}`;
+                const goCreatePot = () => window.location.href = 'index.html';
+
+                const scrollToSection = (sectionId, sectionKey) => {
+                    const el = document.getElementById(sectionId);
+                    if (!el) return;
+                    activeSection.value = sectionKey;
+                    const y = el.getBoundingClientRect().top + window.scrollY - 120;
+                    window.scrollTo({ top: y, behavior: 'smooth' });
+                };
+
+                // --- 业务模块逻辑 ---
+
+                // QR Code 实例 (非响应式)
+                let qrCode = null;
+
+                const generateQRCode = () => {
+                    if (!pot.value) return;
+
+                    const shareUrl = `${window.location.origin}${window.location.pathname}?token=${pot.value.share_token}`;
+
+                    // 初始化或更新 QR Code
+                    const options = {
+                        width: 250,
+                        height: 250,
+                        type: 'canvas',
+                        data: shareUrl,
+                        image: 'assets/images/icons/icons-default-pot.png',
+                        dotsOptions: { color: '#059669', type: 'rounded' },
+                        backgroundOptions: { color: '#ffffff' },
+                        imageOptions: { crossOrigin: 'anonymous', margin: 8 }
                     };
 
-                    const keywords = seasonKeywords[season];
-                    const guideKey = {
-                        water: 'watering',
-                        fertilize: 'fertilizing',
-                        trim: 'pruning',
-                        repot: 'soilRequirement',
-                        pest: 'pests'
-                    }[careType];
+                    if (!qrCode) {
+                        qrCode = new QRCodeStyling(options);
+                    } else {
+                        qrCode.update(options);
+                    }
 
-                    if (!guideKey) return null;
+                    setTimeout(() => {
+                        const container = document.getElementById('qrcode-container');
+                        if (container) {
+                            container.innerHTML = '';
+                            qrCode.append(container);
+                        }
+                    }, 50);
+                };
 
-                    let text = plantInfo.value.careGuide[guideKey] || '';
-                    if (!text) return null;
+                // 监听分享弹窗开启
+                watch(showShareModal, (val) => {
+                    if (val && pot.value?.is_shared) {
+                        generateQRCode();
+                    }
+                });
 
-                    const segments = text.split(/[,，;；。.\n]/).filter(s => s.trim().length > 2);
-
-                    for (const segment of segments) {
-                        for (const kw of keywords) {
-                            if (segment.includes(kw)) {
-                                return {
-                                    season: season,
-                                    text: segment.trim()
-                                };
+                const toggleShare = async () => {
+                    try {
+                        if (pot.value.is_shared) {
+                            const res = await apiClient.disableShare(potId.value);
+                            if (res.success) {
+                                pot.value.is_shared = false;
+                                pot.value.share_token = null;
+                            }
+                        } else {
+                            const res = await apiClient.enableShare(potId.value);
+                            if (res.success) {
+                                pot.value.is_shared = true;
+                                pot.value.share_token = res.data.token;
+                                generateQRCode();
                             }
                         }
+                    } catch (e) {
+                        alert('操作失败: ' + e.message);
                     }
-
-                    if (plantInfo.value.careGuide.specialNotes) {
-                        const specialSegments = plantInfo.value.careGuide.specialNotes.split(/[,，;；。.\n]/);
-                        for (const segment of specialSegments) {
-                            for (const kw of keywords) {
-                                if (segment.includes(kw)) {
-                                    return {
-                                        season: season,
-                                        text: segment.trim()
-                                    };
-                                }
-                            }
-                        }
-                    }
-
-                    return null;
                 };
 
-                onMounted(init);
+                const downloadQRCode = async () => {
+                    if (!qrCode || !pot.value) return;
+                    try {
+                        const blob = await qrCode.getRawData("png");
+                        if (!blob) throw new Error("No blob generated");
+                        const img = new Image();
+                        img.onload = () => {
+                            const canvas = document.createElement("canvas");
+                            const paddingBottom = 60; // 底部留白给文字
+                            canvas.width = img.width;
+                            canvas.height = img.height + paddingBottom;
+                            const ctx = canvas.getContext("2d");
 
-                // 图片优化：Cloudflare cdn-cgi/image 按需缩放
+                            // 填充白底
+                            ctx.fillStyle = "#ffffff";
+                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                            // 绘制原二维码
+                            ctx.drawImage(img, 0, 0);
+
+                            // 绘制文字
+                            ctx.fillStyle = "#1f2937"; // text-gray-800
+                            ctx.font = "bold 20px sans-serif";
+                            ctx.textAlign = "center";
+                            ctx.textBaseline = "middle";
+                            ctx.fillText(pot.value.name, canvas.width / 2, img.height + (paddingBottom / 2));
+
+                            // 触发下载
+                            const a = document.createElement("a");
+                            a.download = `${pot.value.name}-分享码.png`;
+                            a.href = canvas.toDataURL("image/png");
+                            document.body.appendChild(a); // required for some browsers
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(img.src);
+                        };
+                        img.onerror = () => {
+                            // Fallback
+                            qrCode.download({ name: `${pot.value.name}-分享码`, extension: 'png' });
+                        };
+                        img.src = URL.createObjectURL(blob);
+                    } catch (e) {
+                        console.error("生成复合二维码失败", e);
+                        qrCode.download({ name: `${pot.value.name}-分享码`, extension: 'png' });
+                    }
+                };
+
+                const copyShareLink = () => {
+                    const shareUrl = `${window.location.origin}${window.location.pathname}?token=${pot.value.share_token}`;
+                    navigator.clipboard.writeText(shareUrl).then(() => {
+                        alert('链接已复制到剪贴板');
+                    });
+                };
+
+                // 协作管理
+                const loadCollaborators = async () => {
+                    if (!isOwner.value) return;
+                    try {
+                        const res = await apiClient.getCollaborators(potId.value);
+                        if (res.success) collaborators.value = res.data;
+                    } catch (e) { console.error('Load collaborators failed', e); }
+                };
+
+                const addCollaborator = async () => {
+                    if (!newCollaboratorEmail.value) return;
+                    try {
+                        const res = await apiClient.addCollaborator(potId.value, newCollaboratorEmail.value);
+                        if (res.success) {
+                            newCollaboratorEmail.value = '';
+                            await loadCollaborators();
+                            alert('添加成功');
+                        }
+                    } catch (e) {
+                        alert('添加失败: ' + e.message);
+                    }
+                };
+
+                const removeCollaborator = async (collab) => {
+                    if (!confirm(`确定移除共同照料成员 ${collab.display_name || collab.email} 吗？`)) return;
+                    try {
+                        const res = await apiClient.removeCollaborator(potId.value, collab.id);
+                        if (res.success) {
+                            await loadCollaborators();
+                        }
+                    } catch (e) {
+                        alert('移除失败: ' + e.message);
+                    }
+                };
+
+                const selectTransferCollab = (collab) => {
+                    selectedTransferUser.value = collab;
+                    transferEmail.value = collab.email;
+                    showTransferSuggestions.value = false; // 选中后隐藏
+                };
+
+                // 移交所有权 (已在 setup 顶部处理了其他方法)
+                const initTransfer = async () => {
+                    if (!transferEmail.value) {
+                        alert('请输入接收者的电子邮箱');
+                        return;
+                    }
+                    if (!confirm(`确定要将花盆移交给 ${transferEmail.value} 吗？\n系统将向该邮箱发送通知邮件，对方通过邮件或消息中心确认后完成移交。`)) return;
+
+                    try {
+                        const res = await apiClient.initTransfer(potId.value, transferEmail.value);
+                        if (res.success) {
+                            alert('移交申请已发起！\n系统已向对方发送邮件通知。您可以在页面顶部查看进度或撤销移交。');
+                            showTransferModal.value = false;
+                            loadPotDetail();
+                        }
+                    } catch (e) {
+                        alert('发起移交失败: ' + e.message);
+                    }
+                };
+
+                const userDisplayName = computed(() => {
+                    if (currentUser.value?.userType === 'anonymous') return '匿名用户';
+                    if (currentUser.value) {
+                        return currentUser.value.displayName || currentUser.value.email?.split('@')[0] || '用户';
+                    }
+                    return '未登录';
+                });
+
+                // 监听协作弹窗开启加载数据
+                watch([showCollaboratorModal, showTransferModal], ([collabVisible, transferVisible]) => {
+                    if (collabVisible || transferVisible) loadCollaborators();
+                });
+
+                watch(transferEmail, (val) => {
+                    if (val) selectedTransferUser.value = null;
+                });
+
+                // onMounted(init);
+                // 已经移动到上方的 onMounted 中了
+
                 const imgUrl = (src, w, h) => {
                     if (!src || !src.includes('img.kaside365.com')) return src;
                     return `/cdn-cgi/image/width=${w},height=${h},dpr=2,fit=cover,format=auto/${src}`;
                 };
 
+                const plantInfoGroups = computed(() => {
+                    if (!plantInfo.value) return { priority: [], extended: [] };
+                    const basic = plantInfo.value.basicInfo || {};
+                    const extended = plantInfo.value.ornamentalFeatures || {};
+
+                    const priority = [];
+                    if (basic.family) priority.push({ label: '科属', val: basic.family });
+                    if (basic.origin) priority.push({ label: '产地', val: basic.origin });
+                    if (extended.category) priority.push({ label: '植物类型', val: extended.category });
+                    if (extended.growthHabit) priority.push({ label: '生长习性', val: extended.growthHabit });
+
+                    const ext = [];
+                    if (extended.flowerColor) ext.push({ label: '花色', val: extended.flowerColor });
+                    if (extended.floweringSeason) ext.push({ label: '花期', val: extended.floweringSeason });
+                    if (extended.fragrance) ext.push({ label: '香气', val: extended.fragrance });
+                    if (extended.symbolism) ext.push({ label: '寓意', val: extended.symbolism });
+
+                    return { priority, extended: ext };
+                });
+
+                const careTipsGroups = computed(() => {
+                    if (!plantInfo.value) return { summary: [], priorityDetails: [], extended: [] };
+                    const guide = plantInfo.value.careGuide || {};
+
+                    const summary = [];
+                    if (guide.careDifficulty) summary.push({ label: '养护难度', val: guide.careDifficulty });
+                    if (guide.temperature) summary.push({ label: '适宜温度', val: guide.temperature });
+
+                    const priorityDetails = [];
+                    if (guide.lightRequirement) priorityDetails.push({ label: '光照需求', val: guide.lightRequirement, icon: 'fa fa-sun' });
+                    if (guide.watering) priorityDetails.push({ label: '浇水细节', val: guide.watering, icon: 'fa fa-tint' });
+                    if (guide.soilRequirement) priorityDetails.push({ label: '土壤配比', val: guide.soilRequirement, icon: 'fa fa-mountain' });
+                    if (guide.pruning) priorityDetails.push({ label: '剪枝修剪', val: guide.pruning, icon: 'fa fa-cut' });
+
+                    const extended = [];
+                    if (guide.fertilizing) extended.push({ label: '施肥建议', val: guide.fertilizing, icon: 'fa fa-seedling' });
+                    if (guide.pests) extended.push({ label: '常见病虫', val: guide.pests, icon: 'fa fa-bug' });
+                    if (guide.propagation) extended.push({ label: '繁殖方式', val: guide.propagation, icon: 'fa fa-leaf' });
+
+                    return { summary, priorityDetails, extended };
+                });
+
                 return {
-                    isLoading, error, potId, pot, careRecords, timelineRecords, plantInfo, matchedPlantName,
-                    showPlantModal, showAddTimelineModal, isSavingTimeline, fileInput,
+                    isLoading, error, pot, potId, isOwner, isReadOnly, isPublicVisitor, showOperatorName, matchedPlantName, plantInfo,
+                    potStats, careRecords, timelineRecords, handleImageError, showActionMenu,
+                    showAddTimelineModal, showShareModal, isSavingTimeline, fileInput,
                     previewImages, previewIndex, galleryDragOffset, galleryIsDragging,
                     newTimeline, sortedTimelineRecords, isTimelineDesc,
-                    goBack, goEditPage, goAddCarePage, confirmDeletePot,
+                    goBack, goEditPage, goAddCarePage, goCreatePot, confirmDeletePot,
                     openGallery, closeGallery, prevImg, nextImg, toggleTimelineSort,
                     handleGalleryTouchStart, handleGalleryTouchMove, handleGalleryTouchEnd,
                     triggerFileInput, onFilesSelected, removeNewImage, saveTimelineRecord, confirmDeleteTimeline,
-                    editRecord, deleteRecord, viewAllRecords, viewAllTimelines,
                     formatDate, getImages, getCareTypeIcon, getCareTypeColor, getCareTypeLabel,
-                    getCareIcon, getCareLabel, getOrnamentalLabel, careTipsGrid,
-                    handleImageError, imgUrl, groupedCareRecords,
-                    activeCareDate, showCareDetails, closeCareDetails, currentSheetGroup,
-                    showFullPlantInfo, showFullCareTips, plantInfoActiveTab, plantInfoGroups, careTipsGroups,
-                    // 养护统计
-                    potStats, statsWaterCount, statsFertilizeCount, statsCareDays,
-                    avgWateringInterval, avgFertilizingInterval,
-                    // 养护周期 (新版)
+                    imgUrl, groupedCareRecords, activeCareDate, currentSheetGroup,
+                    showCareDetails, closeCareDetails, goAddCarePageWithDate,
+                    plantInfoActiveTab, showFullPlantInfo, showFullCareTips, plantInfoGroups, careTipsGroups,
+                    statsWaterCount, statsFertilizeCount, statsCareDays,
                     careSchedules, showScheduleExpanded, showAddScheduleModal, newSchedule,
-                    scheduleTypeOptions, intervalPresets, canSaveSchedule,
+                    scheduleTypeOptions,
                     loadCareSchedules, saveNewSchedule, toggleScheduleEnabled, deleteSchedule, updateScheduleInterval,
-                    getScheduleTypeStyle, getScheduleTypeName,
-                    getScheduleHint, currentCareHint, smartIntervalSuggestion, applySmartInterval,
-                    getSeasonalTip,
-                    // 页内导航
-                    activeSection, sectionTabs, scrollToSection
+                    getScheduleTypeStyle, getScheduleTypeName, scrollToSection, sectionTabs, activeSection,
+                    editRecord, deleteRecord, viewAllRecords, viewAllTimelines, confirmingDeleteId,
+                    cancelTransfer, rejectTransfer, acceptTransfer,
+                    // 分享与协作
+                    showShareModal, showCollaboratorModal, showTransferModal, toggleShare,
+                    downloadQRCode, copyShareLink, collaborators, newCollaboratorEmail, addCollaborator, removeCollaborator,
+                    selectedTransferUser, transferEmail, showTransferSuggestions, selectTransferCollab, initTransfer,
+                    showAcceptTransferModal, transferPot, isAcceptingTransfer,
+                    // Auth
+                    showUserMenu, showLoginModal, showRegisterModal, showForgotPasswordModal,
+                    isAuthLoading, loginForm, registerForm, passwordsMatch,
+                    isForgotPasswordEmailValid, isLoginValid, isRegisterValid,
+                    handleLogin, handleForgotPassword, handleRegister, logout,
+                    closeAuthModals, switchToRegister, switchToLogin, switchToForgotPassword,
+                    userDisplayName, currentUser
                 };
             }
         }).mount('#app');
     </script>
-
 </body>
 
 </html>

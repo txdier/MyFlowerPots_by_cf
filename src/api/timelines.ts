@@ -47,14 +47,18 @@ async function handleCreateTimeline(request: Request, env: any, token: string | 
       return errorResponse('missing fields', 400);
     }
 
-    // 安全加固：校验目标花盆归属权
+    // 安全加固：校验目标花盆归属权或协作权
     const pot = await env.DB
-      .prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?')
-      .bind(potId, token)
+      .prepare(`
+        SELECT id FROM pots WHERE id = ? AND user_id = ?
+        UNION
+        SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?
+      `)
+      .bind(potId, token, potId, token)
       .first();
 
     if (!pot) {
-      return errorResponse('Pot not found or access denied', 404);
+      return errorResponse('Pot not found or access denied', 403);
     }
 
     // 处理图片：如果是数组，转为 JSON 字符串
@@ -68,8 +72,9 @@ async function handleCreateTimeline(request: Request, env: any, token: string | 
           description,
           images,
           video,
-          created_at
-        ) VALUES (?, ?, ?, ?, ?, ?)
+          created_at,
+          user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
       `)
       .bind(
         potId,
@@ -77,7 +82,8 @@ async function handleCreateTimeline(request: Request, env: any, token: string | 
         description || null,
         imagesStr || null,
         video || null,
-        createdAt || new Date().toISOString()
+        createdAt || new Date().toISOString(),
+        token
       )
       .run();
 
@@ -94,14 +100,15 @@ async function handleUpdateTimeline(request: Request, env: any, id: string, toke
     const body = await request.json();
     const { date, description, images, video } = body;
 
-    // 安全加固：检查记录是否存在且属于该用户
+    // 安全加固：检查记录是否存在且属于该用户 (主或协作者)
     const existing = await env.DB
       .prepare(`
         SELECT t.id, t.images, t.video FROM timelines t
         JOIN pots p ON t.pot_id = p.id
-        WHERE t.id = ? AND p.user_id = ?
+        LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
+        WHERE t.id = ? AND (p.user_id = ? OR pc.user_id = ?)
       `)
-      .bind(id, token)
+      .bind(id, token, token)
       .first();
 
     if (!existing) {
@@ -169,14 +176,15 @@ async function handleUpdateTimeline(request: Request, env: any, id: string, toke
 
 async function handleDeleteTimeline(request: Request, env: any, id: string, token: string | null): Promise<Response> {
   try {
-    // 安全加固：检查记录是否存在且属于该用户
+    // 安全加固：检查记录是否存在且属于该用户 (主或协作者)
     const existing = await env.DB
       .prepare(`
         SELECT t.id, t.images, t.video FROM timelines t
         JOIN pots p ON t.pot_id = p.id
-        WHERE t.id = ? AND p.user_id = ?
+        LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
+        WHERE t.id = ? AND (p.user_id = ? OR pc.user_id = ?)
       `)
-      .bind(id, token)
+      .bind(id, token, token)
       .first();
 
     if (!existing) {

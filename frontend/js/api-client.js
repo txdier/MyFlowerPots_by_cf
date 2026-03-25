@@ -244,6 +244,10 @@ class APIClient {
         return this.request('/api/auth/me');
     }
 
+    async getUserProfile() {
+        return this.getCurrentUser();
+    }
+
     async logout() {
         this.clearAuth();
         return { success: true };
@@ -274,6 +278,92 @@ class APIClient {
 
     async getPotDetail(potId) {
         return this.request(`/api/pots/${potId}`);
+    }
+
+    // 分享管理
+    async enableShare(potId) {
+        return this.request(`/api/share/enable/${potId}`, { method: 'POST' });
+    }
+
+    async disableShare(potId) {
+        return this.request(`/api/share/disable/${potId}`, { method: 'POST' });
+    }
+
+    async getPublicPotDetail(token) {
+        return this.request(`/api/public/pots/${token}`);
+    }
+
+    // 协作者管理
+    async getCollaborators(potId) {
+        return this.request(`/api/collaborators/${potId}`);
+    }
+
+    async addCollaborator(potId, email) {
+        return this.request(`/api/collaborators/${potId}`, {
+            method: 'POST',
+            body: { email }
+        });
+    }
+
+    async removeCollaborator(potId, collaboratorUserId) {
+        return this.request(`/api/collaborators/${potId}/${collaboratorUserId}`, {
+            method: 'DELETE'
+        });
+    }
+
+    async leaveCollaboration(potId) {
+        return this.request(`/api/collaborators/${potId}`, {
+            method: 'DELETE'
+        });
+    }
+
+    // 所有权转移
+    async initTransfer(potId, targetEmail) {
+        return this.request(`/api/transfer/init/${potId}`, { 
+            method: 'POST',
+            body: { targetEmail }
+        });
+    }
+
+    async cancelTransfer(potId) {
+        return this.request(`/api/transfer/cancel/${potId}`, { method: 'POST' });
+    }
+
+    async getTransferPotDetail(token) {
+        return this.request(`/api/public/transfer/${token}`);
+    }
+
+    async acceptTransfer(token) {
+        return this.request(`/api/transfer/accept/${token}`, { method: 'POST' });
+    }
+
+    async rejectTransfer(token) {
+        return this.request(`/api/transfer/reject/${token}`, { method: 'POST' });
+    }
+
+    // 消息中心
+    async getMessages() {
+        return this.request('/api/messages');
+    }
+
+    async getUnreadMessageCount() {
+        return this.request('/api/messages/unread-count');
+    }
+
+    async markMessageRead(id) {
+        return this.request(`/api/messages/${id}/read`, { method: 'POST' });
+    }
+
+    async markAllMessagesRead() {
+        return this.request('/api/messages/read-all', { method: 'POST' });
+    }
+
+    async deleteMessage(id) {
+        return this.request(`/api/messages/${id}`, { method: 'DELETE' });
+    }
+
+    async clearReadMessages() {
+        return this.request('/api/messages/clear-read', { method: 'POST' });
     }
 
     async createPot(potData) {

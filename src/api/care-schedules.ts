@@ -63,9 +63,9 @@ async function handleGetAllSchedules(env: any, userId: string): Promise<Response
     SELECT cs.*, p.name as pot_name, p.image_url as pot_image
     FROM care_schedules cs
     JOIN pots p ON cs.pot_id = p.id
-    WHERE p.user_id = ?
+    WHERE p.user_id = ? OR p.id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?)
     ORDER BY cs.created_at DESC
-  `).bind(userId).all();
+  `).bind(userId, userId).all();
 
     return jsonResponse({
         success: true,
@@ -76,8 +76,11 @@ async function handleGetAllSchedules(env: any, userId: string): Promise<Response
 // 获取某个花盆的养护计划
 async function handleGetSchedulesByPot(env: any, userId: string, potId: string): Promise<Response> {
     // 验证花盆归属
-    const pot = await env.DB.prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?')
-        .bind(potId, userId).first();
+    const pot = await env.DB.prepare(`
+      SELECT id FROM pots WHERE id = ? AND user_id = ?
+      UNION
+      SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?
+    `).bind(potId, userId, potId, userId).first();
 
     if (!pot) {
         return errorResponse('Pot not found or access denied', 404);
@@ -112,14 +115,14 @@ async function handleGetReminders(env: any, userId: string): Promise<Response> {
       END as days_since_care
     FROM care_schedules cs
     JOIN pots p ON cs.pot_id = p.id
-    WHERE p.user_id = ? 
+    WHERE (p.user_id = ? OR p.id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?))
       AND cs.enabled = 1
       AND (
         p.last_care IS NULL 
         OR julianday('now') - julianday(p.last_care) >= cs.interval_days
       )
     ORDER BY days_since_care DESC
-  `).bind(userId).all();
+  `).bind(userId, userId).all();
 
     // 格式化结果
     const reminders = (results || []).map((r: any) => ({
@@ -159,9 +162,12 @@ async function handleCreateSchedule(request: Request, env: any, userId: string):
             return errorResponse('Missing required fields: potId, careType, intervalDays', 400);
         }
 
-        // 验证花盆归属
-        const pot = await env.DB.prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?')
-            .bind(potId, userId).first();
+        // 验证花盆归属或协作权限
+        const pot = await env.DB.prepare(`
+          SELECT id FROM pots WHERE id = ? AND user_id = ?
+          UNION
+          SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?
+        `).bind(potId, userId, potId, userId).first();
 
         if (!pot) {
             return errorResponse('Pot not found or access denied', 404);
@@ -208,12 +214,12 @@ async function handleUpdateSchedule(
             enabled?: boolean;
         };
 
-        // 验证计划归属
         const schedule = await env.DB.prepare(`
       SELECT cs.id FROM care_schedules cs
       JOIN pots p ON cs.pot_id = p.id
-      WHERE cs.id = ? AND p.user_id = ?
-    `).bind(scheduleId, userId).first();
+      LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
+      WHERE cs.id = ? AND (p.user_id = ? OR pc.user_id = ?)
+    `).bind(scheduleId, userId, userId).first();
 
         if (!schedule) {
             return errorResponse('Schedule not found or access denied', 404);
@@ -261,12 +267,12 @@ async function handleUpdateSchedule(
 // 删除养护计划
 async function handleDeleteSchedule(env: any, userId: string, scheduleId: number): Promise<Response> {
     try {
-        // 验证计划归属
         const schedule = await env.DB.prepare(`
       SELECT cs.id FROM care_schedules cs
       JOIN pots p ON cs.pot_id = p.id
-      WHERE cs.id = ? AND p.user_id = ?
-    `).bind(scheduleId, userId).first();
+      LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
+      WHERE cs.id = ? AND (p.user_id = ? OR pc.user_id = ?)
+    `).bind(scheduleId, userId, userId).first();
 
         if (!schedule) {
             return errorResponse('Schedule not found or access denied', 404);

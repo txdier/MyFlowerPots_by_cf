@@ -21,6 +21,10 @@ my-flowerpots/
 │   │   ├── admin.ts            # 管理员 API
 │   │   ├── weather.ts          # 天气 API
 │   │   ├── care-advice.ts      # 养护建议 API
+│   │   ├── collaborators.ts   # 协作者管理 API [NEW]
+│   │   ├── messages.ts        # 消息系统 API [NEW]
+│   │   ├── share.ts           # 分享系统 API [NEW]
+│   │   ├── transfer.ts        # 所有权转移 API [NEW]
 │   │   └── analytics.ts        # 页面访问统计
 │   ├── static/                  # 静态资源服务
 │   │   └── server.ts           # R2 服务及 SPA 回退
@@ -176,6 +180,8 @@ npm run deploy-all
 - ✅ 实时错误提示
 - ✅ 加载状态指示
 - ✅ 离线基础功能
+- ✅ 协同养护通知 (Message Center)
+- ✅ QR 码/链接快速分享
 
 ## 🔌 API接口
 
@@ -223,6 +229,10 @@ npm run deploy-all
 - `GET /api/weather` - 获取天气信息
 - `POST /api/care-advice` - 获取养护建议
 - `POST /api/plants/smart-match` - 智能植物匹配
+- `GET /api/messages` - 获取消息列表
+- `POST /api/pots/:id/share` - 生成分享二维码
+- `POST /api/pots/:id/collaborators` - 添加协作者
+- `POST /api/pots/:id/transfer` - 转移所有权
 
 ## 🎨 前端架构
 

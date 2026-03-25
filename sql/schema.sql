@@ -48,6 +48,13 @@ CREATE TABLE pots (
     -- 排序字段
     sort_order REAL DEFAULT 0,
     
+    -- 分享与转移字段
+    share_token TEXT UNIQUE,             -- 分享令牌
+    is_shared INTEGER DEFAULT 0,         -- 是否开启分享
+    transfer_token TEXT UNIQUE,          -- 转移令牌
+    transfer_expires_at DATETIME,        -- 转移过期时间
+    transfer_target_email TEXT,          -- 转移目标邮箱
+    
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
@@ -61,7 +68,9 @@ CREATE TABLE care_records (
     description TEXT,
     image_url TEXT,
     created_at TEXT,
-    FOREIGN KEY (pot_id) REFERENCES pots(id) ON DELETE CASCADE
+    user_id TEXT,                        -- 操作人ID
+    FOREIGN KEY (pot_id) REFERENCES pots(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
 -- 4. 生长轨迹（时间轴）表
@@ -73,7 +82,9 @@ CREATE TABLE timelines (
     images TEXT,                         -- 存储为 JSON 字符串
     video TEXT,
     created_at TEXT,
-    FOREIGN KEY (pot_id) REFERENCES pots(id) ON DELETE CASCADE
+    user_id TEXT,                        -- 操作人ID
+    FOREIGN KEY (pot_id) REFERENCES pots(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
 -- 5. 植物百科参考数据表
@@ -106,15 +117,40 @@ CREATE TABLE IF NOT EXISTS care_schedules (
     custom_action TEXT,               -- 自定义动作名称 (仅 care_type='custom' 时使用)
     enabled INTEGER DEFAULT 1,        -- 是否启用 (SQLite 无 BOOLEAN)
     created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (pot_id) REFERENCES pots(id) ON DELETE CASCADE
+    updated_at TEXT DEFAULT (datetime('now'))
 );
 
--- 8. 页面访问统计表（累计）
+-- 8. 花盆协作者表
+CREATE TABLE IF NOT EXISTS pot_collaborators (
+    pot_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    role TEXT DEFAULT 'collaborator',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (pot_id, user_id),
+    FOREIGN KEY (pot_id) REFERENCES pots(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+-- 9. 页面访问统计表（累计）
 CREATE TABLE IF NOT EXISTS page_visits (
     path TEXT PRIMARY KEY,
     visit_count INTEGER DEFAULT 0,
     last_updated DATETIME
+);
+
+-- 10. 消息中心表
+CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,         -- 接收者 ID (关联 users.id)
+    sender_id TEXT,                -- 发送者 ID (关联 users.id, 可选)
+    type TEXT NOT NULL,            -- 消息类型: 'transfer_request', 'collab_invite', 'system_info'
+    status TEXT DEFAULT 'unread',  -- 状态: 'unread' (未读), 'read' (已读), 'processed' (已处理)
+    title TEXT NOT NULL,           -- 消息展示标题
+    content TEXT,                  -- 消息正文 (支持 HTML 或纯文本)
+    related_id TEXT,               -- 相关业务 ID (如 pot_id)
+    extra_data TEXT,               -- 附加数据 (JSON 对象, 存储 token 等)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- 9. 页面访问统计表（按日期）
@@ -139,7 +175,9 @@ CREATE INDEX idx_users_new_email_token ON users(new_email_verification_token);
 -- 业务索引
 CREATE INDEX idx_pots_user_id ON pots(user_id);
 CREATE INDEX idx_care_records_pot ON care_records(pot_id);
+CREATE INDEX idx_care_records_user ON care_records(user_id);
 CREATE INDEX idx_timelines_pot ON timelines(pot_id);
+CREATE INDEX idx_timelines_user ON timelines(user_id);
 
 -- 百科索引
 CREATE INDEX IF NOT EXISTS idx_plants_name ON plants(name);
@@ -149,5 +187,13 @@ CREATE INDEX IF NOT EXISTS idx_synonyms_name ON plant_synonyms(synonym);
 CREATE INDEX IF NOT EXISTS idx_care_schedules_pot ON care_schedules(pot_id);
 CREATE INDEX IF NOT EXISTS idx_care_schedules_enabled ON care_schedules(enabled);
 
+-- 协作索引
+CREATE INDEX IF NOT EXISTS idx_collaborators_user ON pot_collaborators(user_id);
+CREATE INDEX IF NOT EXISTS idx_collaborators_pot ON pot_collaborators(pot_id);
+
 -- 统计索引
 CREATE INDEX IF NOT EXISTS idx_page_visits_daily_date ON page_visits_daily(visit_date);
+
+-- 消息索引
+CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id);
+CREATE INDEX IF NOT EXISTS idx_messages_status ON messages(status);

@@ -175,3 +175,53 @@ export function generateWelcomeEmail(
     text: `Welcome to My Flower Pots, ${name}!\n\nWe're excited to have you join our community of plant lovers.\n\nGetting Started:\n- Add your first flower pot from the home screen\n- Record watering and fertilizing schedules\n- Track growth with photos and notes\n- Get personalized care advice based on weather\n\nVisit ${appBaseUrl} to start growing!\n\nHappy planting!\nThe My Flower Pots Team`
   };
 }
+
+/**
+ * Generate pot transfer notification email
+ */
+export function generateTransferEmail(
+  toEmail: string,
+  potName: string,
+  senderName: string,
+  transferLink: string
+): EmailOptions {
+  return {
+    to: toEmail,
+    subject: `📦 花盆移交确认：${senderName} 想要向您移交“${potName}”`,
+    html: `
+      <div style="font-family: 'Microsoft YaHei', sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+        <h2 style="color: #4CAF50;">您收到一个花盆移交请求！🌱</h2>
+        <p>亲爱的用户，您的好友 <strong>${senderName}</strong> 想要将他/她的花盆 <strong>“${potName}”</strong> 移交给您管理。</p>
+        
+        <div style="background-color: #f4fdf4; border-left: 4px solid #4CAF50; padding: 20px; margin: 25px 0; border-radius: 8px;">
+          <h3 style="margin-top: 0; color: #2e7d32;">移交详情：</h3>
+          <p style="margin-bottom: 0;"><strong>花盆名称：</strong> ${potName}</p>
+          <p style="margin-bottom: 0;"><strong>发起人：</strong> ${senderName}</p>
+        </div>
+
+        <p>如果您接受此移交，您将成为该花盆的新主人，并拥有全部管理权限（包括删除记录、进一步转让等）。</p>
+        
+        <div style="text-align: center; margin: 40px 0;">
+          <a href="${transferLink}" 
+             style="background-color: #4CAF50; color: white; padding: 14px 32px; 
+                    text-decoration: none; border-radius: 50px; font-weight: bold; font-size: 16px;
+                    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);">
+            立即查看并接受移交
+          </a>
+        </div>
+        
+        <p style="color: #999; font-size: 13px;">或者复制此链接到浏览器直接打开：</p>
+        <p style="word-break: break-all; color: #007bff; font-size: 12px; background: #f0f7ff; padding: 10px; border-radius: 5px;">${transferLink}</p>
+        
+        <p style="color: #666; font-size: 14px; margin-top: 30px;">如果您不想接收此花盆，可以直接忽略此邮件或在系统中点击“拒绝”。</p>
+        
+        <hr style="border: none; border-top: 1px solid #eee; margin: 40px 0;">
+        <p style="color: #bbb; font-size: 12px; text-align: center;">
+          我的花盆 (My Flower Pots) - 记录每一寸生长<br>
+          本邮件由系统自动发出，请勿直接回复。
+        </p>
+      </div>
+    `,
+    text: `花盆移交请求\n\n${senderName} 想要向您移交花盆 “${potName}”。\n\n请点击以下链接查看详情并接受：\n${transferLink}\n\n如果您不想接收，请忽略此邮件。`
+  };
+}
