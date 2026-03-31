@@ -299,10 +299,10 @@
 
                 const init = async () => {
                     try {
-                        const res = await apiClient.getCurrentUser();
-                        if (res.success) {
-                            user.value = res.user;
-                            userForm.displayName = res.user.displayName || '';
+                        const initRes = await apiClient.getCurrentUser();
+                        if (initRes.success) {
+                            user.value = initRes.user;
+                            userForm.displayName = initRes.user.displayName || '';
                         } else {
                             window.location.href = 'index.html';
                         }
@@ -311,14 +311,37 @@
                     }
                 };
 
-                const onAvatarSelected = (e) => {
+                // 头像场景：压缩到最长边 400px，quality 0.72（仅做小圆图展示，无需高清）
+                const onAvatarSelected = async (e) => {
                     const file = e.target.files[0];
-                    if (file) {
-                        userForm.avatarFile = file;
-                        const reader = new FileReader();
-                        reader.onload = (ev) => userForm.avatarPreview = ev.target.result;
-                        reader.readAsDataURL(file);
-                    }
+                    if (!file) return;
+                    const compress = (f) => {
+                        if (f.type === 'image/gif') return Promise.resolve(f);
+                        return new Promise((resolve) => {
+                            const img = new Image();
+                            const blobUrl = URL.createObjectURL(f);
+                            img.onload = () => {
+                                URL.revokeObjectURL(blobUrl);
+                                const maxSide = 400;
+                                let { width, height } = img;
+                                if (width > maxSide || height > maxSide) {
+                                    if (width >= height) { height = Math.round(height * maxSide / width); width = maxSide; }
+                                    else { width = Math.round(width * maxSide / height); height = maxSide; }
+                                }
+                                const canvas = document.createElement('canvas');
+                                canvas.width = width; canvas.height = height;
+                                canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                                canvas.toBlob((blob) => {
+                                    resolve(new File([blob], f.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
+                                }, 'image/jpeg', 0.72);
+                            };
+                            img.onerror = () => { URL.revokeObjectURL(blobUrl); resolve(f); };
+                            img.src = blobUrl;
+                        });
+                    };
+                    const compressed = await compress(file);
+                    userForm.avatarFile = compressed;
+                    userForm.avatarPreview = URL.createObjectURL(compressed);
                 };
 
                 const updateProfile = async () => {
@@ -326,7 +349,7 @@
                         isUpdatingProfile.value = true;
                         let avatarUrl = user.value.avatarUrl;
 
-                        // 1. 上传新头像
+                        // 1. 上传新头像（已由 onAvatarSelected 预先压缩）
                         if (userForm.avatarFile) {
                             const uploadRes = await apiClient.uploadImage(userForm.avatarFile, {
                                 uploadType: 'avatar'
@@ -337,7 +360,7 @@
                         }
 
                         // 2. 更新资料
-                        const res = await apiClient.request('/api/auth/profile', {
+                        const profileRes = await apiClient.request('/api/auth/profile', {
                             method: 'PUT',
                             body: {
                                 displayName: userForm.displayName,
@@ -345,7 +368,7 @@
                             }
                         });
 
-                        if (res.success) {
+                        if (profileRes.success) {
                             showToast('资料更新成功');
                             await init();
                         }

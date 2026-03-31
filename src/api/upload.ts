@@ -63,10 +63,10 @@ async function handleImageUpload(request: Request, env: any, token: string | nul
     return errorResponse('Invalid image type. Allowed types: JPEG, PNG, GIF, WebP', 400);
   }
 
-  // 验证文件大小 (最大5MB)
-  const maxSize = 5 * 1024 * 1024; // 5MB
+  // 验证文件大小 (最大10MB，前端会预先压缩，此为兜底限制)
+  const maxSize = 10 * 1024 * 1024; // 10MB
   if (imageFile.size > maxSize) {
-    return errorResponse('Image file too large. Maximum size is 5MB', 400);
+    return errorResponse('Image file too large. Maximum size is 10MB', 400);
   }
 
   // 生成唯一文件名
@@ -105,7 +105,8 @@ async function handleImageUpload(request: Request, env: any, token: string | nul
         objectKey = generateStoragePath(uploadType, userId, finalPotId, fileName);
       } catch (error) {
         console.error('生成存储路径失败:', error);
-        return errorResponse(error.message || '生成存储路径失败', 400);
+        const msg = error instanceof Error ? error.message : '生成存储路径失败';
+        return errorResponse(msg, 400);
       }
 
       console.log('上传图片到R2:', {

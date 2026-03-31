@@ -1,3 +1,4 @@
+/// <reference types="@cloudflare/workers-types" />
 import { htmlResponse, errorResponse } from '../utils/response-utils';
 
 // MIME类型映射
@@ -124,13 +125,27 @@ export async function serveStatic(
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
     console.log('serveStatic: MIME类型:', contentType);
 
-    return new Response(r2Object.body, {
+    const response = new Response(r2Object.body, {
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'public, max-age=3600',
         'Access-Control-Allow-Origin': '*',
       },
     });
+
+    // ✨ 动态分享卡片注入逻辑
+    // 如果是服务 pot-detail.html 且 URL 中包含 token 或 id，注入花盆元数据
+    const url = new URL(request.url);
+    const token = url.searchParams.get('token');
+    const id = url.searchParams.get('id');
+    const isPotDetailPage = foundPath.includes('pot-detail.html');
+
+    if (isPotDetailPage && (token || id) && env.DB) {
+      console.log('serveStatic: 检测到分享请求，尝试注入动态 Meta 标签. Token:', token, 'ID:', id);
+      return servePotDetailWithMeta(response, env, token, id);
+    }
+
+    return response;
 
   } catch (error) {
     console.error('Static serve error:', error);
@@ -173,6 +188,94 @@ function serveR2Object(object: any, ext: string): Response {
       'Access-Control-Allow-Origin': '*',
     },
   });
+}
+
+// 动态分享卡片注入（针对微信等社交媒体预览）
+async function servePotDetailWithMeta(response: Response, env: any, token: string | null, id: string | null): Promise<Response> {
+  try {
+    // 1. 从 D1 获取花盆基本信息
+    // 支持按 token 查询（优先）或按 id 查询（需验证 is_shared）
+    let pot: any = null;
+    if (token) {
+      pot = await env.DB.prepare(`
+        SELECT name, image_url, note
+        FROM pots
+        WHERE share_token = ? AND is_shared = 1
+      `).bind(token).first();
+    } else if (id) {
+      pot = await env.DB.prepare(`
+        SELECT name, image_url, note
+        FROM pots
+        WHERE id = ? AND is_shared = 1
+      `).bind(id).first();
+    }
+
+    if (!pot) {
+      console.log('servePotDetailWithMeta: 未找到对应的公开花盆数据');
+      return response;
+    }
+
+    // 构建绝对路径图片地址 (微信要求 og:image 必须带域名)
+    let fullImageUrl = pot.image_url || '';
+    if (fullImageUrl && !fullImageUrl.startsWith('http')) {
+      const baseUrl = env.APP_BASE_URL || 'https://app.kaside365.com';
+      const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+      const cleanPath = fullImageUrl.startsWith('/') ? fullImageUrl : '/' + fullImageUrl;
+      fullImageUrl = cleanBase + cleanPath;
+    }
+
+    console.log('servePotDetailWithMeta: 成功获取数据，准备注入:', pot.name, '图片:', fullImageUrl);
+
+    // 2. 使用 HTMLRewriter 动态修改 Meta 标签
+    const rewriter = new (globalThis as any).HTMLRewriter()
+      .on('title', {
+        element(e: any) {
+          e.setInnerContent(`${pot.name} - 我的花盆`);
+        }
+      })
+      .on('meta[property="og:title"]', {
+        element(e: any) {
+          e.setAttribute('content', `${pot.name} - 我的花盆`);
+        }
+      })
+      .on('meta[property="og:description"]', {
+        element(e: any) {
+          const desc = pot.note ? (pot.note.length > 50 ? pot.note.substring(0, 47) + '...' : pot.note) : '正在分享一盆可爱的植物';
+          e.setAttribute('content', desc);
+        }
+      })
+      .on('meta[property="og:image"]', {
+        element(e: any) {
+          if (fullImageUrl) {
+            e.setAttribute('content', fullImageUrl);
+          }
+        }
+      })
+      // 同时注入 twitter 标签和标准 meta 标签以获得更好的兼容性
+      .on('meta[name="description"]', {
+        element(e: any) {
+          const desc = pot.note ? (pot.note.length > 50 ? pot.note.substring(0, 47) + '...' : pot.note) : '正在分享一盆可爱的植物';
+          e.setAttribute('content', desc);
+        }
+      })
+      .on('meta[name="twitter:title"]', {
+        element(e: any) {
+          e.setAttribute('content', `${pot.name} - 我的花盆`);
+        }
+      })
+      .on('meta[name="twitter:image"]', {
+        element(e: any) {
+          if (fullImageUrl) {
+            e.setAttribute('content', fullImageUrl);
+          }
+        }
+      });
+
+    return rewriter.transform(response);
+  } catch (err) {
+    console.error('servePotDetailWithMeta error:', err);
+    return response; // 失败时退回到原始响应
+  }
 }
 
 export async function serveStaticDev(

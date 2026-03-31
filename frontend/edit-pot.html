@@ -206,13 +206,39 @@
                     init();
                 };
 
-                const onFileSelected = (e) => {
+                const compressImage = (file, maxSide = 1920, quality = 0.85) => {
+                    if (file.type === 'image/gif') return Promise.resolve(file);
+                    return new Promise((resolve) => {
+                        const img = new Image();
+                        const url = URL.createObjectURL(file);
+                        img.onload = () => {
+                            URL.revokeObjectURL(url);
+                            let { width, height } = img;
+                            if (width > maxSide || height > maxSide) {
+                                if (width >= height) { height = Math.round(height * maxSide / width); width = maxSide; }
+                                else { width = Math.round(width * maxSide / height); height = maxSide; }
+                            }
+                            const canvas = document.createElement('canvas');
+                            canvas.width = width;
+                            canvas.height = height;
+                            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                            canvas.toBlob((blob) => {
+                                resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
+                            }, 'image/jpeg', quality);
+                        };
+                        img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+                        img.src = url;
+                    });
+                };
+
+                const onFileSelected = async (e) => {
                     const file = e.target.files[0];
                     if (file) {
-                        imageFile.value = file;
+                        const compressed = await compressImage(file);
+                        imageFile.value = compressed;
                         const reader = new FileReader();
                         reader.onload = (ev) => imagePreview.value = ev.target.result;
-                        reader.readAsDataURL(file);
+                        reader.readAsDataURL(compressed);
                     }
                 };
 

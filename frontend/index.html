@@ -5,6 +5,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>我的花盆</title>
+    <meta name="description" content="记录每一株植物的成长，智能养护提醒。">
+    <meta name="theme-color" content="#4CAF50">
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="assets/images/icons/pots.png">
+
+    <!-- Open Graph / WeChat -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="我的花盆 - 智能植物管理">
+    <meta property="og:description" content="每一片叶子都值得被记录。为您提供精准的养护提醒和成长轨迹记录。">
+    <meta property="og:image" content="https://img.kaside365.com/assets/images/default-pot.png"> <!-- 微信分享建议使用绝对路径 -->
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="我的花盆 - 智能植物管理">
+    <meta name="twitter:description" content="每一片叶子都值得被记录。">
+    <meta name="twitter:image" content="assets/images/default-pot.png">
+
     <!-- v2.0.3 - Selection UI Optimization -->
 
     <!-- Vue 3 CDN -->
@@ -72,7 +90,7 @@
                                 <img :src="imgUrl(user?.avatarUrl, 32, 32) || 'assets/images/icons/profile.png'"
                                     class="w-full h-full rounded-full shadow-sm object-cover">
                             </div>
-                            <div v-show="unreadCount > 0" 
+                            <div v-show="unreadCount > 0"
                                 class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-600 border-2 border-white rounded-full z-[100] shadow-sm pointer-events-none flex-none aspect-square">
                             </div>
                             <span class="text-[10px] font-black text-gray-700 max-w-[80px] truncate">{{ userDisplayName
@@ -95,7 +113,7 @@
                                 <div class="flex items-center gap-2">
                                     <i class="fa fa-bell text-blue-500"></i> 消息中心
                                 </div>
-                                <span v-if="unreadCount > 0" 
+                                <span v-if="unreadCount > 0"
                                     class="bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center shadow-sm shrink-0 font-black aspect-square w-5 h-5">
                                     {{ unreadCount > 99 ? '99+' : unreadCount }}
                                 </span>
@@ -173,7 +191,8 @@
                                             :class="getReminderTypeColor(task.careType, task.customAction)">
                                             <i class="fa w-5 text-center mr-1"
                                                 :class="getReminderTypeIcon(task.careType, task.customAction)"></i>
-                                            {{ task.customAction || getReminderTypeLabel(task.careType, task.customAction) }}
+                                            {{ task.customAction || getReminderTypeLabel(task.careType,
+                                            task.customAction) }}
                                         </span>
                                         <span class="text-gray-400 scale-90 origin-left ml-1">已过 <span class="font-bold"
                                                 :class="task.daysSinceCare > 7 ? 'text-red-400' : 'text-orange-400'">{{
@@ -196,7 +215,8 @@
                                                 class="fa fa-canadian-maple-leaf"></i>
                                             <i v-else class="fa fa-snowflake"></i>
                                         </span>
-                                        <span class="truncate">{{ getTaskSeasonalTip(group.potId, task.careType, task.customAction).text
+                                        <span class="truncate">{{ getTaskSeasonalTip(group.potId, task.careType,
+                                            task.customAction).text
                                             }}</span>
                                     </div>
                                 </div>
@@ -300,7 +320,7 @@
                             <img :src="imgUrl(pot.image_url, 128, 128) || 'assets/images/icons/icons-default-pot.png'"
                                 class="w-full h-full object-cover rounded-xl" @error="handleImageError">
                             <!-- 协作标识 -->
-                            <div v-if="pot.is_collaborator || pot.collaborator_count > 0" 
+                            <div v-if="pot.is_collaborator || pot.collaborator_count > 0"
                                 class="absolute top-2 left-2 bg-blue-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md shadow-sm">
                                 <i class="fa fa-users mr-0.5"></i> 共同照料中
                             </div>
@@ -383,9 +403,11 @@
                     <h3 class="text-2xl font-black text-gray-800 mb-2">欢迎回来</h3>
                     <p class="text-gray-400 text-sm mb-8">登录以同步您的花盆数据</p>
                     <form @submit.prevent="handleLogin" class="space-y-4">
-                        <input type="email" id="loginEmail" name="loginEmail" autocomplete="username" v-model="loginForm.email" placeholder="电子邮箱" required
+                        <input type="email" id="loginEmail" name="loginEmail" autocomplete="username"
+                            v-model="loginForm.email" placeholder="电子邮箱" required
                             class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
-                        <input type="password" id="loginPassword" name="loginPassword" autocomplete="current-password" v-model="loginForm.password" placeholder="密码" required
+                        <input type="password" id="loginPassword" name="loginPassword" autocomplete="current-password"
+                            v-model="loginForm.password" placeholder="密码" required
                             class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
                         <button type="submit" :disabled="isAuthLoading || !isLoginValid"
                             class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
@@ -413,14 +435,19 @@
                     <h3 class="text-2xl font-black text-gray-800 mb-2">创建账号</h3>
                     <p class="text-gray-400 text-sm mb-8">开始您的智能养花之旅</p>
                     <form @submit.prevent="handleRegister" class="space-y-4">
-                        <input type="email" id="registerEmail" name="registerEmail" autocomplete="email" v-model="registerForm.email" placeholder="电子邮箱" required
+                        <input type="email" id="registerEmail" name="registerEmail" autocomplete="email"
+                            v-model="registerForm.email" placeholder="电子邮箱" required
                             class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
-                        <input type="text" id="registerNickname" name="registerNickname" autocomplete="nickname" v-model="registerForm.displayName" placeholder="昵称"
+                        <input type="text" id="registerNickname" name="registerNickname" autocomplete="nickname"
+                            v-model="registerForm.displayName" placeholder="昵称"
                             class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
-                        <input type="password" id="registerPassword" name="registerPassword" autocomplete="new-password" v-model="registerForm.password" placeholder="密码 (至少8位)" required
+                        <input type="password" id="registerPassword" name="registerPassword" autocomplete="new-password"
+                            v-model="registerForm.password" placeholder="密码 (至少8位)" required
                             class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
                         <div class="relative">
-                            <input type="password" id="registerConfirmPassword" name="registerConfirmPassword" autocomplete="new-password" v-model="registerForm.confirmPassword" placeholder="确认密码" required
+                            <input type="password" id="registerConfirmPassword" name="registerConfirmPassword"
+                                autocomplete="new-password" v-model="registerForm.confirmPassword" placeholder="确认密码"
+                                required
                                 class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
                             <div v-if="registerForm.password && registerForm.confirmPassword"
                                 class="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -455,7 +482,8 @@
                     <h3 class="text-2xl font-black text-gray-800 mb-2">重置您的密码</h3>
                     <p class="text-gray-400 text-sm mb-8">我们将向您的邮箱发送重置链接</p>
                     <form @submit.prevent="handleForgotPassword" class="space-y-4">
-                        <input type="email" name="email" autocomplete="email" v-model="loginForm.email" placeholder="电子邮箱" required
+                        <input type="email" name="email" autocomplete="email" v-model="loginForm.email"
+                            placeholder="电子邮箱" required
                             class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
                         <p v-if="loginForm.email && !isForgotPasswordEmailValid" class="text-red-500 text-xs px-4">
                             请输入正确的邮箱地址
@@ -475,7 +503,7 @@
         <!-- 消息中心弹窗 -->
         <div v-if="showMessageCenter" class="fixed inset-0 z-[70] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showMessageCenter = false"></div>
-            <div class="relative bg-white w-full max-w-[500px] rounded-3xl shadow-2xl overflow-hidden animate-slide-up" 
+            <div class="relative bg-white w-full max-w-[500px] rounded-3xl shadow-2xl overflow-hidden animate-slide-up"
                 style="display: flex; flex-direction: column; max-height: 80vh;">
                 <!-- 头部 -->
                 <div class="px-6 py-5 border-b border-gray-50 flex items-center justify-between shrink-0">
@@ -492,17 +520,17 @@
                         <div class="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-lg shadow-sm transition-all duration-300 ease-out z-0"
                             :style="{ left: messageTab === 'all' ? '4px' : 'calc(50% + 0px)' }">
                         </div>
-                        
-                        <button @click="messageTab = 'all'" 
+
+                        <button @click="messageTab = 'all'"
                             class="flex-1 py-1.5 text-xs font-bold transition-all relative z-10"
                             :class="messageTab === 'all' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'">
                             全部
                         </button>
-                        <button @click="messageTab = 'unread'" 
+                        <button @click="messageTab = 'unread'"
                             class="flex-1 py-1.5 text-xs font-bold transition-all relative z-10 flex items-center justify-center gap-1.5"
                             :class="messageTab === 'unread' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'">
                             未读
-                            <span v-if="unreadCount > 0" 
+                            <span v-if="unreadCount > 0"
                                 class="bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center aspect-square flex-none leading-none shadow-sm font-black transform translate-y-[0.5px]">
                                 {{ unreadCount > 9 ? '9+' : unreadCount }}
                             </span>
@@ -517,53 +545,60 @@
                         <div class="spinner mb-4"></div>
                         <p class="text-gray-400 text-xs">正在获取消息...</p>
                     </div>
-                    <div v-else-if="filteredMessages.length === 0" class="flex flex-col items-center justify-center py-20 text-center">
-                        <p class="text-gray-400 font-medium tracking-wide">{{ messageTab === 'unread' ? '暂时没有未读消息' : '目前没有任何消息' }}</p>
+                    <div v-else-if="filteredMessages.length === 0"
+                        class="flex flex-col items-center justify-center py-20 text-center">
+                        <p class="text-gray-400 font-medium tracking-wide">{{ messageTab === 'unread' ? '暂时没有未读消息' :
+                            '目前没有任何消息' }}</p>
                     </div>
-                    
-                    <div v-else v-for="msg in filteredMessages" :key="msg.id" 
+
+                    <div v-else v-for="msg in filteredMessages" :key="msg.id"
                         class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3 transition-all active:scale-[0.98]"
                         :class="msg.status === 'unread' ? 'ring-1 ring-blue-100 bg-blue-50/20' : 'opacity-80'"
                         @click="markMessageRead(msg)">
-                        
+
                         <div class="flex justify-between items-start">
                             <div class="flex items-center gap-2">
                                 <!-- 未读标识圆点 -->
-                                <div v-if="msg.status === 'unread'" class="w-2 h-2 bg-blue-500 rounded-full shrink-0"></div>
+                                <div v-if="msg.status === 'unread'" class="w-2 h-2 bg-blue-500 rounded-full shrink-0">
+                                </div>
                                 <i :class="{
                                     'fa-exchange-alt text-blue-500': msg.type === 'transfer_request',
                                     'fa-users text-green-500': msg.type === 'collab_invite',
                                     'fa-info-circle text-gray-400': msg.type === 'system_info'
                                 }" class="fa text-xs"></i>
-                                <span class="text-sm text-gray-800" :class="msg.status === 'unread' ? 'font-black' : 'font-medium'">
+                                <span class="text-sm text-gray-800"
+                                    :class="msg.status === 'unread' ? 'font-black' : 'font-medium'">
                                     {{ msg.title }}
                                 </span>
                             </div>
                             <span class="text-[9px] text-gray-400 font-medium">{{ formatDate(msg.created_at) }}</span>
                         </div>
-                        
-                        <p class="text-xs leading-relaxed" :class="msg.status === 'unread' ? 'text-gray-700' : 'text-gray-500'">
+
+                        <p class="text-xs leading-relaxed"
+                            :class="msg.status === 'unread' ? 'text-gray-700' : 'text-gray-500'">
                             {{ msg.content }}
                         </p>
-                        
+
                         <!-- 针对移交请求的操作按钮 -->
-                        <div v-if="msg.type === 'transfer_request' && msg.status !== 'processed'" class="flex gap-2 mt-1">
-                            <button @click.stop="handleMessageAction(msg, 'reject')" 
+                        <div v-if="msg.type === 'transfer_request' && msg.status !== 'processed'"
+                            class="flex gap-2 mt-1">
+                            <button @click.stop="handleMessageAction(msg, 'reject')"
                                 class="flex-1 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-xs font-bold hover:bg-gray-200 transition">
                                 拒绝
                             </button>
-                            <button @click.stop="handleMessageAction(msg, 'accept')" 
+                            <button @click.stop="handleMessageAction(msg, 'accept')"
                                 class="flex-1 py-2.5 bg-green-500 text-white rounded-xl text-xs font-bold shadow-sm shadow-green-100 hover:bg-green-600 transition">
                                 接受并接管
                             </button>
                         </div>
-                        <div v-else-if="msg.status === 'processed' || msg.status === 'read'" class="flex justify-between items-center">
+                        <div v-else-if="msg.status === 'processed' || msg.status === 'read'"
+                            class="flex justify-between items-center">
                             <!-- 已读消息可以删除 -->
-                            <button @click.stop="deleteMessage(msg.id)" 
+                            <button @click.stop="deleteMessage(msg.id)"
                                 class="w-7 h-7 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all">
                                 <i class="fa fa-trash-alt text-[10px]"></i>
                             </button>
-                            <div class="text-[9px] px-2 py-0.5 rounded-full" 
+                            <div class="text-[9px] px-2 py-0.5 rounded-full"
                                 :class="msg.status === 'processed' ? 'bg-gray-100 text-gray-400' : 'bg-gray-50 text-gray-400'">
                                 {{ msg.status === 'processed' ? '已处理' : '已读' }}
                             </div>
@@ -572,16 +607,16 @@
                 </div>
 
                 <!-- 底部：仅在有可执行动作时显示 -->
-                <div v-if="messagesList.some(m => m.status === 'unread') || (messageTab === 'all' && messagesList.some(m => m.status !== 'unread'))" 
+                <div v-if="messagesList.some(m => m.status === 'unread') || (messageTab === 'all' && messagesList.some(m => m.status !== 'unread'))"
                     class="p-4 border-t border-gray-50 bg-white shrink-0 flex gap-3">
-                    <button v-if="messagesList.some(m => m.status === 'unread')" 
-                        @click="apiClient.markAllMessagesRead().then(() => { fetchMessages(); fetchUnreadCount(); })" 
+                    <button v-if="messagesList.some(m => m.status === 'unread')"
+                        @click="apiClient.markAllMessagesRead().then(() => { fetchMessages(); fetchUnreadCount(); })"
                         class="flex-1 py-3 text-sm text-blue-500 font-bold hover:bg-blue-50 rounded-xl transition">
                         全部标记为已读
                     </button>
                     <!-- 未读标签页下不显示清理已读按钮 -->
-                    <button v-if="messageTab === 'all' && messagesList.some(m => m.status !== 'unread')" 
-                        @click="clearReadMessages" 
+                    <button v-if="messageTab === 'all' && messagesList.some(m => m.status !== 'unread')"
+                        @click="clearReadMessages"
                         class="flex-1 py-3 text-sm text-gray-400 font-bold hover:bg-gray-100 rounded-xl transition">
                         清理已读
                     </button>
@@ -700,7 +735,7 @@
                     if (isLoggedIn.value) {
                         fetchUnreadCount();
                     }
-                    
+
                     // 监听登录状态变化，登录后立即刷新未读数
                     watch(isLoggedIn, (val) => {
                         if (val) fetchUnreadCount();
@@ -715,7 +750,7 @@
                             unreadCount.value = Number(res.count) || 0;
                             console.log('Unread messages count:', unreadCount.value);
                         }
-                    } catch (e) { 
+                    } catch (e) {
                         console.error('Failed to fetch unread count:', e);
                     }
                 };
@@ -1003,7 +1038,7 @@
                 const deleteSelectedPots = async () => {
                     const toDelete = pots.value.filter(p => p.selected && !p.is_collaborator);
                     const collabSelected = pots.value.filter(p => p.selected && p.is_collaborator);
-                    
+
                     let msg = `确定要删除选中的 ${toDelete.length} 个花盆吗？`;
                     if (collabSelected.length > 0) {
                         msg += `\n(已自动排除 ${collabSelected.length} 个共同照料中的花盆)`;

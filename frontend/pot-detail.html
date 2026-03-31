@@ -5,6 +5,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>花盆详情 - My Flower Pots</title>
+    <meta name="description" content="正在查看花盆详情，记录每一株植物的成长轨迹。">
+    <meta name="theme-color" content="#4CAF50">
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="assets/images/icons/pots.png">
+
+    <!-- Open Graph / WeChat -->
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="分享一盆植物给你 - 我的花盆">
+    <meta property="og:description" content="记录成长的点滴，与好友共同享受养花的乐趣。">
+    <meta property="og:image" content="https://img.kaside365.com/assets/images/default-pot.png"> <!-- 微信建议使用绝对路径 -->
 
     <style>
         [v-cloak] {
@@ -198,8 +209,46 @@
                 </div>
             </div>
 
+            <!-- 分享链接失效提示 -->
+            <div v-if="tokenInvalid && !isLoading" class="container mt-8 animate-fade-in">
+                <div class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
+                    <!-- 顶部渐变装饰条 -->
+                    <div class="h-1.5 w-full bg-gradient-to-r from-green-300 via-emerald-400 to-teal-300"></div>
+                    <div class="p-10 flex flex-col items-center text-center">
+                        <!-- 图标 -->
+                        <div class="relative mb-6">
+                            <div
+                                class="w-24 h-24 rounded-full bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center text-5xl shadow-inner">
+                                🪴
+                            </div>
+                            <div
+                                class="absolute -bottom-1 -right-1 w-9 h-9 rounded-full bg-red-100 flex items-center justify-center border-2 border-white shadow-sm">
+                                <i class="fa fa-unlink text-red-400 text-sm"></i>
+                            </div>
+                        </div>
+                        <!-- 标题 -->
+                        <h2 class="text-xl font-black text-gray-800 mb-2">分享链接已失效</h2>
+                        <p class="text-sm text-gray-400 leading-relaxed mb-1 max-w-xs font-medium">
+                            该花盆的分享链接不存在或已被主人关闭。
+                        </p>
+                        <p class="text-xs text-gray-300 font-bold mb-8">请联系分享者重新获取最新链接。</p>
+                        <!-- 操作按钮 -->
+                        <div class="flex flex-col gap-3 w-full max-w-xs">
+                            <button @click="window.location.href='index.html'"
+                                class="w-full py-3.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl text-sm font-black shadow-lg shadow-green-100 active:scale-95 transition flex items-center justify-center gap-2">
+                                <i class="fa fa-home"></i> 回到首页
+                            </button>
+                            <button @click="window.location.href='index.html#create'"
+                                class="w-full py-3.5 bg-gray-50 text-gray-500 rounded-2xl text-sm font-bold active:scale-95 transition border border-gray-100 flex items-center justify-center gap-2">
+                                <i class="fa fa-seedling text-green-400"></i> 我也要种花
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 错误提示 -->
-            <div v-if="error" class="error-alert container mt-4">
+            <div v-if="error && !tokenInvalid" class="error-alert container mt-4">
                 <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
                     <i class="fa fa-exclamation-triangle mr-2"></i>
                     <span>{{ error }}</span>
@@ -446,7 +495,7 @@
                             </div>
                             <i class="fa fa-chevron-right text-[10px] text-gray-200"></i>
                         </div>
-                        <button v-if="careRecords?.length > 0" @click="viewAllRecords"
+                        <button v-if="!isReadOnly && careRecords?.length > 5" @click="viewAllRecords"
                             class="w-full py-4 text-[10px] text-gray-300 font-black uppercase tracking-widest bg-gray-50/50 border-t border-gray-50 flex items-center justify-center gap-2">
                             查看全部养护记录 ({{ careRecords?.length || 0 }}) <i class="fa fa-history"></i>
                         </button>
@@ -517,9 +566,7 @@
                         class="w-full py-4 rounded-2xl text-red-500 font-black text-sm bg-red-50 border border-red-100 hover:bg-red-100 transition active:scale-95">
                         <i class="fa fa-trash-alt mr-2"></i> 删除此花盆
                     </button>
-                    <p class="text-[10px] text-gray-300 text-center uppercase tracking-widest font-black">
-                        ID: {{ potId }} • 更新于 {{ formatDate(new Date().toISOString()) }}
-                    </p>
+
                 </div>
 
                 <!-- 访客转换栏 (仅外部访客可见) -->
@@ -634,7 +681,7 @@
                                 </button>
                                 <button @click="copyShareLink"
                                     class="bg-gray-100 text-gray-800 py-4 rounded-2xl text-sm font-black active:scale-95 transition">
-                                    复制链接
+                                    分享链接给好友
                                 </button>
                             </div>
                         </div>
@@ -954,7 +1001,7 @@
             <div v-if="showTransferModal"
                 class="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showTransferModal = false"></div>
-                 <div
+                <div
                     class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
                     <!-- 固定头部 -->
                     <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
@@ -1151,6 +1198,7 @@
             setup() {
                 const isLoading = ref(true);
                 const error = ref(null);
+                const tokenInvalid = ref(false);
                 const potId = ref(null);
                 const shareToken = ref(null);
                 const pot = ref(null);
@@ -1268,13 +1316,33 @@
                 // 核心权限逻辑
                 // 确保 user_id 存在且匹配，防止 undefined === undefined 的误判
                 const isOwner = computed(() => {
-                    return pot.value && pot.value.user_id && 
-                           currentUser.value && currentUser.value.id && 
-                           pot.value.user_id === currentUser.value.id;
+                    return pot.value && pot.value.user_id &&
+                        currentUser.value && currentUser.value.id &&
+                        pot.value.user_id === currentUser.value.id;
                 });
                 const isReadOnly = computed(() => !!shareToken.value && !isOwner.value);
                 const isPublicVisitor = computed(() => !!shareToken.value && !currentUser.value);
                 const showOperatorName = computed(() => pot.value && (pot.value.is_collaborator || pot.value.collaborator_count > 0));
+
+                const syncUrlWithShareStatus = () => {
+                    if (!isOwner.value || !pot.value) return;
+                    const url = new URL(window.location.href);
+                    if (pot.value.is_shared && pot.value.share_token) {
+                        // 开启了分享：确保 URL 使用 token 模式，方便微信抓取分享
+                        if (url.searchParams.get('token') !== pot.value.share_token) {
+                            url.searchParams.set('token', pot.value.share_token);
+                            url.searchParams.delete('id');
+                            window.history.replaceState({}, '', url.toString());
+                        }
+                    } else {
+                        // 关闭了分享：回退到私有 id 模式
+                        if (!url.searchParams.has('id')) {
+                            url.searchParams.set('id', pot.value.id);
+                            url.searchParams.delete('token');
+                            window.history.replaceState({}, '', url.toString());
+                        }
+                    }
+                };
 
                 const init = async () => {
                     const urlParams = new URLSearchParams(window.location.search);
@@ -1322,9 +1390,11 @@
 
                             loadPlantInfo().catch(err => console.warn('Plant info load error:', err));
                         }
-                    } catch (err) {
                         error.value = '加载失败: ' + err.message;
                         isLoading.value = false;
+                    } finally {
+                        // 无论成功失败，尝试同步一次 URL（如果是主人且已加载 pot）
+                        syncUrlWithShareStatus();
                     }
                 };
 
@@ -1334,13 +1404,21 @@
                 };
 
                 const loadPublicPotDetail = async () => {
-                    const res = await apiClient.getPublicPotDetail(shareToken.value);
-                    if (res.success) {
-                        pot.value = res.data.pot;
-                        potId.value = pot.value.id;
-                        // 公开分享接口已包含脱敏后的记录，直接使用
-                        if (res.data.careRecords) careRecords.value = res.data.careRecords;
-                        if (res.data.timelines) timelineRecords.value = res.data.timelines;
+                    try {
+                        const res = await apiClient.getPublicPotDetail(shareToken.value);
+                        if (res.success) {
+                            pot.value = res.data.pot;
+                            potId.value = pot.value.id;
+                            // 公开分享接口已包含脱敏后的记录，直接使用
+                            if (res.data.careRecords) careRecords.value = res.data.careRecords;
+                            if (res.data.timelines) timelineRecords.value = res.data.timelines;
+                        } else {
+                            tokenInvalid.value = true;
+                        }
+                    } catch (err) {
+                        // 404 = 分享不存在，403 = 分享已关闭，其他均视为失效
+                        tokenInvalid.value = true;
+                        throw err; // 继续向上抛出，让 init 的 catch 停止 isLoading
                     }
                 };
 
@@ -1672,16 +1750,43 @@
 
                 const triggerFileInput = () => fileInput.value.click();
 
-                const onFilesSelected = (e) => {
+                // 图片压缩：最长边 1920px，JPEG quality 0.85，GIF 不压缩
+                const compressImage = (file, maxSide = 1920, quality = 0.85) => {
+                    if (file.type === 'image/gif') return Promise.resolve(file);
+                    return new Promise((resolve) => {
+                        const img = new Image();
+                        const url = URL.createObjectURL(file);
+                        img.onload = () => {
+                            URL.revokeObjectURL(url);
+                            let { width, height } = img;
+                            if (width > maxSide || height > maxSide) {
+                                if (width >= height) { height = Math.round(height * maxSide / width); width = maxSide; }
+                                else { width = Math.round(width * maxSide / height); height = maxSide; }
+                            }
+                            const canvas = document.createElement('canvas');
+                            canvas.width = width;
+                            canvas.height = height;
+                            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                            canvas.toBlob((blob) => {
+                                resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
+                            }, 'image/jpeg', quality);
+                        };
+                        img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+                        img.src = url;
+                    });
+                };
+
+                const onFilesSelected = async (e) => {
                     const files = Array.from(e.target.files);
                     const remaining = 9 - newTimeline.tempImages.length;
-                    files.slice(0, remaining).forEach(file => {
+                    for (const file of files.slice(0, remaining)) {
+                        const compressed = await compressImage(file);
                         const reader = new FileReader();
                         reader.onload = (ev) => {
-                            newTimeline.tempImages.push({ file, preview: ev.target.result });
+                            newTimeline.tempImages.push({ file: compressed, preview: ev.target.result });
                         };
-                        reader.readAsDataURL(file);
-                    });
+                        reader.readAsDataURL(compressed);
+                    }
                     e.target.value = '';
                 };
 
@@ -1864,10 +1969,23 @@
                 // QR Code 实例 (非响应式)
                 let qrCode = null;
 
+                const getPublicShareUrl = () => {
+                    if (!pot.value?.share_token) return '';
+                    const config = window.APP_CONFIG || {};
+                    const frontendConfig = config.frontend || { prodUrl: 'https://app.kaside365.com', devUrl: window.location.origin };
+
+                    const baseUrl = config.isDevelopment ? frontendConfig.devUrl : frontendConfig.prodUrl;
+
+                    // 确保 baseUrl 不以 / 结尾，且 pathname 是固定的 /pot-detail.html
+                    const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+                    return `${cleanBaseUrl}/pot-detail.html?token=${pot.value.share_token}`;
+                };
+
                 const generateQRCode = () => {
                     if (!pot.value) return;
 
-                    const shareUrl = `${window.location.origin}${window.location.pathname}?token=${pot.value.share_token}`;
+                    const shareUrl = getPublicShareUrl();
+                    if (!shareUrl) return;
 
                     // 初始化或更新 QR Code
                     const options = {
@@ -1921,6 +2039,8 @@
                         }
                     } catch (e) {
                         alert('操作失败: ' + e.message);
+                    } finally {
+                        syncUrlWithShareStatus();
                     }
                 };
 
@@ -1971,11 +2091,65 @@
                     }
                 };
 
-                const copyShareLink = () => {
-                    const shareUrl = `${window.location.origin}${window.location.pathname}?token=${pot.value.share_token}`;
-                    navigator.clipboard.writeText(shareUrl).then(() => {
-                        alert('链接已复制到剪贴板');
-                    });
+                const copyShareLink = async () => {
+                    const shareUrl = getPublicShareUrl();
+                    if (!shareUrl) {
+                        alert('分享链接生成失败，请稍后重试');
+                        return;
+                    }
+                    const shareData = {
+                        title: `分享一盆可爱的植物: ${pot.value.name}`,
+                        text: `我正在 My Flower Pots 记录这盆植物的成长，快来看看吧！\n备注: ${pot.value.note || '暂无'}`,
+                        url: shareUrl
+                    };
+
+                    const ua = navigator.userAgent;
+                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+                    const isWeChat = /MicroMessenger/i.test(ua);
+
+                    // PC 端处理逻辑
+                    if (!isMobile) {
+                        try {
+                            await navigator.clipboard.writeText(shareUrl);
+                            alert('分享链接已复制到剪贴板，快发送给好友吧！');
+                        } catch (err) {
+                            console.error('复制失败:', err);
+                            alert('分享链接: ' + shareUrl);
+                        }
+                        return;
+                    }
+
+                    // 移动端处理逻辑
+                    // 1. 微信环境下 (跳过 navigator.share 以防中断)
+                    if (isWeChat) {
+                        try {
+                            await navigator.clipboard.writeText(shareUrl);
+                            alert('链接已复制！请点击微信右上角“...”选择“发送给朋友”进行分享。');
+                        } catch (err) {
+                            alert('分享链接: ' + shareUrl);
+                        }
+                        return;
+                    }
+
+                    // 2. 普通移动浏览器且支持原生分享
+                    if (navigator.share) {
+                        try {
+                            await navigator.share(shareData);
+                            console.log('原生分享成功');
+                            return;
+                        } catch (err) {
+                            console.log('原生分享失败或取消:', err);
+                            if (err.name === 'AbortError') return;
+                        }
+                    }
+
+                    // 3. 移动端兜底：复制链接
+                    try {
+                        await navigator.clipboard.writeText(shareUrl);
+                        alert('分享链接已复制');
+                    } catch (err) {
+                        alert('分享链接: ' + shareUrl);
+                    }
                 };
 
                 // 协作管理
@@ -2107,7 +2281,7 @@
                 });
 
                 return {
-                    isLoading, error, pot, potId, isOwner, isReadOnly, isPublicVisitor, showOperatorName, matchedPlantName, plantInfo,
+                    isLoading, error, tokenInvalid, pot, potId, isOwner, isReadOnly, isPublicVisitor, showOperatorName, matchedPlantName, plantInfo,
                     potStats, careRecords, timelineRecords, handleImageError, showActionMenu,
                     showAddTimelineModal, showShareModal, isSavingTimeline, fileInput,
                     previewImages, previewIndex, galleryDragOffset, galleryIsDragging,
