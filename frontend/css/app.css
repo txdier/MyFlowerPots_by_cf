@@ -15,10 +15,10 @@ body {
         sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background-color: #ebedef;
-    /* 稍微加深底色以形成对比 */
+    background-color: #f9fafb;
     color: #333;
     line-height: 1.6;
+    overscroll-behavior-y: none;
 }
 
 #app {

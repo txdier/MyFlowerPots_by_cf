@@ -161,6 +161,28 @@ CREATE TABLE IF NOT EXISTS page_visits_daily (
     PRIMARY KEY (path, visit_date)
 );
 
+-- 11. 支持邮件主表
+CREATE TABLE IF NOT EXISTS support_emails (
+  id          TEXT PRIMARY KEY,
+  from_addr   TEXT NOT NULL,
+  to_addr     TEXT NOT NULL,
+  subject     TEXT NOT NULL,
+  text_body   TEXT NOT NULL,
+  html_body   TEXT,
+  attachments TEXT,
+  received_at TEXT NOT NULL,
+  read        INTEGER NOT NULL DEFAULT 0,
+  replied     INTEGER NOT NULL DEFAULT 0
+);
+
+-- 12. 支持邮件回复记录表
+CREATE TABLE IF NOT EXISTS support_replies (
+  id       TEXT PRIMARY KEY,
+  email_id TEXT NOT NULL REFERENCES support_emails(id) ON DELETE CASCADE,
+  body     TEXT NOT NULL,
+  sent_at  TEXT NOT NULL
+);
+
 -- ============================================
 -- 索引优化
 -- ============================================
@@ -197,3 +219,8 @@ CREATE INDEX IF NOT EXISTS idx_page_visits_daily_date ON page_visits_daily(visit
 -- 消息索引
 CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id);
 CREATE INDEX IF NOT EXISTS idx_messages_status ON messages(status);
+
+-- 支持邮件索引
+CREATE INDEX IF NOT EXISTS idx_support_emails_received ON support_emails(received_at DESC);
+CREATE INDEX IF NOT EXISTS idx_support_emails_read     ON support_emails(read);
+CREATE INDEX IF NOT EXISTS idx_support_replies_email   ON support_replies(email_id);

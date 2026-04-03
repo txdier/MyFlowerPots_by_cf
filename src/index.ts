@@ -14,6 +14,8 @@ import { handleShareRequest } from './api/share';
 import { handleCollaboratorsRequest } from './api/collaborators';
 import { handleTransferRequest } from './api/transfer';
 import { handleMessagesRequest } from './api/messages';
+import { handleSupportRequest } from './api/support';
+import { parseEmail } from './utils/email-parser';
 import { serveStatic, serveStaticDev } from './static/server';
 import { recordPageVisit } from './api/analytics';
 
@@ -59,6 +61,11 @@ export default {
       // 认证相关API
       if (path.startsWith('/api/auth/')) {
         return handleAuthRequest(request, env, path, url, userId);
+      }
+
+      // 支持收件箱API（管理员专用，需在 handleAdminRequest 之前拦截）
+      if (path.startsWith('/api/admin/support/')) {
+        return handleSupportRequest(request, env, path, url);
       }
 
       // 管理员专用API
@@ -168,5 +175,61 @@ export default {
 
     console.log('无法处理请求，返回404，路径:', path);
     return errorResponse('Not Found', 404);
-  }
+  },
+
+  // ── 接收 Cloudflare Email Routing 转发的邮件 ───────────────────────────
+  async email(message: ForwardableEmailMessage, env: any): Promise<void> {
+    try {
+      const raw = await new Response(message.raw).arrayBuffer();
+      const parsed = await parseEmail(raw);
+
+      const id = crypto.randomUUID();
+      
+      const attachmentMeta = [];
+      const bucketExists = !!env.STATIC_BUCKET;
+      
+      console.log(`正在处理新邮件: ${parsed.subject}, 原始附件数: ${parsed.attachments?.length || 0}, R2绑定: ${bucketExists}`);
+
+      if (parsed.attachments && parsed.attachments.length > 0 && bucketExists) {
+        for (const att of parsed.attachments) {
+          const r2Key = `support-attachments/${id}/${att.filename}`;
+          console.log(`正在上传附件至 R2: ${r2Key} (${att.size} bytes)`);
+          
+          // Upload to R2
+          await env.STATIC_BUCKET.put(r2Key, att.content, {
+            httpMetadata: { contentType: att.mimeType }
+          });
+          
+          attachmentMeta.push({
+            filename: att.filename,
+            mimeType: att.mimeType,
+            size: att.size,
+            r2Key: r2Key
+          });
+        }
+      }
+      
+      const attachmentsJson = attachmentMeta.length > 0 ? JSON.stringify(attachmentMeta) : null;
+
+      await env.DB.prepare(
+        `INSERT INTO support_emails (id, from_addr, to_addr, subject, text_body, html_body, received_at, read, replied, attachments)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?)`
+      )
+        .bind(
+          id,
+          message.from,
+          message.to,
+          parsed.subject,
+          parsed.textBody,
+          parsed.htmlBody ?? null,
+          new Date().toISOString(),
+          attachmentsJson
+        )
+        .run();
+
+      console.log(`支持邮件已接收并存储: ${id} — ${parsed.subject} (成功保存附件: ${attachmentMeta.length})`);
+    } catch (err) {
+      console.error('处理收到的邮件时出错:', err);
+    }
+  },
 };
