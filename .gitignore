@@ -21,6 +21,7 @@ frontend/js/config.js
 # Caches & Temp
 .wrangler/
 .upload-cache.json
+Temp/
 
 # Project Specific (Built & Redundant)
 frontend/css/tailwind-built.css

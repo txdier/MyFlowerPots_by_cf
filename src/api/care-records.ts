@@ -23,6 +23,11 @@ export async function handleCareRecordsRequest(
     return handleGetCareRecords(request, env, potId, token);
   }
 
+  // 5️⃣ 批量创建养护记录: POST /api/care-records/batch
+  if (request.method === 'POST' && path === '/api/care-records/batch') {
+    return handleBatchCreateCareRecord(request, env, token);
+  }
+
   // 2️⃣ 创建养护记录: POST /api/care-records
   if (request.method === 'POST' && path === '/api/care-records') {
     return handleCreateCareRecord(request, env, token);
@@ -239,6 +244,65 @@ async function handleCreateCareRecord(request: Request, env: any, token: string 
   } catch (error) {
     console.error('Create care record error:', error);
     return errorResponse('Failed to create care record', 500);
+  }
+}
+
+async function handleBatchCreateCareRecord(request: Request, env: any, token: string | null): Promise<Response> {
+  try {
+    const body: any = await request.json();
+    const { potIds, type, action, careDate, description } = body;
+
+    if (!potIds || !Array.isArray(potIds) || potIds.length === 0) {
+      return errorResponse('Missing potIds', 400);
+    }
+    if (!type || !action || !careDate) {
+      return errorResponse('Missing required fields: type, action, careDate', 400);
+    }
+
+    // 安全校验：筛选出 potIds 中当前用户拥有或协作的花盆
+    const placeholders = potIds.map(() => '?').join(', ');
+    const { results: validPots } = await env.DB
+      .prepare(`
+        SELECT id FROM pots WHERE id IN (${placeholders}) AND user_id = ?
+        UNION
+        SELECT pot_id AS id FROM pot_collaborators WHERE pot_id IN (${placeholders}) AND user_id = ?
+      `)
+      .bind(...potIds, token, ...potIds, token)
+      .all();
+
+    const validPotIds = validPots.map((p: any) => p.id);
+
+    if (validPotIds.length === 0) {
+      return errorResponse('No accessible pots found in the given IDs', 403);
+    }
+
+    const now = new Date().toISOString();
+    const statements = [];
+
+    for (const potId of validPotIds) {
+      statements.push(
+        env.DB.prepare(`
+          INSERT INTO care_records (pot_id, type, action, care_date, description, created_at, user_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).bind(potId, type, action, careDate, description || null, now, token)
+      );
+      statements.push(
+        env.DB.prepare('UPDATE pots SET last_care = ?, last_care_action = ? WHERE id = ?')
+          .bind(careDate, action, potId)
+      );
+    }
+
+    await env.DB.batch(statements);
+
+    return jsonResponse({
+      success: true,
+      count: validPotIds.length,
+      skipped: potIds.length - validPotIds.length
+    });
+
+  } catch (error) {
+    console.error('Batch create care record error:', error);
+    return errorResponse('Failed to batch create care records', 500);
   }
 }
 

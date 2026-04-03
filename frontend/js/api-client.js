@@ -425,6 +425,13 @@ class APIClient {
         });
     }
 
+    async batchCreateCareRecord(data) {
+        return this.request('/api/care-records/batch', {
+            method: 'POST',
+            body: data
+        });
+    }
+
     // 养护计划API
     async getCareSchedules(potId = null) {
         if (potId) {

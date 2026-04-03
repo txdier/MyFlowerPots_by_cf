@@ -373,16 +373,30 @@
         <div v-if="pots.length > 0"
             class="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[650px] z-40 px-6 pointer-events-none">
             <div class="flex justify-center pointer-events-auto">
-                <button v-if="isEditMode && selectedCount > 0" @click="deleteSelectedPots"
-                    class="bg-red-500 text-white px-8 py-4 rounded-3xl shadow-xl shadow-red-200 flex items-center gap-2 font-bold transition-all active:scale-95 animate-slide-up">
-                    <i class="fa fa-trash-alt"></i>
-                    <span>删除选中 ({{ selectedCount }})</span>
-                </button>
-                <button v-else-if="!isEditMode" @click="goAddPot"
+                <!-- 正常模式：添加花盆 -->
+                <button v-if="!isEditMode" @click="goAddPot"
                     class="bg-green-500 text-white px-8 py-4 rounded-3xl shadow-xl shadow-green-200 flex items-center gap-2 font-bold transition-all active:scale-95">
                     <i class="fa fa-plus"></i>
                     <span>添加花盆</span>
                 </button>
+                <!-- 管理模式（有选中）：养护 + 删除 双操作 -->
+                <div v-else-if="selectedCount > 0" class="flex gap-3 animate-slide-up">
+                    <button @click="openBatchCareModal"
+                        class="bg-blue-500 text-white px-6 py-4 rounded-3xl shadow-xl shadow-blue-200 flex items-center gap-2 font-bold transition-all active:scale-95">
+                        <i class="fa fa-tint"></i>
+                        <span>养护 ({{ selectedCount }})</span>
+                    </button>
+                    <button @click="deleteSelectedPots"
+                        class="bg-red-500 text-white px-6 py-4 rounded-3xl shadow-xl shadow-red-200 flex items-center gap-2 font-bold transition-all active:scale-95">
+                        <i class="fa fa-trash-alt"></i>
+                        <span>删除 ({{ selectedCount }})</span>
+                    </button>
+                </div>
+                <!-- 管理模式（无选中）：提示文字 -->
+                <div v-else
+                    class="bg-white/90 backdrop-blur-sm text-gray-400 text-sm px-6 py-3 rounded-3xl shadow-sm border border-gray-100 animate-fade-in">
+                    请选择花盆以执行批量操作
+                </div>
             </div>
         </div>
 
@@ -623,6 +637,77 @@
                 </div>
             </div>
         </div>
+
+        <!-- 批量养护弹窗 -->
+        <div v-if="showBatchCareModal" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showBatchCareModal = false"></div>
+            <div class="relative bg-white w-full max-w-[500px] rounded-3xl shadow-2xl overflow-hidden animate-slide-up">
+                <!-- 标题栏 -->
+                <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50">
+                    <div>
+                        <h3 class="text-xl font-black text-gray-800">批量养护</h3>
+                        <p class="text-xs text-gray-400 mt-0.5">将对选中的 {{ selectedCount }} 个花盆记录同一养护动作</p>
+                    </div>
+                    <button @click="showBatchCareModal = false" class="text-gray-400 hover:text-gray-600 transition">
+                        <i class="fa fa-times text-xl"></i>
+                    </button>
+                </div>
+                <!-- 内容区 -->
+                <div class="p-6 space-y-5">
+                    <!-- 养护类型选择 -->
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-3">养护类型</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button @click="selectBatchCareType('water', '浇水')"
+                                class="py-3 rounded-2xl text-sm font-bold transition-all active:scale-95 border-2"
+                                :class="batchCareForm.type === 'water' ? 'bg-blue-500 text-white border-blue-500 shadow-md shadow-blue-100' : 'bg-white text-gray-600 border-gray-100 hover:border-blue-200'">
+                                <i class="fa fa-tint block text-lg mb-1"></i>浇水
+                            </button>
+                            <button @click="selectBatchCareType('fertilize', '施肥')"
+                                class="py-3 rounded-2xl text-sm font-bold transition-all active:scale-95 border-2"
+                                :class="batchCareForm.type === 'fertilize' ? 'bg-green-500 text-white border-green-500 shadow-md shadow-green-100' : 'bg-white text-gray-600 border-gray-100 hover:border-green-200'">
+                                <i class="fa fa-seedling block text-lg mb-1"></i>施肥
+                            </button>
+                            <button @click="selectBatchCareType('custom', '')"
+                                class="py-3 rounded-2xl text-sm font-bold transition-all active:scale-95 border-2"
+                                :class="batchCareForm.type === 'custom' ? 'bg-purple-500 text-white border-purple-500 shadow-md shadow-purple-100' : 'bg-white text-gray-600 border-gray-100 hover:border-purple-200'">
+                                <i class="fa fa-pen block text-lg mb-1"></i>自定义
+                            </button>
+                        </div>
+                    </div>
+                    <!-- 自定义动作名称（仅在自定义时显示） -->
+                    <div v-if="batchCareForm.type === 'custom'" class="animate-fade-in">
+                        <label class="block text-sm font-bold text-gray-700 mb-2">动作名称</label>
+                        <input v-model="batchCareForm.action" type="text" id="batchCareAction"
+                            placeholder="例如：修剪、换土、除虫..."
+                            class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-purple-300 transition">
+                    </div>
+                    <!-- 养护日期 -->
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">养护日期</label>
+                        <input v-model="batchCareForm.careDate" type="date" id="batchCareDate"
+                            class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-green-300 transition">
+                    </div>
+                    <!-- 备注 -->
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">备注
+                            <span class="text-gray-400 font-normal">（可选）</span>
+                        </label>
+                        <textarea v-model="batchCareForm.description" id="batchCareDesc"
+                            placeholder="养护备注..." rows="2"
+                            class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-green-300 resize-none transition"></textarea>
+                    </div>
+                </div>
+                <!-- 确认按钮 -->
+                <div class="px-6 pb-6">
+                    <button @click="submitBatchCare"
+                        :disabled="isBatchCareLoading || (batchCareForm.type === 'custom' && !batchCareForm.action.trim())"
+                        class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+                        {{ isBatchCareLoading ? '记录中...' : `确认养护 ${selectedCount} 个花盆` }}
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -669,6 +754,16 @@
                 const messagesList = ref([]);
                 const isMessagesLoading = ref(false);
                 const messageTab = ref('all'); // 'all' | 'unread'
+
+                // 批量养护弹窗状态
+                const showBatchCareModal = ref(false);
+                const isBatchCareLoading = ref(false);
+                const batchCareForm = reactive({
+                    type: 'water',
+                    action: '浇水',
+                    careDate: new Date().toISOString().split('T')[0],
+                    description: ''
+                });
 
                 const filteredMessages = computed(() => {
                     if (messageTab.value === 'unread') {
@@ -1282,6 +1377,57 @@
                     return null;
                 };
 
+                const selectBatchCareType = (type, action) => {
+                    batchCareForm.type = type;
+                    batchCareForm.action = action;
+                };
+
+                const openBatchCareModal = () => {
+                    // 每次打开时重置日期为今天
+                    batchCareForm.careDate = new Date().toISOString().split('T')[0];
+                    showBatchCareModal.value = true;
+                };
+
+                const submitBatchCare = async () => {
+                    const selectedPots = pots.value.filter(p => p.selected);
+                    if (selectedPots.length === 0) return;
+
+                    const finalAction = batchCareForm.action.trim();
+                    if (!finalAction) {
+                        alert('请填写养护动作名称');
+                        return;
+                    }
+
+                    try {
+                        isBatchCareLoading.value = true;
+                        const res = await apiClient.batchCreateCareRecord({
+                            potIds: selectedPots.map(p => p.id),
+                            type: batchCareForm.type,
+                            action: finalAction,
+                            careDate: batchCareForm.careDate,
+                            description: batchCareForm.description.trim() || null
+                        });
+
+                        if (res.success) {
+                            const msg = res.skipped > 0
+                                ? `已为 ${res.count} 个花盆记录养护（已自动跳过 ${res.skipped} 个无权限的花盆）`
+                                : `✅ 已为 ${res.count} 个花盆记录重护`;
+                            alert(msg);
+                            showBatchCareModal.value = false;
+                            // 退出管理模式并刷新列表
+                            if (isEditMode.value) {
+                                isEditMode.value = false;
+                                destroySortable();
+                            }
+                            await fetchPots();
+                        }
+                    } catch (e) {
+                        alert('养护记录失败: ' + e.message);
+                    } finally {
+                        isBatchCareLoading.value = false;
+                    }
+                };
+
                 onMounted(init);
 
                 return {
@@ -1315,6 +1461,9 @@
                     clearReadMessages,
                     messageTab,
                     filteredMessages,
+                    // 批量养护
+                    showBatchCareModal, isBatchCareLoading, batchCareForm,
+                    openBatchCareModal, selectBatchCareType, submitBatchCare,
                     apiClient
                 };
             }
