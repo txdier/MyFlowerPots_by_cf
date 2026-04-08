@@ -1,26 +1,26 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
 
-export async function handleCollaboratorsRequest(
+export async function handleViewersRequest(
   request: Request,
   env: any,
   path: string,
   userId: string | null
 ): Promise<Response> {
-  await ensureInviteTable(env);
+  await ensureViewerTables(env);
 
-  if (request.method === 'POST' && path.match(/^\/api\/collaborators\/open\/[^/]+$/)) {
+  if (request.method === 'POST' && path.match(/^\/api\/viewers\/open\/[^/]+$/)) {
     const token = path.split('/')[4];
     return handleOpenInviteLink(request, token!, env);
   }
 
   if (!userId) return errorResponse('Authentication required', 401);
 
-  if (request.method === 'POST' && path.match(/^\/api\/collaborators\/invite\/[^/]+$/)) {
+  if (request.method === 'POST' && path.match(/^\/api\/viewers\/invite\/[^/]+$/)) {
     const potId = path.split('/')[4];
     return handleCreateInviteLink(potId!, userId, env);
   }
 
-  if (request.method === 'POST' && path.match(/^\/api\/collaborators\/accept\/[^/]+$/)) {
+  if (request.method === 'POST' && path.match(/^\/api\/viewers\/accept\/[^/]+$/)) {
     const token = path.split('/')[4];
     return handleAcceptInviteLink(request, token!, userId, env);
   }
@@ -28,37 +28,34 @@ export async function handleCollaboratorsRequest(
   const segments = path.split('/');
   const potId = segments[3];
 
-  if (request.method === 'GET' && path.match(/^\/api\/collaborators\/[^/]+$/)) {
-    return handleGetCollaborators(potId!, userId, env);
+  if (request.method === 'GET' && path.match(/^\/api\/viewers\/[^/]+$/)) {
+    return handleGetViewers(potId!, userId, env);
   }
 
-  if (request.method === 'POST' && path.match(/^\/api\/collaborators\/[^/]+$/)) {
-    return handleAddCollaborator(request, potId!, userId, env);
+  if (request.method === 'POST' && path.match(/^\/api\/viewers\/[^/]+$/)) {
+    return handleAddViewer(request, potId!, userId, env);
   }
 
-  if (request.method === 'DELETE' && path.match(/^\/api\/collaborators\/[^/]+(\/[^/]+)?$/)) {
+  if (request.method === 'DELETE' && path.match(/^\/api\/viewers\/[^/]+(\/[^/]+)?$/)) {
     const targetUserId = segments[4];
     if (targetUserId) {
-      return handleRemoveCollaborator(potId!, targetUserId, userId, env);
-    } else {
-      return handleLeaveCollaboration(potId!, userId, env);
+      return handleRemoveViewer(potId!, targetUserId, userId, env);
     }
+    return handleLeaveViewer(potId!, userId, env);
   }
 
   return errorResponse('Not Found', 404);
 }
 
-async function ensureInviteTable(env: any): Promise<void> {
-  await env.DB.prepare(`
-    CREATE TABLE IF NOT EXISTS pot_viewers (
+async function ensureViewerTables(env: any): Promise<void> {
+  const statements = [
+    `CREATE TABLE IF NOT EXISTS pot_viewers (
       pot_id TEXT NOT NULL,
       user_id TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (pot_id, user_id)
-    )
-  `).run();
-  await env.DB.prepare(`
-    CREATE TABLE IF NOT EXISTS pot_collab_invites (
+    )`,
+    `CREATE TABLE IF NOT EXISTS pot_view_invites (
       id TEXT PRIMARY KEY,
       pot_id TEXT NOT NULL,
       owner_id TEXT NOT NULL,
@@ -71,32 +68,30 @@ async function ensureInviteTable(env: any): Promise<void> {
       claim_session_id TEXT,
       claimed_by_user_id TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `).run();
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_viewers_user ON pot_viewers(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_viewers_pot ON pot_viewers(pot_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_view_invites_pot ON pot_view_invites(pot_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_view_invites_token ON pot_view_invites(token)`
+  ];
 
-  await env.DB.prepare(`
-    CREATE INDEX IF NOT EXISTS idx_collab_invites_pot
-    ON pot_collab_invites(pot_id)
-  `).run();
-
-  await env.DB.prepare(`
-    CREATE INDEX IF NOT EXISTS idx_collab_invites_token
-    ON pot_collab_invites(token)
-  `).run();
+  for (const statement of statements) {
+    await env.DB.prepare(statement).run();
+  }
 }
 
-async function handleGetCollaborators(potId: string, userId: string, env: any): Promise<Response> {
+async function handleGetViewers(potId: string, userId: string, env: any): Promise<Response> {
   const pot = await env.DB.prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?').bind(potId, userId).first();
   if (!pot) return errorResponse('Pot not found or access denied', 404);
 
   const { results } = await env.DB.prepare(`
-    SELECT u.id, u.display_name, u.email, u.avatar_url, c.role, c.created_at
-    FROM pot_collaborators c
-    JOIN users u ON c.user_id = u.id
-    WHERE c.pot_id = ?
+    SELECT u.id, u.display_name, u.email, u.avatar_url, v.created_at
+    FROM pot_viewers v
+    JOIN users u ON v.user_id = u.id
+    WHERE v.pot_id = ?
   `).bind(potId).all();
 
-  return jsonResponse({ success: true, data: results });
+  return jsonResponse({ success: true, data: results || [] });
 }
 
 async function handleCreateInviteLink(potId: string, userId: string, env: any): Promise<Response> {
@@ -109,27 +104,20 @@ async function handleCreateInviteLink(potId: string, userId: string, env: any): 
 
   await env.DB.batch([
     env.DB.prepare(`
-      UPDATE pot_collab_invites
+      UPDATE pot_view_invites
       SET revoked_at = datetime('now')
       WHERE pot_id = ? AND owner_id = ? AND used_at IS NULL AND revoked_at IS NULL AND datetime(expires_at) > datetime('now')
     `).bind(potId, userId),
     env.DB.prepare(`
-      INSERT INTO pot_collab_invites (id, pot_id, owner_id, token, expires_at, max_views)
+      INSERT INTO pot_view_invites (id, pot_id, owner_id, token, expires_at, max_views)
       VALUES (?, ?, ?, ?, ?, 5)
     `).bind(inviteId, potId, userId, token, expiresAt)
   ]);
 
   const baseUrl = env.APP_BASE_URL || 'https://app.kaside365.com';
-  const inviteUrl = `${baseUrl.replace(/\/$/, '')}/pot-detail.html?collabToken=${token}`;
+  const inviteUrl = `${baseUrl.replace(/\/$/, '')}/pot-detail.html?viewerToken=${token}`;
 
-  return jsonResponse({
-    success: true,
-    data: {
-      token,
-      inviteUrl,
-      expiresAt
-    }
-  });
+  return jsonResponse({ success: true, data: { token, inviteUrl, expiresAt } });
 }
 
 async function handleOpenInviteLink(request: Request, token: string, env: any): Promise<Response> {
@@ -139,11 +127,8 @@ async function handleOpenInviteLink(request: Request, token: string, env: any): 
 
   const invite = await getActiveInvite(token, env);
   if (!invite) return errorResponse('Invite link invalid or expired', 400);
-
   const hasSameSession = invite.claim_session_id === sessionId;
-  if (!hasSameSession && invite.view_count >= invite.max_views) {
-    return errorResponse('Invite link view limit reached', 400);
-  }
+  if (!hasSameSession && invite.view_count >= invite.max_views) return errorResponse('Invite link view limit reached', 400);
 
   const shouldCountView = !hasSameSession;
   const nextRemainingViews = shouldCountView
@@ -151,7 +136,7 @@ async function handleOpenInviteLink(request: Request, token: string, env: any): 
     : Math.max(0, Number(invite.max_views) - Number(invite.view_count));
 
   await env.DB.prepare(`
-    UPDATE pot_collab_invites
+    UPDATE pot_view_invites
     SET
       view_count = CASE WHEN claim_session_id IS NULL OR claim_session_id <> ? THEN view_count + 1 ELSE view_count END,
       claim_session_id = ?
@@ -161,52 +146,46 @@ async function handleOpenInviteLink(request: Request, token: string, env: any): 
       AND datetime(expires_at) > datetime('now')
   `).bind(sessionId, sessionId, token).run();
 
-  return jsonResponse({
-    success: true,
-    data: {
-      expiresAt: invite.expires_at,
-      remainingViews: nextRemainingViews
-    }
-  });
+  return jsonResponse({ success: true, data: { expiresAt: invite.expires_at, remainingViews: nextRemainingViews } });
 }
 
-async function handleAddCollaborator(request: Request, potId: string, userId: string, env: any): Promise<Response> {
-  const pot = await env.DB.prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?').bind(potId, userId).first();
+async function handleAddViewer(request: Request, potId: string, userId: string, env: any): Promise<Response> {
+  const pot = await env.DB.prepare('SELECT id, name FROM pots WHERE id = ? AND user_id = ?').bind(potId, userId).first();
   if (!pot) return errorResponse('Pot not found or access denied', 404);
 
-  const body = await request.json();
-  const { email } = body as { email: string };
+  const body = await request.json() as { email?: string };
+  const email = body.email?.trim();
   if (!email) return errorResponse('Email required', 400);
 
   const targetUser = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
   if (!targetUser) return errorResponse('User not found', 404);
-  if (targetUser.id === userId) return errorResponse('Cannot add yourself as a collaborator', 400);
+  if (targetUser.id === userId) return errorResponse('Cannot add yourself as a viewer', 400);
 
-  const existing = await env.DB.prepare('SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?')
+  const collaborator = await env.DB.prepare('SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?')
     .bind(potId, targetUser.id).first();
-  if (existing) return errorResponse('User is already a collaborator', 400);
+  if (collaborator) return errorResponse('User already has edit access', 400);
 
-  await env.DB.prepare('INSERT INTO pot_collaborators (pot_id, user_id) VALUES (?, ?)')
-    .bind(potId, targetUser.id).run();
-  await env.DB.prepare('DELETE FROM pot_viewers WHERE pot_id = ? AND user_id = ?')
+  const existing = await env.DB.prepare('SELECT pot_id FROM pot_viewers WHERE pot_id = ? AND user_id = ?')
+    .bind(potId, targetUser.id).first();
+  if (existing) return errorResponse('User is already a viewer', 400);
+
+  await env.DB.prepare('INSERT INTO pot_viewers (pot_id, user_id) VALUES (?, ?)')
     .bind(potId, targetUser.id).run();
 
   try {
     const owner = await env.DB.prepare('SELECT display_name, email FROM users WHERE id = ?').bind(userId).first();
-    const potData = await env.DB.prepare('SELECT name FROM pots WHERE id = ?').bind(potId).first();
     const ownerName = owner?.display_name || owner?.email || '有人';
-
     await env.DB.prepare(`
       INSERT INTO messages (user_id, sender_id, type, title, content, related_id)
-      VALUES (?, ?, 'collab_invite', '收到共同照料邀请', ?, ?)
+      VALUES (?, ?, 'system_info', '收到花盆查看邀请', ?, ?)
     `).bind(
       targetUser.id,
       userId,
-      `${ownerName} 邀请您共同照料花盆「${potData?.name || '未命名'}」。该花盆现在已出现在您的列表中。`,
+      `${ownerName} 邀请您查看花盆「${pot.name}」。该花盆现在已出现在您的列表中，但您无法修改内容。`,
       potId
     ).run();
-  } catch (msgError) {
-    console.error('Failed to send collab notification:', msgError);
+  } catch (error) {
+    console.error('Failed to send viewer notification:', error);
   }
 
   return jsonResponse({ success: true });
@@ -219,16 +198,12 @@ async function handleAcceptInviteLink(request: Request, token: string, userId: s
 
   const invite = await getActiveInvite(token, env);
   if (!invite) {
-    const restored = await resolveExistingCollaboratorInvite(token, userId, env);
+    const restored = await resolveExistingViewerInvite(token, userId, env);
     if (restored) return restored;
     return errorResponse('Invite link invalid or expired', 400);
   }
-
   if (!invite.claim_session_id || invite.claim_session_id !== sessionId) {
     return errorResponse('Invite link must be accepted on the same device that opened it', 400);
-  }
-  if (invite.view_count > invite.max_views) {
-    return errorResponse('Invite link view limit reached', 400);
   }
 
   const pot = await env.DB.prepare('SELECT id, user_id, name FROM pots WHERE id = ?').bind(invite.pot_id).first();
@@ -237,55 +212,54 @@ async function handleAcceptInviteLink(request: Request, token: string, userId: s
     return jsonResponse({ success: true, data: { potId: invite.pot_id, alreadyJoined: true, alreadyAccepted: true } });
   }
 
-  const existing = await env.DB.prepare('SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?')
+  const collaborator = await env.DB.prepare('SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?')
+    .bind(invite.pot_id, userId).first();
+  if (collaborator) {
+    return jsonResponse({ success: true, data: { potId: invite.pot_id, alreadyJoined: true, alreadyAccepted: true } });
+  }
+
+  const existing = await env.DB.prepare('SELECT pot_id FROM pot_viewers WHERE pot_id = ? AND user_id = ?')
     .bind(invite.pot_id, userId).first();
 
   const claimedByOther = invite.claimed_by_user_id && invite.claimed_by_user_id !== userId;
-  if (claimedByOther) {
-    return errorResponse('Invite link already claimed by another user', 400);
-  }
+  if (claimedByOther) return errorResponse('Invite link already claimed by another user', 400);
 
   const batch = [
     env.DB.prepare(`
-      UPDATE pot_collab_invites
+      UPDATE pot_view_invites
       SET claimed_by_user_id = ?, used_at = datetime('now')
       WHERE token = ? AND used_at IS NULL AND revoked_at IS NULL AND datetime(expires_at) > datetime('now')
     `).bind(userId, token)
   ];
 
   if (!existing) {
-    batch.push(
-      env.DB.prepare('INSERT INTO pot_collaborators (pot_id, user_id) VALUES (?, ?)')
-        .bind(invite.pot_id, userId),
-      env.DB.prepare('DELETE FROM pot_viewers WHERE pot_id = ? AND user_id = ?')
-        .bind(invite.pot_id, userId)
-    );
+    batch.push(env.DB.prepare('INSERT INTO pot_viewers (pot_id, user_id) VALUES (?, ?)').bind(invite.pot_id, userId));
   }
 
   await env.DB.batch(batch);
 
-  if (!existing) {
-    try {
+  try {
+    if (!existing) {
       const joiner = await env.DB.prepare('SELECT display_name, email FROM users WHERE id = ?').bind(userId).first();
       const joinerName = joiner?.display_name || joiner?.email || '一位好友';
       await env.DB.prepare(`
         INSERT INTO messages (user_id, sender_id, type, title, content, related_id)
-        VALUES (?, ?, 'system_info', '有新成员加入共同照料', ?, ?)
+        VALUES (?, ?, 'system_info', '有新好友获得查看权限', ?, ?)
       `).bind(
         pot.user_id,
         userId,
-        `${joinerName} 已通过邀请链接加入花盆「${pot.name}」的共同照料。`,
+        `${joinerName} 已通过邀请链接获得花盆「${pot.name}」的查看权限。`,
         invite.pot_id
       ).run();
-    } catch (error) {
-      console.error('Failed to notify owner after invite accept:', error);
     }
+  } catch (error) {
+    console.error('Failed to notify owner after view invite accept:', error);
   }
 
   return jsonResponse({ success: true, data: { potId: invite.pot_id, alreadyJoined: !!existing } });
 }
 
-async function handleRemoveCollaborator(potId: string, targetUserId: string, userId: string, env: any): Promise<Response> {
+async function handleRemoveViewer(potId: string, targetUserId: string, userId: string, env: any): Promise<Response> {
   const pot = await env.DB.prepare('SELECT id, name FROM pots WHERE id = ? AND user_id = ?').bind(potId, userId).first();
   if (!pot) return errorResponse('Pot not found or access denied', 404);
 
@@ -294,52 +268,47 @@ async function handleRemoveCollaborator(potId: string, targetUserId: string, use
     const ownerName = owner?.display_name || owner?.email || '原主人';
     await env.DB.prepare(`
       INSERT INTO messages (user_id, type, title, content, related_id)
-      VALUES (?, 'system_info', '协作关系已终止', ?, ?)
+      VALUES (?, 'system_info', '查看权限已取消', ?, ?)
     `).bind(
       targetUserId,
-      `${ownerName} 已将您从花盆「${pot.name}」的协作者列表中移除。`,
+      `${ownerName} 已取消您对花盆「${pot.name}」的查看权限。`,
       potId
     ).run();
-  } catch (e) {
-    console.error('Failed to send removal notification:', e);
+  } catch (error) {
+    console.error('Failed to notify viewer removal:', error);
   }
 
-  await env.DB.prepare('DELETE FROM pot_collaborators WHERE pot_id = ? AND user_id = ?')
-    .bind(potId, targetUserId).run();
-
+  await env.DB.prepare('DELETE FROM pot_viewers WHERE pot_id = ? AND user_id = ?').bind(potId, targetUserId).run();
   return jsonResponse({ success: true });
 }
 
-async function handleLeaveCollaboration(potId: string, userId: string, env: any): Promise<Response> {
+async function handleLeaveViewer(potId: string, userId: string, env: any): Promise<Response> {
   try {
     const pot = await env.DB.prepare('SELECT user_id, name FROM pots WHERE id = ?').bind(potId).first();
-    const leaver = await env.DB.prepare('SELECT display_name, email FROM users WHERE id = ?').bind(userId).first();
-
-    if (pot && leaver) {
-      const leaverName = leaver.display_name || leaver.email || '一名成员';
+    const viewer = await env.DB.prepare('SELECT display_name, email FROM users WHERE id = ?').bind(userId).first();
+    if (pot && viewer) {
+      const viewerName = viewer.display_name || viewer.email || '一位好友';
       await env.DB.prepare(`
         INSERT INTO messages (user_id, type, title, content, related_id)
-        VALUES (?, 'system_info', '成员退出协作', ?, ?)
+        VALUES (?, 'system_info', '好友移除了查看权限', ?, ?)
       `).bind(
         pot.user_id,
-        `成员 ${leaverName} 已主动退出花盆「${pot.name}」的共同照料。`,
+        `${viewerName} 已将花盆「${pot.name}」从自己的“受邀查看”列表中移除。`,
         potId
       ).run();
     }
-  } catch (e) {
-    console.error('Failed to send leave notification:', e);
+  } catch (error) {
+    console.error('Failed to notify viewer leave:', error);
   }
 
-  await env.DB.prepare('DELETE FROM pot_collaborators WHERE pot_id = ? AND user_id = ?')
-    .bind(potId, userId).run();
-
+  await env.DB.prepare('DELETE FROM pot_viewers WHERE pot_id = ? AND user_id = ?').bind(potId, userId).run();
   return jsonResponse({ success: true });
 }
 
 async function getActiveInvite(token: string, env: any): Promise<any | null> {
   return env.DB.prepare(`
     SELECT *
-    FROM pot_collab_invites
+    FROM pot_view_invites
     WHERE token = ?
       AND used_at IS NULL
       AND revoked_at IS NULL
@@ -350,12 +319,12 @@ async function getActiveInvite(token: string, env: any): Promise<any | null> {
 async function getInviteByToken(token: string, env: any): Promise<any | null> {
   return env.DB.prepare(`
     SELECT *
-    FROM pot_collab_invites
+    FROM pot_view_invites
     WHERE token = ?
   `).bind(token).first();
 }
 
-async function resolveExistingCollaboratorInvite(token: string, userId: string, env: any): Promise<Response | null> {
+async function resolveExistingViewerInvite(token: string, userId: string, env: any): Promise<Response | null> {
   const invite = await getInviteByToken(token, env);
   if (!invite) return null;
 
@@ -375,8 +344,16 @@ async function resolveExistingCollaboratorInvite(token: string, userId: string, 
     FROM pot_collaborators
     WHERE pot_id = ? AND user_id = ?
   `).bind(invite.pot_id, userId).first();
+  if (collaborator) {
+    return jsonResponse({ success: true, data: { potId: invite.pot_id, alreadyJoined: true, alreadyAccepted: true } });
+  }
 
-  if (!collaborator) return null;
+  const viewer = await env.DB.prepare(`
+    SELECT 1
+    FROM pot_viewers
+    WHERE pot_id = ? AND user_id = ?
+  `).bind(invite.pot_id, userId).first();
+  if (!viewer) return null;
 
   return jsonResponse({ success: true, data: { potId: invite.pot_id, alreadyJoined: true, alreadyAccepted: true } });
 }

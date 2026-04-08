@@ -5,6 +5,11 @@ import {
   isDefaultImage
 } from '../utils/storage-utils';
 
+function getFallbackImageUrl(request: Request): string {
+  const origin = new URL(request.url).origin.replace(/\/$/, '');
+  return `${origin}/assets/images/icons/icons-default-pot.png`;
+}
+
 export async function handleUploadRequest(
   request: Request,
   env: any,
@@ -80,10 +85,11 @@ async function handleImageUpload(request: Request, env: any, token: string | nul
     request.headers.get('host')?.includes('127.0.0.1');
 
   let imageUrl: string;
+  const fallbackImageUrl = getFallbackImageUrl(request);
 
   if (isDevelopment) {
-    // 开发环境：返回模拟URL
-    imageUrl = `https://via.placeholder.com/400x300/4CAF50/FFFFFF?text=Uploaded+Image`;
+    // 开发环境：返回站内占位图，避免依赖外部占位图服务
+    imageUrl = fallbackImageUrl;
 
     console.log('开发环境图片上传:', {
       fileName,
@@ -131,13 +137,13 @@ async function handleImageUpload(request: Request, env: any, token: string | nul
 
     } catch (uploadError) {
       console.error('R2上传失败:', uploadError);
-      // 上传失败时返回模拟URL
-      imageUrl = `https://via.placeholder.com/400x300/4CAF50/FFFFFF?text=R2+Upload+Failed`;
+      // 上传失败时返回站内占位图，避免前端请求外部失效域名
+      imageUrl = fallbackImageUrl;
     }
   } else {
-    // 没有配置存储桶，返回模拟URL
-    imageUrl = `https://via.placeholder.com/400x300/4CAF50/FFFFFF?text=No+Bucket+Config`;
-    console.log('无存储桶配置，返回模拟URL');
+    // 没有配置存储桶，返回站内占位图
+    imageUrl = fallbackImageUrl;
+    console.log('无存储桶配置，返回站内占位图');
   }
 
   // 根据上传类型更新数据库

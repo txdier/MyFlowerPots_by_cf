@@ -1,4 +1,12 @@
 export async function recordPageVisit(env: any, path: string): Promise<void> {
+  if (!env?.DB) {
+    console.warn('Skipping page visit recording: DB binding unavailable');
+    return;
+  }
+
+  path = normalizePagePath(path);
+  const visitDate = getAnalyticsDateString(env);
+
   // 归一化根路径
   if (path === '/' || path === '') {
     path = '/index.html';
@@ -8,8 +16,6 @@ export async function recordPageVisit(env: any, path: string): Promise<void> {
   if (!path.endsWith('.html') && path !== '/index.html') {
     return;
   }
-
-  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
   try {
     // 同时更新总计表和每日表
@@ -26,12 +32,42 @@ export async function recordPageVisit(env: any, path: string): Promise<void> {
         VALUES (?, ?, 1)
         ON CONFLICT(path, visit_date) DO UPDATE SET
           visit_count = visit_count + 1
-      `).bind(path, today),
+      `).bind(path, visitDate),
     ];
     await env.DB.batch(batch);
   } catch (error) {
     console.error('Failed to record page visit:', error);
   }
+}
+
+function normalizePagePath(path: string): string {
+  if (!path) return '/index.html';
+  const cleanPath = path.split('?')[0].split('#')[0].trim();
+  if (cleanPath === '' || cleanPath === '/') return '/index.html';
+  return cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
+}
+
+export function getAnalyticsDateString(env: any, offsetDays = 0): string {
+  const timeZone = env?.ANALYTICS_TIMEZONE || 'Asia/Shanghai';
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + offsetDays);
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+
+  const year = parts.find((part) => part.type === 'year')?.value;
+  const month = parts.find((part) => part.type === 'month')?.value;
+  const day = parts.find((part) => part.type === 'day')?.value;
+
+  if (!year || !month || !day) {
+    return date.toISOString().split('T')[0];
+  }
+
+  return `${year}-${month}-${day}`;
 }
 
 // 获取统计数据，支持日期范围筛选

@@ -1,6 +1,31 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
 import { sendEmail, generateTransferEmail } from '../utils/email-service';
 
+async function ensureTransferTargetMatches(
+  env: any,
+  userId: string,
+  targetEmail: string | null
+): Promise<Response | null> {
+  if (!targetEmail) {
+    return null;
+  }
+
+  const currentUser = await env.DB
+    .prepare('SELECT email FROM users WHERE id = ?')
+    .bind(userId)
+    .first() as { email?: string | null } | null;
+
+  if (!currentUser?.email) {
+    return errorResponse('Current user email is unavailable for this transfer', 403);
+  }
+
+  if (currentUser.email.trim().toLowerCase() !== targetEmail.trim().toLowerCase()) {
+    return errorResponse('This transfer is reserved for a different email address', 403);
+  }
+
+  return null;
+}
+
 export async function handleTransferRequest(
   request: Request,
   env: any,
@@ -140,6 +165,11 @@ async function handleRejectTransfer(token: string, userId: string, env: any): Pr
 
   if (!pot) return errorResponse('Transfer link invalid or expired', 404);
 
+  const targetCheck = await ensureTransferTargetMatches(env, userId, pot.transfer_target_email || null);
+  if (targetCheck) {
+    return targetCheck;
+  }
+
   // 清除移交信息
   await env.DB.prepare(`
     UPDATE pots 
@@ -171,7 +201,7 @@ async function handleRejectTransfer(token: string, userId: string, env: any): Pr
 async function handleAcceptTransfer(token: string, newUserId: string, env: any): Promise<Response> {
   // 查找对应花盆且 Token 未过期
   const pot = await env.DB.prepare(`
-    SELECT id, user_id, transfer_expires_at 
+    SELECT id, user_id, transfer_expires_at, transfer_target_email
     FROM pots 
     WHERE transfer_token = ?
   `).bind(token).first();
@@ -188,6 +218,11 @@ async function handleAcceptTransfer(token: string, newUserId: string, env: any):
   // 不能转移给自己 (虽然逻辑上没大碍，但防止误操作)
   if (pot.user_id === newUserId) {
     return errorResponse('You already own this pot', 400);
+  }
+
+  const targetCheck = await ensureTransferTargetMatches(env, newUserId, pot.transfer_target_email || null);
+  if (targetCheck) {
+    return targetCheck;
   }
 
   // 执行转移：变更 Owner，清除 Token
@@ -216,7 +251,7 @@ async function handleGetTransferDetail(token: string, env: any): Promise<Respons
   const pot = await env.DB.prepare(`
     SELECT id, name, plant_type, note, image_url, plant_date
     FROM pots
-    WHERE transfer_token = ? AND transfer_expires_at > DATETIME('now')
+    WHERE transfer_token = ? AND datetime(transfer_expires_at) > CURRENT_TIMESTAMP
   `).bind(token).first();
 
   if (!pot) return errorResponse('Transfer link invalid or expired', 404);

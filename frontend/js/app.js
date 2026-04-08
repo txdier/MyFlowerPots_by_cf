@@ -129,8 +129,8 @@ document.addEventListener('alpine:init', () => {
         // 检查认证状态
         async checkAuth() {
             try {
-                const token = localStorage.getItem('flowerpots_token');
-                const userId = localStorage.getItem('flowerpots_user_id');
+                const token = window.authStorage?.getToken() || null;
+                const userId = window.authStorage?.getUserId() || null;
 
                 // 检查 apiClient 是否已初始化
                 if (typeof apiClient === 'undefined') {

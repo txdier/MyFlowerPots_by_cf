@@ -44,10 +44,25 @@
             z-index: 1000;
             transition: opacity 0.5s ease;
         }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        @media (max-width: 640px) {
+            .admin-page {
+                padding: 0.75rem;
+            }
+        }
     </style>
 </head>
 
-<body class="p-4 md:p-8 admin-page">
+<body class="p-3 sm:p-4 md:p-8 admin-page">
     <div id="app" v-cloak>
         <!-- Security Loading Overlay -->
         <div v-if="isCheckingAccess" class="loading-overlay">
@@ -61,7 +76,7 @@
             <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                 <div class="cursor-pointer group" onclick="window.location.href='index.html'">
                     <h1
-                        class="text-3xl font-bold text-slate-800 flex items-center gap-3 transition-colors group-hover:text-emerald-600">
+                        class="text-2xl sm:text-3xl font-bold text-slate-800 flex items-center gap-3 transition-colors group-hover:text-emerald-600">
                         <i class="fa fa-shield-alt text-emerald-500"></i>
                         后台管理中心
                     </h1>
@@ -71,27 +86,29 @@
                     </p>
                 </div>
                 <!-- 顶部页签切换 -->
-                <div class="flex bg-slate-100 p-1 rounded-2xl">
-                    <button @click="currentTab = 'plants'"
-                        :class="currentTab === 'plants' ? 'bg-white shadow-sm text-emerald-600' : 'text-slate-500'"
-                        class="px-6 py-2 rounded-xl font-medium transition-all">
-                        植物百科
-                    </button>
-                    <button @click="currentTab = 'users'"
-                        :class="currentTab === 'users' ? 'bg-white shadow-sm text-emerald-600' : 'text-slate-500'"
-                        class="px-6 py-2 rounded-xl font-medium transition-all">
-                        用户管理
-                    </button>
-                    <a href="admin-stats.html"
-                        class="px-6 py-2 rounded-xl font-medium text-slate-500 hover:text-emerald-600 transition-all flex items-center gap-2">
-                        <i class="fa fa-chart-bar"></i>
-                        统计
-                    </a>
-                    <a href="admin-inbox.html"
-                        class="px-6 py-2 rounded-xl font-medium text-slate-500 hover:text-emerald-600 transition-all flex items-center gap-2">
-                        <i class="fa fa-envelope"></i>
-                        收件箱
-                    </a>
+                <div class="w-full md:w-auto overflow-x-auto no-scrollbar">
+                    <div class="inline-flex min-w-max bg-slate-100 p-1 rounded-2xl">
+                        <button @click="currentTab = 'plants'"
+                            :class="currentTab === 'plants' ? 'bg-white shadow-sm text-emerald-600' : 'text-slate-500'"
+                            class="px-4 sm:px-6 py-2 rounded-xl font-medium transition-all whitespace-nowrap">
+                            植物百科
+                        </button>
+                        <button @click="currentTab = 'users'"
+                            :class="currentTab === 'users' ? 'bg-white shadow-sm text-emerald-600' : 'text-slate-500'"
+                            class="px-4 sm:px-6 py-2 rounded-xl font-medium transition-all whitespace-nowrap">
+                            用户管理
+                        </button>
+                        <a href="admin-stats.html"
+                            class="px-4 sm:px-6 py-2 rounded-xl font-medium text-slate-500 hover:text-emerald-600 transition-all flex items-center gap-2 whitespace-nowrap">
+                            <i class="fa fa-chart-bar"></i>
+                            统计
+                        </a>
+                        <a href="admin-inbox.html"
+                            class="px-4 sm:px-6 py-2 rounded-xl font-medium text-slate-500 hover:text-emerald-600 transition-all flex items-center gap-2 whitespace-nowrap">
+                            <i class="fa fa-envelope"></i>
+                            收件箱
+                        </a>
+                    </div>
                 </div>
             </header>
 
@@ -99,27 +116,27 @@
             <div v-if="currentTab === 'plants'">
                 <!-- Tools & Filters -->
                 <div
-                    class="glass border border-white rounded-2xl p-4 mb-6 flex flex-col md:flex-row gap-4 items-center shadow-sm">
+                    class="glass border border-white rounded-2xl p-4 mb-6 flex flex-col md:flex-row gap-4 items-stretch md:items-center shadow-sm">
                     <div class="relative flex-1 w-full">
                         <i class="fa fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
                         <input type="text" v-model="searchQuery" @keyup.enter="fetchPlants" placeholder="搜索植物名称或 ID..."
                             class="w-full pl-12 pr-4 py-3 rounded-xl border-none bg-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none transition-all">
                     </div>
-                    <div class="flex items-center gap-3">
+                    <div class="flex flex-wrap items-stretch gap-2 sm:gap-3 w-full md:w-auto">
                         <button @click="fetchPlants"
-                            class="px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all flex items-center gap-2">
+                            class="flex-1 sm:flex-none justify-center px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all flex items-center gap-2">
                             <i class="fa fa-search"></i> 搜索
                         </button>
                         <button @click="downloadTemplate"
-                            class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-all flex items-center gap-2">
+                            class="flex-1 sm:flex-none justify-center px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-all flex items-center gap-2">
                             <i class="fa fa-download"></i> 下载模板
                         </button>
                         <button @click="showImportModal = true"
-                            class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl hover:shadow-md transition-all flex items-center gap-2">
+                            class="flex-1 sm:flex-none justify-center px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl hover:shadow-md transition-all flex items-center gap-2">
                             <i class="fa fa-file-import"></i> 批量导入
                         </button>
                         <button @click="openCreateModal"
-                            class="px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 shadow-lg shadow-emerald-200 transition-all flex items-center gap-2">
+                            class="flex-1 sm:flex-none justify-center px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 shadow-lg shadow-emerald-200 transition-all flex items-center gap-2">
                             <i class="fa fa-plus"></i> 新增植物
                         </button>
                     </div>
@@ -127,7 +144,8 @@
 
                 <!-- Table -->
                 <div class="glass border border-white rounded-2xl overflow-hidden shadow-sm">
-                    <table class="w-full text-left">
+                    <div class="overflow-x-auto">
+                    <table class="w-full min-w-[720px] text-left">
                         <thead class="bg-slate-50 border-b border-slate-100">
                             <tr>
                                 <th class="px-6 py-4 w-12 text-center">
@@ -147,16 +165,16 @@
                                         class="rounded border-slate-300 text-emerald-500 focus:ring-emerald-500">
                                 </td>
                                 <td class="px-6 py-4">
-                                    <div class="flex items-center gap-3">
+                                    <div class="flex items-center gap-3 min-w-0">
                                         <div
                                             class="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500 overflow-hidden shrink-0">
                                             <img v-if="plant.image_url" :src="plant.image_url"
                                                 class="w-full h-full object-cover">
                                             <i v-else class="fa fa-seedling"></i>
                                         </div>
-                                        <div>
-                                            <div class="font-medium text-slate-800">{{ plant.name }}</div>
-                                            <div class="text-xs text-slate-400 font-mono">{{ plant.id }}</div>
+                                        <div class="min-w-0">
+                                            <div class="font-medium text-slate-800 break-words">{{ plant.name }}</div>
+                                            <div class="text-xs text-slate-400 font-mono break-all">{{ plant.id }}</div>
                                         </div>
                                     </div>
                                 </td>
@@ -184,12 +202,13 @@
                             </tr>
                         </tbody>
                     </table>
+                    </div>
                 </div>
 
                 <!-- Pagination -->
-                <div class="flex items-center justify-between mt-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-6">
                     <p class="text-sm text-slate-500">共 {{ pagination.total }} 条记录</p>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 self-start sm:self-auto">
                         <button @click="changePage(pagination.page - 1)" :disabled="pagination.page === 1"
                             class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-slate-600 disabled:opacity-50">上一页</button>
                         <span class="text-slate-600">{{ pagination.page }} / {{ totalPages }}</span>
@@ -202,22 +221,23 @@
             <!-- 用户管理视图 -->
             <div v-else-if="currentTab === 'users'">
                 <!-- Tools & Filters -->
-                <div class="glass border border-white rounded-2xl p-4 mb-6 flex gap-4 items-center shadow-sm">
-                    <div class="relative flex-1">
+                <div class="glass border border-white rounded-2xl p-4 mb-6 flex flex-col sm:flex-row gap-4 items-stretch sm:items-center shadow-sm">
+                    <div class="relative flex-1 w-full">
                         <i class="fa fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
                         <input type="text" v-model="userSearchQuery" @keyup.enter="fetchUsers"
                             placeholder="搜索用户邮箱或 ID..."
                             class="w-full pl-12 pr-4 py-3 rounded-xl border-none bg-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none transition-all">
                     </div>
                     <button @click="fetchUsers"
-                        class="px-8 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all">
+                        class="w-full sm:w-auto px-8 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all">
                         搜索
                     </button>
                 </div>
 
                 <!-- Table -->
                 <div class="glass border border-white rounded-2xl overflow-hidden shadow-sm">
-                    <table class="w-full text-left">
+                    <div class="overflow-x-auto">
+                    <table class="w-full min-w-[980px] text-left">
                         <thead class="bg-slate-50 border-b border-slate-100">
                             <tr>
                                 <th class="px-6 py-4 font-semibold text-slate-600">用户信息</th>
@@ -232,8 +252,8 @@
                         <tbody class="divide-y divide-slate-100">
                             <tr v-for="user in users" :key="user.id" class="hover:bg-slate-100 transition-colors">
                                 <td class="px-6 py-4">
-                                    <div class="font-medium text-slate-800">{{ user.email || '游客' }}</div>
-                                    <div class="text-xs text-slate-400 font-mono">{{ user.id }}</div>
+                                    <div class="font-medium text-slate-800 break-words">{{ user.email || '游客' }}</div>
+                                    <div class="text-xs text-slate-400 font-mono break-all">{{ user.id }}</div>
                                 </td>
                                 <td class="px-6 py-4">
                                     <div class="text-slate-700">{{ user.display_name || '-' }}</div>
@@ -282,12 +302,13 @@
                             </tr>
                         </tbody>
                     </table>
+                    </div>
                 </div>
 
                 <!-- Pagination -->
-                <div class="flex items-center justify-between mt-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-6">
                     <p class="text-sm text-slate-500">共 {{ userPagination.total }} 条用户</p>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 self-start sm:self-auto">
                         <button @click="changeUserPage(userPagination.page - 1)" :disabled="userPagination.page === 1"
                             class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-slate-600 disabled:opacity-50">上一页</button>
                         <span class="text-slate-600">{{ userPagination.page }} / {{ totalUserPages }}</span>
@@ -301,27 +322,29 @@
 
         <!-- Plant Edit/Create Modal -->
         <div v-if="showModal"
-            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-            <div class="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-sm">
+            <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-4xl max-h-[calc(100dvh-0.5rem)] sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
                 <!-- Modal Header -->
-                <div class="p-6 border-b border-slate-100 flex items-center justify-between">
-                    <h3 class="text-xl font-bold text-slate-800">{{ isEditing ? '编辑植物' : '新增植物' }}</h3>
+                <div class="p-4 sm:p-6 border-b border-slate-100 flex items-center justify-between gap-4">
+                    <h3 class="text-lg sm:text-xl font-bold text-slate-800">{{ isEditing ? '编辑植物' : '新增植物' }}</h3>
                     <button @click="showModal = false" class="text-slate-400 hover:text-slate-600">
                         <i class="fa fa-times text-xl"></i>
                     </button>
                 </div>
 
                 <!-- Tabs -->
-                <div class="flex bg-slate-50 px-6">
-                    <button v-for="t in tabs" :key="t.id" @click="activeTab = t.id"
-                        :class="activeTab === t.id ? 'tab-active' : 'text-slate-400 border-transparent'"
-                        class="px-6 py-4 font-medium transition-all border-b-2">
-                        {{ t.name }}
-                    </button>
+                <div class="bg-slate-50 px-4 sm:px-6 overflow-x-auto no-scrollbar">
+                    <div class="flex min-w-max">
+                        <button v-for="t in tabs" :key="t.id" @click="activeTab = t.id"
+                            :class="activeTab === t.id ? 'tab-active' : 'text-slate-400 border-transparent'"
+                            class="px-4 sm:px-6 py-4 font-medium transition-all border-b-2 whitespace-nowrap">
+                            {{ t.name }}
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Modal Body -->
-                <div class="p-6 overflow-y-auto flex-1 bg-white">
+                <div class="p-4 sm:p-6 overflow-y-auto flex-1 bg-white">
                     <!-- Tab: Basic -->
                     <div v-show="activeTab === 'basic'" class="space-y-4">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -369,7 +392,7 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-600 mb-1">主图 URL (可选)</label>
-                            <div class="flex gap-2">
+                            <div class="flex flex-col sm:flex-row gap-2">
                                 <input type="text" v-model="formData.image_url"
                                     class="flex-1 px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
                                     placeholder="https://...">
@@ -511,11 +534,11 @@
                 </div>
 
                 <!-- Modal Footer -->
-                <div class="p-6 border-t border-slate-100 flex items-center justify-end gap-3">
+                <div class="p-4 sm:p-6 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3">
                     <button @click="showModal = false"
-                        class="px-6 py-2 text-slate-600 hover:bg-slate-50 rounded-xl transition-all">取消</button>
+                        class="w-full sm:w-auto px-6 py-2 text-slate-600 hover:bg-slate-50 rounded-xl transition-all">取消</button>
                     <button @click="savePlant" :disabled="saving"
-                        class="px-8 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 shadow-lg shadow-emerald-200 transition-all flex items-center gap-2">
+                        class="w-full sm:w-auto justify-center px-8 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 shadow-lg shadow-emerald-200 transition-all flex items-center gap-2">
                         <i v-if="saving" class="fa fa-spinner fa-spin"></i>
                         {{ saving ? '保存中...' : '提交保存' }}
                     </button>
@@ -525,10 +548,10 @@
 
         <!-- Batch Import Modal -->
         <div v-if="showImportModal"
-            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-            <div class="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden p-6">
-                <div class="flex items-center justify-between mb-6">
-                    <h3 class="text-xl font-bold text-slate-800">批量导入植物数据</h3>
+            class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-sm">
+            <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-2xl max-h-[calc(100dvh-0.5rem)] sm:max-h-[90vh] shadow-2xl overflow-y-auto p-4 sm:p-6">
+                <div class="flex items-center justify-between gap-4 mb-6">
+                    <h3 class="text-lg sm:text-xl font-bold text-slate-800">批量导入植物数据</h3>
                     <button @click="showImportModal = false" class="text-slate-400 hover:text-slate-600">
                         <i class="fa fa-times text-xl"></i>
                     </button>
@@ -539,15 +562,15 @@
                         class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 font-mono text-sm outline-none focus:ring-2 focus:ring-emerald-500"
                         placeholder="[{ 'id': '...', 'name': '...' }, ...]"></textarea>
                 </div>
-                <div class="flex items-center justify-between">
-                    <div class="text-xs text-slate-400 max-w-[60%]">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="text-xs text-slate-400 max-w-none sm:max-w-[60%] leading-relaxed">
                         * 注意：导入将会按 ID 更新现有数据，请确保 JSON 格式正确且符合模板规范。
                     </div>
-                    <div class="flex gap-2">
+                    <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                         <button @click="showImportModal = false"
-                            class="px-6 py-2 text-slate-600 hover:bg-slate-50 rounded-xl transition-all">取消</button>
+                            class="w-full sm:w-auto px-6 py-2 text-slate-600 hover:bg-slate-50 rounded-xl transition-all">取消</button>
                         <button @click="doImport" :disabled="!importJson || importing"
-                            class="px-6 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2">
+                            class="w-full sm:w-auto justify-center px-6 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2">
                             <i v-if="importing" class="fa fa-spinner fa-spin"></i>
                             {{ importing ? '处理中...' : '开始导入' }}
                         </button>
@@ -558,10 +581,10 @@
 
         <!-- Limit Adjustment Modal -->
         <div v-if="showLimitModal"
-            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-            <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden p-6">
-                <div class="flex items-center justify-between mb-6">
-                    <h3 class="text-xl font-bold text-slate-800">调整用户花盆上限</h3>
+            class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-sm">
+            <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md shadow-2xl overflow-hidden p-4 sm:p-6">
+                <div class="flex items-center justify-between gap-4 mb-6">
+                    <h3 class="text-lg sm:text-xl font-bold text-slate-800">调整用户花盆上限</h3>
                     <button @click="showLimitModal = false" class="text-slate-400 hover:text-slate-600">
                         <i class="fa fa-times text-xl"></i>
                     </button>
@@ -569,7 +592,7 @@
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-slate-600 mb-2">用户邮箱</label>
-                        <p class="text-slate-800 font-medium">{{ activeUser?.email || '访客' }}</p>
+                        <p class="text-slate-800 font-medium break-all">{{ activeUser?.email || '访客' }}</p>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-600 mb-2">新的上限值</label>
@@ -581,7 +604,7 @@
                         </p>
                     </div>
                 </div>
-                <div class="flex gap-3 mt-8">
+                <div class="flex flex-col sm:flex-row gap-3 mt-8">
                     <button @click="showLimitModal = false"
                         class="flex-1 py-3 text-slate-600 hover:bg-slate-50 rounded-xl transition-all">取消</button>
                     <button @click="saveLimit" :disabled="savingLimit"
@@ -944,7 +967,7 @@
                 };
 
                 const checkAccess = async () => {
-                    const token = localStorage.getItem('flowerpots_token');
+                    const token = window.authStorage?.getToken() || null;
                     if (!token) {
                         window.location.href = 'index.html';
                         return;

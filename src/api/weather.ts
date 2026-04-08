@@ -14,11 +14,14 @@ export async function handleWeatherRequest(
     location = clientIp || 'auto:ip';
   }
   
-  const apiKey = env.WEATHER_API_KEY || 'f70ad05dc8124f8eb3273837251504';
+  const apiKey = String(env.WEATHER_API_KEY || '').trim();
+  if (!apiKey) {
+    return errorResponse('Weather service is not configured', 500);
+  }
 
   try {
     // 1. 获取实时天气
-    const currentUrl = `http://api.weatherapi.com/v1/current.json?key=${apiKey}&q=${encodeURIComponent(location)}&aqi=yes&lang=zh`;
+    const currentUrl = `https://api.weatherapi.com/v1/current.json?key=${apiKey}&q=${encodeURIComponent(location)}&aqi=yes&lang=zh`;
     const currentRes = await fetch(currentUrl);
     const currentWeather: any = await currentRes.json();
 
@@ -28,7 +31,7 @@ export async function handleWeatherRequest(
     }
 
     // 2. 获取预报
-    const forecastUrl = `http://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${encodeURIComponent(location)}&days=3&aqi=yes&alerts=yes&lang=zh`;
+    const forecastUrl = `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${encodeURIComponent(location)}&days=3&aqi=yes&alerts=yes&lang=zh`;
     const forecastRes = await fetch(forecastUrl);
     const forecast: any = await forecastRes.json();
 

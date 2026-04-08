@@ -1,17 +1,73 @@
 // Authentication utilities for My Flower Pots API
 
-/**
- * Hash a password using Web Crypto API (SHA-256)
- * We combine the password with userId as salt for better security
- */
-export async function hashPassword(password: string, userId: string): Promise<string> {
+// Cloudflare Workers currently caps PBKDF2 iterations at 100000.
+const PBKDF2_MAX_ITERATIONS = 100000;
+const PBKDF2_ITERATIONS = PBKDF2_MAX_ITERATIONS;
+const PBKDF2_ALGO = 'pbkdf2-sha256';
+const INVALID_JWT_SECRETS = new Set([
+  '',
+  'default-secret',
+  'my-super-secret-key-change-me-in-production',
+]);
+
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
+}
+
+function base64ToUint8Array(value: string): Uint8Array {
+  return Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
+}
+
+async function hashPasswordLegacy(password: string, userId: string): Promise<string> {
   const encoder = new TextEncoder();
-  // Combine password with userId as salt
   const data = encoder.encode(password + userId);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  return hashHex;
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function derivePasswordHash(password: string, salt: Uint8Array, iterations: number): Promise<string> {
+  if (iterations > PBKDF2_MAX_ITERATIONS) {
+    throw new Error(
+      `PBKDF2 iteration count ${iterations} exceeds the Cloudflare Workers limit of ${PBKDF2_MAX_ITERATIONS}.`
+    );
+  }
+
+  const encoder = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt,
+      iterations,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    256
+  );
+
+  return uint8ArrayToBase64(new Uint8Array(derivedBits));
+}
+
+/**
+ * Hash a password using PBKDF2 with a random salt.
+ * The second parameter is kept for compatibility with older call sites.
+ */
+export async function hashPassword(password: string, _userId?: string): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const hash = await derivePasswordHash(password, salt, PBKDF2_ITERATIONS);
+  return `${PBKDF2_ALGO}$${PBKDF2_ITERATIONS}$${uint8ArrayToBase64(salt)}$${hash}`;
 }
 
 /**
@@ -22,8 +78,28 @@ export async function verifyPassword(
   userId: string,
   storedHash: string
 ): Promise<boolean> {
-  const hash = await hashPassword(password, userId);
-  return hash === storedHash;
+  if (!storedHash) {
+    return false;
+  }
+
+  if (storedHash.startsWith(`${PBKDF2_ALGO}$`)) {
+    const parts = storedHash.split('$');
+    if (parts.length !== 4) {
+      return false;
+    }
+
+    const iterations = Number(parts[1]);
+    if (!Number.isFinite(iterations) || iterations <= 0) {
+      return false;
+    }
+
+    const salt = base64ToUint8Array(parts[2]);
+    const hash = await derivePasswordHash(password, salt, iterations);
+    return hash === parts[3];
+  }
+
+  const legacyHash = await hashPasswordLegacy(password, userId);
+  return legacyHash === storedHash;
 }
 
 /**
@@ -100,6 +176,14 @@ export function getTokenFromHeader(request: Request): string | null {
 
   // If no Bearer prefix, assume the whole string is the token
   return authHeader;
+}
+
+export function getJwtSecret(env: any): string {
+  const secret = String(env?.JWT_SECRET || '').trim();
+  if (INVALID_JWT_SECRETS.has(secret)) {
+    throw new Error('JWT_SECRET is missing or uses a known insecure placeholder value in the active deployment.');
+  }
+  return secret;
 }
 /**
  * Generate a simple JWT-like token (signed with HS256)

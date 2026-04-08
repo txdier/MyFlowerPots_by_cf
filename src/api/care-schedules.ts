@@ -80,7 +80,9 @@ async function handleGetSchedulesByPot(env: any, userId: string, potId: string):
       SELECT id FROM pots WHERE id = ? AND user_id = ?
       UNION
       SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?
-    `).bind(potId, userId, potId, userId).first();
+      UNION
+      SELECT pot_id FROM pot_viewers WHERE pot_id = ? AND user_id = ?
+    `).bind(potId, userId, potId, userId, potId, userId).first();
 
     if (!pot) {
         return errorResponse('Pot not found or access denied', 404);

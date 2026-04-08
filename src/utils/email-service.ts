@@ -8,6 +8,134 @@ export interface EmailOptions {
   text?: string;
 }
 
+interface EmailDetailItem {
+  label: string;
+  value: string;
+}
+
+interface EmailLayoutOptions {
+  preheader: string;
+  title: string;
+  intro: string[];
+  actionLabel?: string;
+  actionUrl?: string;
+  actionNote?: string;
+  details?: EmailDetailItem[];
+  bullets?: string[];
+  footer: string[];
+  accentColor?: string;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderEmailLayout(options: EmailLayoutOptions): string {
+  const {
+    preheader,
+    title,
+    intro,
+    actionLabel,
+    actionUrl,
+    actionNote,
+    details = [],
+    bullets = [],
+    footer,
+    accentColor = '#4CAF50',
+  } = options;
+
+  const introHtml = intro
+    .map((line) => `<p style="margin: 0 0 14px; color: #374151; font-size: 15px; line-height: 1.8;">${escapeHtml(line)}</p>`)
+    .join('');
+
+  const detailsHtml = details.length
+    ? `
+      <div style="background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px 18px; margin: 24px 0;">
+        ${details
+          .map(
+            (item) => `
+              <div style="margin: 0 0 10px;">
+                <div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">${escapeHtml(item.label)}</div>
+                <div style="color: #111827; font-size: 15px; font-weight: 600; word-break: break-word;">${escapeHtml(item.value)}</div>
+              </div>
+            `
+          )
+          .join('')}
+      </div>
+    `
+    : '';
+
+  const bulletsHtml = bullets.length
+    ? `
+      <div style="background: #f8fafc; border-radius: 14px; padding: 18px 20px; margin: 24px 0;">
+        <div style="color: #111827; font-size: 14px; font-weight: 700; margin-bottom: 12px;">您可以从这里开始：</div>
+        <ul style="padding-left: 20px; margin: 0; color: #374151; font-size: 14px; line-height: 1.9;">
+          ${bullets.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+        </ul>
+      </div>
+    `
+    : '';
+
+  const actionHtml = actionLabel && actionUrl
+    ? `
+      <div style="text-align: center; margin: 30px 0 22px;">
+        <a href="${escapeHtml(actionUrl)}"
+           style="display: inline-block; background: ${accentColor}; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 700; padding: 13px 26px; border-radius: 999px;">
+          ${escapeHtml(actionLabel)}
+        </a>
+      </div>
+      <p style="margin: 0 0 10px; color: #6b7280; font-size: 13px; line-height: 1.7;">如果按钮无法点击，请复制以下链接到浏览器打开：</p>
+      <p style="margin: 0 0 16px; padding: 12px 14px; border-radius: 10px; background: #f3f4f6; color: #2563eb; font-size: 13px; line-height: 1.7; word-break: break-all;">
+        ${escapeHtml(actionUrl)}
+      </p>
+    `
+    : '';
+
+  const actionNoteHtml = actionNote
+    ? `<p style="margin: 0 0 20px; color: #6b7280; font-size: 13px; line-height: 1.7;">${escapeHtml(actionNote)}</p>`
+    : '';
+
+  const footerHtml = footer
+    .map((line) => `<p style="margin: 0 0 8px; color: #6b7280; font-size: 12px; line-height: 1.7;">${escapeHtml(line)}</p>`)
+    .join('');
+
+  return `
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${escapeHtml(title)} - 我的花盆</title>
+    </head>
+    <body style="margin: 0; padding: 0; background: #f5f7f3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;">
+      <div style="display: none; max-height: 0; overflow: hidden; opacity: 0; visibility: hidden;">
+        ${escapeHtml(preheader)}
+      </div>
+      <div style="max-width: 640px; margin: 0 auto; padding: 28px 16px;">
+        <div style="text-align: center; margin-bottom: 16px; color: #2f855a; font-size: 13px; font-weight: 700; letter-spacing: 0.08em;">
+          我的花盆
+        </div>
+        <div style="background: #ffffff; border-radius: 20px; padding: 32px 28px; box-shadow: 0 12px 34px rgba(15, 23, 42, 0.08);">
+          <h1 style="margin: 0 0 18px; color: #111827; font-size: 24px; line-height: 1.4;">${escapeHtml(title)}</h1>
+          ${introHtml}
+          ${detailsHtml}
+          ${bulletsHtml}
+          ${actionHtml}
+          ${actionNoteHtml}
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 28px 0 18px;">
+          ${footerHtml}
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
 /**
  * Send an email using Resend or log it if no API key is configured
  */
@@ -15,7 +143,6 @@ export async function sendEmail(options: EmailOptions, env: any): Promise<boolea
   const { to, subject, html, text } = options;
   const resendApiKey = env.RESEND_API_KEY;
   const fromEmail = env.EMAIL_FROM || 'noreply@kaside365.com';
-  const appBaseUrl = env.APP_BASE_URL || 'https://app.kaside365.com';
 
   // If no Resend API key, just log and return success (for development)
   if (!resendApiKey) {
@@ -64,28 +191,23 @@ export function generateVerificationEmail(
 
   return {
     to: email,
-    subject: 'Verify your email for My Flower Pots',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Welcome to My Flower Pots! 🌱</h2>
-        <p>Thank you for registering. Please verify your email address to complete your account setup.</p>
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${verificationLink}" 
-             style="background-color: #4CAF50; color: white; padding: 12px 24px; 
-                    text-decoration: none; border-radius: 4px; font-weight: bold;">
-            Verify Email Address
-          </a>
-        </div>
-        <p>Or copy and paste this link in your browser:</p>
-        <p style="word-break: break-all; color: #666;">${verificationLink}</p>
-        <p>This link will expire in 24 hours.</p>
-        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-        <p style="color: #999; font-size: 12px;">
-          If you didn't create an account with My Flower Pots, you can safely ignore this email.
-        </p>
-      </div>
-    `,
-    text: `Welcome to My Flower Pots!\n\nPlease verify your email by clicking this link: ${verificationLink}\n\nThis link will expire in 24 hours.\n\nIf you didn't create an account, you can ignore this email.`
+    subject: '请验证您的邮箱 | 我的花盆',
+    html: renderEmailLayout({
+      preheader: '完成邮箱验证，保护账号安全并开始记录植物成长。',
+      title: '完成邮箱验证，开始安心记录植物成长',
+      intro: [
+        '感谢您注册“我的花盆”。请点击下方按钮验证邮箱，完成账号设置。',
+        '验证邮箱后，您将更方便地找回密码，也能更好地保护账号安全。'
+      ],
+      actionLabel: '立即验证邮箱',
+      actionUrl: verificationLink,
+      actionNote: '此链接将在 24 小时后失效。',
+      footer: [
+        '如果这不是您本人的操作，直接忽略此邮件即可。',
+        '本邮件由系统自动发送，请勿直接回复。'
+      ]
+    }),
+    text: `感谢注册“我的花盆”。\n\n请点击以下链接验证您的邮箱，完成账号设置：\n${verificationLink}\n\n此链接将在 24 小时后失效。\n如果这不是您本人的操作，直接忽略此邮件即可。\n\n我的花盆\n记录每一寸生长`
   };
 }
 
@@ -101,78 +223,100 @@ export function generatePasswordResetEmail(
 
   return {
     to: email,
-    subject: 'Reset your password for My Flower Pots',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Password Reset Request</h2>
-        <p>We received a request to reset your password for your My Flower Pots account.</p>
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${resetLink}" 
-             style="background-color: #2196F3; color: white; padding: 12px 24px; 
-                    text-decoration: none; border-radius: 4px; font-weight: bold;">
-            Reset Password
-          </a>
-        </div>
-        <p>Or copy and paste this link in your browser:</p>
-        <p style="word-break: break-all; color: #666;">${resetLink}</p>
-        <p>This link will expire in 24 hours.</p>
-        <p>If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.</p>
-        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-        <p style="color: #999; font-size: 12px;">
-          For security reasons, please don't share this email with anyone.
-        </p>
-      </div>
-    `,
-    text: `Password Reset Request\n\nClick this link to reset your password: ${resetLink}\n\nThis link will expire in 24 hours.\n\nIf you didn't request a password reset, you can ignore this email.`
+    subject: '重置密码 | 我的花盆',
+    html: renderEmailLayout({
+      preheader: '您正在重置“我的花盆”账号密码。',
+      title: '重置您的登录密码',
+      intro: [
+        '我们收到了您为“我的花盆”账号发起的密码重置请求。',
+        '如果这是您本人操作，请点击下方按钮设置新密码。'
+      ],
+      actionLabel: '立即重置密码',
+      actionUrl: resetLink,
+      actionNote: '此链接将在 24 小时后失效。',
+      accentColor: '#2563eb',
+      footer: [
+        '如果不是您本人发起，请忽略此邮件，您的密码不会被修改。',
+        '如您担心账号安全，建议登录后尽快修改密码。'
+      ]
+    }),
+    text: `我们收到了您为“我的花盆”账号发起的密码重置请求。\n\n请通过以下链接设置新密码：\n${resetLink}\n\n此链接将在 24 小时后失效。\n如果不是您本人发起，请忽略此邮件，您的密码不会被修改。\n\n我的花盆\n记录每一寸生长`
   };
 }
 
 /**
- * Generate welcome email for new users
+ * Generate welcome email for verified users
  */
 export function generateWelcomeEmail(
   email: string,
   displayName: string | null,
   appBaseUrl: string
 ): EmailOptions {
-  const name = displayName || 'there';
+  const name = displayName?.trim() || '你好';
+  const greeting = name === '你好' ? '欢迎来到“我的花盆”' : `${name}，欢迎来到“我的花盆”`;
 
   return {
     to: email,
-    subject: 'Welcome to My Flower Pots!',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Welcome to My Flower Pots, ${name}! 🌸</h2>
-        <p>We're excited to have you join our community of plant lovers.</p>
-        
-        <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <h3>Getting Started:</h3>
-          <ul>
-            <li>Add your first flower pot from the home screen</li>
-            <li>Record watering and fertilizing schedules</li>
-            <li>Track growth with photos and notes</li>
-            <li>Get personalized care advice based on weather</li>
-          </ul>
-        </div>
-        
-        <p>If you have any questions or feedback, feel free to reply to this email.</p>
-        
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${appBaseUrl}" 
-             style="background-color: #4CAF50; color: white; padding: 12px 24px; 
-                    text-decoration: none; border-radius: 4px; font-weight: bold;">
-            Start Growing!
-          </a>
-        </div>
-        
-        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-        <p style="color: #999; font-size: 12px;">
-          Happy planting!<br>
-          The My Flower Pots Team
-        </p>
-      </div>
-    `,
-    text: `Welcome to My Flower Pots, ${name}!\n\nWe're excited to have you join our community of plant lovers.\n\nGetting Started:\n- Add your first flower pot from the home screen\n- Record watering and fertilizing schedules\n- Track growth with photos and notes\n- Get personalized care advice based on weather\n\nVisit ${appBaseUrl} to start growing!\n\nHappy planting!\nThe My Flower Pots Team`
+    subject: '欢迎来到我的花盆',
+    html: renderEmailLayout({
+      preheader: '邮箱验证成功，现在就开始记录植物成长。',
+      title: greeting,
+      intro: [
+        '您的邮箱已经验证成功，现在可以开始记录植物成长、养护节奏和照片变化了。',
+        '为了方便您快速上手，我们准备了几个常用入口：'
+      ],
+      bullets: [
+        '添加第一盆植物，建立自己的植物档案',
+        '记录浇水、施肥和其他养护动作',
+        '上传照片与备注，持续观察成长变化',
+        '根据天气获取更贴合当前环境的养护建议'
+      ],
+      actionLabel: '进入我的花盆',
+      actionUrl: appBaseUrl,
+      actionNote: '登录后即可从首页开始管理您的植物。',
+      footer: [
+        '如需帮助或想反馈建议，直接回复此邮件即可。',
+        '祝您把每一盆植物都养得更好。'
+      ]
+    }),
+    text: `${greeting}\n\n您的邮箱已经验证成功，现在可以开始记录植物成长了。\n\n您可以先从这些操作开始：\n- 添加第一盆植物\n- 记录浇水、施肥和其他养护动作\n- 上传照片与备注\n- 查看基于天气的养护建议\n\n立即开始：${appBaseUrl}\n\n如需帮助，直接回复此邮件即可。\n\n我的花盆\n记录每一寸生长`
+  };
+}
+
+/**
+ * Generate new email verification email
+ */
+export function generateNewEmailVerificationEmail(
+  newEmail: string,
+  currentEmail: string,
+  verificationToken: string,
+  appBaseUrl: string
+): EmailOptions {
+  const verificationLink = `${appBaseUrl}/api/auth/verify-new-email?token=${verificationToken}`;
+
+  return {
+    to: newEmail,
+    subject: '请验证您的新邮箱 | 我的花盆',
+    html: renderEmailLayout({
+      preheader: '确认新的登录邮箱地址。',
+      title: '确认新的邮箱地址',
+      intro: [
+        '我们收到了您修改登录邮箱的请求。',
+        '请确认以下信息无误后，点击下方按钮完成新邮箱验证。'
+      ],
+      details: [
+        { label: '当前邮箱', value: currentEmail },
+        { label: '新邮箱', value: newEmail }
+      ],
+      actionLabel: '验证新邮箱',
+      actionUrl: verificationLink,
+      actionNote: '此链接将在 24 小时后失效。',
+      footer: [
+        '如果这不是您本人的操作，请尽快检查账号安全。',
+        '本邮件由系统自动发送，请勿直接回复。'
+      ]
+    }),
+    text: `我们收到了您修改登录邮箱的请求。\n\n当前邮箱：${currentEmail}\n新邮箱：${newEmail}\n\n请通过以下链接完成新邮箱验证：\n${verificationLink}\n\n此链接将在 24 小时后失效。\n如果这不是您本人的操作，请尽快检查账号安全。\n\n我的花盆\n记录每一寸生长`
   };
 }
 
@@ -187,41 +331,26 @@ export function generateTransferEmail(
 ): EmailOptions {
   return {
     to: toEmail,
-    subject: `📦 花盆移交确认：${senderName} 想要向您移交“${potName}”`,
-    html: `
-      <div style="font-family: 'Microsoft YaHei', sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-        <h2 style="color: #4CAF50;">您收到一个花盆移交请求！🌱</h2>
-        <p>亲爱的用户，您的好友 <strong>${senderName}</strong> 想要将他/她的花盆 <strong>“${potName}”</strong> 移交给您管理。</p>
-        
-        <div style="background-color: #f4fdf4; border-left: 4px solid #4CAF50; padding: 20px; margin: 25px 0; border-radius: 8px;">
-          <h3 style="margin-top: 0; color: #2e7d32;">移交详情：</h3>
-          <p style="margin-bottom: 0;"><strong>花盆名称：</strong> ${potName}</p>
-          <p style="margin-bottom: 0;"><strong>发起人：</strong> ${senderName}</p>
-        </div>
-
-        <p>如果您接受此移交，您将成为该花盆的新主人，并拥有全部管理权限（包括删除记录、进一步转让等）。</p>
-        
-        <div style="text-align: center; margin: 40px 0;">
-          <a href="${transferLink}" 
-             style="background-color: #4CAF50; color: white; padding: 14px 32px; 
-                    text-decoration: none; border-radius: 50px; font-weight: bold; font-size: 16px;
-                    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);">
-            立即查看并接受移交
-          </a>
-        </div>
-        
-        <p style="color: #999; font-size: 13px;">或者复制此链接到浏览器直接打开：</p>
-        <p style="word-break: break-all; color: #007bff; font-size: 12px; background: #f0f7ff; padding: 10px; border-radius: 5px;">${transferLink}</p>
-        
-        <p style="color: #666; font-size: 14px; margin-top: 30px;">如果您不想接收此花盆，可以直接忽略此邮件或在系统中点击“拒绝”。</p>
-        
-        <hr style="border: none; border-top: 1px solid #eee; margin: 40px 0;">
-        <p style="color: #bbb; font-size: 12px; text-align: center;">
-          我的花盆 (My Flower Pots) - 记录每一寸生长<br>
-          本邮件由系统自动发出，请勿直接回复。
-        </p>
-      </div>
-    `,
-    text: `花盆移交请求\n\n${senderName} 想要向您移交花盆 “${potName}”。\n\n请点击以下链接查看详情并接受：\n${transferLink}\n\n如果您不想接收，请忽略此邮件。`
+    subject: `花盆移交通知 | ${senderName} 邀请您接收“${potName}”`,
+    html: renderEmailLayout({
+      preheader: '您收到一个新的花盆移交邀请。',
+      title: '您收到一个花盆移交邀请',
+      intro: [
+        `${senderName} 希望将花盆“${potName}”移交给您管理。`,
+        '接受后，您将成为该花盆的新主人，并拥有完整管理权限。'
+      ],
+      details: [
+        { label: '花盆名称', value: potName },
+        { label: '发起人', value: senderName }
+      ],
+      actionLabel: '查看并处理移交',
+      actionUrl: transferLink,
+      actionNote: '此链接将在 24 小时后失效。',
+      footer: [
+        '如果您暂时不想处理，忽略此邮件即可。',
+        '本邮件由系统自动发送，请勿直接回复。'
+      ]
+    }),
+    text: `您收到一个花盆移交邀请。\n\n${senderName} 邀请您接收花盆“${potName}”。接受后，您将成为该花盆的新主人，并拥有完整管理权限。\n\n请通过以下链接查看并处理：\n${transferLink}\n\n此链接将在 24 小时后失效。\n如果您暂时不想处理，忽略此邮件即可。\n\n我的花盆\n记录每一寸生长`
   };
 }

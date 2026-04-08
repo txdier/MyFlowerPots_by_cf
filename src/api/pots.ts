@@ -1,4 +1,3 @@
-import { getTokenFromHeader } from '../utils/auth-utils';
 import { jsonResponse, errorResponse } from '../utils/response-utils';
 import {
   isDefaultImage,
@@ -14,6 +13,7 @@ export async function handlePotsRequest(
   url: URL,
   token: string | null
 ): Promise<Response> {
+  await ensurePotCommentDanmakuColumn(env);
   // 1️⃣ 花盆列表
   if (request.method === 'GET' && path === '/api/pots') {
     return handleGetPots(request, env, url, token);
@@ -63,6 +63,27 @@ export async function handlePotsRequest(
   return errorResponse('Not Found', 404);
 }
 
+async function ensurePotCommentDanmakuColumn(env: any): Promise<void> {
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS pot_viewers (
+      pot_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (pot_id, user_id)
+    )
+  `).run();
+  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_viewers_user ON pot_viewers(user_id)').run();
+  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_viewers_pot ON pot_viewers(pot_id)').run();
+  try {
+    await env.DB.prepare('ALTER TABLE pots ADD COLUMN show_comment_danmaku INTEGER DEFAULT 1').run();
+  } catch (error: any) {
+    const message = String(error?.message || error || '');
+    if (!message.includes('duplicate column name')) {
+      throw error;
+    }
+  }
+}
+
 async function handleGetPots(
   request: Request,
   env: any,
@@ -87,13 +108,17 @@ async function handleGetPots(
         image_url,
         last_care,
         last_care_action,
-        (user_id != ?) as is_collaborator,
-        (SELECT COUNT(*) FROM pot_collaborators WHERE pot_id = pots.id) as collaborator_count
+        EXISTS(SELECT 1 FROM pot_collaborators WHERE pot_id = pots.id AND user_id = ?) as is_collaborator,
+        EXISTS(SELECT 1 FROM pot_viewers WHERE pot_id = pots.id AND user_id = ?) as is_viewer,
+        (SELECT COUNT(*) FROM pot_collaborators WHERE pot_id = pots.id) as collaborator_count,
+        (SELECT COUNT(*) FROM pot_viewers WHERE pot_id = pots.id) as viewer_count
       FROM pots
-      WHERE user_id = ? OR id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?)
+      WHERE user_id = ?
+        OR id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?)
+        OR id IN (SELECT pot_id FROM pot_viewers WHERE user_id = ?)
       ORDER BY sort_order ASC, plant_date DESC
     `)
-    .bind(userId, userId, userId)
+    .bind(userId, userId, userId, userId, userId)
     .all();
 
   return jsonResponse({
@@ -125,14 +150,22 @@ async function handleGetPotDetail(path: string, env: any, url: URL, token: strin
         pots.last_care_action,
         pots.share_token,
         pots.is_shared,
-        (pots.user_id != ?) as is_collaborator,
+        pots.show_comment_danmaku,
+        EXISTS(SELECT 1 FROM pot_collaborators WHERE pot_id = pots.id AND user_id = ?) as is_collaborator,
+        EXISTS(SELECT 1 FROM pot_viewers WHERE pot_id = pots.id AND user_id = ?) as is_viewer,
         (SELECT COUNT(*) FROM pot_collaborators WHERE pot_id = pots.id) as collaborator_count,
+        (SELECT COUNT(*) FROM pot_viewers WHERE pot_id = pots.id) as viewer_count,
         u.display_name as owner_name
       FROM pots
       LEFT JOIN users u ON pots.user_id = u.id
-      WHERE pots.id = ? AND (pots.user_id = ? OR pots.id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?))
+      WHERE pots.id = ?
+        AND (
+          pots.user_id = ?
+          OR pots.id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?)
+          OR pots.id IN (SELECT pot_id FROM pot_viewers WHERE user_id = ?)
+        )
     `)
-    .bind(userId, potId, userId, userId)
+    .bind(userId, userId, potId, userId, userId, userId)
     .first();
 
   if (!pot) {
@@ -279,7 +312,7 @@ async function handleUpdatePot(
     } = body;
 
     // 验证用户权限
-    const userId = url.searchParams.get('userId') || token;
+    const userId = token;
     if (!userId) {
       return errorResponse('Authentication required', 401);
     }
@@ -362,7 +395,7 @@ async function handleDeletePot(
     const potId = path.split('/')[3];
 
     // 验证用户权限
-    const userId = url.searchParams.get('userId') || token;
+    const userId = token;
     if (!userId) {
       return errorResponse('Authentication required', 401);
     }
@@ -465,8 +498,10 @@ async function handleGetCareRecords(path: string, env: any, token: string | null
       SELECT id FROM pots WHERE id = ? AND user_id = ?
       UNION
       SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?
+      UNION
+      SELECT pot_id FROM pot_viewers WHERE pot_id = ? AND user_id = ?
     `)
-    .bind(potId, token, potId, token)
+    .bind(potId, token, potId, token, potId, token)
     .first();
 
   if (!pot) {
@@ -511,8 +546,10 @@ async function handleGetTimelines(path: string, env: any, token: string | null):
       SELECT id FROM pots WHERE id = ? AND user_id = ?
       UNION
       SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?
+      UNION
+      SELECT pot_id FROM pot_viewers WHERE pot_id = ? AND user_id = ?
     `)
-    .bind(potId, token, potId, token)
+    .bind(potId, token, potId, token, potId, token)
     .first();
 
   if (!pot) {
@@ -560,7 +597,7 @@ async function handleReorderPots(
       return errorResponse('Invalid potIds, expected array', 400);
     }
 
-    const userId = url.searchParams.get('userId') || token;
+    const userId = token;
     if (!userId) {
       return errorResponse('Authentication required', 401);
     }
@@ -592,8 +629,10 @@ async function handleGetPotStats(path: string, env: any, token: string | null): 
       SELECT id FROM pots WHERE id = ? AND user_id = ?
       UNION
       SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?
+      UNION
+      SELECT pot_id FROM pot_viewers WHERE pot_id = ? AND user_id = ?
     `)
-    .bind(potId, token, potId, token)
+    .bind(potId, token, potId, token, potId, token)
     .first();
 
   if (!pot) {

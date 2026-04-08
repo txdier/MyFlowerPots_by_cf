@@ -1,6 +1,6 @@
 /**
  * Support inbox API handlers.
- * Routes (all under /api/admin/support/, protected by existing admin auth):
+ * Routes (all under /api/admin/support/, protected by admin auth):
  *   GET    /api/admin/support/emails           — list emails (paginated)
  *   GET    /api/admin/support/emails/:id       — get email + replies (marks read)
  *   POST   /api/admin/support/emails/:id/reply — send reply via Resend
@@ -8,7 +8,7 @@
  *   DELETE /api/admin/support/emails/:id       — delete email
  */
 
-import { corsResponse } from '../utils/response-utils';
+import { isAdmin } from './admin';
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -20,13 +20,63 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function preserveLineBreaks(value: string): string {
+  return escapeHtml(value).replace(/\r?\n/g, '<br>');
+}
+
+function renderSupportReplyEmail(replyBody: string, originalMessage: string): string {
+  return `
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>我的花盆客服回复</title>
+    </head>
+    <body style="margin: 0; padding: 0; background: #f5f7f3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;">
+      <div style="max-width: 640px; margin: 0 auto; padding: 28px 16px;">
+        <div style="background: #ffffff; border-radius: 20px; padding: 32px 28px; box-shadow: 0 12px 34px rgba(15, 23, 42, 0.08);">
+          <div style="color: #2f855a; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; margin-bottom: 16px;">我的花盆客服</div>
+          <h1 style="margin: 0 0 18px; color: #111827; font-size: 24px; line-height: 1.4;">您好，以下是我们对您来信的回复</h1>
+          <div style="color: #374151; font-size: 15px; line-height: 1.9; margin-bottom: 24px;">
+            ${preserveLineBreaks(replyBody)}
+          </div>
+          <p style="margin: 0 0 22px; color: #6b7280; font-size: 13px; line-height: 1.7;">
+            如需继续沟通，直接回复此邮件即可，我们会尽快跟进。
+          </p>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+          <div style="color: #6b7280; font-size: 12px; margin-bottom: 8px;">原始消息</div>
+          <blockquote style="margin: 0; padding-left: 14px; border-left: 3px solid #d1d5db; color: #6b7280; font-size: 13px; line-height: 1.8;">
+            ${preserveLineBreaks(originalMessage)}
+          </blockquote>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
 export async function handleSupportRequest(
   request: Request,
   env: any,
   path: string,
-  url: URL
+  url: URL,
+  userId: string | null
 ): Promise<Response> {
   const method = request.method;
+
+  if (!(await isAdmin(request, env, userId))) {
+    return json({ error: 'Forbidden: Admin access required' }, 403);
+  }
 
   // Strip the /api/admin/support prefix to get the sub-path
   const subPath = path.replace(/^\/api\/admin\/support/, '');
@@ -146,7 +196,11 @@ export async function handleSupportRequest(
 
     // Sender identity specifically for support
     const fromAddress = env.SUPPORT_EMAIL_FROM ?? 'support@kaside365.com';
-    const fromName = env.SUPPORT_EMAIL_FROM_NAME ?? 'My Flower Pots Support';
+    const fromName = env.SUPPORT_EMAIL_FROM_NAME ?? '我的花盆客服';
+
+    if (!env.RESEND_API_KEY) {
+      return json({ error: 'Email service is not configured' }, 500);
+    }
 
     // Send via Resend
     const resendRes = await fetch('https://api.resend.com/emails', {
@@ -159,13 +213,8 @@ export async function handleSupportRequest(
         from: `${fromName} <${fromAddress}>`,
         to: [email.from_addr],
         subject: replySubject,
-        text: body,
-        html: `<p style="font-family:sans-serif;line-height:1.6">${body.replace(/\n/g, '<br>')}</p>
-               <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
-               <blockquote style="color:#888;border-left:3px solid #ddd;padding-left:12px;margin:0;font-size:0.9em">
-                 <p style="margin:0 0 4px;font-size:0.85em;color:#aaa">原始消息：</p>
-                 ${email.text_body.replace(/\n/g, '<br>')}
-               </blockquote>`,
+        text: `${body}\n\n如需继续沟通，直接回复此邮件即可。\n\n----- 原始消息 -----\n${email.text_body}`,
+        html: renderSupportReplyEmail(body, email.text_body),
       }),
     });
 

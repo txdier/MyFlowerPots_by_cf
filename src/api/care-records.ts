@@ -56,9 +56,14 @@ async function handleGetCareRecordDetail(request: Request, env: any, id: string,
         SELECT r.*, u.display_name as operator_name FROM care_records r
         JOIN pots p ON r.pot_id = p.id
         LEFT JOIN users u ON r.user_id = u.id
-        WHERE r.id = ? AND (p.user_id = ? OR r.pot_id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?))
+        WHERE r.id = ?
+          AND (
+            p.user_id = ?
+            OR r.pot_id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?)
+            OR r.pot_id IN (SELECT pot_id FROM pot_viewers WHERE user_id = ?)
+          )
       `)
-      .bind(id, token, token)
+      .bind(id, token, token, token)
       .first();
 
     if (!record) {
@@ -97,8 +102,10 @@ async function handleGetCareRecords(request: Request, env: any, potId: string, t
         SELECT id FROM pots WHERE id = ? AND user_id = ?
         UNION
         SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?
+        UNION
+        SELECT pot_id FROM pot_viewers WHERE pot_id = ? AND user_id = ?
       `)
-      .bind(potId, token, potId, token)
+      .bind(potId, token, potId, token, potId, token)
       .first();
 
     if (!pot) {
@@ -314,7 +321,7 @@ async function handleUpdateCareRecord(request: Request, env: any, id: string, to
     // 安全加固：检查记录是否存在且属于该用户或协作者
     const existing: any = await env.DB
       .prepare(`
-        SELECT r.id, r.image_url FROM care_records r
+        SELECT r.id, r.image_url, r.pot_id FROM care_records r
         JOIN pots p ON r.pot_id = p.id
         LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
         WHERE r.id = ? AND (p.user_id = ? OR pc.user_id = ?)
@@ -377,6 +384,8 @@ async function handleUpdateCareRecord(request: Request, env: any, id: string, to
       .bind(...values)
       .run();
 
+    await syncPotLastCareSummary(env, existing.pot_id);
+
     return jsonResponse({ success: true });
 
   } catch (error) {
@@ -390,7 +399,7 @@ async function handleDeleteCareRecord(request: Request, env: any, id: string, to
     // 安全加固：检查记录是否存在且属于该用户或其协作者
     const existing: any = await env.DB
       .prepare(`
-        SELECT r.id, r.image_url FROM care_records r
+        SELECT r.id, r.image_url, r.pot_id FROM care_records r
         JOIN pots p ON r.pot_id = p.id
         LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
         WHERE r.id = ? AND (p.user_id = ? OR pc.user_id = ?)
@@ -415,10 +424,51 @@ async function handleDeleteCareRecord(request: Request, env: any, id: string, to
       .bind(id)
       .run();
 
+    await syncPotLastCareSummary(env, existing.pot_id);
+
     return jsonResponse({ success: true });
 
   } catch (error) {
     console.error('Delete care record error:', error);
     return errorResponse('Failed to delete care record', 500);
   }
+}
+
+async function syncPotLastCareSummary(env: any, potId: string): Promise<void> {
+  const latestRecord: any = await env.DB
+    .prepare(`
+      SELECT care_date
+      FROM care_records
+      WHERE pot_id = ?
+      ORDER BY care_date DESC, created_at DESC, id DESC
+      LIMIT 1
+    `)
+    .bind(potId)
+    .first();
+
+  if (!latestRecord?.care_date) {
+    await env.DB
+      .prepare('UPDATE pots SET last_care = NULL, last_care_action = NULL WHERE id = ?')
+      .bind(potId)
+      .run();
+    return;
+  }
+
+  const latestActionRow: any = await env.DB
+    .prepare(`
+      SELECT GROUP_CONCAT(action, '、') as actions
+      FROM (
+        SELECT DISTINCT action
+        FROM care_records
+        WHERE pot_id = ? AND care_date = ?
+        ORDER BY id ASC
+      )
+    `)
+    .bind(potId, latestRecord.care_date)
+    .first();
+
+  await env.DB
+    .prepare('UPDATE pots SET last_care = ?, last_care_action = ? WHERE id = ?')
+    .bind(latestRecord.care_date, latestActionRow?.actions || null, potId)
+    .run();
 }

@@ -17,7 +17,7 @@
     </style>
 
     <!-- Tailwind CSS & Custom Styles (Optimized) -->
-    <link rel="stylesheet" href="css/tailwind-built.css?v=20260227">
+    <link rel="stylesheet" href="css/tailwind-built.css?v=20260407-1">
     <link rel="stylesheet" href="css/app.css?v=20260227">
 
     <!-- 图标库 -->
@@ -85,7 +85,7 @@
                         <!-- 2. 养护类型 (支持多选) -->
                         <div class="mb-6">
                             <label class="block text-sm font-bold text-gray-700 mb-1">养护类型</label>
-                            <p class="text-[10px] text-gray-400 mb-3" v-if="!isEditMode">可同时选择多项</p>
+                            <p class="text-[10px] text-gray-400 mb-3" v-if="!isEditMode">可同时选择多项，会自动带出当前植物提醒里的动态类型</p>
                             <div class="grid grid-cols-3 gap-3">
                                 <button v-for="t in careTypes" :key="t.value" type="button"
                                     @click="toggleCareType(t.value)"
@@ -93,11 +93,12 @@
                                     class="flex flex-col items-center justify-center py-4 rounded-2xl border transition-all duration-200">
                                     <i :class="t.icon" class="text-xl mb-2"></i>
                                     <span class="text-xs font-bold">{{ t.label }}</span>
+                                    <span v-if="t.dynamic" class="mt-1 text-[9px] font-black tracking-wider opacity-70">动态</span>
                                 </button>
                             </div>
                         </div>
                         <!-- 自定义内容输入 (仅当选择“其他”时显示) -->
-                        <div v-if="form.types.includes('other')" class="mb-6 animate-fade-in">
+                        <div v-if="shouldShowCustomActionInput" class="mb-6 animate-fade-in">
                             <label class="block text-sm font-bold text-gray-700 mb-2">自定义内容</label>
                             <input v-model="form.customAction" type="text" placeholder="比如：移动位置、清理枯叶..."
                                 class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500 focus:border-green-500 transition">
@@ -171,7 +172,7 @@
     </div>
     
     <script>
-        const { createApp, ref, reactive, onMounted } = Vue;
+        const { createApp, ref, reactive, computed, onMounted } = Vue;
 
         createApp({
             setup() {
@@ -185,7 +186,7 @@
                 const toast = ref({ show: false, message: '', type: 'success' });
                 let toastTimer = null;
 
-                const careTypes = [
+                const baseCareTypes = [
                     { value: 'water', label: '浇水', icon: 'fa fa-tint' },
                     { value: 'fertilize', label: '施肥', icon: 'fa fa-seedling' },
                     { value: 'prune', label: '修剪', icon: 'fa fa-cut' },
@@ -193,6 +194,10 @@
                     { value: 'pest', label: '病虫害', icon: 'fa fa-bug' },
                     { value: 'other', label: '其他', icon: 'fa fa-ellipsis-h' }
                 ];
+                const builtInCareTypeValues = new Set(baseCareTypes.map(item => item.value));
+                const builtInCareTypeLabels = new Set(baseCareTypes.map(item => item.label));
+                const dynamicCareTypes = ref([]);
+                const careTypes = computed(() => [...baseCareTypes, ...dynamicCareTypes.value]);
 
                 const fileInput = ref(null);
 
@@ -203,6 +208,91 @@
                     customAction: '',
                     images: [] // { file?, preview?, url? }
                 });
+                const shouldShowCustomActionInput = computed(() => form.types.includes('other'));
+
+                const canonicalCareType = (value) => {
+                    const raw = String(value || '').trim().toLowerCase();
+                    if (raw === 'trim') return 'prune';
+                    return raw;
+                };
+
+                const isBuiltInCareType = (value) => builtInCareTypeValues.has(canonicalCareType(value));
+
+                const shortenCustomLabel = (value, maxLength = 10) => {
+                    const normalized = String(value || '').trim();
+                    if (!normalized) return '';
+                    return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized;
+                };
+
+                const upsertDynamicCareType = (option) => {
+                    if (!option?.value || !option?.label) return;
+
+                    const existingIndex = dynamicCareTypes.value.findIndex(item =>
+                        item.value === option.value || item.label === option.label
+                    );
+
+                    if (existingIndex > -1) {
+                        dynamicCareTypes.value[existingIndex] = {
+                            ...dynamicCareTypes.value[existingIndex],
+                            ...option,
+                            dynamic: true
+                        };
+                        return;
+                    }
+
+                    dynamicCareTypes.value.push({
+                        ...option,
+                        dynamic: true
+                    });
+                };
+
+                const ensureRecordCareTypeOption = (recordData) => {
+                    const recordType = String(recordData?.type || '').trim();
+                    if (!recordType || recordType === 'other' || isBuiltInCareType(recordType)) return;
+
+                    upsertDynamicCareType({
+                        value: recordType,
+                        label: String(recordData?.action || recordType).trim() || recordType,
+                        icon: 'fa fa-clipboard-check'
+                    });
+                };
+
+                const loadCareTypeOptions = async (pid, recordData = null) => {
+                    dynamicCareTypes.value = [];
+                    if (!pid) {
+                        ensureRecordCareTypeOption(recordData);
+                        return;
+                    }
+
+                    try {
+                        const res = await apiClient.getCareSchedules(pid);
+                        if (res.success && Array.isArray(res.data)) {
+                            res.data.forEach((schedule) => {
+                                const rawType = canonicalCareType(schedule.care_type);
+                                if (rawType && rawType !== 'other' && builtInCareTypeValues.has(rawType)) {
+                                    return;
+                                }
+
+                                const dynamicLabel = String(schedule.custom_action || schedule.care_type || '').trim();
+                                if (!dynamicLabel || builtInCareTypeLabels.has(dynamicLabel)) {
+                                    return;
+                                }
+
+                                upsertDynamicCareType({
+                                    value: dynamicLabel,
+                                    label: dynamicLabel,
+                                    icon: 'fa fa-clipboard-check'
+                                });
+                            });
+                        }
+                    } catch (err) {
+                        console.warn('加载动态养护类型失败:', err);
+                    }
+
+                    ensureRecordCareTypeOption(recordData);
+                };
+
+                const getCareTypeOption = (value) => careTypes.value.find(item => item.value === value);
 
                 const showToast = (message, type = 'success') => {
                     toast.value = { show: true, message, type };
@@ -223,6 +313,7 @@
                             await loadRecordDetail();
                         } else if (potId.value) {
                             await loadPotInfo(potId.value);
+                            await loadCareTypeOptions(potId.value);
                         } else {
                             error.value = '参数缺失，无法操作';
                         }
@@ -237,7 +328,7 @@
                     const res = await apiClient.request(`/api/care-records/detail/${recordId.value}`);
                     if (res.success) {
                         const data = res.data;
-                        form.types = [data.type];
+                        form.types = [isBuiltInCareType(data.type) ? canonicalCareType(data.type) : data.type];
                         form.date = data.date;
                         form.description = data.description || '';
                         form.customAction = data.type === 'other' ? (data.action || data.description || '') : '';
@@ -260,6 +351,7 @@
 
                         potId.value = data.potId;
                         await loadPotInfo(data.potId);
+                        await loadCareTypeOptions(data.potId, data);
                     }
                 };
 
@@ -335,19 +427,34 @@
                             }
                         }
 
-                        // 准备动作列表，如果类型是“其他”，优先使用描述内容
-                        const actions = form.types.map(t => {
-                            if (t === 'other' && form.customAction.trim()) {
-                                const d = form.customAction.trim();
-                                return d.length > 10 ? d.substring(0, 10) + '...' : d;
+                        const selectedCareTypes = form.types.map((typeValue) => {
+                            if (typeValue === 'other') {
+                                const customLabel = shortenCustomLabel(form.customAction);
+                                return {
+                                    type: 'other',
+                                    action: customLabel || '其他'
+                                };
                             }
-                            return careTypes.find(ct => ct.value === t).label;
+
+                            const option = getCareTypeOption(typeValue);
+                            const normalizedType = canonicalCareType(typeValue);
+                            if (option?.dynamic) {
+                                return {
+                                    type: option.value,
+                                    action: option.label
+                                };
+                            }
+
+                            return {
+                                type: builtInCareTypeValues.has(normalizedType) ? normalizedType : typeValue,
+                                action: option?.label || typeValue
+                            };
                         });
 
                         const payload = {
                             potId: potId.value,
-                            types: form.types,
-                            actions: actions,
+                            types: selectedCareTypes.map(item => item.type),
+                            actions: selectedCareTypes.map(item => item.action),
                             careDate: form.date,
                             description: form.description,
                             imageUrls: uploadedUrls // 发送数组
@@ -355,7 +462,11 @@
 
                         let result;
                         if (isEditMode.value) {
-                            const editPayload = { ...payload, type: form.types[0], action: actions[0] };
+                            const editPayload = {
+                                ...payload,
+                                type: selectedCareTypes[0].type,
+                                action: selectedCareTypes[0].action
+                            };
                             result = await apiClient.request(`/api/care-records/${recordId.value}`, {
                                 method: 'PUT',
                                 body: editPayload
@@ -384,8 +495,13 @@
 
                 // 图片优化：Cloudflare cdn-cgi/image 按需缩放
                 const imgUrl = (src, w, h) => {
-                    if (!src || !src.includes('img.kaside365.com')) return src;
-                    return `/cdn-cgi/image/width=${w},height=${h},dpr=2,fit=cover,format=auto/${src}`;
+                    if (!src) return src;
+                    const normalizedSrc = String(src)
+                        .replace(/^\/?assets\/deom\//i, '/assets/demo/')
+                        .replace(/^assets\//i, '/assets/');
+                    if (normalizedSrc.startsWith('/assets/')) return normalizedSrc;
+                    if (!normalizedSrc.includes('img.kaside365.com')) return normalizedSrc;
+                    return `/cdn-cgi/image/width=${w},height=${h},dpr=2,fit=cover,format=auto/${normalizedSrc}`;
                 };
 
                 const formatDate = (d) => {
@@ -400,7 +516,7 @@
                     isLoading, isSaving, error, pot, isEditMode, careTypes, form, fileInput, toast,
                     toggleCareType, isTypeSelected,
                     triggerFileInput, onFilesSelected, removeImage, saveRecord, goBack, formatDate, imgUrl,
-                    potId
+                    potId, shouldShowCustomActionInput
                 };
             }
         }).mount('#app');

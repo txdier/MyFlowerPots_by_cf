@@ -1,7 +1,77 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
-import { getTokenFromHeader } from '../utils/auth-utils';
 import { extractObjectKeysFromUrls, deleteFilesFromR2 } from '../utils/storage-utils';
-import { getAnalytics, getDailyTrend } from './analytics';
+import { getAnalytics, getDailyTrend, getAnalyticsDateString } from './analytics';
+
+const DELETED_USER_PLACEHOLDER_ID = '__deleted_user__';
+const DELETED_USER_PLACEHOLDER_NAME = '已删除用户';
+
+function parseCsvEnv(value: any): string[] {
+    return String(value || '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
+}
+
+function isTruthyEnv(value: any): boolean {
+    return ['1', 'true', 'yes', 'on'].includes(String(value || '').trim().toLowerCase());
+}
+
+function parseJsonObject(raw: any): Record<string, any> {
+    if (!raw || typeof raw !== 'string') {
+        return {};
+    }
+
+    try {
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+        return {};
+    }
+}
+
+function buildAnonymizedPotCommentMessage(extraDataRaw: any, fallbackContent: any): { content: string; extraData: string } {
+    const extraData = parseJsonObject(extraDataRaw);
+    const comment = typeof extraData.comment === 'string' ? extraData.comment.trim() : '';
+    const replyToName = typeof extraData.replyToName === 'string' && extraData.replyToName.trim()
+        ? extraData.replyToName.trim()
+        : '一位成员';
+    const isReply = Boolean(extraData.parentCommentId);
+    const content = comment
+        ? (isReply
+            ? `${DELETED_USER_PLACEHOLDER_NAME} 回复 ${replyToName}：${comment}`
+            : `${DELETED_USER_PLACEHOLDER_NAME}：${comment}`)
+        : String(fallbackContent || '');
+
+    return {
+        content,
+        extraData: JSON.stringify({
+            ...extraData,
+            senderName: DELETED_USER_PLACEHOLDER_NAME
+        })
+    };
+}
+
+async function ensureDeletedUserPlaceholder(env: any): Promise<void> {
+    const existing = await env.DB
+        .prepare('SELECT id FROM users WHERE id = ?')
+        .bind(DELETED_USER_PLACEHOLDER_ID)
+        .first();
+
+    if (existing) {
+        return;
+    }
+
+    await env.DB.prepare(`
+        INSERT INTO users (
+            id, user_type, display_name, email, email_verified, is_disabled, created_at
+        ) VALUES (?, 'deleted_placeholder', ?, NULL, TRUE, 1, CURRENT_TIMESTAMP)
+    `).bind(DELETED_USER_PLACEHOLDER_ID, DELETED_USER_PLACEHOLDER_NAME).run();
+}
+
+function isLocalDevelopmentRequest(request: Request): boolean {
+    const hostname = new URL(request.url).hostname.toLowerCase();
+    return hostname === '127.0.0.1' || hostname === 'localhost';
+}
 
 export async function isAdmin(request: Request, env: any, userId: string | null): Promise<boolean> {
     if (!userId) {
@@ -9,46 +79,60 @@ export async function isAdmin(request: Request, env: any, userId: string | null)
         return false;
     }
 
-    // 获取管理员邮箱列表
-    const adminEmailsAttr = env.ADMIN_EMAILS || '';
-    if (!adminEmailsAttr) {
-        console.error('isAdmin: ADMIN_EMAILS env var is missing or empty');
-        return false;
-    }
+    const isLocalDev = isLocalDevelopmentRequest(request);
+    const adminEmails = parseCsvEnv(env.ADMIN_EMAILS).map((email) => email.toLowerCase());
+    const adminUserIds = parseCsvEnv(env.ADMIN_USER_IDS);
+    const devAdminEmails = isLocalDev ? parseCsvEnv(env.DEV_ADMIN_EMAILS).map((email) => email.toLowerCase()) : [];
+    const devAdminUserIds = isLocalDev ? parseCsvEnv(env.DEV_ADMIN_USER_IDS) : [];
+    const devAdminAnyEmailUser = isLocalDev && isTruthyEnv(env.DEV_ADMIN_ANY_EMAIL_USER);
 
-    const adminEmails = adminEmailsAttr.split(',').map((e: string) => e.trim().toLowerCase()).filter((e: string) => e.length > 0);
-
-    if (adminEmails.length === 0) {
-        console.error('isAdmin: No valid admin emails after parsing');
-        return false;
+    if (adminUserIds.includes(userId) || devAdminUserIds.includes(userId)) {
+        return true;
     }
 
     try {
         // 根据 token (userId) 查找用户邮箱
         const user: any = await env.DB
-            .prepare('SELECT email, email_verified FROM users WHERE id = ?')
+            .prepare('SELECT email, email_verified, user_type FROM users WHERE id = ?')
             .bind(userId)
             .first();
 
-        if (!user || !user.email) {
-            console.error('isAdmin: User not found or has no email for userId:', userId);
+        if (!user) {
+            console.error('isAdmin: User not found for userId:', userId);
             return false;
         }
 
-        const userEmail = user.email.toLowerCase();
-        const isUserAdmin = adminEmails.includes(userEmail);
+        const userEmail = String(user.email || '').trim().toLowerCase();
+        const isEmailUser = user.user_type === 'email' && !!userEmail;
 
-        // 安全加固：管理员必须是已验证邮箱的用户
-        if (isUserAdmin && user.email_verified !== 1) {
-            console.warn(`isAdmin: User ${userEmail} is in admin list but email is not verified.`);
-            return false;
+        if (devAdminAnyEmailUser && isEmailUser) {
+            return true;
         }
 
-        if (!isUserAdmin) {
-            console.warn(`isAdmin: User ${userEmail} is not in admin list:`, adminEmails);
+        if (userEmail && devAdminEmails.includes(userEmail)) {
+            return true;
         }
 
-        return isUserAdmin;
+        if (userEmail && adminEmails.includes(userEmail)) {
+            // 生产环境邮箱白名单仍要求邮箱已验证
+            if (user.email_verified !== 1) {
+                console.warn(`isAdmin: User ${userEmail} is in admin list but email is not verified.`);
+                return false;
+            }
+            return true;
+        }
+
+        console.warn('isAdmin: access denied', {
+            userId,
+            userEmail,
+            isLocalDev,
+            adminEmailsConfigured: adminEmails.length > 0,
+            adminUserIdsConfigured: adminUserIds.length > 0,
+            devAdminEmailsConfigured: devAdminEmails.length > 0,
+            devAdminUserIdsConfigured: devAdminUserIds.length > 0,
+            devAdminAnyEmailUser
+        });
+        return false;
     } catch (error) {
         console.error('isAdmin database error:', error);
         return false;
@@ -64,7 +148,7 @@ export async function handleAdminRequest(
 ): Promise<Response> {
     // 1. 权限校验
     if (!(await isAdmin(request, env, userId))) {
-        return errorResponse('Forbidden: Admin access required. Please verify your email is in ADMIN_EMAILS.', 403);
+        return errorResponse('Forbidden: Admin access required. Configure ADMIN_EMAILS / ADMIN_USER_IDS, or DEV_ADMIN_* for local development.', 403);
     }
 
     // 2. 路由分发
@@ -146,14 +230,14 @@ async function handleGetAnalytics(env: any, url: URL): Promise<Response> {
         const data = await getAnalytics(env, startDate, endDate);
 
         // 获取趋势数据（使用筛选日期或默认近30天）
-        const today = new Date().toISOString().split('T')[0];
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+        const today = getAnalyticsDateString(env);
+        const thirtyDaysAgo = getAnalyticsDateString(env, -30);
         const trendStart = startDate || thirtyDaysAgo;
         const trendEnd = endDate || today;
         const trend = await getDailyTrend(env, trendStart, trendEnd);
 
         // 获取今日 & 昨日访问量
-        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        const yesterday = getAnalyticsDateString(env, -1);
         const todayData = await getDailyTrend(env, today, today);
         const yesterdayData = await getDailyTrend(env, yesterday, yesterday);
         const todayVisits = todayData.reduce((s: number, r: any) => s + r.total_visits, 0);
@@ -413,11 +497,14 @@ async function handleGetUsers(request: Request, env: any, url: URL): Promise<Res
             FROM users u
         `;
         let countQuery = 'SELECT COUNT(*) as total FROM users';
-        const params: any[] = [];
+        const params: any[] = [DELETED_USER_PLACEHOLDER_ID];
+
+        query += ' WHERE u.id != ?';
+        countQuery += ' WHERE id != ?';
 
         if (search) {
-            query += ' WHERE u.email LIKE ? OR u.display_name LIKE ? OR u.id LIKE ?';
-            countQuery += ' WHERE email LIKE ? OR display_name LIKE ? OR id LIKE ?';
+            query += ' AND (u.email LIKE ? OR u.display_name LIKE ? OR u.id LIKE ?)';
+            countQuery += ' AND (email LIKE ? OR display_name LIKE ? OR id LIKE ?)';
             params.push(`%${search}%`, `%${search}%`, `%${search}%`);
         }
 
@@ -484,12 +571,18 @@ async function handleUpdateUser(request: Request, env: any, id: string): Promise
 async function handleDeleteUser(env: any, id: string): Promise<Response> {
     try {
         console.log(`Starting deletion for user: ${id}`);
+        if (id === DELETED_USER_PLACEHOLDER_ID) {
+            return errorResponse('The deleted-user placeholder account cannot be removed', 400);
+        }
+
         // 1. 查找用户是否存在
-        const user = await env.DB.prepare('SELECT id FROM users WHERE id = ?').bind(id).first();
+        const user = await env.DB.prepare('SELECT id, email, display_name FROM users WHERE id = ?').bind(id).first();
         if (!user) {
             console.log(`User ${id} not found`);
             return errorResponse('User not found', 404);
         }
+
+        await ensureDeletedUserPlaceholder(env);
 
         // 2. 收集所有需要删除的图片资源
         const imageUrls: string[] = [];
@@ -561,13 +654,50 @@ async function handleDeleteUser(env: any, id: string): Promise<Response> {
 
         // 4. 执行数据库物理删除
         console.log(`Deleting all associated records and user ${id} from database`);
-        const cleanupBatch = [];
+        const cleanupBatch = [
+            env.DB.prepare('DELETE FROM pot_collaborators WHERE user_id = ?').bind(id),
+            env.DB.prepare('DELETE FROM pot_viewers WHERE user_id = ?').bind(id),
+            env.DB.prepare('UPDATE care_records SET user_id = ? WHERE user_id = ?').bind(DELETED_USER_PLACEHOLDER_ID, id),
+            env.DB.prepare('UPDATE timelines SET user_id = ? WHERE user_id = ?').bind(DELETED_USER_PLACEHOLDER_ID, id),
+            env.DB.prepare('UPDATE pot_comments SET sender_id = ? WHERE sender_id = ?').bind(DELETED_USER_PLACEHOLDER_ID, id),
+            env.DB.prepare('UPDATE pot_collab_invites SET claimed_by_user_id = NULL WHERE claimed_by_user_id = ?').bind(id),
+            env.DB.prepare('UPDATE pot_view_invites SET claimed_by_user_id = NULL WHERE claimed_by_user_id = ?').bind(id),
+            env.DB.prepare('UPDATE pot_batch_invites SET claimed_by_user_id = NULL WHERE claimed_by_user_id = ?').bind(id),
+            env.DB.prepare('DELETE FROM messages WHERE user_id = ?').bind(id),
+            env.DB.prepare('DELETE FROM messages WHERE sender_id = ? AND type != ?').bind(id, 'pot_comment'),
+            env.DB.prepare('DELETE FROM pot_collab_invites WHERE owner_id = ?').bind(id),
+            env.DB.prepare('DELETE FROM pot_view_invites WHERE owner_id = ?').bind(id),
+            env.DB.prepare('DELETE FROM pot_batch_invites WHERE owner_id = ?').bind(id)
+        ];
+
+        const potCommentMessages = await env.DB.prepare(`
+            SELECT id, content, extra_data
+            FROM messages
+            WHERE sender_id = ? AND type = 'pot_comment'
+        `).bind(id).all();
+
+        for (const row of potCommentMessages.results || []) {
+            const sanitized = buildAnonymizedPotCommentMessage((row as any).extra_data, (row as any).content);
+            cleanupBatch.push(
+                env.DB.prepare(`
+                    UPDATE messages
+                    SET sender_id = ?, content = ?, extra_data = ?
+                    WHERE id = ?
+                `).bind(
+                    DELETED_USER_PLACEHOLDER_ID,
+                    sanitized.content,
+                    sanitized.extraData,
+                    (row as any).id
+                )
+            );
+        }
 
         const potIds = pots.results?.map((p: any) => p.id) || [];
 
         if (potIds.length > 0) {
             const placeholders = potIds.map(() => '?').join(',');
             // 手动清理子表，防止数据库未正确配置 ON DELETE CASCADE
+            cleanupBatch.push(env.DB.prepare(`DELETE FROM care_schedules WHERE pot_id IN (${placeholders})`).bind(...potIds));
             cleanupBatch.push(env.DB.prepare(`DELETE FROM care_records WHERE pot_id IN (${placeholders})`).bind(...potIds));
             cleanupBatch.push(env.DB.prepare(`DELETE FROM timelines WHERE pot_id IN (${placeholders})`).bind(...potIds));
         }

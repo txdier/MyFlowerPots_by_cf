@@ -111,7 +111,7 @@
                             </div>
                             <div v-else class="flex items-center text-amber-600 text-sm">
                                 <i class="fa fa-exclamation-circle mr-2"></i>
-                                <span class="font-medium">邮箱未验证</span>
+                                <span class="font-medium">邮箱未验证，验证邮件已发送，如未收到或过期，请点击按钮重新发送</span>
                             </div>
 
                             <!-- 发送验证邮件按钮（仅当邮箱未验证时显示） -->
@@ -182,16 +182,6 @@
                             我们将向新邮箱发送验证邮件，点击邮件中的链接完成邮箱修改。
                         </p>
                     </div>
-                </div>
-
-                <!-- 4. 退出登录 -->
-                <div class="bg-white rounded-3xl shadow-sm p-8 border border-gray-50">
-                    <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">登录会话</h3>
-                    <p class="text-sm text-gray-500 mb-4">退出后将返回首页，需要重新登录。</p>
-                    <button @click="showLogoutConfirm = true"
-                        class="w-full bg-white border border-red-200 text-red-500 py-3 rounded-2xl text-sm font-black hover:bg-red-50 transition active:scale-95">
-                        退出登录
-                    </button>
                 </div>
             </div>
 
@@ -487,7 +477,9 @@
 
                 // 图片优化：Cloudflare cdn-cgi/image 按需缩放
                 const imgUrl = (src, w, h) => {
-                    if (!src || !src.includes('img.kaside365.com')) return src;
+                    if (!src) return src;
+                    if (src.startsWith('assets/')) return `/${src}`;
+                    if (!src.includes('img.kaside365.com')) return src;
                     return `/cdn-cgi/image/width=${w},height=${h},dpr=2,fit=cover,format=auto/${src}`;
                 };
 

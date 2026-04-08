@@ -4,21 +4,109 @@ import {
   generateToken,
   isValidEmail,
   isPasswordValid,
-  getTokenFromHeader,
   generateJWT,
-  verifyJWT
+  getJwtSecret
 } from '../utils/auth-utils';
 
 import {
   sendEmail,
   generateVerificationEmail,
   generatePasswordResetEmail,
-  generateWelcomeEmail
+  generateWelcomeEmail,
+  generateNewEmailVerificationEmail
 } from '../utils/email-service';
 
 import { isAdmin } from './admin';
 
-import { jsonResponse, errorResponse } from '../utils/response-utils';
+import { jsonResponse, errorResponse, htmlResponse } from '../utils/response-utils';
+
+const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
+let authSchemaReady: Promise<void> | null = null;
+const USER_SCHEMA_MIGRATIONS = [
+  'ALTER TABLE users ADD COLUMN email TEXT',
+  'ALTER TABLE users ADD COLUMN password_hash TEXT',
+  'ALTER TABLE users ADD COLUMN display_name TEXT',
+  'ALTER TABLE users ADD COLUMN avatar_url TEXT',
+  'ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT FALSE',
+  'ALTER TABLE users ADD COLUMN verification_token TEXT',
+  'ALTER TABLE users ADD COLUMN verification_token_expires DATETIME',
+  'ALTER TABLE users ADD COLUMN reset_token TEXT',
+  'ALTER TABLE users ADD COLUMN reset_token_expires DATETIME',
+  'ALTER TABLE users ADD COLUMN last_login DATETIME',
+  'ALTER TABLE users ADD COLUMN new_email TEXT',
+  'ALTER TABLE users ADD COLUMN new_email_verification_token TEXT',
+  'ALTER TABLE users ADD COLUMN new_email_verification_expires DATETIME',
+  'ALTER TABLE users ADD COLUMN max_pots INTEGER DEFAULT NULL',
+  'ALTER TABLE users ADD COLUMN is_disabled INTEGER DEFAULT 0',
+];
+
+function isDuplicateColumnError(error: unknown): boolean {
+  const message = String((error as any)?.message || error || '');
+  return /duplicate column name/i.test(message);
+}
+
+function isUniqueConstraintError(error: unknown, tableOrColumn?: string): boolean {
+  const message = String((error as any)?.message || error || '');
+  if (!/unique constraint failed|SQLITE_CONSTRAINT/i.test(message)) {
+    return false;
+  }
+  if (!tableOrColumn) {
+    return true;
+  }
+  return message.toLowerCase().includes(tableOrColumn.toLowerCase());
+}
+
+function getClientSafeAuthErrorMessage(error: unknown, fallback: string): string {
+  const message = String((error as any)?.message || error || '');
+
+  if (isUniqueConstraintError(error, 'users.email')) {
+    return 'Email already registered';
+  }
+
+  if (/JWT_SECRET/i.test(message)) {
+    return 'Server authentication is not configured securely. JWT_SECRET is missing or uses a known insecure placeholder value in the active deployment.';
+  }
+
+  if (/no such column:\s*(is_disabled|max_pots|verification_token_expires)/i.test(message)) {
+    return 'User schema is out of date. Please redeploy the latest code so the users table can self-migrate.';
+  }
+
+  if (/PBKDF2 iteration count .* exceeds the Cloudflare Workers limit of 100000|above 100000 are not supported/i.test(message)) {
+    return 'Password hashing configuration exceeds the Cloudflare Workers PBKDF2 limit. Deploy the latest worker and try again.';
+  }
+
+  if (/PBKDF2|deriveBits|importKey|SubtleCrypto|crypto\.subtle/i.test(message)) {
+    return 'Password hashing is unavailable in the current deployment runtime. Please redeploy the latest worker and try again.';
+  }
+
+  return fallback;
+}
+
+async function issueAuthToken(
+  env: any,
+  payload: { userId: string; email?: string | null; type: string }
+): Promise<string> {
+  const secret = getJwtSecret(env);
+  return generateJWT(payload, secret);
+}
+
+async function ensureAuthSchema(env: any): Promise<void> {
+  if (!authSchemaReady) {
+    authSchemaReady = (async () => {
+      for (const statement of USER_SCHEMA_MIGRATIONS) {
+        try {
+          await env.DB.prepare(statement).run();
+        } catch (error: any) {
+          if (!isDuplicateColumnError(error)) {
+            throw error;
+          }
+        }
+      }
+    })();
+  }
+
+  await authSchemaReady;
+}
 
 export async function handleAuthRequest(
   request: Request,
@@ -27,6 +115,8 @@ export async function handleAuthRequest(
   url: URL,
   userId: string | null
 ): Promise<Response> {
+  await ensureAuthSchema(env);
+
   // 1️⃣ 邮箱注册
   if (request.method === 'POST' && path === '/api/auth/register') {
     return handleRegister(request, env);
@@ -94,16 +184,92 @@ export async function handleAuthRequest(
 
   // 1️⃣4️⃣ 刷新 JWT 令牌
   if (request.method === 'POST' && path === '/api/auth/refresh') {
-    return handleRefreshToken(request, env);
+    return handleRefreshToken(env, userId);
   }
 
   return errorResponse('Not Found', 404);
 }
 
+function renderVerificationSuccessPage(
+  title: string,
+  heading: string,
+  message: string
+): Response {
+  const html = `
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${title} - 我的花盆</title>
+      <style>
+        body {
+          margin: 0;
+          font-family: Arial, sans-serif;
+          background: #f6faf6;
+          color: #1f2937;
+        }
+        .page {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+          box-sizing: border-box;
+        }
+        .card {
+          width: 100%;
+          max-width: 560px;
+          background: #fff;
+          border-radius: 16px;
+          box-shadow: 0 12px 36px rgba(15, 23, 42, 0.12);
+          padding: 40px 32px;
+          text-align: center;
+        }
+        .success {
+          color: #2f855a;
+          font-size: 28px;
+          font-weight: 700;
+          margin-bottom: 16px;
+        }
+        .message {
+          font-size: 18px;
+          line-height: 1.6;
+          margin-bottom: 28px;
+        }
+        .button {
+          background-color: #4CAF50;
+          color: white;
+          padding: 12px 24px;
+          text-decoration: none;
+          border-radius: 999px;
+          font-weight: bold;
+          display: inline-block;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="page">
+        <div class="card">
+          <div class="success">&#9989; ${heading}</div>
+          <div class="message">${message}</div>
+          <p>您现在可以关闭当前窗口，并返回应用继续使用。</p>
+          <a href="/" class="button">返回我的花盆</a>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return htmlResponse(html);
+}
+
 async function handleRegister(request: Request, env: any): Promise<Response> {
+  let requestEmail: string | null = null;
   try {
     const body = await request.json();
     const { email, password, displayName } = body;
+    requestEmail = typeof email === 'string' ? email : null;
 
     if (!email || !password) {
       return errorResponse('Email and password are required', 400);
@@ -131,16 +297,18 @@ async function handleRegister(request: Request, env: any): Promise<Response> {
     // 创建新用户
     const userId = crypto.randomUUID();
     const passwordHash = await hashPassword(password, userId);
+    const jwtToken = await issueAuthToken(env, { userId, email, type: 'email' });
     const verificationToken = generateToken();
+    const verificationTokenExpires = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS).toISOString();
 
     await env.DB
       .prepare(`
         INSERT INTO users (
           id, user_type, email, password_hash, display_name, 
-          email_verified, verification_token, created_at
-        ) VALUES (?, 'email', ?, ?, ?, FALSE, ?, CURRENT_TIMESTAMP)
+          email_verified, verification_token, verification_token_expires, created_at
+        ) VALUES (?, 'email', ?, ?, ?, FALSE, ?, ?, CURRENT_TIMESTAMP)
       `)
-      .bind(userId, email, passwordHash, displayName || null, verificationToken)
+      .bind(userId, email, passwordHash, displayName || null, verificationToken, verificationTokenExpires)
       .run();
 
     // 发送验证邮件（可选）
@@ -150,19 +318,11 @@ async function handleRegister(request: Request, env: any): Promise<Response> {
         verificationToken,
         env.APP_BASE_URL || 'https://my-flower-pots-api.example.com'
       );
-      await sendEmail(verificationEmail, env);
+      const emailSent = await sendEmail(verificationEmail, env);
+      if (!emailSent) {
+        console.warn('Verification email was not sent during registration:', email);
+      }
     }
-
-    // 发送欢迎邮件
-    const welcomeEmail = generateWelcomeEmail(
-      email,
-      displayName || null,
-      env.APP_BASE_URL || 'https://my-flower-pots-api.example.com'
-    );
-    await sendEmail(welcomeEmail, env);
-
-    const secret = env.JWT_SECRET || 'default-secret';
-    const jwtToken = await generateJWT({ userId, email, type: 'email' }, secret);
 
     return jsonResponse({
       success: true,
@@ -175,8 +335,17 @@ async function handleRegister(request: Request, env: any): Promise<Response> {
     });
 
   } catch (error) {
-    console.error('Registration error:', error);
-    return errorResponse('Registration failed', 500);
+    console.error('Registration error:', {
+      error,
+      message: String((error as any)?.message || error || ''),
+      email: requestEmail,
+      hasResendApiKey: Boolean(env?.RESEND_API_KEY),
+      appBaseUrl: env?.APP_BASE_URL || null,
+    });
+    if (isUniqueConstraintError(error, 'users.email')) {
+      return errorResponse('Email already registered', 409);
+    }
+    return errorResponse(getClientSafeAuthErrorMessage(error, 'Registration failed'), 500);
   }
 }
 
@@ -210,15 +379,13 @@ async function handleLogin(request: Request, env: any): Promise<Response> {
       return errorResponse('Invalid email or password', 401);
     }
 
+    const jwtToken = await issueAuthToken(env, { userId: user.id, email, type: 'email' });
+
     // 更新最后登录时间
     await env.DB
       .prepare('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?')
       .bind(user.id)
       .run();
-
-    // 生成 JWT 令牌
-    const secret = env.JWT_SECRET || 'default-secret';
-    const jwtToken = await generateJWT({ userId: user.id, email, type: 'email' }, secret);
 
     return jsonResponse({
       success: true,
@@ -231,21 +398,19 @@ async function handleLogin(request: Request, env: any): Promise<Response> {
 
   } catch (error) {
     console.error('Login error:', error);
-    return errorResponse('Login failed', 500);
+    return errorResponse(getClientSafeAuthErrorMessage(error, 'Login failed'), 500);
   }
 }
 
 async function handleIdentify(env: any): Promise<Response> {
   try {
     const userId = crypto.randomUUID();
+    const jwtToken = await issueAuthToken(env, { userId, type: 'anonymous' });
 
     await env.DB
       .prepare(`INSERT INTO users (id, user_type) VALUES (?, 'anonymous')`)
       .bind(userId)
       .run();
-
-    const secret = env.JWT_SECRET || 'default-secret';
-    const jwtToken = await generateJWT({ userId, type: 'anonymous' }, secret);
 
     return jsonResponse({
       success: true,
@@ -255,7 +420,7 @@ async function handleIdentify(env: any): Promise<Response> {
     });
   } catch (error) {
     console.error('Identify error:', error);
-    return errorResponse('Failed to create anonymous user', 500);
+    return errorResponse(getClientSafeAuthErrorMessage(error, 'Failed to create anonymous user'), 500);
   }
 }
 
@@ -326,7 +491,7 @@ async function handleResetPassword(request: Request, env: any): Promise<Response
 
     // 查找有效的重置令牌
     const user = await env.DB
-      .prepare('SELECT id FROM users WHERE reset_token = ? AND reset_token_expires > CURRENT_TIMESTAMP')
+      .prepare('SELECT id FROM users WHERE reset_token = ? AND datetime(reset_token_expires) > CURRENT_TIMESTAMP')
       .bind(token)
       .first();
 
@@ -354,9 +519,13 @@ async function handleResetPassword(request: Request, env: any): Promise<Response
 }
 
 async function handleUpgrade(request: Request, env: any): Promise<Response> {
+  let requestEmail: string | null = null;
+  let requestAnonymousUserId: string | null = null;
   try {
     const body = await request.json();
     const { anonymousUserId, email, password, displayName } = body;
+    requestEmail = typeof email === 'string' ? email : null;
+    requestAnonymousUserId = typeof anonymousUserId === 'string' ? anonymousUserId : null;
 
     if (!anonymousUserId || !email || !password) {
       return errorResponse('Anonymous user ID, email and password are required', 400);
@@ -394,6 +563,7 @@ async function handleUpgrade(request: Request, env: any): Promise<Response> {
     // 创建新的邮箱用户
     const newUserId = crypto.randomUUID();
     const passwordHash = await hashPassword(password, newUserId);
+    const jwtToken = await issueAuthToken(env, { userId: newUserId, email, type: 'email' });
 
     await env.DB
       .prepare(`
@@ -411,6 +581,7 @@ async function handleUpgrade(request: Request, env: any): Promise<Response> {
       env.DB.prepare('UPDATE care_records SET user_id = ? WHERE user_id = ?').bind(newUserId, anonymousUserId),
       env.DB.prepare('UPDATE timelines SET user_id = ? WHERE user_id = ?').bind(newUserId, anonymousUserId),
       env.DB.prepare('UPDATE pot_collaborators SET user_id = ? WHERE user_id = ?').bind(newUserId, anonymousUserId),
+      env.DB.prepare('UPDATE pot_viewers SET user_id = ? WHERE user_id = ?').bind(newUserId, anonymousUserId),
       env.DB.prepare('UPDATE messages SET user_id = ? WHERE user_id = ?').bind(newUserId, anonymousUserId),
       env.DB.prepare('UPDATE messages SET sender_id = ? WHERE sender_id = ?').bind(newUserId, anonymousUserId)
     ];
@@ -428,9 +599,6 @@ async function handleUpgrade(request: Request, env: any): Promise<Response> {
       .bind(anonymousUserId)
       .run();
 
-    const secret = env.JWT_SECRET || 'default-secret';
-    const jwtToken = await generateJWT({ userId: newUserId, email, type: 'email' }, secret);
-
     return jsonResponse({
       success: true,
       userId: newUserId,
@@ -442,8 +610,16 @@ async function handleUpgrade(request: Request, env: any): Promise<Response> {
     });
 
   } catch (error) {
-    console.error('Upgrade error:', error);
-    return errorResponse('Failed to upgrade account', 500);
+    console.error('Upgrade error:', {
+      error,
+      message: String((error as any)?.message || error || ''),
+      email: requestEmail,
+      anonymousUserId: requestAnonymousUserId,
+    });
+    if (isUniqueConstraintError(error, 'users.email')) {
+      return errorResponse('Email already registered', 409);
+    }
+    return errorResponse(getClientSafeAuthErrorMessage(error, 'Failed to upgrade account'), 500);
   }
 }
 
@@ -457,7 +633,12 @@ async function handleVerifyEmail(url: URL, env: any): Promise<Response> {
 
     // 查找有效的验证令牌
     const user = await env.DB
-      .prepare('SELECT id, email FROM users WHERE verification_token = ?')
+      .prepare(`
+        SELECT id, email, display_name
+        FROM users
+        WHERE verification_token = ?
+          AND datetime(verification_token_expires) > CURRENT_TIMESTAMP
+      `)
       .bind(token)
       .first();
 
@@ -467,39 +648,33 @@ async function handleVerifyEmail(url: URL, env: any): Promise<Response> {
 
     // 更新用户为已验证
     await env.DB
-      .prepare('UPDATE users SET email_verified = TRUE, verification_token = NULL WHERE id = ?')
+      .prepare(`
+        UPDATE users
+        SET email_verified = TRUE, verification_token = NULL, verification_token_expires = NULL
+        WHERE id = ?
+      `)
       .bind(user.id)
       .run();
 
-    // 返回成功页面（HTML格式）
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Email Verified - My Flower Pots</title>
-        <style>
-          body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-          .success { color: #4CAF50; font-size: 24px; margin-bottom: 20px; }
-          .message { font-size: 18px; margin-bottom: 30px; }
-          .button { 
-            background-color: #4CAF50; color: white; padding: 12px 24px; 
-            text-decoration: none; border-radius: 4px; font-weight: bold;
-            display: inline-block;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="success">✅ Email Verified Successfully!</div>
-        <div class="message">Your email ${user.email} has been verified.</div>
-        <p>You can now close this window and return to the app.</p>
-        <a href="/" class="button">Return to App</a>
-      </body>
-      </html>
-    `;
+    try {
+      const welcomeEmail = generateWelcomeEmail(
+        user.email,
+        user.display_name || null,
+        env.APP_BASE_URL || 'https://my-flower-pots-api.example.com'
+      );
+      const welcomeSent = await sendEmail(welcomeEmail, env);
+      if (!welcomeSent) {
+        console.warn('Welcome email was not sent after email verification:', user.email);
+      }
+    } catch (welcomeError) {
+      console.error('Failed to send welcome email after verification:', welcomeError);
+    }
 
-    return new Response(html, {
-      headers: { 'Content-Type': 'text/html' },
-    });
+    return renderVerificationSuccessPage(
+      '邮箱验证成功',
+      '邮箱验证成功',
+      `您的邮箱 ${user.email} 已验证成功。`
+    );
 
   } catch (error) {
     console.error('Email verification error:', error);
@@ -716,35 +891,12 @@ async function handleChangeEmail(request: Request, env: any, userId: string | nu
       .run();
 
     // 发送验证邮件到新邮箱
-    const verificationLink = `${env.APP_BASE_URL || 'https://my-flower-pots-api.example.com'}/api/auth/verify-new-email?token=${verificationToken}`;
-    const verificationEmail = {
-      to: newEmail,
-      subject: 'Verify your new email for My Flower Pots',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Email Change Request</h2>
-          <p>You have requested to change your email address for your My Flower Pots account.</p>
-          <p>Current email: ${user.email}</p>
-          <p>New email: ${newEmail}</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${verificationLink}" 
-               style="background-color: #4CAF50; color: white; padding: 12px 24px; 
-                      text-decoration: none; border-radius: 4px; font-weight: bold;">
-              Verify New Email Address
-            </a>
-          </div>
-          <p>Or copy and paste this link in your browser:</p>
-          <p style="word-break: break-all; color: #666;">${verificationLink}</p>
-          <p>This link will expire in 24 hours.</p>
-          <p>If you didn't request this change, please contact support immediately.</p>
-          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-          <p style="color: #999; font-size: 12px;">
-            For security reasons, please don't share this email with anyone.
-          </p>
-        </div>
-      `,
-      text: `Email Change Request\n\nYou have requested to change your email address for your My Flower Pots account.\nCurrent email: ${user.email}\nNew email: ${newEmail}\n\nClick this link to verify your new email: ${verificationLink}\n\nThis link will expire in 24 hours.\n\nIf you didn't request this change, please contact support immediately.`
-    };
+    const verificationEmail = generateNewEmailVerificationEmail(
+      newEmail,
+      user.email,
+      verificationToken,
+      env.APP_BASE_URL || 'https://my-flower-pots-api.example.com'
+    );
 
     await sendEmail(verificationEmail, env);
 
@@ -792,35 +944,11 @@ async function handleVerifyNewEmail(url: URL, env: any): Promise<Response> {
       .bind(user.new_email, user.id)
       .run();
 
-    // 返回成功页面
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Email Changed - My Flower Pots</title>
-        <style>
-          body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-          .success { color: #4CAF50; font-size: 24px; margin-bottom: 20px; }
-          .message { font-size: 18px; margin-bottom: 30px; }
-          .button { 
-            background-color: #4CAF50; color: white; padding: 12px 24px; 
-            text-decoration: none; border-radius: 4px; font-weight: bold;
-            display: inline-block;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="success">✅ Email Changed Successfully!</div>
-        <div class="message">Your email has been updated to ${user.new_email}.</div>
-        <p>You can now close this window and return to the app.</p>
-        <a href="/" class="button">Return to App</a>
-      </body>
-      </html>
-    `;
-
-    return new Response(html, {
-      headers: { 'Content-Type': 'text/html' },
-    });
+    return renderVerificationSuccessPage(
+      '邮箱修改成功',
+      '邮箱修改成功',
+      `您的登录邮箱已更新为 ${user.new_email}。`
+    );
 
   } catch (error) {
     console.error('New email verification error:', error);
@@ -839,7 +967,7 @@ async function handleSendVerificationEmail(request: Request, env: any, userId: s
 
     // 获取用户信息
     const user = await env.DB
-      .prepare('SELECT id, email, email_verified, verification_token FROM users WHERE id = ?')
+      .prepare('SELECT id, email, email_verified, verification_token, verification_token_expires FROM users WHERE id = ?')
       .bind(userId)
       .first();
 
@@ -854,11 +982,14 @@ async function handleSendVerificationEmail(request: Request, env: any, userId: s
 
     // 生成或使用现有的验证令牌
     let verificationToken = user.verification_token;
-    if (!verificationToken) {
+    let verificationTokenExpires = user.verification_token_expires;
+    const tokenExpired = !verificationTokenExpires || new Date(verificationTokenExpires) <= new Date();
+    if (!verificationToken || tokenExpired) {
       verificationToken = generateToken();
+      verificationTokenExpires = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS).toISOString();
       await env.DB
-        .prepare('UPDATE users SET verification_token = ? WHERE id = ?')
-        .bind(verificationToken, user.id)
+        .prepare('UPDATE users SET verification_token = ?, verification_token_expires = ? WHERE id = ?')
+        .bind(verificationToken, verificationTokenExpires, user.id)
         .run();
     }
 
@@ -888,15 +1019,12 @@ async function handleSendVerificationEmail(request: Request, env: any, userId: s
 
 /**
  * 处理刷新 JWT 令牌请求
- * 允许用户使用 userId 换取新的 JWT 令牌
+ * 仅允许已通过当前 JWT 认证的用户续发令牌
  */
-async function handleRefreshToken(request: Request, env: any): Promise<Response> {
+async function handleRefreshToken(env: any, userId: string | null): Promise<Response> {
   try {
-    const body = await request.json();
-    const { userId } = body;
-
     if (!userId) {
-      return errorResponse('userId is required', 400);
+      return errorResponse('Authentication required', 401);
     }
 
     // 验证用户存在
@@ -915,12 +1043,11 @@ async function handleRefreshToken(request: Request, env: any): Promise<Response>
     }
 
     // 生成新的 JWT 令牌
-    const secret = env.JWT_SECRET || 'default-secret';
-    const jwtToken = await generateJWT({
+    const jwtToken = await issueAuthToken(env, {
       userId: user.id,
       email: user.email || null,
       type: user.user_type
-    }, secret);
+    });
 
     return jsonResponse({
       success: true,
@@ -931,6 +1058,6 @@ async function handleRefreshToken(request: Request, env: any): Promise<Response>
 
   } catch (error) {
     console.error('Refresh token error:', error);
-    return errorResponse('Failed to refresh token', 500);
+    return errorResponse(getClientSafeAuthErrorMessage(error, 'Failed to refresh token'), 500);
   }
 }

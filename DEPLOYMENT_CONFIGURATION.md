@@ -1,292 +1,259 @@
 # My Flower Pots 部署配置指南
 
-本文档说明如何配置My Flower Pots应用的生产环境。
+本文档只记录当前仓库仍在使用的配置项和推荐做法。
 
-## 1. API服务器配置
+## 1. 先准备本地文件
 
-### 1.1 部署到Cloudflare Workers
+首次使用仓库时，先准备这三个本地文件：
 
-1. 首先确保已经安装了Wrangler CLI：
-   ```bash
-   npm install -g wrangler
-   ```
+- `wrangler.toml.example` -> `wrangler.toml`
+- `.dev.vars.example` -> `.dev.vars`
+- `frontend/js/config.js.example` -> `frontend/js/config.js`
 
-2. 登录到Cloudflare：
-   ```bash
-   wrangler login
-   ```
+其中：
 
-3. 部署API到Workers：
-   ```bash
-   npm run deploy
-   ```
-   或者直接使用：
-   ```bash
-   wrangler deploy
-   ```
+- `wrangler.toml` 不提交仓库，用于本地 Cloudflare 绑定
+- `.dev.vars` 用于本地开发环境变量
+- `frontend/js/config.js` 用于前端 API 地址和功能开关
 
-4. 部署成功后，你会获得一个Workers URL，格式如：
-   ```
-   https://my-flower-pots-api.your-username.workers.dev
-   ```
+## 2. `wrangler.toml` 配置
 
-### 1.2 更新API配置（核心安全步骤）
-
-为了防止生产域名泄露到公共仓库，项目采用了模板化配置。
-
-1. **从模板创建配置文件**：
-   ```bash
-   cp frontend/js/config.js.example frontend/js/config.js
-   ```
-
-2. **编辑 `frontend/js/config.js`**，找到 `prodUrl`（大约第 17 行）：
-   ```javascript
-   prodUrl: 'https://您的实际域名.workers.dev',
-   ```
-
-**重要说明**：
-- 这是唯一需要修改的API配置位置！
-- 其他所有文件（`api-client.js`、`wrangler.toml`等）都会自动使用此配置
-- 前端应用会自动根据环境选择正确的API地址
-  - 开发环境（localhost/127.0.0.1）：使用 `devUrl`
-  - 生产环境（其他域名）：使用 `prodUrl`
-
-### 1.3 环境变量配置（后端配置）
-
-在 `wrangler.toml` 中配置后端环境变量（参考 `wrangler.toml.example`）：
+当前推荐模板应包含这些关键段落：
 
 ```toml
-[vars]
-WEATHER_API_KEY = "your-weather-api-key"  # 可选：天气API密钥
-RESEND_API_KEY = "your-resend-api-key"  # 可选：邮件服务API密钥
-EMAIL_FROM = "noreply@yourdomain.com"  # 发件人邮箱
-APP_BASE_URL = "https://your-app-domain.com"  # 你的Workers URL
-ADMIN_EMAILS = "admin@example.com"  # 管理员邮箱（英文逗号分隔多个）
-JWT_SECRET = "your-jwt-secret-key"  # JWT 签名密钥（生产环境必须修改）
+name = "my-flower-pots-api"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+keep_vars = true
+
+[dev]
+port = 8787
+ip = "127.0.0.1"
+local_protocol = "http"
+
+[assets]
+directory = "./frontend"
+binding = "ASSETS"
+run_worker_first = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "my-flower-pots-db"
+database_id = "YOUR_D1_DATABASE_ID"
+
+[[r2_buckets]]
+binding = "STATIC_BUCKET"
+bucket_name = "your-static-bucket-name"
 ```
 
-**注意**：`APP_BASE_URL` 是后端使用的配置，前端API地址在 `frontend/js/config.js` 中配置。
+### 每项的含义
 
-## 2. 静态资源部署
+- `[assets]`
+  - 仅用于本地开发时直接读取 `frontend/`
+  - 让 `wrangler dev` 不需要先手工上传静态文件
+- `DB`
+  - 业务主数据库
+- `STATIC_BUCKET`
+  - 生产前端静态资源
+  - 用户上传图片
+  - 客服邮件附件
 
-### 2.1 部署到Cloudflare R2
+### 重要说明
 
-1. 确保在 `wrangler.toml` 中配置了R2存储桶：
-   ```toml
-   [[r2_buckets]]
-   binding = "STATIC_BUCKET"
-   bucket_name = "my-flower-pots"
-   ```
+- 当前文档不再把 `KV Namespaces` 作为必配项
+- `keep_vars = true` 表示生产环境变量优先由 Dashboard / Secrets 管理
+- 文档里的图片上传说明也不再使用单独的 `IMAGE_BUCKET`
 
-2. 上传前端文件到R2：
-   ```bash
-   npm run upload
-   ```
+## 3. `.dev.vars` 与生产环境变量
 
-   > 此命令会自动先执行 `build-css`（构建 Tailwind CSS），再调用 `upload-static-wrangler.js` 增量上传到 R2。
+### 本地开发推荐项
 
-   或者手动上传：
-   ```bash
-   node upload-static-wrangler.js
-   ```
+参考 `.dev.vars.example`：
 
-### 2.2 使用其他静态托管服务
+```env
+JWT_SECRET="replace-with-a-long-random-secret"
+APP_BASE_URL="http://127.0.0.1:8787"
+ADMIN_EMAILS="admin@example.com"
+ADMIN_USER_IDS=""
+WEATHER_API_KEY=""
+RESEND_API_KEY=""
+EMAIL_FROM="noreply@example.com"
+SUPPORT_EMAIL_FROM="support@example.com"
+SUPPORT_EMAIL_FROM_NAME="我的花盆客服"
+DEV_ADMIN_ANY_EMAIL_USER="false"
+DEV_ADMIN_EMAILS="admin@example.com"
+DEV_ADMIN_USER_IDS=""
+```
 
-你也可以将前端文件部署到：
-- GitHub Pages
-- Netlify
-- Vercel
-- 任何静态文件托管服务
+### 生产环境推荐放在 Dashboard / Secrets
 
-## 3. 数据库配置
+#### 必填
 
-### 3.1 Cloudflare D1 数据库
+- `JWT_SECRET`
 
-应用使用Cloudflare D1作为数据库。确保已经创建了D1数据库：
+#### 强烈建议填写
 
-1. 创建D1数据库：
-   ```bash
-   wrangler d1 create my-flower-pots-db
-   ```
+- `APP_BASE_URL`
+- `ADMIN_EMAILS`
+- `ADMIN_USER_IDS`
 
-2. 更新 `wrangler.toml` 中的数据库ID：
-   ```toml
-   [[d1_databases]]
-   binding = "DB"
-   database_name = "my-flower-pots-db"
-   database_id = "your-database-id-here"
-   ```
+#### 按需填写
 
-3. 应用数据库迁移：
-   ```bash
-   wrangler d1 execute my-flower-pots-db --file=sql/schema.sql
-   ```
+- `WEATHER_API_KEY`
+- `RESEND_API_KEY`
+- `EMAIL_FROM`
+- `SUPPORT_EMAIL_FROM`
+- `SUPPORT_EMAIL_FROM_NAME`
 
-## 4. 图片上传配置
+### 变量用途说明
 
-### 4.1 开发环境
+- `JWT_SECRET`
+  - Worker 认证的硬性前提
+  - 如果为空或是明显默认值，服务会直接报错
+- `APP_BASE_URL`
+  - 邮箱验证、密码重置、分享链接、转移链接等回链地址
+- `ADMIN_EMAILS` / `ADMIN_USER_IDS`
+  - 正式环境管理员判定
+- `DEV_ADMIN_*`
+  - 只建议本地开发使用
+- `RESEND_API_KEY`
+  - 真实发送注册/重置邮件、客服回复邮件时需要
 
-在开发环境中，图片上传API返回模拟的图片URL，无需额外配置。
+## 4. 前端 `frontend/js/config.js`
 
-### 4.2 生产环境
+前端的 API 地址来自 `frontend/js/config.js`，当前重点看 `api` 段：
 
-在生产环境中，建议配置R2存储桶来存储上传的图片：
-
-1. 创建R2存储桶用于图片：
-   ```bash
-   wrangler r2 bucket create my-flower-pots-images
-   ```
-
-2. 在 `wrangler.toml` 中添加图片存储桶绑定：
-   ```toml
-   [[r2_buckets]]
-   binding = "IMAGE_BUCKET"
-   bucket_name = "my-flower-pots-images"
-   ```
-
-3. 更新 `src/api/upload.ts` 中的图片上传逻辑，取消注释R2上传代码。
-
-## 5. 域名配置（可选）
-
-### 5.1 自定义域名
-
-如果你有自定义域名，可以将其绑定到Workers：
-
-1. 在Cloudflare Dashboard中，进入Workers & Pages
-2. 选择你的Worker
-3. 点击"Triggers"标签
-4. 添加自定义域名
-
-### 5.2 CORS配置
-
-确保CORS配置正确，允许你的前端域名访问API：
-
-在 `src/index.ts` 中，CORS配置已经包含：
-```typescript
-// Handle CORS preflight requests
-if (request.method === 'OPTIONS') {
-  return corsResponse();
+```javascript
+api: {
+  devUrl: 'http://127.0.0.1:8787',
+  prodUrl: 'https://your-api-domain.workers.dev',
+  timeout: 10000,
 }
 ```
 
-## 6. 配置架构说明
+### 你需要改什么
 
-### 6.1 统一配置架构
+- 本地开发一般不用改 `devUrl`
+- 生产发布前，把 `prodUrl` 改成最终公开地址
 
-为了简化部署和维护，系统采用了统一配置架构：
+### 什么时候必须重新上传前端
 
-```
-┌─────────────────────────────────────────────┐
-│          frontend/js/config.js              │
-│    （唯一需要修改的前端API配置位置）         │
-└─────────────────────────────────────────────┘
-                    │
-                    ▼
-┌─────────────────────────────────────────────┐
-│         frontend/js/api-client.js           │
-│    （自动从config.js读取API配置）           │
-└─────────────────────────────────────────────┘
-                    │
-                    ▼
-┌─────────────────────────────────────────────┐
-│               所有HTML页面                   │
-│    （通过api-client.js访问API）             │
-└─────────────────────────────────────────────┘
+只要 `frontend/js/config.js` 改了，就需要重新执行：
+
+```bash
+npm run upload
 ```
 
-### 6.2 环境检测逻辑
+因为这个文件本身属于生产静态资源的一部分。
 
-前端应用会自动检测环境并选择正确的API地址：
+## 5. D1 配置
 
-```javascript
-// 环境检测逻辑
-const isDevelopment = window.location.hostname === 'localhost' || 
-                     window.location.hostname === '127.0.0.1';
+### 创建数据库
 
-// 根据环境选择API地址
-const currentApiUrl = isDevelopment ? devUrl : prodUrl;
+```bash
+wrangler d1 create my-flower-pots-db
 ```
 
-- **开发环境**：当访问 `localhost` 或 `127.0.0.1` 时，自动使用 `devUrl` (`http://127.0.0.1:8787`)
-- **生产环境**：其他情况下，自动使用 `prodUrl` (你在配置中设置的生产环境URL)
+把输出的 `database_id` 回填到 `wrangler.toml`。
 
-### 6.3 配置验证
+### 初始化或更新结构
 
-部署后，可以通过以下方式验证配置是否正确：
-
-1. 打开浏览器开发者工具（F12）
-2. 查看控制台输出，确认API地址是否正确
-3. 通过浏览器控制台或开发者工具的 Network 面板验证 API 请求。
-
-## 7. 验证部署
-
-访问主应用并测试完整功能流（如登录、添加花盆、上传图片等）：
-
-访问主应用测试所有功能：
-```
-https://your-frontend-domain.com/frontend/
+```bash
+wrangler d1 execute my-flower-pots-db --remote --file=sql/schema.sql
 ```
 
-## 8. 故障排除
+当前推荐以 `sql/schema.sql` 为准，不再依赖历史迁移脚本说明。
 
-### 8.1 CORS错误
+## 6. R2 配置
 
-如果遇到CORS错误，检查：
-1. API的CORS响应头是否正确设置
-2. 前端域名是否被允许
-3. 预检请求（OPTIONS）是否正确处理
+### 创建或确认桶
 
-### 8.2 数据库连接错误
+```bash
+wrangler r2 bucket create my-flower-pots
+```
 
-如果数据库连接失败，检查：
-1. D1数据库绑定配置是否正确
-2. 数据库迁移是否已应用
-3. 数据库权限设置
+如果你已经有生产桶，只要保证：
 
-### 8.3 图片上传失败
+- `wrangler.toml` 中 `bucket_name` 正确
+- 上传脚本里的 `bucketName` 与之保持一致
 
-如果图片上传失败，检查：
-1. R2存储桶配置是否正确
-2. 文件大小和类型限制
-3. 网络连接和权限
+### 当前用途
 
-## 9. 安全建议
+`STATIC_BUCKET` 现在承担：
 
-### 9.1 API密钥保护
-- 不要将API密钥提交到版本控制系统
-- 使用环境变量或密钥管理服务
-- 定期轮换API密钥
+1. 生产前端静态资源
+2. 用户上传图片
+3. 客服邮件附件
 
-### 9.2 输入验证
-- 所有用户输入都应该验证和清理
-- 文件上传应该限制类型和大小
-- 使用参数化查询防止SQL注入
+因此，文档里旧的“单独创建 `IMAGE_BUCKET` 再取消注释上传逻辑”的做法已经不适用了。
 
-### 9.3 访问控制
-- 实现适当的用户认证和授权
-- 限制API访问频率
-- 记录重要的操作日志
+## 7. 推荐的发布命令
 
-## 10. 性能优化
+```bash
+npm run build-css
+npm run upload
+npm run deploy
+```
 
-### 10.1 缓存策略
-- 为静态资源设置适当的缓存头
-- 使用CDN缓存API响应
-- 实现客户端缓存
+或一次完成：
 
-### 10.2 资源优化
-- 压缩图片和静态资源
-- 使用代码分割和懒加载
-- 优化数据库查询
+```bash
+npm run deploy-full
+```
 
----
+## 8. 常见配置错误
 
-**注意**：部署到生产环境前，请确保：
-1. 所有敏感信息（API密钥、数据库凭证等）都已正确配置
-2. 进行了充分的安全测试
-3. 备份了重要数据
-4. 设置了监控和告警
+### `JWT_SECRET` 未配置
 
-如有问题，请参考项目中的其他文档：
-- `DEPLOYMENT_GUIDE.md` - 详细部署指南
-- `README-API-MIGRATION.md` - API迁移说明
+表现：
+
+- 登录/鉴权接口报 500
+- Worker 日志提示认证配置不安全
+
+处理：
+
+- 本地补 `.dev.vars`
+- 生产环境用 `wrangler secret put JWT_SECRET`
+
+### `prodUrl` 还是占位地址
+
+表现：
+
+- 页面能打开，但前端请求打到错误域名
+- 登录、上传、分享都异常
+
+处理：
+
+- 更新 `frontend/js/config.js`
+- 重新执行 `npm run upload`
+
+### 静态页面 404
+
+表现：
+
+- Worker 已发布，但首页或 CSS/JS 404
+
+处理：
+
+- 检查 `STATIC_BUCKET` 绑定
+- 检查是否执行过 `npm run upload`
+- 检查上传桶和 Worker 绑定是不是同一个桶
+
+### 上传图片失败
+
+表现：
+
+- 表单提交成功但图片回退到占位图
+
+处理：
+
+- 检查 `STATIC_BUCKET` 是否可写
+- 检查上传域名、R2 权限和 Worker 绑定
+
+## 9. 结论
+
+当前仓库的配置重点只有三件事：
+
+1. `wrangler.toml` 绑定正确
+2. Dashboard / Secrets 里的环境变量正确
+3. `frontend/js/config.js` 的 `prodUrl` 与最终公开地址一致

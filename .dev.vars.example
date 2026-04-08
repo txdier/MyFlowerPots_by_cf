@@ -1,0 +1,18 @@
+# Local development secrets for `wrangler dev`
+# Copy this file to `.dev.vars` and replace the placeholder values.
+
+JWT_SECRET="replace-with-a-long-random-secret"
+APP_BASE_URL="http://127.0.0.1:8787"
+ADMIN_EMAILS="admin@example.com"
+ADMIN_USER_IDS=""
+WEATHER_API_KEY=""
+RESEND_API_KEY=""
+EMAIL_FROM="noreply@example.com"
+EMAIL_FROM_NAME="My Flower Pots Support"
+SUPPORT_EMAIL_FROM="support@example.com"
+SUPPORT_EMAIL_FROM_NAME="我的花盆客服"
+
+# Local-only admin helpers
+DEV_ADMIN_ANY_EMAIL_USER="false"
+DEV_ADMIN_EMAILS="admin@example.com"
+DEV_ADMIN_USER_IDS=""

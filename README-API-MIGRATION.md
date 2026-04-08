@@ -1,297 +1,231 @@
-# My Flower Pots 全栈迁移项目
+# My Flower Pots API 迁移说明
 
-## 项目概述
+## 当前状态
 
-这是一个将微信小程序"我的花盆"从微信云开发完整迁移到 Cloudflare Workers + D1 + R2 + 静态前端的全栈项目。项目使用匿名+邮箱注册的认证系统，支持多设备登录和密码重置功能，并提供现代化的响应式 Web 界面。
+后端已经迁移为 Cloudflare Workers + D1 + R2 的结构，Worker 同时负责：
 
-## 已完成的工作
+- API 路由分发
+- 本地与生产页面请求处理
+- 分享页动态 Meta 注入
+- Email Routing 收件处理
+- 客服附件写入 R2
 
-### 1. 后端 API 迁移（第一阶段）
-#### 数据库架构更新
-- 已将所有历史迁移及结构补丁合并至 `sql/schema.sql`
-- 数据库架构现在支持：匿名用户、邮箱注册用户（带验证）、花盆排序及植物百科参考。
-- **新增模块支持**: 协作记录 (`collaborators`)、消息系统 (`messages`)、公共分享 (`share_links`)。
+这份文档描述的是**当前仍在维护的 API 结构**，不再沿用旧的 KV、旧测试脚本或过时路由列表。
 
-#### 认证API实现
-- **`POST /api/auth/identify`** - 匿名用户标识（保持原有功能）
-- **`POST /api/auth/register`** - 邮箱注册（可选邮箱验证）
-- **`POST /api/auth/login`** - 邮箱登录
-- **`POST /api/auth/forgot-password`** - 忘记密码（发送重置邮件）
-- **`POST /api/auth/reset-password`** - 重置密码
-- **`POST /api/auth/upgrade`** - 匿名升级为邮箱用户
-- **`GET /api/auth/verify-email`** - 邮箱验证（通过邮件链接）
-- **`GET /api/auth/me`** - 获取当前用户信息
-- **`PUT /api/auth/profile`** - 更新用户资料
-- **`PUT /api/auth/password`** - 修改密码（登录状态下）
+## 运行时与绑定
 
-#### 邮件服务集成
-- 支持 Resend 邮件服务（可选）
-- 开发环境下自动记录邮件内容
-- 邮件模板：验证邮件、欢迎邮件、密码重置邮件
+当前仓库实际使用的核心绑定：
 
-#### 核心功能API
-- **`GET /api/pots`** - 获取用户花盆列表
-- **`GET /api/pots/:id`** - 获取花盆详情
-- **`GET /api/pots/:id/care-records`** - 获取养护记录
-- **`GET /api/pots/:id/timelines`** - 获取时间线记录
-- **`GET /api/pots/:id/stats`** - 获取花盆养护统计
-- **`POST /api/pots`** - 创建花盆
-- **`PUT /api/pots/:id`** - 更新花盆
-- **`PUT /api/pots/reorder`** - 花盆排序
-- **`DELETE /api/pots/:id`** - 删除花盆
-- **`POST /api/care-records`** - 创建养护记录
-- **`GET /api/care-records/:potId`** - 获取某花盆的养护记录
-- **`POST /api/timelines`** - 创建时间线记录
-- **`GET /api/plants/search`** - 搜索植物数据库
-- **`GET /api/plants/:id`** - 获取植物详情
-- **`POST /api/plants/smart-match`** - 智能植物名称匹配
-- **`POST /api/upload/image`** - 上传图片到 R2 存储
+- `DB`：Cloudflare D1
+- `STATIC_BUCKET`：Cloudflare R2
+- `ASSETS`：仅本地开发时由 `[assets]` 绑定到 `frontend/`
 
-#### 养护计划API
-- **`GET /api/care-schedules`** - 获取所有养护计划
-- **`GET /api/care-schedules/pot/:potId`** - 获取某花盆的养护计划
-- **`GET /api/care-schedules/reminders`** - 获取养护提醒
-- **`POST /api/care-schedules`** - 创建养护计划
-- **`PUT /api/care-schedules/:id`** - 更新养护计划
-- **`DELETE /api/care-schedules/:id`** - 删除养护计划
+说明：
 
-#### 管理员API
-- **`GET /api/admin/check`** - 管理员权限检查
-- **`GET /api/admin/plants`** - 植物列表（分页+搜索）
-- **`POST /api/admin/plants`** - 创建植物
-- **`PUT /api/admin/plants/:id`** - 更新植物
-- **`DELETE /api/admin/plants/:id`** - 删除植物
-- **`POST /api/admin/plants/batch`** - 批量导入植物
-- **`DELETE /api/admin/plants/batch`** - 批量删除植物
-- **`GET /api/admin/users`** - 用户列表（分页+搜索）
-- **`PUT /api/admin/users/:id`** - 更新用户信息
-- **`DELETE /api/admin/users/:id`** - 删除用户
+- 生产环境里，Worker 从 `STATIC_BUCKET` 返回静态页面
+- 用户图片上传也写入 `STATIC_BUCKET`
+- 客服邮件附件也写入 `STATIC_BUCKET`
+- 当前文档不再把 KV Namespaces 作为运行时前提
 
-#### 协同与分享 API
-- **`GET /api/pots/:id/collaborators`** - 获取花盆协作者列表
-- **`POST /api/pots/:id/collaborators`** - 添加协作者
-- **`DELETE /api/pots/:id/collaborators/:userId`** - 移除协作者
-- **`POST /api/pots/:id/transfer`** - 转移花盆所有权
-- **`POST /api/pots/:id/share`** - 生成分享二维码及链接
-- **`GET /api/share/:token`** - 匿名访问分享内容
-- **`GET /api/messages`** - 获取用户消息通知
-- **`PUT /api/messages/:id/read`** - 标记消息已读
-- **`POST /api/messages/clear`** - 清空消息列表
+## 入口结构
 
-#### 其他API
-- **`GET /api/weather`** - 获取天气信息
-- **`POST /api/care-advice`** - 获取养护建议
+```text
+src/
+├── index.ts
+├── api/
+│   ├── admin.ts
+│   ├── analytics.ts
+│   ├── auth.ts
+│   ├── batch-invites.ts
+│   ├── care-advice.ts
+│   ├── care-records.ts
+│   ├── care-schedules.ts
+│   ├── collaborators.ts
+│   ├── messages.ts
+│   ├── plants.ts
+│   ├── pots.ts
+│   ├── share.ts
+│   ├── support.ts
+│   ├── timelines.ts
+│   ├── transfer.ts
+│   ├── upload.ts
+│   ├── viewers.ts
+│   └── weather.ts
+├── static/
+│   └── server.ts
+└── utils/
+    ├── auth-utils.ts
+    ├── email-parser.ts
+    ├── email-service.ts
+    ├── response-utils.ts
+    └── storage-utils.ts
+```
 
-### 2. 前端迁移（第二阶段）
-#### 现代化 Web 应用架构
-- **Vue.js 3 (本地引入)** - 响应式前端框架（`vue.global.js`）
-- **Tailwind CSS (CLI 构建)** - 实用优先 CSS 框架（通过 `npm run build-css` 构建）
-- **自定义 SVG 图标系统** - 通过 CSS `mask-image` 实现（`icons.css`）
-- **响应式设计** - 适配移动端和桌面端
-- **多页面架构 (MPA)** - 每个功能独立 HTML 页面，内置 Vue 3 组件逻辑
+## 当前功能模块
 
-#### 完整页面实现
-- **首页 (`index.html`)** - 花盆列表展示，支持侧滑操作和批量管理
-- **花盆详情页 (`pot-detail.html`)** - 花盆详细信息展示
-- **添加花盆页 (`add-pot.html`)** - 创建新花盆
-- **编辑花盆页 (`edit-pot.html`)** - 修改花盆信息
-- **养护记录页 (`care-record.html`)** - 记录养护操作
-- **所有记录页 (`all-records.html`)** - 查看所有养护记录
-- **全部生长轨迹页 (`all-timelines.html`)** - 查看所有时间线记录
-- **个人资料页 (`profile.html`)** - 用户账户管理
-- **密码重置页 (`reset-password.html`)** - 密码重置
-- **植物管理页 (`admin-plants.html`)** - 管理员植物数据管理
-- **统计看板页 (`admin-stats.html`)** - 管理员数据统计
+### 认证与账户
 
-#### API 客户端集成
-- **`frontend/js/api-client.js`** - 完整的 API 客户端封装
-- 自动处理认证令牌
-- 统一的错误处理机制
-- 支持图片上传功能
-- 开发/生产环境自动切换
+`src/api/auth.ts` 负责：
 
-#### 用户体验优化
-- 匿名用户无缝体验（延迟账户创建）
-- 邮箱注册/登录界面
-- 用户数据合并功能（匿名升级为注册用户）
-- 图片上传和预览
-- 侧滑删除和编辑操作
+- 匿名识别：`POST /api/auth/identify`
+- 注册：`POST /api/auth/register`
+- 登录：`POST /api/auth/login`
+- 忘记密码：`POST /api/auth/forgot-password`
+- 重置密码：`POST /api/auth/reset-password`
+- 匿名账号升级：`POST /api/auth/upgrade`
+- 邮箱验证：`GET /api/auth/verify-email`
+- 当前用户：`GET /api/auth/me`
+- 更新资料：`PUT /api/auth/profile`
+- 修改密码：`PUT /api/auth/password`
+- 刷新令牌：`POST /api/auth/refresh`
 
-## 技术架构
+### 花盆与养护
 
-### 后端技术栈
-- **Cloudflare Workers** - 无服务器运行时
-- **D1 Database** - SQLite 兼容的数据库
-- **KV Namespaces** - 键值存储（用于缓存）
-- **R2 Storage** - 对象存储（用于图片存储）
+- `src/api/pots.ts`
+  - 花盆列表、详情、创建、更新、删除
+  - 花盆排序：`PUT /api/pots/reorder`
+  - 花盆统计：`GET /api/pots/:id/stats`
+- `src/api/care-records.ts`
+  - 养护记录读写
+- `src/api/timelines.ts`
+  - 时间线读写
+- `src/api/care-schedules.ts`
+  - 养护计划
+  - 今日提醒：`GET /api/care-schedules/reminders`
 
-### 前端技术栈
-- **Vue.js 3 (本地引入)** - 响应式 JavaScript 框架（`vue.global.js`）
-- **Tailwind CSS (CLI 构建)** - 实用优先 CSS 框架（通过 `npm run build-css` 生成精简版）
-- **自定义 SVG 图标系统** - 通过 CSS `mask-image` 实现（`icons.css`，替代 Font Awesome）
-- **原生 JavaScript (ES6+)** - Fetch API、LocalStorage 等
-- **多页面架构 (MPA)** - 每个功能独立 HTML 文件
+### 植物资料与辅助能力
 
-### 安全特性
-- 密码使用 SHA-256 哈希（结合用户ID作为盐）
-- 基于 JWT 的认证机制，支持令牌自动刷新
-- 支持多设备同时登录
-- 密码重置令牌24小时有效期
-- CORS 配置支持跨域请求
-- HTTPS 强制加密传输
+- `src/api/plants.ts`
+  - 搜索：`GET /api/plants/search`
+  - 详情：`GET /api/plants/:id`
+  - 智能匹配：`POST /api/plants/smart-match`
+- `src/api/upload.ts`
+  - 图片上传：`POST /api/upload/image`
+- `src/api/weather.ts`
+  - 天气接口：`GET /api/weather`
+- `src/api/care-advice.ts`
+  - 养护建议：`POST /api/care-advice`
 
-## 快速开始
+### 分享、协作与访问权限
 
-### 1. 环境准备
+- `src/api/share.ts`
+  - 公开分享启用/关闭
+  - 分享详情：`GET /api/public/pots/:token`
+  - 分享评论弹幕开关
+- `src/api/collaborators.ts`
+  - 协作者列表、添加、移除
+  - 协作者邀请打开与接受
+- `src/api/viewers.ts`
+  - 访客列表、添加、移除、退出
+  - 访客邀请打开与接受
+- `src/api/batch-invites.ts`
+  - 批量邀请创建、打开、接受
+- `src/api/transfer.ts`
+  - 所有权转移发起、取消、接受、拒绝
+  - 公开转移详情：`GET /api/public/transfer/:token`
+
+### 消息与留言
+
+`src/api/messages.ts` 负责两类能力：
+
+- 系统消息中心
+  - `GET /api/messages`
+  - `GET /api/messages/unread-count`
+  - `POST /api/messages/:id/read`
+  - `POST /api/messages/read-all`
+  - `POST /api/messages/clear-read`
+  - `DELETE /api/messages/:id`
+- 花盆留言流
+  - `GET /api/messages/pot-comments/:potId`
+  - `POST /api/messages/pot-comment`
+  - `POST /api/messages/pot-comment-reply`
+  - `DELETE /api/messages/pot-comment/:id`
+
+### 管理后台与客服
+
+- `src/api/admin.ts`
+  - 管理员校验
+  - 植物库管理
+  - 用户管理
+  - 统计相关接口
+- `src/api/support.ts`
+  - `GET /api/admin/support/emails`
+  - `GET /api/admin/support/emails/:id`
+  - `GET /api/admin/support/emails/:id/attachments/:filename`
+  - `POST /api/admin/support/emails/:id/reply`
+  - `PATCH /api/admin/support/emails/:id/read`
+  - `DELETE /api/admin/support/emails/:id`
+
+## 存储职责
+
+### D1
+
+负责业务主数据：
+
+- 用户
+- 花盆
+- 养护记录与时间线
+- 养护计划
+- 协作者与访客关系
+- 消息与评论
+- 客服邮件与回复记录
+
+### R2 `STATIC_BUCKET`
+
+当前实际承担三类文件：
+
+1. 生产环境前端静态资源
+2. 用户上传图片
+3. 客服邮件附件
+
+## 认证与安全
+
+当前代码中的关键点：
+
+- JWT 使用 HMAC-SHA256 签名
+- 前端依赖 `/api/auth/refresh` 续签
+- 密码新格式采用 PBKDF2-SHA256
+- 仍兼容旧的 SHA-256 历史密码哈希做校验
+- `JWT_SECRET` 会拦截明显不安全的默认值
+
+## 页面与静态资源处理
+
+`src/static/server.ts` 当前负责：
+
+- 默认页映射
+- 生产环境从 R2 返回 HTML / CSS / JS / 图片
+- 分享场景下对 `pot-detail.html` 注入动态 Meta 标签
+- 本地开发缺少 `ASSETS` 绑定时的兜底静态服务
+
+## 部署与开发
+
+当前文档只保留仍然可用的流程：
+
 ```bash
-# 安装 Wrangler CLI
-npm install -g wrangler
-
-# 登录 Cloudflare
-wrangler login
-```
-
-### 2. 本地开发
-```bash
-# 安装依赖
-npm install
-
-# 启动本地开发服务器
-wrangler dev
-```
-
-### 3. 数据库初始化
-```bash
-# 创建本地 D1 数据库
-wrangler d1 create my-flower-pots-db
-
-# 应用原始数据库架构（保持与生产环境一致）
-wrangler d1 execute my-flower-pots-db --file=sql/schema.sql
-
-```
-
-
-
-### 6. 前端静态文件部署
-```bash
-# 使用 Wrangler 部署静态文件到 R2
-npm run upload-wrangler
-
-# 或使用自定义脚本部署
-npm run upload-static
-```
-
-### 7. 配置环境变量
-编辑 `wrangler.toml` 文件，参考`wrangler.toml.example`：
-```toml
-[vars]
-WEATHER_API_KEY = "your-weather-api-key"
-RESEND_API_KEY = "your-resend-api-key"
-EMAIL_FROM = "noreply@example.com"
-APP_BASE_URL = "https://api.example.com"  # 生产环境 API 地址
-ADMIN_EMAILS = "admin@example.com"  # 管理员邮箱
-JWT_SECRET = "your-jwt-secret-key"  # JWT 签名密钥
-```
-
-## 下一步工作（优化与扩展）
-
-### 功能优化
-
-### 性能优化
-
-### 社区功能
-1. **植物图鉴** - 用户贡献的植物数据库
-2. **经验分享** - 用户养护经验交流
-
-### 文件结构
-```
-frontend/                    # 现代化 Web 前端
-├── index.html              # 首页 (花盆列表)
-├── pot-detail.html         # 花盆详情页
-├── add-pot.html            # 添加花盆页
-├── edit-pot.html           # 编辑花盆页
-├── care-record.html        # 养护记录页
-├── all-records.html        # 历史记录页
-├── all-timelines.html      # 全部生长轨迹页
-├── profile.html            # 个人资料页
-├── reset-password.html     # 密码重置页
-├── admin-plants.html       # 植物管理页 (管理员)
-├── admin-stats.html        # 统计看板页 (管理员)
-├── assets/                 # 图片资源
-├── css/
-│   ├── tailwind-input.css  # Tailwind CSS 源码
-│   ├── tailwind-built.css  # Tailwind CSS 构建产物
-│   ├── app.css             # 自定义样式
-│   └── icons.css           # 自定义 SVG 图标
-└── js/
-    ├── api-client.js       # API 客户端封装
-    ├── config.js.example   # 预设配置模板
-    ├── router.js           # 页面跳转工具
-    ├── app.js              # 全局应用逻辑
-    ├── vue.global.js       # Vue 3 运行时 (本地引入)
-    ├── Sortable.min.js     # 拖拽排序库
-    └── tailwindcss.js      # Tailwind CSS 运行时
-
-src/                        # Cloudflare Workers 后端代码 (TypeScript)
-├── index.ts               # API 主入口及路由分发
-├── api/                   # 各业务模块
-│   ├── auth.ts            # 认证 API
-│   ├── pots.ts            # 花盆管理 API
-│   ├── care-records.ts    # 养护记录 API
-│   ├── care-schedules.ts  # 养护计划 API
-│   ├── timelines.ts       # 生长轨迹 API
-│   ├── plants.ts          # 植物数据 API
-│   ├── upload.ts          # 图片上传 API
-│   ├── admin.ts           # 管理员 API
-│   ├── weather.ts         # 天气 API
-│   ├── care-advice.ts     # 养护建议 API
-│   ├── collaborators.ts   # 协作者管理 API [NEW]
-│   ├── messages.ts        # 消息系统 API [NEW]
-│   ├── share.ts           # 分享系统 API [NEW]
-│   ├── transfer.ts        # 所有权转移 API [NEW]
-│   └── analytics.ts       # 页面访问统计
-├── static/                # 静态资源服务
-│   └── server.ts          # R2 静态资源服务及 SPA 回退
-└── utils/                 # 公用工具
-```
-
-## 部署到生产环境
-
-### 1. 后端部署
-```bash
-# 创建生产数据库
-wrangler d1 create my-flower-pots-db --remote
-
-# 初始化数据库架构
-wrangler d1 execute my-flower-pots-db --remote --file=sql/schema.sql
-
-# 部署 Workers API
-npm run deploy
-```
-
-### 2. 前端部署
-```bash
-# 部署前端静态资源到 R2 (通过 Wrangler)
+npm run dev
 npm run upload
-
-# 或使用完整部署脚本
+npm run deploy
 npm run deploy-full
 ```
 
-### 3. 配置域名和路由
-```bash
-# 查看 Workers 路由
-wrangler routes
+不再把下面这些写成推荐步骤：
 
-# 配置自定义域名（如果需要）
-wrangler publish --route example.com/*
-```
+- `npm run migrate`
+- `npm run verify`
+- `npm run test-api`
+- `npm run test-db`
+- `npm run test-new`
 
-### 4. 环境验证
-```bash
-# 验证 API 服务
-curl https://api.example.com/api/auth/me
+这些命令在当前仓库里不是 API 迁移文档的有效依赖。
 
-# 验证前端访问
-# 访问配置的前端域名
-```
+## 说明
+
+这份文档现在与以下文件保持一致：
+
+- `src/index.ts`
+- `src/api/*.ts`
+- `src/static/server.ts`
+- `frontend/js/api-client.js`
+- `wrangler.toml`
+
+如果后续新增 API 模块，优先同步更新这里，而不是继续沿用旧迁移记录。

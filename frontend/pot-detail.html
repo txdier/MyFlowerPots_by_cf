@@ -7,6 +7,7 @@
     <title>花盆详情 - My Flower Pots</title>
     <meta name="description" content="正在查看花盆详情，记录每一株植物的成长轨迹。">
     <meta name="theme-color" content="#ffffff">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <!-- PWA -->
@@ -26,7 +27,7 @@
     </style>
 
     <!-- Tailwind CSS & Custom Styles (Optimized) -->
-    <link rel="stylesheet" href="css/tailwind-built.css?v=20260227">
+    <link rel="stylesheet" href="css/tailwind-built.css?v=20260407-1">
     <link rel="stylesheet" href="css/app.css?v=20260227">
 
     <!-- 图标库 -->
@@ -119,7 +120,9 @@
 <body class="bg-gray-50">
     <div id="app" v-cloak>
         <!-- 顶部导航栏 (强制靠左+居中) -->
-        <header class="header bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-50 h-16 w-full">
+        <header v-if="!shouldShowStandaloneState"
+            class="header bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-50 h-16 w-full"
+            :class="shouldHideFloatingChrome ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <div class="container relative flex items-center h-full">
                 <!-- 左侧按钮 -->
                 <div class="z-10">
@@ -182,7 +185,8 @@
         </div>
 
         <!-- 页内导航（摘要跳转） -->
-        <div v-if="!isLoading && pot" class="container sticky top-16 z-40 bg-gray-50/95 backdrop-blur-sm py-2">
+        <div v-if="!isLoading && pot" class="container sticky top-16 z-40 bg-gray-50/95 backdrop-blur-sm py-2"
+            :class="shouldHideFloatingChrome ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <div class="flex items-center gap-1 bg-white/80 border border-gray-100 rounded-2xl p-1 shadow-sm">
                 <button v-for="tab in sectionTabs" :key="tab.key" @click="scrollToSection(tab.id, tab.key)"
                     class="flex-1 py-2 rounded-xl text-[11px] font-bold transition" :class="activeSection === tab.key
@@ -193,70 +197,370 @@
             </div>
         </div>
 
+        <button v-if="!isLoading && pot && showCommentEntry" @click="openCommentModal()"
+            class="fixed w-12 h-12 rounded-full bg-orange-600 text-white shadow-xl shadow-orange-300 flex items-center justify-center active:scale-95 transition comment-fab"
+            aria-label="打开留言窗口" :class="shouldHideFloatingChrome ? 'opacity-0 pointer-events-none' : 'opacity-100'">
+            <i class="fa fa-comment-dots text-lg"></i>
+        </button>
+
         <!-- 主内容区域 -->
         <main class="main pb-20">
             <!-- 骨架屏加载状态 (Skeleton Screen) -->
             <div v-if="isLoading" class="container py-5 space-y-5 animate-pulse">
-                <div class="bg-gray-200 rounded-3xl h-56 md:h-72 w-full shadow-sm"></div>
-                <div class="bg-gray-200 rounded-3xl h-40 w-full shadow-sm border border-gray-100"></div>
-                <div class="bg-gray-200 rounded-3xl h-32 w-full shadow-sm"></div>
-                <div class="space-y-4">
-                    <div class="flex items-center gap-4">
-                        <div class="w-16 h-16 rounded-full bg-gray-200 shrink-0"></div>
-                        <div class="flex-1 space-y-2">
-                            <div class="h-4 bg-gray-200 rounded w-1/3"></div>
-                            <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+                <div class="bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-50">
+                    <div class="bg-gray-200 h-56 md:h-72 w-full"></div>
+                    <div class="p-6 space-y-4">
+                        <div class="flex items-center gap-3">
+                            <div class="h-7 bg-gray-200 rounded-xl w-40"></div>
+                            <div class="h-6 bg-gray-200 rounded-lg w-20"></div>
+                        </div>
+                        <div class="space-y-3">
+                            <div class="flex items-center gap-3">
+                                <div class="h-4 bg-gray-200 rounded w-20 shrink-0"></div>
+                                <div class="h-4 bg-gray-200 rounded w-32"></div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="h-4 bg-gray-200 rounded w-20 shrink-0"></div>
+                                <div class="h-4 bg-gray-200 rounded w-48"></div>
+                            </div>
+                        </div>
+                        <div class="pt-3 border-t border-gray-100">
+                            <div class="h-14 bg-gray-100 rounded-2xl"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
+                    <div class="px-6 pt-5 border-b border-gray-50">
+                        <div class="flex gap-6">
+                            <div class="h-10 bg-gray-200 rounded-t-xl w-24"></div>
+                            <div class="h-10 bg-gray-100 rounded-t-xl w-24"></div>
+                        </div>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+                        <div class="h-4 bg-gray-200 rounded w-5/6"></div>
+                        <div class="h-4 bg-gray-200 rounded w-2/3"></div>
+                        <div class="h-10 bg-gray-100 rounded-full w-36 mx-auto mt-6"></div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
+                    <div class="p-6 flex justify-between items-center border-b border-gray-50">
+                        <div class="h-6 bg-gray-200 rounded-xl w-28"></div>
+                        <div class="h-8 bg-gray-100 rounded-full w-16"></div>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <div class="flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-2xl">
+                            <div class="flex items-center gap-3 flex-1">
+                                <div class="w-10 h-10 rounded-2xl bg-gray-200 shrink-0"></div>
+                                <div class="flex-1 space-y-2">
+                                    <div class="h-4 bg-gray-200 rounded w-28"></div>
+                                    <div class="h-3 bg-gray-200 rounded w-20"></div>
+                                </div>
+                            </div>
+                            <div class="w-12 h-7 rounded-full bg-gray-200"></div>
+                        </div>
+                        <div class="flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-2xl">
+                            <div class="flex items-center gap-3 flex-1">
+                                <div class="w-10 h-10 rounded-2xl bg-gray-200 shrink-0"></div>
+                                <div class="flex-1 space-y-2">
+                                    <div class="h-4 bg-gray-200 rounded w-24"></div>
+                                    <div class="h-3 bg-gray-200 rounded w-24"></div>
+                                </div>
+                            </div>
+                            <div class="w-12 h-7 rounded-full bg-gray-200"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
+                    <div class="p-6 flex justify-between items-center border-b border-gray-50">
+                        <div class="h-6 bg-gray-200 rounded-xl w-28"></div>
+                        <div class="h-8 bg-gray-100 rounded-full w-20"></div>
+                    </div>
+                    <div class="px-6 py-4 bg-gray-50/50 border-b border-gray-50">
+                        <div class="grid grid-cols-3 gap-3">
+                            <div class="h-20 bg-white rounded-2xl border border-gray-50"></div>
+                            <div class="h-20 bg-white rounded-2xl border border-gray-50"></div>
+                            <div class="h-20 bg-white rounded-2xl border border-gray-50"></div>
+                        </div>
+                    </div>
+                    <div class="divide-y divide-gray-50">
+                        <div class="py-4 px-6 flex items-center justify-between">
+                            <div class="space-y-2">
+                                <div class="h-4 bg-gray-200 rounded w-24"></div>
+                                <div class="h-3 bg-gray-200 rounded w-40"></div>
+                            </div>
+                            <div class="w-4 h-4 bg-gray-100 rounded"></div>
+                        </div>
+                        <div class="py-4 px-6 flex items-center justify-between">
+                            <div class="space-y-2">
+                                <div class="h-4 bg-gray-200 rounded w-24"></div>
+                                <div class="h-3 bg-gray-200 rounded w-32"></div>
+                            </div>
+                            <div class="w-4 h-4 bg-gray-100 rounded"></div>
+                        </div>
+                        <div class="py-4 px-6 flex items-center justify-between">
+                            <div class="space-y-2">
+                                <div class="h-4 bg-gray-200 rounded w-24"></div>
+                                <div class="h-3 bg-gray-200 rounded w-36"></div>
+                            </div>
+                            <div class="w-4 h-4 bg-gray-100 rounded"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
+                    <div class="p-6 flex justify-between items-center border-b border-gray-50">
+                        <div class="h-6 bg-gray-200 rounded-xl w-28"></div>
+                        <div class="h-8 bg-gray-100 rounded-full w-24"></div>
+                    </div>
+                    <div class="p-6 space-y-6">
+                        <div class="relative pl-6 border-l-2 border-gray-100">
+                            <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-gray-200"></div>
+                            <div class="space-y-3">
+                                <div class="h-4 bg-gray-200 rounded w-24"></div>
+                                <div class="h-4 bg-gray-200 rounded w-5/6"></div>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div class="aspect-square rounded-2xl bg-gray-200"></div>
+                                    <div class="aspect-square rounded-2xl bg-gray-200"></div>
+                                    <div class="aspect-square rounded-2xl bg-gray-200"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="relative pl-6 border-l-2 border-gray-100">
+                            <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-gray-200"></div>
+                            <div class="space-y-3">
+                                <div class="h-4 bg-gray-200 rounded w-24"></div>
+                                <div class="h-4 bg-gray-200 rounded w-2/3"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- 分享链接失效提示 -->
-            <div v-if="tokenInvalid && !isLoading" class="container mt-8 animate-fade-in">
-                <div class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
-                    <!-- 顶部渐变装饰条 -->
-                    <div class="h-1.5 w-full bg-gradient-to-r from-green-300 via-emerald-400 to-teal-300"></div>
-                    <div class="p-10 flex flex-col items-center text-center">
-                        <!-- 图标 -->
-                        <div class="relative mb-6">
-                            <div
-                                class="w-24 h-24 rounded-full bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center text-5xl shadow-inner">
-                                🪴
+            <div v-if="tokenInvalid && !isLoading" class="container py-4 sm:py-8 lg:py-10 animate-fade-in">
+                <section
+                    class="relative isolate overflow-hidden rounded-[2rem] border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-cyan-50 shadow-[0_35px_85px_rgba(16,185,129,0.14)]">
+                    <div class="pointer-events-none absolute -top-16 right-0 h-44 w-44 rounded-full bg-white/80 blur-3xl"></div>
+                    <div class="pointer-events-none absolute -bottom-20 left-0 h-56 w-56 rounded-full bg-emerald-100/70 blur-3xl"></div>
+                    <div class="relative z-10 grid min-h-[calc(100vh-5.5rem)] items-center gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(290px,0.85fr)] lg:p-12">
+                        <div class="min-w-0">
+                            <div class="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-white/80 px-4 py-2 text-[11px] font-black tracking-[0.22em] text-emerald-600">
+                                <i class="fa fa-link"></i>
+                                链接已失效
                             </div>
-                            <div
-                                class="absolute -bottom-1 -right-1 w-9 h-9 rounded-full bg-red-100 flex items-center justify-center border-2 border-white shadow-sm">
-                                <i class="fa fa-unlink text-red-400 text-sm"></i>
+                            <div class="mt-6 flex items-start gap-4 sm:gap-5">
+                                <div
+                                    class="flex h-16 w-16 shrink-0 items-center justify-center rounded-[1.6rem] border border-emerald-100 bg-white text-emerald-500 shadow-[0_20px_45px_rgba(16,185,129,0.16)] sm:h-20 sm:w-20">
+                                    <i class="fa fa-unlink text-2xl sm:text-3xl"></i>
+                                </div>
+                                <div class="min-w-0 pt-1">
+                                    <h2 class="text-2xl font-black tracking-tight text-gray-900 sm:text-3xl">这条分享已经不能用了</h2>
+                                    <p class="mt-3 text-sm leading-7 text-gray-500 sm:text-base">
+                                        可能是主人关闭了这次分享、重新生成了链接，或者你打开的是旧地址。当前链接不会再继续展示花盆内容。
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="mt-6 rounded-[1.6rem] border border-white bg-white/85 p-4 shadow-sm sm:p-5">
+                                <div class="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-500">你可以这样做</div>
+                                <div class="mt-3 grid gap-3 text-sm text-gray-600 sm:grid-cols-2">
+                                    <div class="rounded-2xl border border-emerald-50 bg-emerald-50/80 px-4 py-3">
+                                        <div class="font-black text-gray-800">联系分享者</div>
+                                        <p class="mt-1 leading-6">让对方重新发送最新的分享或邀请链接，旧链接通常不会自动恢复。</p>
+                                    </div>
+                                    <div class="rounded-2xl border border-cyan-50 bg-cyan-50/80 px-4 py-3">
+                                        <div class="font-black text-gray-800">改从首页进入</div>
+                                        <p class="mt-1 leading-6">如果这是你自己的花盆，直接回首页登录后进入，会比继续反复打开旧链接更稳。</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-6 grid gap-3 sm:grid-cols-2 xl:max-w-[34rem]">
+                                <button @click="goHome"
+                                    class="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-500 px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-green-100 transition active:scale-95">
+                                    <i class="fa fa-home"></i>
+                                    回到首页
+                                </button>
+                                <button @click="openPermissionRegister"
+                                    class="flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-white px-5 py-3.5 text-sm font-black text-emerald-700 transition active:scale-95">
+                                    <i class="fa fa-seedling"></i>
+                                    注册后开始种花
+                                </button>
                             </div>
                         </div>
-                        <!-- 标题 -->
-                        <h2 class="text-xl font-black text-gray-800 mb-2">分享链接已失效</h2>
-                        <p class="text-sm text-gray-400 leading-relaxed mb-1 max-w-xs font-medium">
-                            该花盆的分享链接不存在或已被主人关闭。
-                        </p>
-                        <p class="text-xs text-gray-300 font-bold mb-8">请联系分享者重新获取最新链接。</p>
-                        <!-- 操作按钮 -->
-                        <div class="flex flex-col gap-3 w-full max-w-xs">
-                            <button @click="window.location.href='index.html'"
-                                class="w-full py-3.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl text-sm font-black shadow-lg shadow-green-100 active:scale-95 transition flex items-center justify-center gap-2">
-                                <i class="fa fa-home"></i> 回到首页
-                            </button>
-                            <button @click="window.location.href='index.html#create'"
-                                class="w-full py-3.5 bg-gray-50 text-gray-500 rounded-2xl text-sm font-bold active:scale-95 transition border border-gray-100 flex items-center justify-center gap-2">
-                                <i class="fa fa-seedling text-green-400"></i> 我也要种花
-                            </button>
-                        </div>
+
+                        <aside class="rounded-[1.8rem] border border-white bg-white/78 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)] backdrop-blur-sm sm:p-6">
+                            <div class="flex items-center gap-2 text-sm font-black text-gray-800">
+                                <i class="fa fa-compass text-emerald-500"></i>
+                                为什么会这样
+                            </div>
+                            <div class="mt-4 space-y-3">
+                                <div class="rounded-2xl border border-gray-100 bg-gray-50/85 px-4 py-3.5">
+                                    <div class="text-sm font-black text-gray-800">主人关闭了对外分享</div>
+                                    <p class="mt-1 text-xs leading-6 text-gray-500">关闭分享后，之前发出的公开链接会立即失效。</p>
+                                </div>
+                                <div class="rounded-2xl border border-gray-100 bg-gray-50/85 px-4 py-3.5">
+                                    <div class="text-sm font-black text-gray-800">链接已经被更新</div>
+                                    <p class="mt-1 text-xs leading-6 text-gray-500">当分享者重新生成新链接时，旧链接通常会被替换掉。</p>
+                                </div>
+                                <div class="rounded-2xl border border-gray-100 bg-gray-50/85 px-4 py-3.5">
+                                    <div class="text-sm font-black text-gray-800">社交软件缓存了旧页面</div>
+                                    <p class="mt-1 text-xs leading-6 text-gray-500">如果是从聊天记录里点开的旧卡片，优先让对方重新发一次最新入口。</p>
+                                </div>
+                            </div>
+                        </aside>
                     </div>
-                </div>
+                </section>
             </div>
 
             <!-- 错误提示 -->
-            <div v-if="error && !tokenInvalid" class="error-alert container mt-4">
-                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
-                    <i class="fa fa-exclamation-triangle mr-2"></i>
-                    <span>{{ error }}</span>
-                    <button @click="error = null" class="absolute top-0 bottom-0 right-0 px-4">
-                        <i class="fa fa-times"></i>
-                    </button>
+            <div v-if="error && !tokenInvalid" class="error-alert container py-4 sm:py-8 lg:py-10">
+                <div v-if="isPermissionError"
+                    class="relative isolate overflow-hidden rounded-[2rem] border border-amber-100 bg-gradient-to-br from-amber-50 via-white to-orange-50 shadow-[0_35px_85px_rgba(245,158,11,0.14)]">
+                    <div class="pointer-events-none absolute -top-16 -right-10 h-40 w-40 rounded-full bg-white/70 blur-3xl"></div>
+                    <div class="pointer-events-none absolute -bottom-20 left-0 h-48 w-48 rounded-full bg-orange-100/60 blur-3xl"></div>
+                    <div class="pointer-events-none absolute top-6 right-6 rounded-full border border-amber-100 bg-white/80 px-3 py-1 text-[11px] font-black tracking-[0.2em] text-amber-500">
+                        {{ permissionErrorBadge }}
+                    </div>
+                    <div class="relative z-10 p-6 sm:p-8 lg:p-10">
+                        <div class="grid min-h-[calc(100vh-5.5rem)] items-center gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
+                            <div class="min-w-0">
+                                <div class="flex items-start gap-4 sm:gap-5">
+                                    <div
+                                        class="w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-[1.75rem] bg-white text-amber-500 flex items-center justify-center shadow-[0_20px_45px_rgba(245,158,11,0.16)] border border-amber-100">
+                                        <i :class="permissionErrorIcon" class="text-2xl sm:text-3xl"></i>
+                                    </div>
+                                    <div class="min-w-0 pt-1">
+                                        <h2 class="text-2xl sm:text-3xl font-black text-gray-800 tracking-tight">
+                                            {{ permissionErrorTitle }}
+                                        </h2>
+                                        <p class="mt-3 text-sm sm:text-base text-gray-500 leading-7">
+                                            {{ permissionErrorLead }}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div class="mt-6 rounded-[1.6rem] bg-white/85 border border-white shadow-sm p-4 sm:p-5">
+                                    <div class="text-[11px] font-black tracking-[0.18em] text-amber-500 uppercase">系统提示</div>
+                                    <p class="mt-2 text-sm text-gray-600 leading-6 break-words">{{ error }}</p>
+                                </div>
+
+                                <div class="relative z-10 mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                                    <button @click="openPermissionLogin"
+                                        class="w-full px-5 py-3.5 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-500 text-white text-sm font-black shadow-lg shadow-green-100 active:scale-95 transition flex items-center justify-center gap-2">
+                                        <i class="fa fa-right-to-bracket"></i>
+                                        {{ permissionPrimaryActionLabel }}
+                                    </button>
+                                    <button @click="openPermissionRegister"
+                                        class="w-full px-5 py-3.5 rounded-2xl bg-white text-amber-700 text-sm font-black border border-amber-100 active:scale-95 transition flex items-center justify-center gap-2">
+                                        <i class="fa fa-user-plus"></i>
+                                        注册账号
+                                    </button>
+                                    <button @click="retryCurrentPage"
+                                        class="w-full px-5 py-3.5 rounded-2xl bg-gray-900 text-white text-sm font-black shadow-lg shadow-gray-200 active:scale-95 transition flex items-center justify-center gap-2">
+                                        <i class="fa fa-rotate-right"></i>
+                                        重新检查
+                                    </button>
+                                    <button @click="goHome"
+                                        class="w-full px-5 py-3.5 rounded-2xl bg-gray-50 text-gray-600 text-sm font-bold border border-gray-100 active:scale-95 transition flex items-center justify-center gap-2">
+                                        <i class="fa fa-home"></i>
+                                        回到首页
+                                    </button>
+                                </div>
+                            </div>
+
+                            <aside class="rounded-[1.8rem] bg-white/78 border border-white shadow-[0_18px_40px_rgba(15,23,42,0.06)] p-5 sm:p-6 backdrop-blur-sm">
+                                <div class="flex items-center gap-2 text-sm font-black text-gray-800">
+                                    <i class="fa fa-compass text-amber-500"></i>
+                                    可以这样处理
+                                </div>
+                                <div class="mt-4 space-y-3">
+                                    <div v-for="item in permissionHelpCards" :key="item.title"
+                                        class="rounded-2xl border border-gray-100 bg-gray-50/85 px-4 py-3.5">
+                                        <div class="flex items-start gap-3">
+                                            <div
+                                                class="w-9 h-9 shrink-0 rounded-xl bg-white text-amber-500 border border-amber-100 flex items-center justify-center shadow-sm">
+                                                <i :class="item.icon"></i>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <div class="text-sm font-black text-gray-800">{{ item.title }}</div>
+                                                <p class="mt-1 text-xs text-gray-500 leading-6">{{ item.description }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-5 pt-4 border-t border-gray-100 text-xs text-gray-400 leading-6">
+                                    {{ permissionErrorFootnote }}
+                                </div>
+                            </aside>
+                        </div>
+                    </div>
+                </div>
+                <div v-else
+                    class="relative isolate overflow-hidden rounded-[2rem] border border-rose-100 bg-gradient-to-br from-rose-50 via-white to-slate-50 shadow-[0_35px_85px_rgba(244,63,94,0.12)]">
+                    <div class="pointer-events-none absolute -top-16 right-0 h-40 w-40 rounded-full bg-white/80 blur-3xl"></div>
+                    <div class="pointer-events-none absolute -bottom-16 left-8 h-48 w-48 rounded-full bg-rose-100/70 blur-3xl"></div>
+                    <div class="relative z-10 grid min-h-[calc(100vh-5.5rem)] items-center gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(280px,0.95fr)] lg:p-10">
+                        <div class="min-w-0">
+                            <div class="inline-flex items-center gap-2 rounded-full border border-rose-100 bg-white/80 px-4 py-2 text-[11px] font-black tracking-[0.22em] text-rose-500">
+                                <i class="fa fa-circle-exclamation"></i>
+                                加载异常
+                            </div>
+                            <div class="mt-6 flex items-start gap-4 sm:gap-5">
+                                <div
+                                    class="flex h-16 w-16 shrink-0 items-center justify-center rounded-[1.6rem] border border-rose-100 bg-white text-rose-500 shadow-[0_20px_45px_rgba(244,63,94,0.14)] sm:h-20 sm:w-20">
+                                    <i class="fa fa-exclamation-triangle text-2xl sm:text-3xl"></i>
+                                </div>
+                                <div class="min-w-0 pt-1">
+                                    <h2 class="text-2xl font-black tracking-tight text-gray-900 sm:text-3xl">页面暂时没加载出来</h2>
+                                    <p class="mt-3 text-sm leading-7 text-gray-500 sm:text-base">
+                                        这通常是网络波动、链接参数不完整，或者当前访问状态已经变化导致的。你可以先重试一次，再决定是否返回首页。
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="mt-6 rounded-[1.6rem] border border-white bg-white/88 p-4 shadow-sm sm:p-5">
+                                <div class="text-[11px] font-black uppercase tracking-[0.18em] text-rose-500">系统提示</div>
+                                <p class="mt-2 break-words text-sm leading-6 text-gray-600">{{ error }}</p>
+                            </div>
+
+                            <div class="mt-6 grid gap-3 sm:grid-cols-2 xl:max-w-[32rem]">
+                                <button @click="retryCurrentPage"
+                                    class="flex w-full items-center justify-center gap-2 rounded-2xl bg-gray-900 px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-gray-200 transition active:scale-95">
+                                    <i class="fa fa-rotate-right"></i>
+                                    重新加载
+                                </button>
+                                <button @click="goHome"
+                                    class="flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3.5 text-sm font-black text-gray-700 transition active:scale-95">
+                                    <i class="fa fa-home"></i>
+                                    回到首页
+                                </button>
+                            </div>
+                        </div>
+
+                        <aside class="rounded-[1.8rem] border border-white bg-white/80 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)] backdrop-blur-sm sm:p-6">
+                            <div class="flex items-center gap-2 text-sm font-black text-gray-800">
+                                <i class="fa fa-wand-magic-sparkles text-rose-500"></i>
+                                建议优先排查
+                            </div>
+                            <div class="mt-4 space-y-3">
+                                <div class="rounded-2xl border border-gray-100 bg-gray-50/85 px-4 py-3.5">
+                                    <div class="text-sm font-black text-gray-800">刷新当前页面</div>
+                                    <p class="mt-1 text-xs leading-6 text-gray-500">接口偶发超时或网络抖动时，重新检查通常就能恢复。</p>
+                                </div>
+                                <div class="rounded-2xl border border-gray-100 bg-gray-50/85 px-4 py-3.5">
+                                    <div class="text-sm font-black text-gray-800">确认入口是否正确</div>
+                                    <p class="mt-1 text-xs leading-6 text-gray-500">如果是从聊天记录或收藏里打开，优先确认链接没有过期、截断或被替换。</p>
+                                </div>
+                                <div class="rounded-2xl border border-gray-100 bg-gray-50/85 px-4 py-3.5">
+                                    <div class="text-sm font-black text-gray-800">换到首页重新进入</div>
+                                    <p class="mt-1 text-xs leading-6 text-gray-500">从首页登录后再进入对应花盆，通常比继续停留在异常页面更直接。</p>
+                                </div>
+                            </div>
+                        </aside>
+                    </div>
                 </div>
             </div>
 
@@ -267,6 +571,23 @@
                     <div class="relative h-56 md:h-72">
                         <img :src="imgUrl(pot.image_url, 800, 512) || 'assets/images/icons/icons-default-pot.png'"
                             class="w-full h-full object-cover" @error="handleImageError">
+                        <div v-if="shouldShowCommentDanmaku && barrageComments.length > 0"
+                            class="absolute inset-0 overflow-hidden pointer-events-none">
+                            <div v-for="item in barrageComments" :key="item.key" class="comment-barrage-item"
+                                :style="item.style">
+                                <span class="comment-barrage-chip"
+                                    :class="{ 'comment-barrage-chip--two-line': item.latestReply }">
+                                    <span class="comment-barrage-line">
+                                        <strong>{{ item.senderName }}</strong>
+                                        <span class="comment-barrage-text">{{ item.commentPreview }}</span>
+                                    </span>
+                                    <span v-if="item.latestReply" class="comment-barrage-line comment-barrage-reply">
+                                        <strong>{{ item.latestReply.senderName }}</strong>
+                                        <span class="comment-barrage-text">{{ item.latestReply.commentPreview }}</span>
+                                    </span>
+                                </span>
+                            </div>
+                        </div>
                     </div>
                     <div class="p-6 space-y-4">
                         <div class="flex items-center gap-2">
@@ -274,6 +595,10 @@
                             <span v-if="pot.is_collaborator || (isOwner && pot.collaborator_count > 0)"
                                 class="px-2 py-0.5 bg-orange-100 text-orange-600 text-[10px] font-black rounded-lg">
                                 <i class="fa fa-users mr-0.5"></i> 共同照料中
+                            </span>
+                            <span v-else-if="pot.is_viewer"
+                                class="px-2 py-0.5 bg-emerald-100 text-emerald-600 text-[10px] font-black rounded-lg">
+                                <i class="fa fa-book-open mr-0.5"></i> 仅查看
                             </span>
                         </div>
                         <div class="flex flex-col gap-2 text-sm">
@@ -406,12 +731,12 @@
                             <div class="flex items-center justify-between gap-3 p-3 bg-gray-50/50 rounded-2xl">
                                 <div class="flex items-center gap-3 min-w-0">
                                     <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-lg shrink-0"
-                                        :class="getScheduleTypeStyle(schedule.care_type).bg">
-                                        {{ getScheduleTypeStyle(schedule.care_type).icon }}
+                                        :class="getScheduleTypeStyle(schedule.care_type, schedule.custom_action).bg">
+                                        {{ getScheduleTypeStyle(schedule.care_type, schedule.custom_action).icon }}
                                     </div>
                                     <div class="min-w-0">
                                         <div class="text-sm font-bold text-gray-800">
-                                            {{ schedule.custom_action || getScheduleTypeName(schedule.care_type) }}
+                                            {{ getScheduleTypeName(schedule.care_type, schedule.custom_action) }}
                                         </div>
                                         <div class="flex items-center gap-1 mt-0.5" @click.stop>
                                             <span class="text-[10px] text-gray-400">每</span>
@@ -674,23 +999,27 @@
                             </div>
                             <p class="text-xs text-gray-500 mb-6 text-center leading-relaxed">
                                 保存上方二维码分享给好友<br>
-                                <span class="font-bold text-blue-500">或直接打印贴在花盆上，方便识别与记录</span>
+                                <span class="font-bold text-blue-500">点击“分享链接”会优先拉起系统分享，失败时自动回退到复制链接</span>
                             </p>
                             <div class="grid grid-cols-2 gap-3 w-full">
                                 <button @click="downloadQRCode"
                                     class="bg-blue-500 text-white py-4 rounded-2xl text-sm font-black active:scale-95 transition">
                                     保存到相册
                                 </button>
-                                <button @click="copyShareLink"
-                                    class="bg-gray-100 text-gray-800 py-4 rounded-2xl text-sm font-black active:scale-95 transition">
-                                    分享链接给好友
+                                <button @click="sharePublicLink"
+                                    class="bg-green-500 text-white py-4 rounded-2xl text-sm font-black active:scale-95 transition">
+                                    分享链接
                                 </button>
                             </div>
                         </div>
 
                         <!-- 协作管理入口 (仅限已开启且是主人) -->
                         <div v-if="isOwner" class="mt-8 pt-6 border-t border-gray-50 flex flex-col gap-3">
-                            <button @click="showCollaboratorModal = true"
+                            <button @click="showViewerModal = true; showShareModal = false"
+                                class="w-full py-4 rounded-2xl bg-emerald-50 text-emerald-600 text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition">
+                                <i class="fa fa-book-open"></i> 分享给好友查看
+                            </button>
+                            <button @click="showCollaboratorModal = true; showShareModal = false"
                                 class="w-full py-4 rounded-2xl bg-orange-50 text-orange-600 text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition">
                                 <i class="fa fa-users"></i> 管理共同照料成员
                             </button>
@@ -900,13 +1229,13 @@
                             <div v-for="record in currentSheetGroup.records" :key="record.id"
                                 class="flex items-center justify-between p-5 bg-white rounded-3xl border border-gray-50 shadow-sm">
                                 <div class="flex items-center gap-5">
-                                    <div :class="getCareTypeColor(record.type)"
+                                    <div :class="getCareTypeColor(record.type, record.action)"
                                         class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner">
-                                        <i :class="getCareTypeIcon(record.type)"></i>
+                                        <i :class="getCareTypeIcon(record.type, record.action)"></i>
                                     </div>
                                     <div>
                                         <p class="text-sm font-black text-gray-700 flex items-center gap-2">
-                                            {{ record.action || getCareTypeLabel(record.type) }}
+                                            {{ getCareTypeLabel(record.type, record.action) }}
                                             <span v-if="showOperatorName"
                                                 class="text-[9px] text-blue-400 bg-blue-50 px-1.5 py-0.5 rounded-md font-bold">
                                                 {{ record.operatorName || pot.owner_name || '主人' }}
@@ -942,12 +1271,16 @@
                     class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
                     <!-- 固定头部 -->
                     <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
-                        <div class="flex justify-between items-center">
-                            <div>
+                        <div class="flex items-start justify-between gap-4">
+                            <button type="button" @click="showShareModal = true; showCollaboratorModal = false"
+                                class="shrink-0 text-gray-300 hover:text-gray-500 transition active:scale-95">
+                                <i class="fa fa-arrow-left text-xl"></i>
+                            </button>
+                            <div class="flex-1 min-w-0">
                                 <h3 class="text-xl font-black text-gray-800">共同照料</h3>
                                 <p class="text-xs text-gray-400 mt-1">邀请好友共同照料您的植物</p>
                             </div>
-                            <button @click="showCollaboratorModal = false"
+                            <button type="button" @click="showCollaboratorModal = false"
                                 class="text-gray-300 hover:text-gray-500 transition active:scale-95">
                                 <i class="fa fa-times text-xl"></i>
                             </button>
@@ -957,7 +1290,8 @@
                     <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar">
 
                         <!-- 协作成员列表 -->
-                        <div class="space-y-4 mb-8 max-h-[40vh] overflow-y-auto no-scrollbar">
+                        <div class="space-y-4 overflow-y-auto no-scrollbar"
+                            :class="collaborators?.length > 0 ? 'mb-8 max-h-[40vh]' : 'mb-6'">
                             <div v-for="collab in collaborators" :key="collab.id"
                                 class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
                                 <div class="flex items-center gap-3">
@@ -978,23 +1312,142 @@
                                 </button>
                             </div>
                             <div v-if="collaborators?.length === 0"
-                                class="py-10 text-center text-gray-300 text-xs font-bold">
+                                class="rounded-3xl border border-dashed border-gray-200 bg-gray-50/80 py-8 px-4 text-center text-gray-300 text-xs font-bold">
                                 还没有邀请成员一起照料
                             </div>
                         </div>
 
-                        <!-- 添加成员 -->
+                        <!-- 分享邀请 -->
                         <div v-if="isOwner" class="space-y-4">
-                            <div class="flex gap-2">
-                                <input type="email" v-model="newCollaboratorEmail" placeholder="输入好友注册邮箱"
-                                    class="flex-1 bg-gray-50 border-none rounded-2xl py-4 px-6 font-bold text-gray-800 text-sm focus:ring-2 focus:ring-orange-200 transition">
-                                <button @click="addCollaborator" :disabled="!newCollaboratorEmail"
-                                    class="bg-orange-500 text-white px-6 rounded-2xl font-black text-sm disabled:opacity-50 active:scale-95 transition">
-                                    添加
-                                </button>
+                            <div class="rounded-3xl border border-gray-100 bg-gray-50 p-5">
+                                <div class="flex items-start justify-between gap-4 mb-4">
+                                    <div>
+                                        <h4 class="text-sm font-black text-gray-800 flex items-center gap-2">
+                                            <i class="fa fa-envelope text-orange-500"></i> 邮箱邀请
+                                        </h4>
+                                        <p class="text-xs text-gray-500 mt-2 leading-relaxed">
+                                            邀请会直接发送到对方的消息中心。
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
+                                    <input type="email" v-model="newCollaboratorEmail" placeholder="输入好友注册邮箱"
+                                        class="w-full min-w-0 flex-1 bg-white border rounded-2xl py-4 px-6 font-bold text-gray-800 text-sm focus:ring-2 focus:ring-orange-200 transition"
+                                        :class="newCollaboratorEmail.trim() && !isCollaboratorInviteEmailValid ? 'border-red-200 focus:ring-red-200' : 'border-gray-100'">
+                                    <button @click="addCollaborator" :disabled="!isCollaboratorInviteEmailValid"
+                                        class="w-full sm:w-32 shrink-0 inline-flex items-center justify-center whitespace-nowrap bg-orange-500 text-white px-6 py-4 rounded-2xl font-black text-sm leading-none shadow-lg shadow-orange-100 hover:bg-orange-600 disabled:opacity-50 active:scale-95 transition">
+                                        发送邀请
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="rounded-3xl border border-orange-100 bg-orange-50 p-5">
+                                <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                    <div class="min-w-0">
+                                        <h4 class="text-sm font-black text-orange-700 flex items-center gap-2">
+                                            <i class="fa fa-share-alt"></i> 链接邀请
+                                        </h4>
+                                        <p class="text-xs text-orange-600/80 mt-2 leading-relaxed">
+                                            点击按钮会优先调用系统分享，不可用时会自动复制邀请链接给好友。
+                                        </p>
+                                        <div class="mt-2 text-xs text-orange-600/80 leading-relaxed">
+                                            邀请链接默认 24 小时内有效。
+                                        </div>
+                                    </div>
+                                    <button @click="copyCollaboratorInvite"
+                                        class="w-full sm:w-32 shrink-0 inline-flex items-center justify-center whitespace-nowrap bg-orange-500 text-white px-6 py-4 rounded-2xl font-black text-sm leading-none shadow-lg shadow-orange-100 hover:bg-orange-600 active:scale-95 transition">
+                                        分享邀请
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="showViewerModal" class="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showViewerModal = false"></div>
+                <div
+                    class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
+                    <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
+                        <div class="flex items-start justify-between gap-4">
+                            <button type="button" @click="showShareModal = true; showViewerModal = false"
+                                class="shrink-0 text-gray-300 hover:text-gray-500 transition active:scale-95">
+                                <i class="fa fa-arrow-left text-xl"></i>
+                            </button>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-xl font-black text-gray-800">分享给好友</h3>
+                                <p class="text-xs text-gray-400 mt-1">好友接受后会出现在他的“好友分享”中，可长期查看，但不能编辑</p>
+                            </div>
+                            <button type="button" @click="showViewerModal = false"
+                                class="text-gray-300 hover:text-gray-500 transition active:scale-95">
+                                <i class="fa fa-times text-xl"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar">
+                        <div class="space-y-4 overflow-y-auto no-scrollbar"
+                            :class="viewers?.length > 0 ? 'mb-8 max-h-[40vh]' : 'mb-6'">
+                            <div v-for="viewer in viewers" :key="viewer.id"
+                                class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+                                <div class="flex items-center gap-3">
+                                    <div
+                                        class="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-500 font-black">
+                                        {{ (viewer.display_name || viewer.email || '?')[0].toUpperCase() }}
+                                    </div>
+                                    <div>
+                                        <h4 class="text-sm font-black text-gray-800">{{ viewer.display_name || '未设置昵称'
+                                            }}</h4>
+                                        <p class="text-[10px] text-gray-400">{{ viewer.email }}</p>
+                                    </div>
+                                </div>
+                                <button @click="removeViewer(viewer)"
+                                    class="text-gray-300 hover:text-red-500 p-2 transition">
+                                    <i class="fa fa-user-minus"></i>
+                                </button>
+                            </div>
+                            <div v-if="viewers?.length === 0"
+                                class="rounded-3xl border border-dashed border-gray-200 bg-gray-50/80 py-8 px-4 text-center text-gray-300 text-xs font-bold">
+                                还没有分享给好友
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div class="rounded-3xl border border-gray-100 bg-gray-50 p-5 flex flex-col sm:min-h-[148px]">
+                                <div class="mb-4">
+                                    <h4 class="text-sm font-black text-gray-800 flex items-center gap-2">
+                                        <i class="fa fa-envelope text-emerald-500"></i> 邮箱分享
+                                    </h4>
+                                </div>
+                                <div class="flex flex-col sm:flex-row gap-2 mt-auto sm:items-center">
+                                    <input type="email" v-model="newViewerEmail" placeholder="输入好友注册邮箱"
+                                        class="w-full min-w-0 flex-1 bg-white border rounded-2xl py-4 px-6 font-bold text-gray-800 text-sm focus:ring-2 focus:ring-emerald-200 transition"
+                                        :class="newViewerEmail.trim() && !isViewerInviteEmailValid ? 'border-red-200 focus:ring-red-200' : 'border-gray-100'">
+                                    <button @click="addViewer" :disabled="!isViewerInviteEmailValid"
+                                        class="w-full sm:w-32 shrink-0 inline-flex items-center justify-center whitespace-nowrap bg-green-500 text-white px-6 py-4 rounded-2xl font-black text-sm leading-none shadow-lg shadow-green-100 hover:bg-green-600 disabled:opacity-50 active:scale-95 transition">
+                                        发送邀请
+                                    </button>
+                                </div>
+                            </div>
+                            <div
+                                class="rounded-3xl border border-emerald-100 bg-emerald-50 p-5 flex flex-col sm:min-h-[148px]">
+                                <div class="mb-4">
+                                    <h4 class="text-sm font-black text-emerald-700 flex items-center gap-2">
+                                        <i class="fa fa-share-alt"></i> 链接分享
+                                    </h4>
+                                </div>
+                                <div class="flex flex-col gap-3 mt-auto sm:flex-row sm:items-center">
+                                    <div
+                                        class="flex-1 min-w-0 inline-flex items-center px-2 py-2 text-xs text-emerald-600/80 leading-relaxed">
+                                        点击按钮会优先调用系统分享，不可用时会自动复制查看链接给好友。分享链接默认 24 小时内有效。
+                                    </div>
+                                    <button @click="copyViewerInvite"
+                                        class="w-full sm:w-32 shrink-0 inline-flex items-center justify-center whitespace-nowrap bg-green-500 text-white px-6 py-4 rounded-2xl font-black text-sm leading-none shadow-lg shadow-green-100 hover:bg-green-600 active:scale-95 transition">
+                                        分享链接
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1007,9 +1460,15 @@
                     class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
                     <!-- 固定头部 -->
                     <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
-                        <div class="flex justify-between items-center">
-                            <h3 class="text-xl font-black text-gray-800">移交花盆</h3>
-                            <button @click="showTransferModal = false"
+                        <div class="flex items-start justify-between gap-4">
+                            <button type="button" @click="showShareModal = true; showTransferModal = false"
+                                class="shrink-0 text-gray-300 hover:text-gray-500 transition active:scale-95">
+                                <i class="fa fa-arrow-left text-xl"></i>
+                            </button>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-xl font-black text-gray-800">移交花盆</h3>
+                            </div>
+                            <button type="button" @click="showTransferModal = false"
                                 class="text-gray-300 hover:text-gray-500 transition active:scale-95">
                                 <i class="fa fa-times text-xl"></i>
                             </button>
@@ -1082,6 +1541,150 @@
                                 <i class="fa fa-exchange-alt mr-2"></i> 确认发起移交握手
                             </button>
                             <p class="text-[10px] text-gray-400 text-center mt-4">分享生成的链接给接收者，对方需在 24 小时内确认</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="showCommentModal" class="fixed inset-0 z-[85] flex items-end sm:items-center justify-center p-2 sm:p-4">
+                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeCommentModal"></div>
+                <div
+                    class="relative bg-white w-full max-w-lg rounded-t-[2rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit comment-modal-shell"
+                    :style="commentModalStyle">
+                    <div
+                        class="px-4 sm:px-8 pt-4 sm:pt-5 pb-3 shrink-0 border-b border-gray-50 bg-gradient-to-r from-amber-50 to-orange-50">
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div
+                                    class="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white text-amber-500 flex items-center justify-center shadow-sm">
+                                    <i class="fa fa-comment-dots text-base sm:text-lg"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <h3 class="text-[15px] sm:text-base font-black text-gray-800 truncate">{{ replyTargetComment ?
+                                        '回复植物留言' : '发送一条植物留言' }}</h3>
+                                    <p class="text-[11px] text-gray-500 mt-1">{{ replyTargetComment ?
+                                        '回复会作为该留言的第二行弹幕显示最新一条互动' : '会同步到消息中心，并在详情页弹幕中显示' }}</p>
+                                </div>
+                            </div>
+                            <button @click="closeCommentModal"
+                                class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/80 text-gray-300 hover:text-gray-500 transition active:scale-95 shrink-0">
+                                <i class="fa fa-times text-xl"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="min-h-0 flex-1 flex flex-col">
+                        <div class="px-4 sm:px-8 pt-4 sm:pt-5 overflow-y-auto flex-1 no-scrollbar comment-thread-area">
+                            <div class="mb-4 sm:mb-6">
+                            <div class="flex items-center justify-between gap-3">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <div class="flex items-center gap-1.5 min-w-0">
+                                        <div class="text-sm font-black text-gray-800 shrink-0">最近留言</div>
+                                        <div class="text-[11px] text-gray-400 shrink-0">{{ recentPotComments.length }} 条</div>
+                                    </div>
+                                    <button @click="toggleCommentSort"
+                                        class="shrink-0 px-3 py-2 rounded-2xl bg-gray-50 text-gray-500 text-[11px] font-black active:scale-95 transition flex items-center gap-1.5 border border-gray-100 comment-compact-button">
+                                        <i class="fa"
+                                            :class="commentSortOrder === 'asc' ? 'fa-sort-amount-down' : 'fa-sort-amount-up'"></i>
+                                        <span>{{ commentSortOrder === 'asc' ? '从旧到新' : '从新到旧' }}</span>
+                                    </button>
+                                </div>
+                                <button v-if="canManageCommentDanmaku" @click="toggleCommentDanmaku"
+                                    class="shrink-0 inline-flex items-center gap-2 px-2.5 py-2 rounded-2xl border text-[11px] font-black active:scale-95 transition comment-compact-button"
+                                    :class="showCommentDanmaku ? 'bg-green-50 border-green-100 shadow-sm shadow-green-100 text-gray-800' : 'bg-gray-50 border-gray-100 text-gray-500'"
+                                    :aria-pressed="showCommentDanmaku ? 'true' : 'false'">
+                                    <span>弹幕</span>
+                                    <span class="relative inline-flex w-10 h-6 rounded-full transition-all duration-300"
+                                        :class="showCommentDanmaku ? 'bg-green-500 shadow-lg shadow-green-200' : 'bg-gray-300'">
+                                        <span
+                                            class="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-300"
+                                            :class="showCommentDanmaku ? 'right-1' : 'left-1'"></span>
+                                    </span>
+                                </button>
+                            </div>
+                            <div v-if="recentPotComments.length === 0"
+                                class="mt-4 rounded-3xl bg-gray-50 px-4 py-5 text-center text-xs text-gray-400">
+                                还没有留言，发一条试试。
+                            </div>
+                            <div v-else class="mt-4 space-y-3 pr-1 pb-4">
+                                <div v-for="item in recentPotComments" :key="item.id"
+                                    class="rounded-3xl border border-gray-100 bg-white px-4 py-3.5 sm:py-4 shadow-sm">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div class="min-w-0">
+                                            <div class="text-sm font-black text-gray-800 break-words">{{ item.senderName
+                                                }}</div>
+                                            <div class="text-xs text-gray-400 mt-1">{{ formatCommentTime(item.createdAt)
+                                                }}
+                                            </div>
+                                        </div>
+                                        <button v-if="canDeleteComment(item)" @click="deleteComment(item)"
+                                            class="shrink-0 w-8 h-8 rounded-full bg-red-50 text-red-500 text-[11px] font-black active:scale-95 transition flex items-center justify-center comment-delete-button"
+                                            title="删除留言" aria-label="删除留言">
+                                            <i class="fa fa-trash-alt text-[10px]"></i>
+                                        </button>
+                                    </div>
+                                    <div class="mt-3 text-sm text-gray-700 leading-7 sm:leading-relaxed break-words">{{ item.comment
+                                        }}</div>
+                                    <div v-if="item.replies?.length"
+                                        class="mt-3 rounded-2xl bg-gray-50 px-3.5 sm:px-4 py-3 text-sm text-gray-600 leading-7 sm:leading-relaxed break-words space-y-3">
+                                        <div class="text-[11px] font-black text-orange-500">全部回复</div>
+                                        <div v-for="reply in item.replies" :key="reply.id"
+                                            class="rounded-2xl bg-white/80 px-3 py-3 border border-white">
+                                            <div class="flex items-start justify-between gap-3">
+                                                <div class="min-w-0">
+                                                    <div class="text-[12px] font-black text-gray-700">{{
+                                                        reply.senderName }}</div>
+                                                    <div class="text-[10px] text-gray-400 mt-1">{{
+                                                        formatCommentTime(reply.createdAt) }}</div>
+                                                </div>
+                                                <button v-if="canDeleteComment(reply)" @click="deleteComment(reply)"
+                                                    class="w-7 h-7 rounded-full bg-red-50 text-red-500 text-[10px] font-black active:scale-95 transition flex items-center justify-center comment-delete-button"
+                                                    title="删除回复" aria-label="删除回复">
+                                                    <i class="fa fa-trash-alt text-[10px]"></i>
+                                                </button>
+                                            </div>
+                                            <div class="mt-2 break-words">
+                                                <span class="font-black text-gray-700">{{ reply.senderName }}</span>
+                                                <span>：{{ reply.comment }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div v-if="canReplyComment && !item.isLegacy"
+                                        class="mt-4 pt-3 border-t border-gray-100 flex justify-end">
+                                        <button @click="beginReply(item)"
+                                            class="px-4 py-2 rounded-2xl bg-amber-50 text-amber-600 text-[11px] font-black active:scale-95 transition flex items-center gap-1.5 comment-compact-button">
+                                            <i class="fa fa-reply text-[10px]"></i>
+                                            <span>回复这条留言</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="shrink-0 border-t border-gray-100 bg-white/95 backdrop-blur-sm comment-composer-panel">
+                            <div class="px-4 sm:px-8 pt-4 pb-4 sm:pb-6">
+                                <div v-if="replyTargetComment"
+                                    class="mb-4 rounded-3xl bg-amber-50 border border-amber-100 px-4 py-3">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div class="min-w-0">
+                                            <div class="text-[11px] font-black text-amber-600">正在回复 {{
+                                                replyTargetComment.senderName }}</div>
+                                            <div class="text-xs text-gray-500 mt-1 break-words">{{ replyTargetComment.comment }}
+                                            </div>
+                                        </div>
+                                        <button @click="cancelReply"
+                                            class="shrink-0 px-3 py-1.5 rounded-full bg-white text-amber-600 text-[11px] font-black active:scale-95 transition">
+                                            取消
+                                        </button>
+                                    </div>
+                                </div>
+                                <textarea ref="commentInputRef" v-model="commentForm.content" rows="4"
+                                    @focus="handleCommentInputFocus"
+                                    :placeholder="replyTargetComment ? `回复 ${replyTargetComment.senderName}...` : '写下新的观察、提醒或想对协作者说的话...'"
+                                    class="w-full bg-gray-50 border-none rounded-3xl py-4 sm:py-5 px-4 sm:px-6 font-bold text-gray-800 resize-none comment-textarea"></textarea>
+                                <button @click="submitComment" :disabled="isSubmittingComment || !commentForm.content.trim()"
+                                    class="w-full mt-4 bg-green-500 text-white py-3.5 sm:py-4 rounded-2xl text-base sm:text-lg font-black shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-[0.98] disabled:opacity-50">
+                                    {{ isSubmittingComment ? '提交中...' : (replyTargetComment ? '发送回复' : '发送留言') }}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1192,9 +1795,10 @@
     <script src="js/vue.global.js"></script>
     <script src="js/config.js?v=20260227"></script>
     <script src="js/api-client.js?v=20260227"></script>
+    <script src="js/clipboard.js?v=20260407-2"></script>
 
     <script>
-        const { createApp, ref, reactive, onMounted, computed, watch } = Vue;
+        const { createApp, ref, reactive, onMounted, onUnmounted, computed, watch, nextTick } = Vue;
 
         createApp({
             setup() {
@@ -1203,6 +1807,8 @@
                 const tokenInvalid = ref(false);
                 const potId = ref(null);
                 const shareToken = ref(null);
+                const collabToken = ref(null);
+                const viewerToken = ref(null);
                 const pot = ref(null);
                 const currentUser = ref(null);
                 const careRecords = ref([]);
@@ -1216,22 +1822,41 @@
                 const showFullCareTips = ref(false);
                 const plantInfoActiveTab = ref('basic');
                 const potStats = ref(null);
+                const collabInviteSessionId = ref(null);
+                const viewerInviteSessionId = ref(null);
+                const commentInputRef = ref(null);
+                const commentViewportHeight = ref(typeof window !== 'undefined' ? window.innerHeight : 0);
+                const viewportWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 0);
 
                 // UI 状态
                 const showPlantModal = ref(false);
                 const showAddTimelineModal = ref(false);
                 const showShareModal = ref(false);
                 const showCollaboratorModal = ref(false);
+                const showViewerModal = ref(false);
+                const showCommentModal = ref(false);
                 const showTransferModal = ref(false);
                 const showAcceptTransferModal = ref(false);
                 const transferToken = ref(null);
                 const transferPot = ref(null);
                 const isAcceptingTransfer = ref(false);
                 const isTimelineDesc = ref(true);
-                const newCollaboratorEmail = ref('');
                 const transferEmail = ref('');
                 const showTransferSuggestions = ref(false);
                 const selectedTransferUser = ref(null);
+                const viewerIsCollaborator = ref(false);
+                const viewerIsViewer = ref(false);
+                const isSubmittingComment = ref(false);
+                const showCommentDanmaku = ref(true);
+                const potComments = ref([]);
+                const replyTargetComment = ref(null);
+                const commentSortOrder = ref('asc');
+                const viewers = ref([]);
+                const newCollaboratorEmail = ref('');
+                const newViewerEmail = ref('');
+                const commentForm = reactive({
+                    content: ''
+                });
 
                 const activeSection = ref('');
                 const showActionMenu = ref(false);
@@ -1250,6 +1875,7 @@
                 const showRegisterModal = ref(false);
                 const showForgotPasswordModal = ref(false);
                 const isAuthLoading = ref(false);
+                const errorKind = ref('default');
                 const loginForm = reactive({ email: '', password: '' });
                 const registerForm = reactive({
                     email: '',
@@ -1266,10 +1892,82 @@
                     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                     return emailRegex.test(loginForm.email);
                 });
+                const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((email || '').trim());
+                const isCollaboratorInviteEmailValid = computed(() => isValidEmail(newCollaboratorEmail.value));
+                const isViewerInviteEmailValid = computed(() => isValidEmail(newViewerEmail.value));
 
                 const isLoginValid = computed(() =>
                     isForgotPasswordEmailValid.value &&
                     loginForm.password.trim()?.length > 0
+                );
+                const hasEmailAccount = computed(() => !!(currentUser.value && currentUser.value.userType === 'email'));
+                const shouldShowStandaloneState = computed(() => !isLoading.value && (!!error.value || tokenInvalid.value));
+                const isPermissionError = computed(() => errorKind.value === 'permission');
+                const permissionErrorBadge = computed(() => hasEmailAccount.value ? '访问受限' : '需要登录');
+                const permissionErrorIcon = computed(() => hasEmailAccount.value ? 'fa fa-user-shield' : 'fa fa-lock');
+                const permissionErrorTitle = computed(() => {
+                    if (collabToken.value) return hasEmailAccount.value ? '当前账号不能接受这条邀请' : '登录后即可接受共同照料邀请';
+                    if (viewerToken.value) return hasEmailAccount.value ? '当前账号不能接受这条查看邀请' : '登录后即可接受查看邀请';
+                    return hasEmailAccount.value ? '当前账号暂时无法查看这盆花' : '登录后才能继续查看';
+                });
+                const permissionErrorLead = computed(() => {
+                    if (collabToken.value) {
+                        return hasEmailAccount.value
+                            ? '这条共同照料邀请属于另一个账号，或链接状态已经变化。切换到正确账号，或联系好友重新发送最新邀请。'
+                            : '这是一条好友发来的共同照料邀请。登录已有账号，或先注册一个账号后，即可继续完成加入。';
+                    }
+                    if (viewerToken.value) {
+                        return hasEmailAccount.value
+                            ? '这条查看邀请并不属于当前账号。你可以切换账号后重试，或让好友重新发送最新链接。'
+                            : '这是一条好友发来的查看邀请。登录或注册后，就能把这盆花加入你的“好友分享”列表。';
+                    }
+                    return hasEmailAccount.value
+                        ? '当前账号没有访问这盆花的权限。通常是链接对应的授权已变化，或者你使用了不是被授权的账号。'
+                        : '这个页面不是公开内容，需要先完成身份验证后才能继续查看。';
+                });
+                const permissionPrimaryActionLabel = computed(() => hasEmailAccount.value ? '切换账号' : '立即登录');
+                const permissionHelpCards = computed(() => {
+                    if (hasEmailAccount.value) {
+                        return [
+                            {
+                                icon: 'fa fa-right-left',
+                                title: '切换到正确账号',
+                                description: '如果你有多个账号，请先退出当前账号，再登录被授权访问这盆花的那个账号。'
+                            },
+                            {
+                                icon: 'fa fa-link',
+                                title: '确认链接是否最新',
+                                description: '邀请或分享链接可能已被更新、关闭或重新生成，让好友重新发送最新链接最稳妥。'
+                            },
+                            {
+                                icon: 'fa fa-house',
+                                title: '先返回首页继续使用',
+                                description: '如果只是误点了旧链接，可以先回到首页管理自己的花盆，再从正确入口进入。'
+                            }
+                        ];
+                    }
+
+                    return [
+                        {
+                            icon: 'fa fa-right-to-bracket',
+                            title: '登录已有账号',
+                            description: '如果你已经注册过，直接登录后重试，通常就能继续访问或完成邀请确认。'
+                        },
+                        {
+                            icon: 'fa fa-user-plus',
+                            title: '没有账号就先注册',
+                            description: '注册后可以保存自己的花盆，也能接受好友的分享、查看和共同照料邀请。'
+                        },
+                        {
+                            icon: 'fa fa-paper-plane',
+                            title: '让好友重新发链接',
+                            description: '如果这是好友分享给你的页面，优先确认他发送的是最新链接，并且你打开的是正确账号。'
+                        }
+                    ];
+                });
+                const permissionErrorFootnote = computed(() => (collabToken.value || viewerToken.value)
+                    ? '邀请链接通常与账号和会话相关。如果你是在社交软件里预览后又切换浏览器，优先使用最终打开并准备接受邀请的那个浏览器完成操作。'
+                    : '如果你确认自己应该有权限，但仍然无法访问，通常意味着链接对应的授权状态已变化，重新获取最新入口会更快。'
                 );
 
                 const isRegisterValid = computed(() =>
@@ -1322,9 +2020,120 @@
                         currentUser.value && currentUser.value.id &&
                         pot.value.user_id === currentUser.value.id;
                 });
-                const isReadOnly = computed(() => !!shareToken.value && !isOwner.value);
+                const isReadOnly = computed(() => !!((!!shareToken.value && !isOwner.value && !viewerIsCollaborator.value) || pot.value?.is_viewer || viewerIsViewer.value));
                 const isPublicVisitor = computed(() => !!shareToken.value && !currentUser.value);
                 const showOperatorName = computed(() => pot.value && (pot.value.is_collaborator || pot.value.collaborator_count > 0));
+                const hasCollaborationAccess = computed(() => !!(isOwner.value || pot.value?.is_collaborator || viewerIsCollaborator.value));
+                const canCommentAsMember = computed(() => !!(
+                    currentUser.value && pot.value && (
+                        isOwner.value ||
+                        pot.value.is_collaborator ||
+                        viewerIsCollaborator.value ||
+                        pot.value.is_viewer ||
+                        viewerIsViewer.value
+                    )
+                ));
+                const canReplyComment = computed(() => !!(canCommentAsMember.value && !shareToken.value));
+                const hasCommentAudience = computed(() => !!(
+                    pot.value && (
+                        !!pot.value.is_shared ||
+                        Number(pot.value.collaborator_count || 0) > 0 ||
+                        Number(pot.value.viewer_count || 0) > 0 ||
+                        !!pot.value.is_collaborator ||
+                        !!pot.value.is_viewer ||
+                        !!viewerIsCollaborator.value ||
+                        !!viewerIsViewer.value ||
+                        !!shareToken.value
+                    )
+                ));
+                const canManageCommentDanmaku = computed(() => !!(isOwner.value && hasCommentAudience.value));
+                const canUseNativeShare = computed(() => !!(
+                    typeof window !== 'undefined' &&
+                    window.isSecureContext !== false &&
+                    typeof navigator !== 'undefined' &&
+                    typeof navigator.share === 'function'
+                ));
+                const shouldHideFloatingChrome = computed(() => !!(
+                    shouldShowStandaloneState.value ||
+                    showPlantModal.value ||
+                    showAddTimelineModal.value ||
+                    showShareModal.value ||
+                    showCollaboratorModal.value ||
+                    showViewerModal.value ||
+                    showCommentModal.value ||
+                    showTransferModal.value ||
+                    showAcceptTransferModal.value
+                ));
+                const showCommentEntry = computed(() => !!(hasCommentAudience.value && canReplyComment.value));
+                const canLeaveComment = computed(() => canReplyComment.value);
+                const isCompactCommentViewport = computed(() => viewportWidth.value > 0 && viewportWidth.value < 640);
+                const canViewCommentDanmaku = computed(() => !!(
+                    hasCommentAudience.value && (
+                        showCommentEntry.value ||
+                        !!shareToken.value ||
+                        !!pot.value?.is_viewer ||
+                        !!viewerIsViewer.value ||
+                        !!pot.value?.is_collaborator ||
+                        !!viewerIsCollaborator.value ||
+                        !!isOwner.value
+                    )
+                ));
+                const commentModalStyle = computed(() => {
+                    const rawHeight = commentViewportHeight.value || (typeof window !== 'undefined' ? window.innerHeight : 0);
+                    const viewportHeight = Math.max(rawHeight || 0, 360);
+                    const spacing = isCompactCommentViewport.value ? 8 : 32;
+                    const maxHeight = Math.max(viewportHeight - spacing, 360);
+                    return {
+                        maxHeight: `min(${maxHeight}px, 56rem)`
+                    };
+                });
+                const shouldShowCommentDanmaku = computed(() => !!(canViewCommentDanmaku.value && Number(pot.value?.show_comment_danmaku ?? 1) === 1 && showCommentDanmaku.value));
+                const recentPotComments = computed(() => {
+                    const sorted = [...(potComments.value || [])].sort((a, b) => {
+                        const timeA = new Date(a.createdAt || 0).getTime();
+                        const timeB = new Date(b.createdAt || 0).getTime();
+                        return commentSortOrder.value === 'asc' ? timeA - timeB : timeB - timeA;
+                    });
+                    return commentSortOrder.value === 'asc' ? sorted.slice(-12) : sorted.slice(0, 12);
+                });
+                const trimComment = (content, maxLength) => {
+                    const normalized = (content || '').replace(/\s+/g, ' ').trim();
+                    if (normalized.length <= maxLength) return normalized;
+                    return `${normalized.slice(0, maxLength)}...`;
+                };
+                const hashCommentSeed = (value) => {
+                    let hash = 0;
+                    const input = String(value || '');
+                    for (let i = 0; i < input.length; i++) {
+                        hash = ((hash << 5) - hash) + input.charCodeAt(i);
+                        hash |= 0;
+                    }
+                    return Math.abs(hash);
+                };
+                const buildBarrageStyle = (item, idx) => {
+                    const seed = hashCommentSeed(`${item.id || idx}-${item.createdAt || idx}`);
+                    const lane = seed % 4;
+                    const top = 12 + lane * 17 + (seed % 5);
+                    const delay = (seed % 6) * 1.2;
+                    const duration = 12 + (seed % 9);
+                    return {
+                        top: `${top}%`,
+                        animationDelay: `${delay}s`,
+                        animationDuration: `${duration}s`
+                    };
+                };
+                const barrageComments = computed(() => {
+                    return (potComments.value || []).slice(-8).map((item, idx) => ({
+                        ...item,
+                        key: `${item.id || idx}-${item.createdAt || idx}`,
+                        commentPreview: trimComment(item.comment, 18),
+                        latestReply: item.latestReply ? {
+                            ...item.latestReply,
+                            commentPreview: trimComment(item.latestReply.comment, 14)
+                        } : null,
+                        style: buildBarrageStyle(item, idx)
+                    }));
+                });
 
                 const syncUrlWithShareStatus = () => {
                     if (!isOwner.value || !pot.value) return;
@@ -1346,25 +2155,223 @@
                     }
                 };
 
+                const maybeOpenShareModalFromUrl = () => {
+                    const shouldOpenShare = getParamWithFallback('openShare') === '1';
+                    if (!shouldOpenShare) return;
+
+                    const url = new URL(window.location.href);
+                    if (url.searchParams.has('openShare')) {
+                        url.searchParams.delete('openShare');
+                        window.history.replaceState({}, '', url.toString());
+                    }
+
+                    if (pot.value && isOwner.value) {
+                        showShareModal.value = true;
+                    }
+                };
+
+                const getDirectParam = (name) => {
+                    const url = new URL(window.location.href);
+                    const fromSearch = url.searchParams.get(name);
+                    if (fromSearch) return fromSearch;
+
+                    const hash = window.location.hash?.startsWith('#')
+                        ? window.location.hash.slice(1)
+                        : window.location.hash || '';
+                    if (hash) {
+                        const hashParams = new URLSearchParams(hash);
+                        const fromHash = hashParams.get(name);
+                        if (fromHash) return fromHash;
+                    }
+                    return null;
+                };
+
+                const shouldUseStoredInviteToken = () => !(
+                    getDirectParam('id') ||
+                    getDirectParam('token') ||
+                    getDirectParam('transferToken')
+                );
+
+                const getParamWithFallback = (name) => {
+                    const directValue = getDirectParam(name);
+                    if (directValue) return directValue;
+
+                    if (!shouldUseStoredInviteToken()) {
+                        return null;
+                    }
+
+                    if (name === 'collabToken') {
+                        return sessionStorage.getItem('pending_collab_token');
+                    }
+                    if (name === 'viewerToken') {
+                        return sessionStorage.getItem('pending_viewer_token');
+                    }
+                    return null;
+                };
+
+                const getInviteSessionId = (key, targetRef) => {
+                    let sessionId = sessionStorage.getItem(key);
+                    if (!sessionId) {
+                        sessionId = crypto.randomUUID().replace(/-/g, '');
+                        sessionStorage.setItem(key, sessionId);
+                    }
+                    targetRef.value = sessionId;
+                    return sessionId;
+                };
+
+                const dismissError = () => {
+                    error.value = null;
+                    errorKind.value = 'default';
+                };
+
+                const showGenericError = (message) => {
+                    error.value = message;
+                    errorKind.value = 'default';
+                };
+
+                const showPermissionError = (message) => {
+                    error.value = message;
+                    errorKind.value = 'permission';
+                };
+
+                const isAuthRequiredError = (err) => {
+                    const status = Number(err?.status || 0);
+                    const rawMessage = String(err?.message || '').trim();
+                    return status === 401 || /Authentication required/i.test(rawMessage);
+                };
+
+                const clearPendingInviteState = (type) => {
+                    if (!type || type === 'collab') {
+                        sessionStorage.removeItem('pending_collab_token');
+                        sessionStorage.removeItem('collab_invite_session_id');
+                    }
+                    if (!type || type === 'viewer') {
+                        sessionStorage.removeItem('pending_viewer_token');
+                        sessionStorage.removeItem('viewer_invite_session_id');
+                    }
+                };
+
+                const handleInitError = (err) => {
+                    const status = Number(err?.status || 0);
+                    const rawMessage = (err?.message || '').trim();
+
+                    if (status === 401 || /Authentication required/i.test(rawMessage)) {
+                        showPermissionError('这个花盆需要登录后才能继续查看。您可以先登录，或直接注册一个账号。');
+                        return;
+                    }
+
+                    if (!shareToken.value && potId.value && (status === 403 || status === 404 || /access denied|not found/i.test(rawMessage))) {
+                        showPermissionError(
+                            hasEmailAccount.value
+                                ? '这个花盆不存在，或当前账号没有查看权限。请切换到正确账号后再试。'
+                                : '这个花盆不存在，或需要登录正确账号后才能查看。您也可以先注册一个账号。'
+                        );
+                        return;
+                    }
+
+                    showGenericError(`加载失败: ${rawMessage || '请稍后重试'}`);
+                };
+
+                const copyTextSafely = async (text) => {
+                    try {
+                        if (!window.MyFlowerPotsClipboard?.copyText) return false;
+                        return await window.MyFlowerPotsClipboard.copyText(text);
+                    } catch (error) {
+                        console.error('Copy helper failed:', error);
+                        return false;
+                    }
+                };
+
+                const showCopyFallback = (text, message) => {
+                    if (window.MyFlowerPotsClipboard?.showCopyPrompt) {
+                        window.MyFlowerPotsClipboard.showCopyPrompt(text, message);
+                        return;
+                    }
+                    alert(`${message}\n${text}`);
+                };
+
+                const goHome = () => {
+                    window.location.href = 'index.html';
+                };
+
+                const openPermissionLogin = () => {
+                    switchToLogin();
+                };
+
+                const openPermissionRegister = () => {
+                    switchToRegister();
+                };
+
+                const retryCurrentPage = () => {
+                    isLoading.value = true;
+                    init();
+                };
+
                 const init = async () => {
-                    const urlParams = new URLSearchParams(window.location.search);
-                    potId.value = urlParams.get('id');
-                    shareToken.value = urlParams.get('token');
-                    transferToken.value = urlParams.get('transferToken');
+                    dismissError();
+                    tokenInvalid.value = false;
+                    potId.value = getParamWithFallback('id');
+                    shareToken.value = getParamWithFallback('token');
+                    collabToken.value = getParamWithFallback('collabToken');
+                    viewerToken.value = getParamWithFallback('viewerToken');
+                    transferToken.value = getParamWithFallback('transferToken');
+
+                    if (collabToken.value) {
+                        sessionStorage.setItem('pending_collab_token', collabToken.value);
+                        getInviteSessionId('collab_invite_session_id', collabInviteSessionId);
+                    }
+                    if (viewerToken.value) {
+                        sessionStorage.setItem('pending_viewer_token', viewerToken.value);
+                        getInviteSessionId('viewer_invite_session_id', viewerInviteSessionId);
+                    }
 
                     try {
                         // 获取当前用户信息
-                        const userRes = await apiClient.getUserProfile().catch(() => null);
+                        const userRes = (apiClient.token && apiClient.userId)
+                            ? await apiClient.getUserProfile().catch(() => null)
+                            : null;
                         if (userRes && userRes.success) currentUser.value = userRes.user;
 
                         if (transferToken.value) {
                             await loadTransferPotDetail();
+                        } else if (collabToken.value) {
+                            try {
+                                await openCollaboratorInviteLink();
+                            } catch (inviteOpenError) {
+                                if (hasEmailAccount.value && await tryResumeCollaboratorInviteFromLink()) {
+                                    return;
+                                }
+                                throw inviteOpenError;
+                            }
+                            if (!hasEmailAccount.value) {
+                                isLoading.value = false;
+                                showPermissionError('请先登录或注册，再接受共同养护邀请。');
+                                showLoginModal.value = true;
+                                return;
+                            }
+                            await acceptCollaboratorInviteFromLink();
+                        } else if (viewerToken.value) {
+                            try {
+                                await openViewerInviteLink();
+                            } catch (inviteOpenError) {
+                                if (hasEmailAccount.value && await tryResumeViewerInviteFromLink()) {
+                                    return;
+                                }
+                                throw inviteOpenError;
+                            }
+                            if (!hasEmailAccount.value) {
+                                isLoading.value = false;
+                                showPermissionError('请先登录或注册，再接受查看邀请。');
+                                showLoginModal.value = true;
+                                return;
+                            }
+                            await acceptViewerInviteFromLink();
                         } else if (shareToken.value) {
                             await loadPublicPotDetail();
                         } else if (potId.value) {
                             await loadPotDetail();
                         } else {
-                            error.value = '参数缺失';
+                            showGenericError('参数缺失');
                             isLoading.value = false;
                             return;
                         }
@@ -1374,7 +2381,7 @@
                         if (pot.value) {
                             // 仅在非公开分享模式（有 ID 没 Token），或者是本人访问分享链接时，才加载完整私有数据
                             // 若是纯访客（有 Token 没登录）或他人的分享链接，绝不触发私有接口
-                            if (!shareToken.value || isOwner.value) {
+                            if (!shareToken.value || isOwner.value || viewerIsCollaborator.value || viewerIsViewer.value || pot.value.is_collaborator || pot.value.is_viewer) {
                                 Promise.all([
                                     loadCareRecords(),
                                     loadTimelineRecords(),
@@ -1391,18 +2398,32 @@
                             }
 
                             loadPlantInfo().catch(err => console.warn('Plant info load error:', err));
+                            loadPotComments().catch(err => console.warn('Comment load error:', err));
                         }
-                        error.value = '加载失败: ' + err.message;
+                    } catch (err) {
+                        if (!isAuthRequiredError(err)) {
+                            if (collabToken.value) clearPendingInviteState('collab');
+                            if (viewerToken.value) clearPendingInviteState('viewer');
+                        }
+                        handleInitError(err);
                         isLoading.value = false;
                     } finally {
                         // 无论成功失败，尝试同步一次 URL（如果是主人且已加载 pot）
                         syncUrlWithShareStatus();
+                        maybeOpenShareModalFromUrl();
                     }
+                };
+
+                const syncCommentDanmakuStateFromPot = () => {
+                    showCommentDanmaku.value = Number(pot.value?.show_comment_danmaku ?? 1) === 1;
                 };
 
                 const loadPotDetail = async () => {
                     const res = await apiClient.getPotDetail(potId.value);
-                    if (res.success) pot.value = res.data;
+                    if (res.success) {
+                        pot.value = res.data;
+                        syncCommentDanmakuStateFromPot();
+                    }
                 };
 
                 const loadPublicPotDetail = async () => {
@@ -1410,7 +2431,10 @@
                         const res = await apiClient.getPublicPotDetail(shareToken.value);
                         if (res.success) {
                             pot.value = res.data.pot;
+                            syncCommentDanmakuStateFromPot();
                             potId.value = pot.value.id;
+                            viewerIsCollaborator.value = !!res.data.viewer?.isCollaborator;
+                            viewerIsViewer.value = !!res.data.viewer?.isViewer;
                             // 公开分享接口已包含脱敏后的记录，直接使用
                             if (res.data.careRecords) careRecords.value = res.data.careRecords;
                             if (res.data.timelines) timelineRecords.value = res.data.timelines;
@@ -1429,6 +2453,60 @@
                     if (res.success) {
                         transferPot.value = res.data.data;
                         showAcceptTransferModal.value = true;
+                    }
+                };
+
+                const acceptCollaboratorInviteFromLink = async () => {
+                    try {
+                        const res = await apiClient.acceptCollaboratorInvite(collabToken.value, getInviteSessionId('collab_invite_session_id', collabInviteSessionId));
+                        if (res.success && res.data?.potId) {
+                            clearPendingInviteState('collab');
+                            window.location.replace(`pot-detail.html?id=${res.data.potId}`);
+                            return true;
+                        }
+                    } catch (e) {
+                        throw e;
+                    }
+                    return false;
+                };
+
+                const openCollaboratorInviteLink = async () => {
+                    await apiClient.openCollaboratorInvite(collabToken.value, getInviteSessionId('collab_invite_session_id', collabInviteSessionId));
+                };
+
+                const tryResumeCollaboratorInviteFromLink = async () => {
+                    try {
+                        return await acceptCollaboratorInviteFromLink();
+                    } catch (error) {
+                        console.warn('Failed to resume collaborator invite:', error);
+                        return false;
+                    }
+                };
+
+                const acceptViewerInviteFromLink = async () => {
+                    try {
+                        const res = await apiClient.acceptViewerInvite(viewerToken.value, getInviteSessionId('viewer_invite_session_id', viewerInviteSessionId));
+                        if (res.success && res.data?.potId) {
+                            clearPendingInviteState('viewer');
+                            window.location.replace(`pot-detail.html?id=${res.data.potId}`);
+                            return true;
+                        }
+                    } catch (e) {
+                        throw e;
+                    }
+                    return false;
+                };
+
+                const openViewerInviteLink = async () => {
+                    await apiClient.openViewerInvite(viewerToken.value, getInviteSessionId('viewer_invite_session_id', viewerInviteSessionId));
+                };
+
+                const tryResumeViewerInviteFromLink = async () => {
+                    try {
+                        return await acceptViewerInviteFromLink();
+                    } catch (error) {
+                        console.warn('Failed to resume viewer invite:', error);
+                        return false;
                     }
                 };
 
@@ -1514,7 +2592,7 @@
                     }
                     try {
                         isAuthLoading.value = true;
-                        const anonymousUserId = localStorage.getItem('flowerpots_user_id');
+                        const anonymousUserId = window.authStorage?.getUserId() || null;
                         const isAnonymous = !currentUser.value || currentUser.value.userType === 'anonymous';
 
                         let res;
@@ -1618,19 +2696,44 @@
                 };
 
                 // --- 辅助函数 ---
-                const getCareTypeIcon = (type) => {
+                const isBuiltInCareType = (type) => ['water', 'fertilize', 'prune', 'trim', 'repot', 'pest'].includes(String(type || '').trim().toLowerCase());
+
+                const normalizeCareType = (type, action = '') => {
+                    const raw = String(type || '').trim().toLowerCase();
+                    if (['water', 'watering', 'change_water', 'water_change', 'changewater', '换水', '浇水'].includes(raw)) return 'water';
+                    if (['fertilize', 'fertilizer', 'feed', '施肥'].includes(raw)) return 'fertilize';
+                    if (['trim', 'prune', 'pruning', '修剪'].includes(raw)) return 'prune';
+                    if (['repot', 're-pot', '换盆'].includes(raw)) return 'repot';
+                    if (['pest', 'pests', '除虫', '病虫害'].includes(raw)) return 'pest';
+
+                    const normalizedAction = String(action || '').trim();
+                    if (/换水|浇水|补水/.test(normalizedAction)) return 'water';
+                    if (/施肥|追肥/.test(normalizedAction)) return 'fertilize';
+                    if (/修剪|打顶|摘心/.test(normalizedAction)) return 'prune';
+                    if (/换盆|翻盆/.test(normalizedAction)) return 'repot';
+                    if (/除虫|病虫害|杀虫/.test(normalizedAction)) return 'pest';
+                    return raw || 'custom';
+                };
+
+                const getCareTypeIcon = (type, action = '') => {
                     const icons = { water: 'fa fa-tint', fertilize: 'fa fa-seedling', prune: 'fa fa-cut', repot: 'fa fa-exchange-alt', pest: 'fa fa-bug' };
-                    return icons[type] || 'fa fa-clipboard-check';
+                    return icons[normalizeCareType(type, action)] || 'fa fa-clipboard-check';
                 };
 
-                const getCareTypeColor = (type) => {
+                const getCareTypeColor = (type, action = '') => {
                     const colors = { water: 'bg-blue-50 text-blue-500', fertilize: 'bg-green-50 text-green-500', prune: 'bg-orange-50 text-orange-500', repot: 'bg-purple-50 text-purple-500', pest: 'bg-red-50 text-red-500' };
-                    return colors[type] || 'bg-gray-50 text-gray-500';
+                    return colors[normalizeCareType(type, action)] || 'bg-gray-50 text-gray-500';
                 };
 
-                const getCareTypeLabel = (type) => {
+                const getCareTypeLabel = (type, action = '') => {
                     const labels = { water: '浇水', fertilize: '施肥', prune: '修剪', repot: '换盆', pest: '病虫害' };
-                    return labels[type] || '日常';
+                    const normalizedType = normalizeCareType(type, action);
+                    const actionLabel = String(action || '').trim();
+                    const defaultLabel = labels[normalizedType];
+                    if (actionLabel && (!isBuiltInCareType(type) || actionLabel !== defaultLabel)) {
+                        return actionLabel;
+                    }
+                    return defaultLabel || actionLabel || String(type || '').trim() || '日常';
                 };
 
                 const getImages = (images) => {
@@ -1652,7 +2755,7 @@
                         .sort((a, b) => new Date(b) - new Date(a))
                         .map(date => {
                             const list = groups[date];
-                            const actions = [...new Set(list.map(i => i.action || getCareTypeLabel(i.type)))];
+                            const actions = [...new Set(list.map(i => getCareTypeLabel(i.type, i.action)))];
                             const descriptions = list.map(i => i.description).filter(Boolean);
                             return {
                                 date,
@@ -1743,7 +2846,18 @@
 
                 onMounted(() => {
                     init();
+                    updateCommentViewportMetrics();
                     window.addEventListener('keydown', handleKeydown);
+                    window.addEventListener('resize', updateCommentViewportMetrics);
+                    window.visualViewport?.addEventListener('resize', updateCommentViewportMetrics);
+                    window.visualViewport?.addEventListener('scroll', updateCommentViewportMetrics);
+                });
+
+                onUnmounted(() => {
+                    window.removeEventListener('keydown', handleKeydown);
+                    window.removeEventListener('resize', updateCommentViewportMetrics);
+                    window.visualViewport?.removeEventListener('resize', updateCommentViewportMetrics);
+                    window.visualViewport?.removeEventListener('scroll', updateCommentViewportMetrics);
                 });
 
                 // 组件卸载时移除事件监听
@@ -1872,21 +2986,21 @@
                 };
 
                 // --- 养护提醒逻辑 ---
-                const getScheduleTypeStyle = (type) => {
+                const getScheduleTypeStyle = (type, customAction = '') => {
                     const styles = {
                         water: { bg: 'bg-blue-50 text-blue-500', icon: '💧' },
                         fertilize: { bg: 'bg-green-50 text-green-500', icon: '🌿' },
-                        trim: { bg: 'bg-orange-50 text-orange-500', icon: '✂️' },
+                        prune: { bg: 'bg-orange-50 text-orange-500', icon: '✂️' },
                         repot: { bg: 'bg-purple-50 text-purple-500', icon: '🪴' },
                         pest: { bg: 'bg-red-50 text-red-500', icon: '🐛' },
                         custom: { bg: 'bg-gray-50 text-gray-500', icon: '⚙️' }
                     };
-                    return styles[type] || styles.custom;
+                    return styles[normalizeCareType(type, customAction)] || styles.custom;
                 };
 
-                const getScheduleTypeName = (type) => {
-                    const names = { water: '浇水', fertilize: '施肥', trim: '修剪', repot: '换盆', pest: '病虫害' };
-                    return names[type] || '自定义提醒';
+                const getScheduleTypeName = (type, customAction = '') => {
+                    const names = { water: '浇水', fertilize: '施肥', prune: '修剪', repot: '换盆', pest: '病虫害' };
+                    return String(customAction || '').trim() || names[normalizeCareType(type, customAction)] || '自定义提醒';
                 };
 
                 const saveNewSchedule = async () => {
@@ -1951,6 +3065,13 @@
                     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
                 };
 
+                const formatCommentTime = (dateStr) => {
+                    if (!dateStr) return '';
+                    const date = new Date(dateStr);
+                    if (Number.isNaN(date.getTime())) return '';
+                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+                };
+
                 const handleImageError = (e) => e.target.src = 'assets/images/icons/icons-default-pot.png';
 
                 const goBack = () => window.location.href = 'index.html';
@@ -1981,6 +3102,23 @@
                     // 确保 baseUrl 不以 / 结尾，且 pathname 是固定的 /pot-detail.html
                     const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
                     return `${cleanBaseUrl}/pot-detail.html?token=${pot.value.share_token}`;
+                };
+
+                const shareViaSystem = async ({ title, text, url }) => {
+                    if (!canUseNativeShare.value || !url) return { status: 'unsupported' };
+                    try {
+                        if (typeof navigator.canShare === 'function' && !navigator.canShare({ url })) {
+                            return { status: 'unsupported' };
+                        }
+                        await navigator.share({ title, text, url });
+                        return { status: 'shared' };
+                    } catch (error) {
+                        if (error?.name === 'AbortError') {
+                            return { status: 'cancelled' };
+                        }
+                        console.warn('Native share failed, falling back:', error);
+                        return { status: 'failed', error };
+                    }
                 };
 
                 const generateQRCode = () => {
@@ -2099,58 +3237,232 @@
                         alert('分享链接生成失败，请稍后重试');
                         return;
                     }
-                    const shareData = {
-                        title: `分享一盆可爱的植物: ${pot.value.name}`,
-                        text: `我正在 My Flower Pots 记录这盆植物的成长，快来看看吧！\n备注: ${pot.value.note || '暂无'}`,
+                    const isWeChat = /MicroMessenger/i.test(navigator.userAgent || '');
+                    const copied = await copyTextSafely(shareUrl);
+                    if (copied) {
+                        alert(
+                            isWeChat
+                                ? '链接已复制！请点击微信右上角“...”选择“发送给朋友”进行分享。'
+                                : '分享链接已复制到剪贴板，快发送给好友吧！'
+                        );
+                    } else {
+                        showCopyFallback(
+                            shareUrl,
+                            isWeChat
+                                ? '当前环境没能自动复制。系统已切到增强复制模式；你也可以点“再次复制”，然后通过微信右上角“...”分享：'
+                                : '分享链接已生成。系统已切到增强复制模式；如果还没成功，可点“再次复制”：'
+                        );
+                    }
+                };
+
+                const sharePublicLink = async () => {
+                    const shareUrl = getPublicShareUrl();
+                    if (!shareUrl) {
+                        alert('分享链接生成失败，请稍后重试');
+                        return;
+                    }
+
+                    const result = await shareViaSystem({
+                        title: pot.value?.name ? `分享植物：${pot.value.name}` : '分享花盆',
+                        text: pot.value?.name
+                            ? `邀请你一起看看 ${pot.value.name} 的成长记录。`
+                            : '邀请你一起看看这盆植物的成长记录。',
                         url: shareUrl
-                    };
+                    });
 
-                    const ua = navigator.userAgent;
-                    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-                    const isWeChat = /MicroMessenger/i.test(ua);
-
-                    // PC 端处理逻辑
-                    if (!isMobile) {
-                        try {
-                            await navigator.clipboard.writeText(shareUrl);
-                            alert('分享链接已复制到剪贴板，快发送给好友吧！');
-                        } catch (err) {
-                            console.error('复制失败:', err);
-                            alert('分享链接: ' + shareUrl);
-                        }
+                    if (result.status === 'shared' || result.status === 'cancelled') {
                         return;
                     }
 
-                    // 移动端处理逻辑
-                    // 1. 微信环境下 (跳过 navigator.share 以防中断)
-                    if (isWeChat) {
-                        try {
-                            await navigator.clipboard.writeText(shareUrl);
-                            alert('链接已复制！请点击微信右上角“...”选择“发送给朋友”进行分享。');
-                        } catch (err) {
-                            alert('分享链接: ' + shareUrl);
-                        }
-                        return;
-                    }
+                    await copyShareLink();
+                };
 
-                    // 2. 普通移动浏览器且支持原生分享
-                    if (navigator.share) {
-                        try {
-                            await navigator.share(shareData);
-                            console.log('原生分享成功');
-                            return;
-                        } catch (err) {
-                            console.log('原生分享失败或取消:', err);
-                            if (err.name === 'AbortError') return;
-                        }
-                    }
-
-                    // 3. 移动端兜底：复制链接
+                const copyCollaboratorInvite = async () => {
                     try {
-                        await navigator.clipboard.writeText(shareUrl);
-                        alert('分享链接已复制');
-                    } catch (err) {
-                        alert('分享链接: ' + shareUrl);
+                        const res = await apiClient.createCollaboratorInvite(potId.value);
+                        const inviteUrl = res.data?.inviteUrl;
+                        if (!res.success || !inviteUrl) {
+                            alert('没有生成可用的共同养护邀请链接。');
+                            return;
+                        }
+
+                        const shareResult = await shareViaSystem({
+                            title: pot.value?.name ? `邀请你共同照料：${pot.value.name}` : '共同照料邀请',
+                            text: pot.value?.name
+                                ? `打开链接并登录后，就可以一起照料 ${pot.value.name}。`
+                                : '打开链接并登录后，就可以一起加入共同照料。',
+                            url: inviteUrl
+                        });
+                        if (shareResult.status === 'shared' || shareResult.status === 'cancelled') {
+                            return;
+                        }
+
+                        const copied = await copyTextSafely(inviteUrl);
+                        if (copied) {
+                            alert('共同养护邀请链接已复制，可直接发给好友。该链接仅用于邀请协作者，不等同于公开分享。');
+                        } else {
+                            showCopyFallback(inviteUrl, '共同养护邀请链接已生成。系统已切到增强复制模式；如果还没成功，可点“再次复制”：');
+                        }
+                    } catch (e) {
+                        alert('生成邀请链接失败: ' + e.message);
+                    }
+                };
+
+                const copyViewerInvite = async () => {
+                    try {
+                        const res = await apiClient.createViewerInvite(potId.value);
+                        const inviteUrl = res.data?.inviteUrl;
+                        if (!res.success || !inviteUrl) {
+                            alert('没有生成可用的查看邀请链接。');
+                            return;
+                        }
+
+                        const shareResult = await shareViaSystem({
+                            title: pot.value?.name ? `邀请你查看：${pot.value.name}` : '好友查看邀请',
+                            text: pot.value?.name
+                                ? `打开链接并登录后，就可以长期查看 ${pot.value.name}。`
+                                : '打开链接并登录后，就可以查看这盆植物。',
+                            url: inviteUrl
+                        });
+                        if (shareResult.status === 'shared' || shareResult.status === 'cancelled') {
+                            return;
+                        }
+
+                        const copied = await copyTextSafely(inviteUrl);
+                        if (copied) {
+                            alert('查看邀请链接已复制，可直接发给好友。对方接受后会出现在“好友分享”中，但无法编辑。');
+                        } else {
+                            showCopyFallback(inviteUrl, '查看邀请链接已生成。系统已切到增强复制模式；如果还没成功，可点“再次复制”：');
+                        }
+                    } catch (e) {
+                        alert('生成邀请链接失败: ' + e.message);
+                    }
+                };
+
+                const loadPotComments = async () => {
+                    if (!potId.value || (!currentUser.value && !shareToken.value)) {
+                        potComments.value = [];
+                        return;
+                    }
+                    try {
+                        const res = await apiClient.getPotComments(potId.value, shareToken.value);
+                        if (res.success) {
+                            potComments.value = res.data || [];
+                        }
+                    } catch (e) {
+                        console.warn('Load pot comments failed', e);
+                    }
+                };
+
+                const updateCommentViewportMetrics = () => {
+                    const vv = window.visualViewport;
+                    commentViewportHeight.value = Math.round(vv?.height || window.innerHeight || 0);
+                    viewportWidth.value = Math.round(vv?.width || window.innerWidth || 0);
+                };
+
+                const focusCommentInput = () => {
+                    if (isCompactCommentViewport.value) return;
+                    nextTick(() => commentInputRef.value?.focus());
+                };
+
+                const handleCommentInputFocus = () => {
+                    if (!isCompactCommentViewport.value) return;
+                    window.setTimeout(() => {
+                        commentInputRef.value?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                    }, 180);
+                };
+
+                const openCommentModal = () => {
+                    replyTargetComment.value = null;
+                    showCommentModal.value = true;
+                    focusCommentInput();
+                };
+
+                const closeCommentModal = () => {
+                    showCommentModal.value = false;
+                    replyTargetComment.value = null;
+                };
+
+                const beginReply = (comment) => {
+                    replyTargetComment.value = comment;
+                    showCommentModal.value = true;
+                    focusCommentInput();
+                };
+
+                const cancelReply = () => {
+                    replyTargetComment.value = null;
+                };
+
+                const toggleCommentSort = () => {
+                    commentSortOrder.value = commentSortOrder.value === 'asc' ? 'desc' : 'asc';
+                };
+
+                const canDeleteComment = (comment) => {
+                    if (!currentUser.value || !comment || comment.isLegacy) return false;
+                    return isOwner.value || comment.senderId === currentUser.value.id;
+                };
+
+                const deleteComment = async (comment) => {
+                    if (!comment?.id || comment.isLegacy) return;
+                    const isReply = !!comment.senderId && !!comment.createdAt && !potComments.value.some(item => item.id === comment.id);
+                    const confirmText = isReply
+                        ? '确定删除这条回复吗？'
+                        : '确定删除这条留言吗？删除主留言时，会一并删除它下面的回复。';
+                    if (!confirm(confirmText)) return;
+                    try {
+                        const res = await apiClient.deletePotComment(comment.id);
+                        if (res.success) {
+                            if (replyTargetComment.value?.id === comment.id) {
+                                cancelReply();
+                            }
+                            await loadPotComments();
+                        }
+                    } catch (e) {
+                        alert('删除失败: ' + e.message);
+                    }
+                };
+
+                const toggleCommentDanmaku = async () => {
+                    if (!canManageCommentDanmaku.value || !potId.value || !pot.value) return;
+                    const previous = showCommentDanmaku.value;
+                    const next = !previous;
+                    showCommentDanmaku.value = next;
+                    pot.value.show_comment_danmaku = next ? 1 : 0;
+                    try {
+                        const res = await apiClient.setCommentDanmakuVisibility(potId.value, next);
+                        if (res.success) {
+                            pot.value.show_comment_danmaku = Number(res.data?.enabled ?? (next ? 1 : 0));
+                            showCommentDanmaku.value = pot.value.show_comment_danmaku === 1;
+                        }
+                    } catch (e) {
+                        showCommentDanmaku.value = previous;
+                        pot.value.show_comment_danmaku = previous ? 1 : 0;
+                        alert('更新弹幕开关失败: ' + e.message);
+                    }
+                };
+
+                const submitComment = async () => {
+                    const content = commentForm.content.trim();
+                    if (!content) return;
+                    if (!potId.value) return;
+                    try {
+                        isSubmittingComment.value = true;
+                        const target = replyTargetComment.value;
+                        const res = target && !target.isLegacy
+                            ? await apiClient.replyPotComment(target.id, content, shareToken.value)
+                            : await apiClient.sendPotComment(potId.value, content, shareToken.value);
+                        if (res.success) {
+                            commentForm.content = '';
+                            closeCommentModal();
+                            const count = Number(res.data?.recipientCount || 0);
+                            await loadPotComments();
+                            const actionText = target ? '回复已发送' : '留言已发送';
+                            alert(count > 0 ? `${actionText}，已同步给 ${count} 位相关成员。` : `${actionText}，但当前没有其他成员可接收。`);
+                        }
+                    } catch (e) {
+                        alert('发送失败: ' + e.message);
+                    } finally {
+                        isSubmittingComment.value = false;
                     }
                 };
 
@@ -2163,17 +3475,47 @@
                     } catch (e) { console.error('Load collaborators failed', e); }
                 };
 
-                const addCollaborator = async () => {
-                    if (!newCollaboratorEmail.value) return;
+                const loadViewers = async () => {
+                    if (!isOwner.value) return;
                     try {
-                        const res = await apiClient.addCollaborator(potId.value, newCollaboratorEmail.value);
+                        const res = await apiClient.getViewers(potId.value);
+                        if (res.success) viewers.value = res.data;
+                    } catch (e) { console.error('Load viewers failed', e); }
+                };
+
+                const addCollaborator = async () => {
+                    if (!newCollaboratorEmail.value.trim()) return;
+                    if (!isCollaboratorInviteEmailValid.value) {
+                        alert('请输入正确的邮箱地址');
+                        return;
+                    }
+                    try {
+                        const res = await apiClient.addCollaborator(potId.value, newCollaboratorEmail.value.trim());
                         if (res.success) {
                             newCollaboratorEmail.value = '';
                             await loadCollaborators();
-                            alert('添加成功');
+                            alert('邀请已发送，对方会在消息中心看到。');
                         }
                     } catch (e) {
-                        alert('添加失败: ' + e.message);
+                        alert('邀请失败: ' + e.message);
+                    }
+                };
+
+                const addViewer = async () => {
+                    if (!newViewerEmail.value.trim()) return;
+                    if (!isViewerInviteEmailValid.value) {
+                        alert('请输入正确的邮箱地址');
+                        return;
+                    }
+                    try {
+                        const res = await apiClient.addViewer(potId.value, newViewerEmail.value.trim());
+                        if (res.success) {
+                            newViewerEmail.value = '';
+                            await loadViewers();
+                            alert('好友查看邀请已发送，对方会在消息中心看到。');
+                        }
+                    } catch (e) {
+                        alert('邀请失败: ' + e.message);
                     }
                 };
 
@@ -2183,6 +3525,18 @@
                         const res = await apiClient.removeCollaborator(potId.value, collab.id);
                         if (res.success) {
                             await loadCollaborators();
+                        }
+                    } catch (e) {
+                        alert('移除失败: ' + e.message);
+                    }
+                };
+
+                const removeViewer = async (viewer) => {
+                    if (!confirm(`确定取消 ${viewer.display_name || viewer.email} 的查看权限吗？`)) return;
+                    try {
+                        const res = await apiClient.removeViewer(potId.value, viewer.id);
+                        if (res.success) {
+                            await loadViewers();
                         }
                     } catch (e) {
                         alert('移除失败: ' + e.message);
@@ -2224,8 +3578,9 @@
                 });
 
                 // 监听协作弹窗开启加载数据
-                watch([showCollaboratorModal, showTransferModal], ([collabVisible, transferVisible]) => {
+                watch([showCollaboratorModal, showTransferModal, showViewerModal], ([collabVisible, transferVisible, viewerVisible]) => {
                     if (collabVisible || transferVisible) loadCollaborators();
+                    if (viewerVisible) loadViewers();
                 });
 
                 watch(transferEmail, (val) => {
@@ -2236,8 +3591,13 @@
                 // 已经移动到上方的 onMounted 中了
 
                 const imgUrl = (src, w, h) => {
-                    if (!src || !src.includes('img.kaside365.com')) return src;
-                    return `/cdn-cgi/image/width=${w},height=${h},dpr=2,fit=cover,format=auto/${src}`;
+                    if (!src) return src;
+                    const normalizedSrc = String(src)
+                        .replace(/^\/?assets\/deom\//i, '/assets/demo/')
+                        .replace(/^assets\//i, '/assets/');
+                    if (normalizedSrc.startsWith('/assets/')) return normalizedSrc;
+                    if (!normalizedSrc.includes('img.kaside365.com')) return normalizedSrc;
+                    return `/cdn-cgi/image/width=${w},height=${h},dpr=2,fit=cover,format=auto/${normalizedSrc}`;
                 };
 
                 const plantInfoGroups = computed(() => {
@@ -2292,7 +3652,7 @@
                     openGallery, closeGallery, prevImg, nextImg, toggleTimelineSort,
                     handleGalleryTouchStart, handleGalleryTouchMove, handleGalleryTouchEnd,
                     triggerFileInput, onFilesSelected, removeNewImage, saveTimelineRecord, confirmDeleteTimeline,
-                    formatDate, getImages, getCareTypeIcon, getCareTypeColor, getCareTypeLabel,
+                    formatDate, formatCommentTime, getImages, getCareTypeIcon, getCareTypeColor, getCareTypeLabel,
                     imgUrl, groupedCareRecords, activeCareDate, currentSheetGroup,
                     showCareDetails, closeCareDetails, goAddCarePageWithDate,
                     plantInfoActiveTab, showFullPlantInfo, showFullCareTips, plantInfoGroups, careTipsGroups,
@@ -2304,21 +3664,155 @@
                     editRecord, deleteRecord, viewAllRecords, viewAllTimelines, confirmingDeleteId,
                     cancelTransfer, rejectTransfer, acceptTransfer,
                     // 分享与协作
-                    showShareModal, showCollaboratorModal, showTransferModal, toggleShare,
-                    downloadQRCode, copyShareLink, collaborators, newCollaboratorEmail, addCollaborator, removeCollaborator,
+                    showShareModal, showCollaboratorModal, showViewerModal, showTransferModal, toggleShare,
+                    downloadQRCode, copyShareLink, sharePublicLink, copyCollaboratorInvite, copyViewerInvite, collaborators, removeCollaborator, viewers, addViewer, removeViewer, newViewerEmail,
+                    showCommentModal, canReplyComment, canLeaveComment, showCommentEntry, canViewCommentDanmaku, canManageCommentDanmaku, shouldHideFloatingChrome, shouldShowCommentDanmaku, toggleCommentDanmaku,
+                    commentForm, submitComment, isSubmittingComment, openCommentModal, closeCommentModal, beginReply, cancelReply, toggleCommentSort, canDeleteComment, deleteComment,
+                    potComments, recentPotComments, replyTargetComment, showCommentDanmaku, barrageComments, commentSortOrder,
+                    commentModalStyle, handleCommentInputFocus,
+                    newCollaboratorEmail, addCollaborator,
                     selectedTransferUser, transferEmail, showTransferSuggestions, selectTransferCollab, initTransfer,
                     showAcceptTransferModal, transferPot, isAcceptingTransfer,
                     // Auth
                     showUserMenu, showLoginModal, showRegisterModal, showForgotPasswordModal,
                     isAuthLoading, loginForm, registerForm, passwordsMatch,
-                    isForgotPasswordEmailValid, isLoginValid, isRegisterValid,
-                    handleLogin, handleForgotPassword, handleRegister, logout,
-                    closeAuthModals, switchToRegister, switchToLogin, switchToForgotPassword,
-                    userDisplayName, currentUser
+                    isForgotPasswordEmailValid, isLoginValid, isRegisterValid, isCollaboratorInviteEmailValid, isViewerInviteEmailValid,
+                    handleLogin, handleForgotPassword, handleRegister, logout, goHome,
+                    closeAuthModals, switchToRegister, switchToLogin, switchToForgotPassword, dismissError,
+                    openPermissionLogin, openPermissionRegister, retryCurrentPage,
+                    shouldShowStandaloneState,
+                    isPermissionError, permissionErrorBadge, permissionErrorIcon, permissionErrorTitle, permissionErrorLead, permissionPrimaryActionLabel,
+                    permissionHelpCards, permissionErrorFootnote,
+                    userDisplayName, currentUser, commentInputRef, canUseNativeShare
                 };
             }
         }).mount('#app');
     </script>
+    <style>
+        .comment-fab {
+            top: 58%;
+            transform: translateY(-50%);
+            z-index: 96;
+            right: max(4px, calc(50vw - 325px - 6px));
+            background: linear-gradient(180deg, #ea580c, #c2410c);
+            border: 3px solid rgba(255, 255, 255, 0.92);
+            box-shadow: 0 16px 34px rgba(194, 65, 12, 0.28);
+        }
+
+        .comment-modal-shell {
+            width: min(100%, 34rem);
+        }
+
+        .comment-thread-area {
+            overscroll-behavior: contain;
+        }
+
+        .comment-composer-panel {
+            padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.1rem);
+        }
+
+        .comment-textarea {
+            min-height: 3.25rem;
+            font-size: 16px;
+            line-height: 1.55;
+            -webkit-appearance: none;
+        }
+
+        .comment-textarea:focus {
+            outline: none;
+            box-shadow: inset 0 0 0 2px rgba(245, 158, 11, 0.18);
+        }
+
+        .comment-barrage-item {
+            position: absolute;
+            left: 100%;
+            white-space: nowrap;
+            animation-name: comment-barrage;
+            animation-timing-function: linear;
+            animation-iteration-count: infinite;
+        }
+
+        .comment-barrage-chip {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.3rem;
+            max-width: min(78vw, 26rem);
+            padding: 0.55rem 0.85rem;
+            border-radius: 1.1rem;
+            background: rgba(17, 24, 39, 0.62);
+            color: #fff7ed;
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+            font-size: 0.75rem;
+            line-height: 1.2;
+            backdrop-filter: blur(8px);
+        }
+
+        .comment-barrage-chip--two-line {
+            border-radius: 1.2rem;
+        }
+
+        .comment-barrage-line {
+            display: flex;
+            align-items: center;
+            gap: 0.38rem;
+            min-width: 0;
+            max-width: 100%;
+        }
+
+        .comment-barrage-reply {
+            padding-left: 2em;
+        }
+
+        .comment-barrage-chip strong {
+            color: #fde68a;
+            font-weight: 800;
+            flex: none;
+        }
+
+        .comment-barrage-text {
+            display: inline-block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        @keyframes comment-barrage {
+            0% {
+                transform: translateX(0);
+            }
+
+            100% {
+                transform: translateX(calc(-100vw - 32rem));
+            }
+        }
+
+        @media (max-width: 650px) {
+            .comment-fab {
+                right: 0.35rem;
+            }
+
+            .comment-modal-shell {
+                width: 100%;
+                border-bottom-left-radius: 0;
+                border-bottom-right-radius: 0;
+            }
+
+            .comment-compact-button {
+                min-height: 2.4rem;
+                padding-inline: 0.85rem;
+            }
+
+            .comment-delete-button {
+                width: 2rem;
+                height: 2rem;
+            }
+
+            .comment-thread-area {
+                padding-bottom: 0.5rem;
+            }
+        }
+    </style>
 </body>
 
 </html>

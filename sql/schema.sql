@@ -19,6 +19,7 @@ CREATE TABLE users (
     -- 认证状态
     email_verified BOOLEAN DEFAULT FALSE,
     verification_token TEXT,
+    verification_token_expires DATETIME,
     reset_token TEXT,
     reset_token_expires DATETIME,
     last_login DATETIME,
@@ -51,6 +52,7 @@ CREATE TABLE pots (
     -- 分享与转移字段
     share_token TEXT UNIQUE,             -- 分享令牌
     is_shared INTEGER DEFAULT 0,         -- 是否开启分享
+    show_comment_danmaku INTEGER DEFAULT 1, -- 是否显示留言弹幕
     transfer_token TEXT UNIQUE,          -- 转移令牌
     transfer_expires_at DATETIME,        -- 转移过期时间
     transfer_target_email TEXT,          -- 转移目标邮箱
@@ -130,6 +132,65 @@ CREATE TABLE IF NOT EXISTS pot_collaborators (
     FOREIGN KEY (pot_id) REFERENCES pots(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+CREATE TABLE IF NOT EXISTS pot_viewers (
+    pot_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (pot_id, user_id),
+    FOREIGN KEY (pot_id) REFERENCES pots(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS pot_collab_invites (
+    id TEXT PRIMARY KEY,
+    pot_id TEXT NOT NULL,
+    owner_id TEXT NOT NULL,
+    token TEXT NOT NULL UNIQUE,
+    expires_at TEXT NOT NULL,
+    used_at TEXT,
+    revoked_at TEXT,
+    max_views INTEGER DEFAULT 5,
+    view_count INTEGER DEFAULT 0,
+    claim_session_id TEXT,
+    claimed_by_user_id TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (pot_id) REFERENCES pots(id) ON DELETE CASCADE,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (claimed_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS pot_view_invites (
+    id TEXT PRIMARY KEY,
+    pot_id TEXT NOT NULL,
+    owner_id TEXT NOT NULL,
+    token TEXT NOT NULL UNIQUE,
+    expires_at TEXT NOT NULL,
+    used_at TEXT,
+    revoked_at TEXT,
+    max_views INTEGER DEFAULT 5,
+    view_count INTEGER DEFAULT 0,
+    claim_session_id TEXT,
+    claimed_by_user_id TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (pot_id) REFERENCES pots(id) ON DELETE CASCADE,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (claimed_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE TABLE IF NOT EXISTS pot_batch_invites (
+    id TEXT PRIMARY KEY,
+    owner_id TEXT NOT NULL,
+    permission_type TEXT NOT NULL,
+    pot_ids_json TEXT NOT NULL,
+    token TEXT NOT NULL UNIQUE,
+    expires_at TEXT NOT NULL,
+    used_at TEXT,
+    revoked_at TEXT,
+    max_views INTEGER DEFAULT 5,
+    view_count INTEGER DEFAULT 0,
+    claim_session_id TEXT,
+    claimed_by_user_id TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (claimed_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
 -- 9. 页面访问统计表（累计）
 CREATE TABLE IF NOT EXISTS page_visits (
     path TEXT PRIMARY KEY,
@@ -183,6 +244,19 @@ CREATE TABLE IF NOT EXISTS support_replies (
   sent_at  TEXT NOT NULL
 );
 
+-- 13. 花盆留言表
+CREATE TABLE IF NOT EXISTS pot_comments (
+    id TEXT PRIMARY KEY,
+    pot_id TEXT NOT NULL,
+    sender_id TEXT NOT NULL,
+    parent_comment_id TEXT,
+    content TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (pot_id) REFERENCES pots(id) ON DELETE CASCADE,
+    FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (parent_comment_id) REFERENCES pot_comments(id) ON DELETE CASCADE
+);
+
 -- ============================================
 -- 索引优化
 -- ============================================
@@ -212,6 +286,17 @@ CREATE INDEX IF NOT EXISTS idx_care_schedules_enabled ON care_schedules(enabled)
 -- 协作索引
 CREATE INDEX IF NOT EXISTS idx_collaborators_user ON pot_collaborators(user_id);
 CREATE INDEX IF NOT EXISTS idx_collaborators_pot ON pot_collaborators(pot_id);
+CREATE INDEX IF NOT EXISTS idx_viewers_user ON pot_viewers(user_id);
+CREATE INDEX IF NOT EXISTS idx_viewers_pot ON pot_viewers(pot_id);
+CREATE INDEX IF NOT EXISTS idx_collab_invites_pot ON pot_collab_invites(pot_id);
+CREATE INDEX IF NOT EXISTS idx_collab_invites_token ON pot_collab_invites(token);
+CREATE INDEX IF NOT EXISTS idx_pot_batch_invites_owner ON pot_batch_invites(owner_id);
+CREATE INDEX IF NOT EXISTS idx_pot_batch_invites_token ON pot_batch_invites(token);
+CREATE INDEX IF NOT EXISTS idx_view_invites_pot ON pot_view_invites(pot_id);
+CREATE INDEX IF NOT EXISTS idx_view_invites_token ON pot_view_invites(token);
+CREATE INDEX IF NOT EXISTS idx_pot_comments_pot ON pot_comments(pot_id);
+CREATE INDEX IF NOT EXISTS idx_pot_comments_parent ON pot_comments(parent_comment_id);
+CREATE INDEX IF NOT EXISTS idx_pot_comments_created ON pot_comments(created_at);
 
 -- 统计索引
 CREATE INDEX IF NOT EXISTS idx_page_visits_daily_date ON page_visits_daily(visit_date);

@@ -18,36 +18,124 @@ const API_CONFIG = {
     timeout: 10000, // 10秒超时
 };
 
+const AUTH_KEYS = {
+    token: 'flowerpots_token',
+    userId: 'flowerpots_user_id',
+};
+
+const safeStorageGet = (storage, key) => {
+    try {
+        return storage?.getItem(key) ?? null;
+    } catch (error) {
+        console.warn('Storage read failed:', key, error);
+        return null;
+    }
+};
+
+const safeStorageSet = (storage, key, value) => {
+    try {
+        storage?.setItem(key, value);
+    } catch (error) {
+        console.warn('Storage write failed:', key, error);
+    }
+};
+
+const safeStorageRemove = (storage, key) => {
+    try {
+        storage?.removeItem(key);
+    } catch (error) {
+        console.warn('Storage remove failed:', key, error);
+    }
+};
+
+const AUTH_STORAGE = {
+    migrateLegacy() {
+        const legacyToken = safeStorageGet(window.localStorage, AUTH_KEYS.token);
+        const legacyUserId = safeStorageGet(window.localStorage, AUTH_KEYS.userId);
+        const sessionToken = safeStorageGet(window.sessionStorage, AUTH_KEYS.token);
+        const sessionUserId = safeStorageGet(window.sessionStorage, AUTH_KEYS.userId);
+
+        if (!sessionToken && !sessionUserId && legacyToken && legacyUserId) {
+            safeStorageSet(window.sessionStorage, AUTH_KEYS.token, legacyToken);
+            safeStorageSet(window.sessionStorage, AUTH_KEYS.userId, legacyUserId);
+        }
+
+        safeStorageRemove(window.localStorage, AUTH_KEYS.token);
+        safeStorageRemove(window.localStorage, AUTH_KEYS.userId);
+    },
+
+    getToken() {
+        return safeStorageGet(window.sessionStorage, AUTH_KEYS.token);
+    },
+
+    getUserId() {
+        return safeStorageGet(window.sessionStorage, AUTH_KEYS.userId);
+    },
+
+    setAuth(token, userId) {
+        if (token && userId) {
+            safeStorageSet(window.sessionStorage, AUTH_KEYS.token, token);
+            safeStorageSet(window.sessionStorage, AUTH_KEYS.userId, userId);
+        } else {
+            this.clear();
+            return;
+        }
+
+        safeStorageRemove(window.localStorage, AUTH_KEYS.token);
+        safeStorageRemove(window.localStorage, AUTH_KEYS.userId);
+    },
+
+    clear() {
+        safeStorageRemove(window.sessionStorage, AUTH_KEYS.token);
+        safeStorageRemove(window.sessionStorage, AUTH_KEYS.userId);
+        safeStorageRemove(window.localStorage, AUTH_KEYS.token);
+        safeStorageRemove(window.localStorage, AUTH_KEYS.userId);
+    }
+};
+
+AUTH_STORAGE.migrateLegacy();
+window.authStorage = AUTH_STORAGE;
+
+const emitAuthExpired = (message = '登录已过期，请重新登录') => {
+    window.dispatchEvent(new CustomEvent('auth:expired', {
+        detail: { message }
+    }));
+};
+
+const PUBLIC_AUTH_ENDPOINTS = new Set([
+    '/api/auth/login',
+    '/api/auth/register',
+    '/api/auth/identify',
+    '/api/auth/forgot-password',
+    '/api/auth/reset-password',
+]);
+
 // API客户端类
 class APIClient {
     constructor(config = {}) {
         this.config = { ...API_CONFIG, ...config };
-        this.token = localStorage.getItem('flowerpots_token');
-        this.userId = localStorage.getItem('flowerpots_user_id');
+        this.token = AUTH_STORAGE.getToken();
+        this.userId = AUTH_STORAGE.getUserId();
+        if (this.token && !this.userId) {
+            this.clearAuth();
+        }
     }
 
     // 设置认证令牌
     setToken(token, userId) {
-        this.token = token;
-        this.userId = userId;
-        if (token) {
-            localStorage.setItem('flowerpots_token', token);
-            localStorage.setItem('flowerpots_user_id', userId);
-        } else {
-            localStorage.removeItem('flowerpots_token');
-            localStorage.removeItem('flowerpots_user_id');
-        }
+        this.token = token || null;
+        this.userId = userId || null;
+        AUTH_STORAGE.setAuth(this.token, this.userId);
     }
 
     // 清除认证信息
     clearAuth() {
         this.token = null;
         this.userId = null;
-        localStorage.removeItem('flowerpots_token');
-        localStorage.removeItem('flowerpots_user_id');
+        AUTH_STORAGE.clear();
     }
 
-    // 刷新 JWT 令牌（使用 userId 换取新令牌）
+    // 刷新 JWT 令牌（使用当前已认证会话续签）
     // 使用锁机制防止并发刷新
     _refreshPromise = null;
 
@@ -58,8 +146,8 @@ class APIClient {
             return this._refreshPromise;
         }
 
-        if (!this.userId) {
-            console.warn('No userId available for token refresh');
+        if (!this.token || !this.userId) {
+            console.warn('No active session available for token refresh');
             return false;
         }
 
@@ -77,8 +165,11 @@ class APIClient {
         try {
             const response = await fetch(`${this.config.baseUrl}/api/auth/refresh`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: this.userId })
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                },
+                body: JSON.stringify({})
             });
 
             if (response.ok) {
@@ -95,37 +186,61 @@ class APIClient {
         return false;
     }
 
+    parseTokenPayload(token = this.token) {
+        if (!token) return null;
+
+        try {
+            const parts = token.split('.');
+            if (parts.length !== 3) return null;
+
+            const normalized = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+            const padded = normalized + '='.repeat((4 - normalized.length % 4) % 4);
+            return JSON.parse(atob(padded));
+        } catch (error) {
+            console.error('Error parsing token payload:', error);
+            return null;
+        }
+    }
+
+    isTokenExpired(bufferSeconds = 0) {
+        const payload = this.parseTokenPayload();
+        if (!payload?.exp) return false;
+        return (payload.exp * 1000) <= (Date.now() + bufferSeconds * 1000);
+    }
+
 
     // 检查令牌是否即将过期（默认 5 分钟内过期视为即将过期）
     isTokenExpiringSoon(thresholdMinutes = 5) {
         if (!this.token) return true;
 
-        try {
-            // 解析 JWT payload（第二部分）
-            const parts = this.token.split('.');
-            if (parts.length !== 3) return true;
+        const payload = this.parseTokenPayload();
+        if (!payload?.exp) return false;
 
-            const payload = JSON.parse(atob(parts[1]));
-            if (!payload.exp) return false; // 无过期时间则不处理
-
-            const expiresAt = payload.exp * 1000; // 转换为毫秒
-            const now = Date.now();
-            const threshold = thresholdMinutes * 60 * 1000;
-
-            return (expiresAt - now) < threshold;
-        } catch (error) {
-            console.error('Error parsing token:', error);
-            return true; // 解析失败视为过期
-        }
+        return this.isTokenExpired(thresholdMinutes * 60);
     }
 
 
     // 通用请求方法
     async request(endpoint, options = {}) {
+        const shouldSendAuth = !!(this.token && !PUBLIC_AUTH_ENDPOINTS.has(endpoint));
+
+        if (
+            endpoint !== '/api/auth/refresh' &&
+            shouldSendAuth &&
+            this.userId &&
+            this.isTokenExpiringSoon()
+        ) {
+            const refreshed = await this.refreshToken();
+            if (!refreshed && this.isTokenExpired()) {
+                this.clearAuth();
+                emitAuthExpired();
+            }
+        }
+
         const url = `${this.config.baseUrl}${endpoint}`;
         const headers = {
             'Content-Type': 'application/json',
-            ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
+            ...(shouldSendAuth && { 'Authorization': `Bearer ${this.token}` }),
             ...options.headers,
         };
 
@@ -153,22 +268,22 @@ class APIClient {
 
                 // 处理 401 未授权：JWT 令牌过期或无效
                 if (response.status === 401) {
-                    console.warn('Token expired or invalid, attempting refresh...');
+                    const canRefresh = endpoint !== '/api/auth/refresh' && !!(this.token && this.userId && !this.isTokenExpired());
+                    if (canRefresh) {
+                        console.warn('Token expired or invalid, attempting refresh...');
+                        const refreshed = await this.refreshToken();
+                        if (refreshed) {
+                            console.log('Token refreshed, retrying request...');
+                            return this.request(endpoint, options);
+                        }
 
-                    // 先尝试刷新令牌
-                    const refreshed = await this.refreshToken();
-                    if (refreshed) {
-                        console.log('Token refreshed, retrying request...');
-                        // 刷新成功，重试原始请求
-                        return this.request(endpoint, options);
+                        console.warn('Token refresh failed, clearing auth...');
+                        this.clearAuth();
+                        emitAuthExpired(errorData.error || '登录已过期，请重新登录');
+                    } else if (this.token) {
+                        this.clearAuth();
+                        emitAuthExpired(errorData.error || '登录已过期，请重新登录');
                     }
-
-                    // 刷新失败，清除认证并通知页面
-                    console.warn('Token refresh failed, clearing auth...');
-                    this.clearAuth();
-                    window.dispatchEvent(new CustomEvent('auth:expired', {
-                        detail: { message: errorData.error || '登录已过期，请重新登录' }
-                    }));
                 }
 
                 throw new APIError(response.status, errorData.error || '请求失败');
@@ -196,7 +311,7 @@ class APIClient {
     async identify() {
         const result = await this.request('/api/auth/identify', { method: 'POST' });
         if (result.success && result.userId) {
-            this.setToken(result.token || result.userId, result.userId);
+            this.setToken(result.token, result.userId);
         }
         return result;
     }
@@ -273,7 +388,7 @@ class APIClient {
         if (!userId) {
             return { success: true, data: [] };
         }
-        return this.request(`/api/pots?userId=${userId}`);
+        return this.request('/api/pots');
     }
 
     async getPotDetail(potId) {
@@ -289,6 +404,13 @@ class APIClient {
         return this.request(`/api/share/disable/${potId}`, { method: 'POST' });
     }
 
+    async setCommentDanmakuVisibility(potId, enabled) {
+        return this.request(`/api/share/comment-danmaku/${potId}`, {
+            method: 'POST',
+            body: { enabled }
+        });
+    }
+
     async getPublicPotDetail(token) {
         return this.request(`/api/public/pots/${token}`);
     }
@@ -296,6 +418,82 @@ class APIClient {
     // 协作者管理
     async getCollaborators(potId) {
         return this.request(`/api/collaborators/${potId}`);
+    }
+
+    async createCollaboratorInvite(potId) {
+        return this.request(`/api/collaborators/invite/${potId}`, { method: 'POST' });
+    }
+
+    async openCollaboratorInvite(token, sessionId) {
+        return this.request(`/api/collaborators/open/${token}`, {
+            method: 'POST',
+            body: { sessionId }
+        });
+    }
+
+    async acceptCollaboratorInvite(token, sessionId) {
+        return this.request(`/api/collaborators/accept/${token}`, {
+            method: 'POST',
+            body: { sessionId }
+        });
+    }
+
+    async getViewers(potId) {
+        return this.request(`/api/viewers/${potId}`);
+    }
+
+    async addViewer(potId, email) {
+        return this.request(`/api/viewers/${potId}`, {
+            method: 'POST',
+            body: { email }
+        });
+    }
+
+    async removeViewer(potId, userId) {
+        return this.request(`/api/viewers/${potId}/${userId}`, { method: 'DELETE' });
+    }
+
+    async leaveViewer(potId) {
+        return this.request(`/api/viewers/${potId}`, { method: 'DELETE' });
+    }
+
+    async createViewerInvite(potId) {
+        return this.request(`/api/viewers/invite/${potId}`, { method: 'POST' });
+    }
+
+    async openViewerInvite(token, sessionId) {
+        return this.request(`/api/viewers/open/${token}`, {
+            method: 'POST',
+            body: { sessionId }
+        });
+    }
+
+    async acceptViewerInvite(token, sessionId) {
+        return this.request(`/api/viewers/accept/${token}`, {
+            method: 'POST',
+            body: { sessionId }
+        });
+    }
+
+    async createBatchInvite(potIds, permission) {
+        return this.request('/api/batch-invites', {
+            method: 'POST',
+            body: { potIds, permission }
+        });
+    }
+
+    async openBatchInvite(token, sessionId) {
+        return this.request(`/api/batch-invites/open/${token}`, {
+            method: 'POST',
+            body: { sessionId }
+        });
+    }
+
+    async acceptBatchInvite(token, sessionId) {
+        return this.request(`/api/batch-invites/accept/${token}`, {
+            method: 'POST',
+            body: { sessionId }
+        });
     }
 
     async addCollaborator(potId, email) {
@@ -366,6 +564,29 @@ class APIClient {
         return this.request('/api/messages/clear-read', { method: 'POST' });
     }
 
+    async sendPotComment(potId, content, shareToken = null) {
+        return this.request('/api/messages/pot-comment', {
+            method: 'POST',
+            body: { potId, content, shareToken }
+        });
+    }
+
+    async replyPotComment(commentId, content, shareToken = null) {
+        return this.request('/api/messages/pot-comment-reply', {
+            method: 'POST',
+            body: { commentId, content, shareToken }
+        });
+    }
+
+    async getPotComments(potId, shareToken = null) {
+        const query = shareToken ? `?shareToken=${encodeURIComponent(shareToken)}` : '';
+        return this.request(`/api/messages/pot-comments/${potId}${query}`);
+    }
+
+    async deletePotComment(commentId) {
+        return this.request(`/api/messages/pot-comment/${commentId}`, { method: 'DELETE' });
+    }
+
     async createPot(potData) {
         // 优化：如果当前没有用户ID，说明是纯浏览的匿名用户，此时才延迟创建匿名账户
         if (!this.userId) {
@@ -388,7 +609,7 @@ class APIClient {
         if (!userId) {
             throw new APIError(400, '用户ID不能为空');
         }
-        return this.request(`/api/pots/${potId}?userId=${userId}`, {
+        return this.request(`/api/pots/${potId}`, {
             method: 'PUT',
             body: potData
         });
@@ -398,7 +619,7 @@ class APIClient {
         if (!userId) {
             throw new APIError(400, '用户ID不能为空');
         }
-        return this.request(`/api/pots/${potId}?userId=${userId}`, {
+        return this.request(`/api/pots/${potId}`, {
             method: 'DELETE'
         });
     }
@@ -407,7 +628,7 @@ class APIClient {
         if (!this.userId) {
             throw new APIError(400, '用户ID不能为空');
         }
-        return this.request('/api/pots/reorder?userId=' + this.userId, {
+        return this.request('/api/pots/reorder', {
             method: 'PUT',
             body: { potIds }
         });
@@ -482,18 +703,18 @@ class APIClient {
     }
 
     // 天气API
-    // async getWeather(location = null) {
-    //     const params = location ? `?location=${encodeURIComponent(location)}` : '';
-    //     return this.request(`/api/weather${params}`);
-    // }
+    async getWeather(location = null) {
+        const params = location ? `?location=${encodeURIComponent(location)}` : '';
+        return this.request(`/api/weather${params}`);
+    }
 
     // 养护建议API
-    // async getCareAdvice(data) {
-    //     return this.request('/api/care-advice', {
-    //         method: 'POST',
-    //         body: data
-    //     });
-    // }
+    async getCareAdvice(data) {
+        return this.request('/api/care-advice', {
+            method: 'POST',
+            body: data
+        });
+    }
 
     // 植物数据库API
     async searchPlants(query) {

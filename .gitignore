@@ -15,6 +15,9 @@ node_modules/
 
 # Secrets & Local Config
 wrangler.toml
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
 .env
 frontend/js/config.js
 
@@ -22,6 +25,8 @@ frontend/js/config.js
 .wrangler/
 .upload-cache.json
 Temp/
+output/
+backups/
 
 # Project Specific (Built & Redundant)
 frontend/css/tailwind-built.css

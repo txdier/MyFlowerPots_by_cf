@@ -19,7 +19,7 @@
     </style>
 
     <!-- Tailwind CSS & Custom Styles (Optimized) -->
-    <link rel="stylesheet" href="css/tailwind-built.css?v=20260227">
+    <link rel="stylesheet" href="css/tailwind-built.css?v=20260407-1">
     <link rel="stylesheet" href="css/app.css?v=20260227">
 
     <!-- 图标库 -->
@@ -87,8 +87,8 @@
                     class="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 flex gap-4 transition-all hover:shadow-md">
                     <!-- 左侧图标 -->
                     <div class="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
-                        :class="getCareTypeColor(record.type)">
-                        <i :class="getCareTypeIcon(record.type)" class="text-lg"></i>
+                        :class="getCareTypeColor(record.type, record.action)">
+                        <i :class="getCareTypeIcon(record.type, record.action)" class="text-lg"></i>
                     </div>
 
                     <!-- 右侧内容 -->
@@ -96,7 +96,7 @@
                         <div class="absolute top-0 right-0 text-[10px] font-bold text-gray-300">{{
                             formatDate(record.date) }}</div>
                         <div class="flex flex-wrap items-center gap-2 mb-2">
-                            <span class="text-sm font-black text-gray-800">{{ getCareTypeLabel(record.type) }}</span>
+                            <span class="text-sm font-black text-gray-800">{{ getCareTypeLabel(record.type, record.action) }}</span>
                             <span v-if="record.operatorName"
                                 class="px-2 py-0.5 bg-gray-100 text-gray-400 text-[9px] font-bold rounded-md">
                                 <i class="fa fa-user-edit mr-0.5"></i> {{ record.operatorName }}
@@ -192,9 +192,31 @@
                     if (res.success) records.value = res.data || [];
                 };
 
+                const normalizeCareType = (type, action = '') => {
+                    const raw = String(type || '').trim().toLowerCase();
+                    if (['water', 'watering', 'change_water', 'water_change', 'changewater', '换水', '浇水'].includes(raw)) return 'water';
+                    if (['fertilize', 'fertilizer', 'feed', '施肥'].includes(raw)) return 'fertilize';
+                    if (['trim', 'prune', 'pruning', '修剪'].includes(raw)) return 'prune';
+                    if (['repot', 're-pot', '换盆'].includes(raw)) return 'repot';
+                    if (['pest', 'pests', '除虫', '病虫害'].includes(raw)) return 'pest';
+
+                    const normalizedAction = String(action || '').trim();
+                    if (/换水|浇水|补水/.test(normalizedAction)) return 'water';
+                    if (/施肥|追肥/.test(normalizedAction)) return 'fertilize';
+                    if (/修剪|打顶|摘心/.test(normalizedAction)) return 'prune';
+                    if (/换盆|翻盆/.test(normalizedAction)) return 'repot';
+                    if (/除虫|病虫害|杀虫/.test(normalizedAction)) return 'pest';
+                    return 'custom';
+                };
+
+                const isBuiltInCareType = (type) => ['water', 'fertilize', 'prune', 'trim', 'repot', 'pest'].includes(String(type || '').trim().toLowerCase());
+
                 const filteredRecords = computed(() => {
                     if (filterType.value === 'all') return records.value;
-                    return records.value.filter(r => r.type === filterType.value);
+                    if (filterType.value === 'other') {
+                        return records.value.filter(record => normalizeCareType(record.type, record.action) === 'custom');
+                    }
+                    return records.value.filter(record => normalizeCareType(record.type, record.action) === filterType.value);
                 });
 
                 const editRecord = (record) => window.location.href = `care-record.html?id=${record.id}`;
@@ -209,8 +231,13 @@
 
                 // 图片优化：Cloudflare cdn-cgi/image 按需缩放
                 const imgUrl = (src, w, h) => {
-                    if (!src || !src.includes('img.kaside365.com')) return src;
-                    return `/cdn-cgi/image/width=${w},height=${h},dpr=2,fit=cover,format=auto/${src}`;
+                    if (!src) return src;
+                    const normalizedSrc = String(src)
+                        .replace(/^\/?assets\/deom\//i, '/assets/demo/')
+                        .replace(/^assets\//i, '/assets/');
+                    if (normalizedSrc.startsWith('/assets/')) return normalizedSrc;
+                    if (!normalizedSrc.includes('img.kaside365.com')) return normalizedSrc;
+                    return `/cdn-cgi/image/width=${w},height=${h},dpr=2,fit=cover,format=auto/${normalizedSrc}`;
                 };
 
                 const previewImage = (url) => previewUrl.value = url;
@@ -227,19 +254,25 @@
                     return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
                 };
 
-                const getCareTypeIcon = (type) => {
+                const getCareTypeIcon = (type, action = '') => {
                     const icons = { water: 'fa fa-tint', fertilize: 'fa fa-seedling', prune: 'fa fa-cut', repot: 'fa fa-exchange-alt', pest: 'fa fa-bug' };
-                    return icons[type] || 'fa fa-clipboard-check';
+                    return icons[normalizeCareType(type, action)] || 'fa fa-clipboard-check';
                 };
 
-                const getCareTypeColor = (type) => {
+                const getCareTypeColor = (type, action = '') => {
                     const colors = { water: 'bg-blue-50 text-blue-500', fertilize: 'bg-green-50 text-green-500', prune: 'bg-orange-50 text-orange-500', repot: 'bg-purple-50 text-purple-500', pest: 'bg-red-50 text-red-500' };
-                    return colors[type] || 'bg-gray-50 text-gray-500';
+                    return colors[normalizeCareType(type, action)] || 'bg-gray-50 text-gray-500';
                 };
 
-                const getCareTypeLabel = (type) => {
+                const getCareTypeLabel = (type, action = '') => {
                     const labels = { water: '浇水', fertilize: '施肥', prune: '修剪', repot: '换盆', pest: '病虫害' };
-                    return labels[type] || '其他记录';
+                    const normalizedType = normalizeCareType(type, action);
+                    const actionLabel = String(action || '').trim();
+                    const defaultLabel = labels[normalizedType];
+                    if (actionLabel && (!isBuiltInCareType(type) || actionLabel !== defaultLabel)) {
+                        return actionLabel;
+                    }
+                    return defaultLabel || actionLabel || String(type || '').trim() || '其他记录';
                 };
 
                 onMounted(init);

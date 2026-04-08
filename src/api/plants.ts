@@ -39,7 +39,7 @@ const PLANT_DATABASE: PlantData[] = [
     fertilization: '春季和夏季使用玫瑰专用肥',
     pruning: '冬季休眠期进行重剪',
     commonProblems: ['黑斑病', '白粉病', '蚜虫'],
-    imageUrl: 'https://via.placeholder.com/300x200/FF69B4/FFFFFF?text=Rose'
+    imageUrl: '/assets/images/icons/icons-default-pot.png'
   },
   {
     id: '2',
@@ -60,7 +60,7 @@ const PLANT_DATABASE: PlantData[] = [
     fertilization: '生长季节每月施肥一次',
     pruning: '花后修剪',
     commonProblems: ['红蜘蛛', '白粉病'],
-    imageUrl: 'https://via.placeholder.com/300x200/FF1493/FFFFFF?text=Chinese+Rose'
+    imageUrl: '/assets/images/icons/icons-default-pot.png'
   },
   {
     id: '3',
@@ -81,7 +81,7 @@ const PLANT_DATABASE: PlantData[] = [
     fertilization: '春季施用有机肥',
     pruning: '花后修剪',
     commonProblems: ['根腐病', '叶斑病'],
-    imageUrl: 'https://via.placeholder.com/300x200/800080/FFFFFF?text=Peony'
+    imageUrl: '/assets/images/icons/icons-default-pot.png'
   },
   {
     id: '4',
@@ -102,7 +102,7 @@ const PLANT_DATABASE: PlantData[] = [
     fertilization: '生长季节每2周施肥一次',
     pruning: '定期摘心',
     commonProblems: ['蚜虫', '白粉病'],
-    imageUrl: 'https://via.placeholder.com/300x200/FFD700/FFFFFF?text=Chrysanthemum'
+    imageUrl: '/assets/images/icons/icons-default-pot.png'
   },
   {
     id: '5',
@@ -123,7 +123,7 @@ const PLANT_DATABASE: PlantData[] = [
     fertilization: '使用兰花专用肥，稀释后施用',
     pruning: '花后修剪花梗',
     commonProblems: ['根腐病', '介壳虫'],
-    imageUrl: 'https://via.placeholder.com/300x200/9370DB/FFFFFF?text=Orchid'
+    imageUrl: '/assets/images/icons/icons-default-pot.png'
   },
   {
     id: '6',
@@ -144,7 +144,7 @@ const PLANT_DATABASE: PlantData[] = [
     fertilization: '生长季节每月施肥一次',
     pruning: '去除枯叶',
     commonProblems: ['烂根', '介壳虫'],
-    imageUrl: 'https://via.placeholder.com/300x200/32CD32/FFFFFF?text=Succulent'
+    imageUrl: '/assets/images/icons/icons-default-pot.png'
   },
   {
     id: '7',
@@ -165,7 +165,7 @@ const PLANT_DATABASE: PlantData[] = [
     fertilization: '生长季节每2个月施肥一次',
     pruning: '一般不修剪',
     commonProblems: ['烂根', '介壳虫'],
-    imageUrl: 'https://via.placeholder.com/300x200/228B22/FFFFFF?text=Cactus'
+    imageUrl: '/assets/images/icons/icons-default-pot.png'
   },
   {
     id: '8',
@@ -186,9 +186,179 @@ const PLANT_DATABASE: PlantData[] = [
     fertilization: '生长季节每月施肥一次',
     pruning: '修剪过长的枝条',
     commonProblems: ['叶斑病', '红蜘蛛'],
-    imageUrl: 'https://via.placeholder.com/300x200/008000/FFFFFF?text=Pothos'
+    imageUrl: '/assets/images/icons/icons-default-pot.png'
   }
 ];
+
+function isLocalDevelopmentRequest(request: Request): boolean {
+  try {
+    const hostname = new URL(request.url).hostname;
+    return hostname === '127.0.0.1' || hostname === 'localhost';
+  } catch {
+    return false;
+  }
+}
+
+function isPlantsDatabaseUnavailable(error: unknown): boolean {
+  const message = String((error as any)?.message || error || '');
+  return /no such table:\s*plants|no such table:\s*plant_synonyms|数据库未配置/i.test(message);
+}
+
+function normalizePlantText(text?: string): string {
+  return String(text || '').trim().toLowerCase();
+}
+
+function buildFallbackCareGuide(plant: PlantData) {
+  const problems = plant.commonProblems?.length
+    ? plant.commonProblems.join('、')
+    : '蚜虫、红蜘蛛等常见病虫害';
+
+  return {
+    watering: `春季保持${plant.wateringFrequency || '见干见湿'}；夏季高温时注意早晚补水并避免积水；秋季随着降温逐步减少浇水；冬季控水并保持盆土不过湿。`,
+    fertilizing: `春季可结合${plant.fertilization || '薄肥勤施'}促进生长；夏季高温期减少浓肥；秋季可少量补肥帮助恢复；冬季通常减少或暂停施肥。`,
+    pruning: `春季适合轻剪整形；夏季及时清理黄叶病叶；秋季可适度整理株型；冬季按植株状态${plant.pruning || '进行轻度修剪'}。`,
+    soilRequirement: `春季适合检查根系并使用${plant.soilType || '疏松透气、排水良好的基质'}；夏季避免闷根积水；秋季可补充新土；冬季注意保温与排水。`,
+    pests: `春夏重点留意${problems}；秋季注意通风并及时观察叶片；冬季清理枯叶病叶，减少病虫害滋生。`
+  };
+}
+
+function buildFallbackPlantRecord(plant: PlantData) {
+  return {
+    id: plant.id,
+    name: plant.name,
+    category: plant.family || '本地样例',
+    care_difficulty: '中等',
+    basic_info: {
+      scientificName: plant.scientificName || '',
+      family: plant.family || '',
+      humidityRequirements: plant.humidityRequirements || '',
+      sunlightRequirements: plant.sunlightRequirements || '',
+      temperatureRange: plant.temperatureRange || ''
+    },
+    ornamental_features: {
+      careTips: plant.careTips || []
+    },
+    care_guide: buildFallbackCareGuide(plant),
+    image_url: plant.imageUrl || '/assets/images/icons/icons-default-pot.png'
+  };
+}
+
+function getFallbackPlantSearchBlob(plant: PlantData): string {
+  return [
+    plant.id,
+    plant.name,
+    plant.scientificName,
+    plant.family,
+    plant.wateringFrequency,
+    plant.sunlightRequirements,
+    plant.temperatureRange,
+    plant.humidityRequirements,
+    plant.soilType,
+    plant.fertilization,
+    plant.pruning,
+    ...(plant.careTips || []),
+    ...(plant.commonProblems || [])
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
+function searchFallbackPlants(query: string, limit: number = 20) {
+  const normalizedQuery = normalizePlantText(query);
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  return PLANT_DATABASE
+    .map((plant) => ({
+      plant,
+      blob: getFallbackPlantSearchBlob(plant)
+    }))
+    .filter(({ plant, blob }) => (
+      normalizePlantText(plant.name) === normalizedQuery ||
+      normalizePlantText(plant.id) === normalizedQuery ||
+      blob.includes(normalizedQuery)
+    ))
+    .slice(0, limit)
+    .map(({ plant }) => buildFallbackPlantRecord(plant));
+}
+
+function findFallbackPlantById(plantId: string) {
+  const normalizedId = normalizePlantText(plantId);
+  return PLANT_DATABASE.find((plant) => (
+    normalizePlantText(plant.id) === normalizedId ||
+    normalizePlantText(plant.name) === normalizedId
+  )) || null;
+}
+
+function findFallbackSmartMatch(potName?: string, potNote?: string) {
+  const normalizedPotName = normalizePlantText(potName);
+  const combinedText = `${potName || ''} ${potNote || ''}`.trim();
+  const keywords = extractKeywords(combinedText);
+
+  if (normalizedPotName) {
+    const directMatch = PLANT_DATABASE.find((plant) => (
+      normalizePlantText(plant.name) === normalizedPotName ||
+      normalizePlantText(plant.id) === normalizedPotName ||
+      normalizePlantText(plant.scientificName) === normalizedPotName
+    ));
+
+    if (directMatch) {
+      return {
+        data: buildFallbackPlantRecord(directMatch),
+        message: `本地样例直接匹配成功: ${directMatch.name}`,
+        matchType: 'local-direct',
+        matchScore: 10
+      };
+    }
+  }
+
+  let bestPlant: PlantData | null = null;
+  let highestScore = 0;
+
+  for (const plant of PLANT_DATABASE) {
+    const blob = getFallbackPlantSearchBlob(plant);
+    let score = 0;
+
+    if (normalizedPotName) {
+      if (blob.includes(normalizedPotName)) {
+        score += 6;
+      }
+      if (normalizePlantText(plant.name).includes(normalizedPotName)) {
+        score += 4;
+      }
+    }
+
+    for (const keyword of keywords) {
+      const normalizedKeyword = normalizePlantText(keyword);
+      if (!normalizedKeyword) continue;
+
+      if (normalizePlantText(plant.name) === normalizedKeyword) {
+        score += 8;
+      } else if (blob.includes(normalizedKeyword)) {
+        score += normalizedKeyword.length >= 3 ? 3 : 1;
+      }
+    }
+
+    if (score > highestScore) {
+      highestScore = score;
+      bestPlant = plant;
+    }
+  }
+
+  if (!bestPlant || highestScore <= 0) {
+    return null;
+  }
+
+  return {
+    data: buildFallbackPlantRecord(bestPlant),
+    message: `本地样例匹配成功: ${bestPlant.name}`,
+    keywords,
+    matchType: 'local-keyword',
+    matchScore: highestScore
+  };
+}
 
 export async function handlePlantsRequest(
   request: Request,
@@ -209,7 +379,7 @@ export async function handlePlantsRequest(
   // 获取特定植物信息
   if (path.startsWith('/api/plants/') && request.method === 'GET') {
     const plantId = path.split('/').pop();
-    return handleGetPlantInfo(plantId, env);
+    return handleGetPlantInfo(request, plantId, env);
   }
 
   return errorResponse('Not Found', 404);
@@ -260,15 +430,32 @@ function extractKeywords(text: string): string[] {
 
 // 智能植物匹配
 async function handleSmartMatch(request: Request, env: any): Promise<Response> {
+  const allowLocalFallback = isLocalDevelopmentRequest(request);
+  let potName: string | undefined;
+  let potNote: string | undefined;
+
   try {
     const body = await request.json() as { potName?: string; potNote?: string };
-    const { potName, potNote } = body;
+    potName = body.potName;
+    potNote = body.potNote;
 
     if (!potName && !potNote) {
       return jsonResponse({ success: true, data: null, message: '无输入内容' });
     }
 
     if (!env.DB) {
+      if (allowLocalFallback) {
+        const fallbackMatch = findFallbackSmartMatch(potName, potNote);
+        return jsonResponse({
+          success: true,
+          data: fallbackMatch?.data || null,
+          message: fallbackMatch?.message || '本地样例中未找到匹配植物',
+          matchType: fallbackMatch?.matchType || 'local-none',
+          matchScore: fallbackMatch?.matchScore || 0,
+          keywords: fallbackMatch?.keywords || []
+        });
+      }
+
       return errorResponse('数据库未配置', 500);
     }
 
@@ -385,6 +572,20 @@ async function handleSmartMatch(request: Request, env: any): Promise<Response> {
       });
     }
 
+    if (allowLocalFallback) {
+      const fallbackMatch = findFallbackSmartMatch(potName, potNote);
+      if (fallbackMatch) {
+        return jsonResponse({
+          success: true,
+          data: fallbackMatch.data,
+          message: fallbackMatch.message,
+          keywords: fallbackMatch.keywords || keywords,
+          matchType: fallbackMatch.matchType,
+          matchScore: fallbackMatch.matchScore
+        });
+      }
+    }
+
     return jsonResponse({
       success: true,
       data: null,
@@ -394,12 +595,27 @@ async function handleSmartMatch(request: Request, env: any): Promise<Response> {
 
   } catch (error) {
     console.error('智能匹配错误:', error);
+
+    if (allowLocalFallback && isPlantsDatabaseUnavailable(error)) {
+      const fallbackMatch = findFallbackSmartMatch(potName, potNote);
+      return jsonResponse({
+        success: true,
+        data: fallbackMatch?.data || null,
+        message: fallbackMatch?.message || '本地样例中未找到匹配植物',
+        keywords: fallbackMatch?.keywords || [],
+        matchType: fallbackMatch?.matchType || 'local-none',
+        matchScore: fallbackMatch?.matchScore || 0
+      });
+    }
+
     return errorResponse('智能匹配失败', 500);
   }
 }
 
 // 处理植物搜索
 async function handlePlantSearch(request: Request, env: any, url: URL): Promise<Response> {
+  const allowLocalFallback = isLocalDevelopmentRequest(request);
+
   try {
     const query = url.searchParams.get('q') || '';
 
@@ -412,6 +628,21 @@ async function handlePlantSearch(request: Request, env: any, url: URL): Promise<
     }
 
     if (!env.DB) {
+      if (allowLocalFallback) {
+        const fallbackResults = searchFallbackPlants(query).map((plant) => ({
+          id: plant.id,
+          name: plant.name,
+          category: plant.category,
+          care_difficulty: plant.care_difficulty
+        }));
+
+        return jsonResponse({
+          success: true,
+          message: `本地样例找到 ${fallbackResults.length} 个相关植物`,
+          data: fallbackResults
+        });
+      }
+
       return errorResponse('数据库未配置', 500);
     }
 
@@ -424,26 +655,71 @@ async function handlePlantSearch(request: Request, env: any, url: URL): Promise<
       LIMIT 20
     `).bind(`%${query}%`, `%${query}%`, `%${query}%`).all();
 
+    if (results.length > 0 || !allowLocalFallback) {
+      return jsonResponse({
+        success: true,
+        message: `找到 ${results.length} 个相关植物`,
+        data: results
+      });
+    }
+
+    const fallbackResults = searchFallbackPlants(query).map((plant) => ({
+      id: plant.id,
+      name: plant.name,
+      category: plant.category,
+      care_difficulty: plant.care_difficulty
+    }));
+
     return jsonResponse({
       success: true,
-      message: `找到 ${results.length} 个相关植物`,
-      data: results
+      message: `本地样例找到 ${fallbackResults.length} 个相关植物`,
+      data: fallbackResults
     });
 
   } catch (error) {
     console.error('植物搜索错误:', error);
+
+    if (allowLocalFallback && isPlantsDatabaseUnavailable(error)) {
+      const query = url.searchParams.get('q') || '';
+      const fallbackResults = searchFallbackPlants(query).map((plant) => ({
+        id: plant.id,
+        name: plant.name,
+        category: plant.category,
+        care_difficulty: plant.care_difficulty
+      }));
+
+      return jsonResponse({
+        success: true,
+        message: `本地样例找到 ${fallbackResults.length} 个相关植物`,
+        data: fallbackResults
+      });
+    }
+
     return errorResponse('搜索植物失败', 500);
   }
 }
 
 // 获取特定植物信息
-async function handleGetPlantInfo(plantId: string | undefined, env: any): Promise<Response> {
+async function handleGetPlantInfo(request: Request, plantId: string | undefined, env: any): Promise<Response> {
+  const allowLocalFallback = isLocalDevelopmentRequest(request);
+
   try {
     if (!plantId) {
       return errorResponse('植物ID不能为空', 400);
     }
 
     if (!env.DB) {
+      if (allowLocalFallback) {
+        const fallbackPlant = findFallbackPlantById(plantId);
+        if (fallbackPlant) {
+          return jsonResponse({
+            success: true,
+            message: '获取本地样例植物信息成功',
+            data: buildFallbackPlantRecord(fallbackPlant)
+          });
+        }
+      }
+
       return errorResponse('数据库未配置', 500);
     }
 
@@ -452,6 +728,17 @@ async function handleGetPlantInfo(plantId: string | undefined, env: any): Promis
     ).bind(plantId).first();
 
     if (!plant) {
+      if (allowLocalFallback) {
+        const fallbackPlant = findFallbackPlantById(plantId);
+        if (fallbackPlant) {
+          return jsonResponse({
+            success: true,
+            message: '获取本地样例植物信息成功',
+            data: buildFallbackPlantRecord(fallbackPlant)
+          });
+        }
+      }
+
       return errorResponse('植物未找到', 404);
     }
 
@@ -471,6 +758,18 @@ async function handleGetPlantInfo(plantId: string | undefined, env: any): Promis
 
   } catch (error) {
     console.error('获取植物信息错误:', error);
+
+    if (allowLocalFallback && plantId && isPlantsDatabaseUnavailable(error)) {
+      const fallbackPlant = findFallbackPlantById(plantId);
+      if (fallbackPlant) {
+        return jsonResponse({
+          success: true,
+          message: '获取本地样例植物信息成功',
+          data: buildFallbackPlantRecord(fallbackPlant)
+        });
+      }
+    }
+
     return errorResponse('获取植物信息失败', 500);
   }
 }

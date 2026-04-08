@@ -279,8 +279,13 @@
                 };
 
                 const imgUrl = (src, w, h) => {
-                    if (!src || !src.includes('img.kaside365.com')) return src;
-                    return `/cdn-cgi/image/width=${w},height=${h},dpr=2,fit=cover,format=auto/${src}`;
+                    if (!src) return src;
+                    const normalizedSrc = String(src)
+                        .replace(/^\/?assets\/deom\//i, '/assets/demo/')
+                        .replace(/^assets\//i, '/assets/');
+                    if (normalizedSrc.startsWith('/assets/')) return normalizedSrc;
+                    if (!normalizedSrc.includes('img.kaside365.com')) return normalizedSrc;
+                    return `/cdn-cgi/image/width=${w},height=${h},dpr=2,fit=cover,format=auto/${normalizedSrc}`;
                 };
 
                 const goBack = () => {
