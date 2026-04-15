@@ -81,6 +81,15 @@ export async function handleSupportRequest(
   // Strip the /api/admin/support prefix to get the sub-path
   const subPath = path.replace(/^\/api\/admin\/support/, '');
 
+  // ── GET /unread-count ───────────────────────────────────────────────────────
+  if (subPath === '/unread-count' && method === 'GET') {
+    const unread = await env.DB.prepare(
+      `SELECT COUNT(*) as unread_count FROM support_emails WHERE read = 0`
+    ).first();
+
+    return json({ success: true, count: unread?.unread_count || 0 });
+  }
+
   // ── GET /emails ───────────────────────────────────────────────────────────
   if (subPath === '/emails' && method === 'GET') {
     const page = parseInt(url.searchParams.get('page') ?? '1');

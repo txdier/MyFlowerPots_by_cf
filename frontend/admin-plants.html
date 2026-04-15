@@ -107,6 +107,10 @@
                             class="px-4 sm:px-6 py-2 rounded-xl font-medium text-slate-500 hover:text-emerald-600 transition-all flex items-center gap-2 whitespace-nowrap">
                             <i class="fa fa-envelope"></i>
                             收件箱
+                            <span v-if="supportUnreadCount > 0"
+                                class="bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center shadow-sm shrink-0 font-black aspect-square w-5 h-5">
+                                {{ supportUnreadCount > 99 ? '99+' : supportUnreadCount }}
+                            </span>
                         </a>
                     </div>
                 </div>
@@ -658,6 +662,7 @@
 
                 const toast = ref({ show: false, message: '', icon: '' });
                 const isCheckingAccess = ref(true);
+                const supportUnreadCount = ref(0);
 
                 const tabs = [
                     { id: 'basic', name: '基本信息' },
@@ -701,6 +706,18 @@
                         }
                     } catch (err) {
                         showToast(err.message, 'fa fa-exclamation-circle');
+                    }
+                };
+
+                const fetchSupportUnreadCount = async () => {
+                    try {
+                        const res = await apiClient.getSupportUnreadCount();
+                        if (res.success) {
+                            supportUnreadCount.value = Number(res.count) || 0;
+                        }
+                    } catch (err) {
+                        supportUnreadCount.value = 0;
+                        console.error('Failed to fetch support unread count:', err);
                     }
                 };
 
@@ -983,6 +1000,7 @@
                         if (res.success) {
                             isCheckingAccess.value = false;
                             fetchPlants();
+                            fetchSupportUnreadCount();
                         } else {
                             nav.redirectToAdminRequired({
                                 from: 'admin-plants',
@@ -1022,6 +1040,7 @@
                     currentTab, plants, pagination, searchQuery, selectedIds, totalPages, isAllSelected,
                     showModal, isEditing, activeTab, tabs, formData, saving, synonymsInput,
                     showImportModal, importJson, importing, toast, fileInput, isCheckingAccess,
+                    supportUnreadCount,
                     users, userPagination, userSearchQuery, showLimitModal, activeUser, newLimit, savingLimit, totalUserPages,
                     fetchPlants, fetchUsers, changePage, changeUserPage, toggleAll, difficultyClass, openCreateModal,
                     openEditModal, savePlant, deleteSingle, batchDelete, downloadTemplate, formatDateTime,

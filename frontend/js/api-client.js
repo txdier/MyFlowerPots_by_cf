@@ -788,6 +788,10 @@ class APIClient {
         return this.request('/api/messages/clear-read', { method: 'POST' });
     }
 
+    async getSupportUnreadCount() {
+        return this.request('/api/admin/support/unread-count');
+    }
+
     async sendPotComment(potId, content, shareToken = null) {
         return this.request('/api/messages/pot-comment', {
             method: 'POST',
