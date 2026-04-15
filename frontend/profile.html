@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
@@ -24,7 +24,8 @@
 
     <!-- 配置脚本 -->
     <script src="js/config.js?v=20260111"></script>
-    <script src="js/api-client.js?v=20260111"></script>
+    <script src="js/api-client.js?v=20260415-1"></script>
+    <script src="js/form-utils.js?v=20260413"></script>
 </head>
 
 <body class="bg-gray-50">
@@ -93,15 +94,22 @@
                     <div>
                         <label
                             class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">显示名称</label>
-                        <input type="text" v-model="userForm.displayName"
+                        <input type="text" v-model="userForm.displayName" maxlength="20" autocomplete="nickname"
                             class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-green-500 transition-all font-bold text-gray-800"
                             placeholder="设置一个昵称吧">
                     </div>
                     <div>
-                        <label
-                            class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">绑定邮箱</label>
+                        <div class="flex items-center justify-between gap-3 mb-2 ml-1">
+                            <label
+                                class="block text-[10px] font-black text-gray-400 uppercase tracking-widest">绑定邮箱</label>
+                            <button type="button" @click="activeTab = 'security'"
+                                class="shrink-0 text-[11px] font-black text-green-600 hover:text-green-700 transition active:scale-95">
+                                去安全中心修改
+                            </button>
+                        </div>
                         <input type="email" :value="user?.email" disabled
                             class="w-full bg-gray-50/50 border-none rounded-2xl py-4 px-6 text-gray-400 font-bold cursor-not-allowed">
+                        <p class="mt-2 ml-1 text-xs text-gray-400">这里只显示当前绑定邮箱。需要更换邮箱时，请前往安全中心。</p>
 
                         <!-- 邮箱验证状态 -->
                         <div class="mt-2 flex items-center justify-between">
@@ -138,14 +146,46 @@
                     <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-6">修改登录密码</h3>
 
                     <div class="space-y-4">
-                        <input type="password" v-model="passForm.currentPassword" placeholder="当前密码"
-                            class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-red-500">
-                        <input type="password" v-model="passForm.newPassword" placeholder="新密码 (至少8位)"
-                            class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-red-500">
-                        <input type="password" v-model="passForm.confirmPassword" placeholder="确认新密码"
-                            class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-red-500">
+                        <div class="space-y-1.5">
+                            <label for="profileCurrentPassword"
+                                class="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">当前密码</label>
+                            <input id="profileCurrentPassword" type="password" v-model="passForm.currentPassword"
+                                autocomplete="current-password" @input="handleCurrentPasswordInput"
+                                @blur="validateCurrentPassword(true)" placeholder="请输入当前密码"
+                                :aria-invalid="securityErrors.currentPassword ? 'true' : 'false'"
+                                class="w-full bg-gray-50 border rounded-2xl py-4 px-6 focus:outline-none focus:ring-2 transition"
+                                :class="securityErrors.currentPassword ? 'border-red-200 focus:ring-red-200' : 'border-transparent focus:ring-red-500'">
+                            <p v-if="securityErrors.currentPassword" class="text-xs text-red-500 px-1">
+                                {{ securityErrors.currentPassword }}
+                            </p>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label for="profileNewPassword"
+                                class="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">新密码</label>
+                            <input id="profileNewPassword" type="password" v-model="passForm.newPassword"
+                                autocomplete="new-password" minlength="8" @input="handleNewPasswordInput"
+                                @blur="validateNewPassword(true)" placeholder="至少 8 位"
+                                :aria-invalid="securityErrors.newPassword ? 'true' : 'false'"
+                                class="w-full bg-gray-50 border rounded-2xl py-4 px-6 focus:outline-none focus:ring-2 transition"
+                                :class="securityErrors.newPassword ? 'border-red-200 focus:ring-red-200' : 'border-transparent focus:ring-red-500'">
+                            <p v-if="securityErrors.newPassword" class="text-xs text-red-500 px-1">{{
+                                securityErrors.newPassword }}</p>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label for="profileConfirmPassword"
+                                class="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">确认新密码</label>
+                            <input id="profileConfirmPassword" type="password" v-model="passForm.confirmPassword"
+                                autocomplete="new-password" minlength="8" @input="handleConfirmPasswordInput"
+                                @blur="validateConfirmPassword(true)" placeholder="再次输入新密码"
+                                :aria-invalid="securityErrors.confirmPassword ? 'true' : 'false'"
+                                class="w-full bg-gray-50 border rounded-2xl py-4 px-6 focus:outline-none focus:ring-2 transition"
+                                :class="securityErrors.confirmPassword ? 'border-red-200 focus:ring-red-200' : 'border-transparent focus:ring-red-500'">
+                            <p v-if="securityErrors.confirmPassword" class="text-xs text-red-500 px-1">
+                                {{ securityErrors.confirmPassword }}
+                            </p>
+                        </div>
 
-                        <button @click="updatePassword" :disabled="isUpdatingPass"
+                        <button @click="updatePassword" :disabled="isUpdatingPass || !isPasswordFormValid"
                             class="w-full bg-gray-800 text-white py-4 rounded-2xl text-sm font-black shadow-lg shadow-gray-200 disabled:opacity-50 active:scale-95 transition">
                             <span v-if="!isUpdatingPass">修改登录密码</span>
                             <span v-else><i class="fa fa-spinner fa-spin mr-2"></i>同步中...</span>
@@ -170,10 +210,21 @@
                             <input type="email" :value="user?.email" disabled
                                 class="w-full bg-gray-50/50 border-none rounded-2xl py-4 px-6 text-gray-400 font-bold cursor-not-allowed">
                         </div>
-                        <input type="email" v-model="emailForm.newEmail" placeholder="新邮箱地址"
-                            class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-blue-500">
+                        <div class="space-y-1.5">
+                            <label for="profileNewEmail"
+                                class="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">新邮箱</label>
+                            <input id="profileNewEmail" type="email" v-model="emailForm.newEmail"
+                                placeholder="name@example.com" autocomplete="email" inputmode="email"
+                                autocapitalize="none" spellcheck="false" maxlength="120" @input="handleNewEmailInput"
+                                @blur="validateNewEmail(true)"
+                                :aria-invalid="securityErrors.newEmail ? 'true' : 'false'"
+                                class="w-full bg-gray-50 border rounded-2xl py-4 px-6 focus:outline-none focus:ring-2 transition"
+                                :class="securityErrors.newEmail ? 'border-red-200 focus:ring-red-200' : 'border-transparent focus:ring-blue-500'">
+                            <p v-if="securityErrors.newEmail" class="text-xs text-red-500 px-1">{{
+                                securityErrors.newEmail }}</p>
+                        </div>
 
-                        <button @click="changeEmail" :disabled="isChangingEmail"
+                        <button @click="changeEmail" :disabled="isChangingEmail || !isNewEmailValid"
                             class="w-full bg-blue-600 text-white py-4 rounded-2xl text-sm font-black shadow-lg shadow-blue-100 disabled:opacity-50 active:scale-95 transition">
                             <span v-if="!isChangingEmail">发送验证邮件</span>
                             <span v-else><i class="fa fa-spinner fa-spin mr-2"></i>发送中...</span>
@@ -196,21 +247,6 @@
                 </div>
 
                 <div class="space-y-4">
-                    <a href="https://github.com/txdier/MyFlowerPots_by_cf" target="_blank"
-                        class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl active:bg-gray-100 transition border border-gray-50">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
-                                <i class="fa fa-github text-xl text-gray-800"></i>
-                            </div>
-                            <div class="flex flex-col">
-                                <span class="text-xs font-black text-gray-800">开源仓库</span>
-                                <span
-                                    class="text-[10px] text-gray-400 font-medium truncate max-w-[180px]">txdier/MyFlowerPots_by_cf</span>
-                            </div>
-                        </div>
-                        <i class="fa fa-external-link-alt text-[10px] text-gray-300"></i>
-                    </a>
-
                     <a href="mailto:support@kaside365.com?subject=My Flower Pots 反馈与支持"
                         class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl active:bg-gray-100 transition border border-gray-50">
                         <div class="flex items-center gap-3">
@@ -261,10 +297,12 @@
     </div>
 
     <script>
-        const { createApp, ref, reactive, onMounted } = Vue;
+        const { createApp, ref, reactive, onMounted, computed } = Vue;
 
         createApp({
             setup() {
+                const formUtils = window.MyFlowerPotsFormUtils;
+                const nav = window.MyFlowerPotsNavigation;
                 const user = ref(null);
                 const activeTab = ref('profile');
                 const isUpdatingProfile = ref(false);
@@ -286,6 +324,12 @@
                     newPassword: '',
                     confirmPassword: ''
                 });
+                const securityErrors = reactive({
+                    currentPassword: '',
+                    newPassword: '',
+                    confirmPassword: '',
+                    newEmail: ''
+                });
 
                 const emailForm = reactive({
                     newEmail: ''
@@ -293,6 +337,19 @@
 
                 const isChangingEmail = ref(false);
                 const isSendingVerificationEmail = ref(false);
+                const isPasswordFormValid = computed(() =>
+                    !!passForm.currentPassword &&
+                    formUtils.isValidPassword(passForm.newPassword) &&
+                    !!passForm.confirmPassword &&
+                    passForm.newPassword === passForm.confirmPassword
+                );
+                const isNewEmailValid = computed(() => {
+                    const normalizedNextEmail = formUtils.normalizeEmail(emailForm.newEmail);
+                    const normalizedCurrentEmail = formUtils.normalizeEmail(user.value?.email || '');
+                    return !!normalizedNextEmail &&
+                        formUtils.isValidEmail(normalizedNextEmail) &&
+                        normalizedNextEmail !== normalizedCurrentEmail;
+                });
 
                 const showToast = (message, type = 'success') => {
                     toast.value = { show: true, message, type };
@@ -302,17 +359,42 @@
                     }, 2200);
                 };
 
+                const redirectToProfileGuide = (error, options = {}) => {
+                    nav.redirectForApiError(error, {
+                        from: 'profile',
+                        redirect: 'profile.html',
+                        authType: 'login_required',
+                        forbiddenType: 'forbidden',
+                        notFoundType: 'not_found',
+                        ...options
+                    }, { replace: true });
+                };
+
+                const handleProfileAuthExpired = (event) => {
+                    nav.redirectToSessionExpired(event.detail?.message, {
+                        from: 'profile',
+                        redirect: 'profile.html',
+                        source: 'auth'
+                    }, { replace: true });
+                };
+
                 const init = async () => {
                     try {
                         const initRes = await apiClient.getCurrentUser();
                         if (initRes.success) {
                             user.value = initRes.user;
-                            userForm.displayName = initRes.user.displayName || '';
+                            userForm.displayName = formUtils.normalizeSingleLineText(initRes.user.displayName || '');
                         } else {
-                            window.location.href = 'index.html';
+                            nav.redirectToLoginRequired({
+                                from: 'profile',
+                                redirect: 'profile.html',
+                                message: '请先登录后继续查看个人资料。'
+                            }, { replace: true });
                         }
                     } catch (e) {
-                        window.location.href = 'index.html';
+                        redirectToProfileGuide(e, {
+                            message: e?.message || '个人资料暂时无法加载。'
+                        });
                     }
                 };
 
@@ -352,6 +434,7 @@
                 const updateProfile = async () => {
                     try {
                         isUpdatingProfile.value = true;
+                        userForm.displayName = formUtils.normalizeSingleLineText(userForm.displayName);
                         let avatarUrl = user.value.avatarUrl;
 
                         // 1. 上传新头像（已由 onAvatarSelected 预先压缩）
@@ -384,16 +467,109 @@
                     }
                 };
 
+                const resetSecurityStatus = () => {
+                    securityStatus.message = '';
+                    securityStatus.type = 'error';
+                };
+
+                const validateCurrentPassword = (showRequired = false) => {
+                    securityErrors.currentPassword = passForm.currentPassword
+                        ? ''
+                        : (showRequired ? '请输入当前密码' : '');
+                    return !securityErrors.currentPassword;
+                };
+
+                const validateNewPassword = (showRequired = false) => {
+                    securityErrors.newPassword = formUtils.getPasswordError(passForm.newPassword, {
+                        required: showRequired,
+                        requiredMessage: '请输入新密码',
+                        tooShortMessage: '新密码至少 8 位'
+                    });
+                    return !securityErrors.newPassword;
+                };
+
+                const validateConfirmPassword = (showRequired = false) => {
+                    if (!passForm.confirmPassword) {
+                        securityErrors.confirmPassword = showRequired ? '请再次输入新密码' : '';
+                        return !securityErrors.confirmPassword;
+                    }
+                    securityErrors.confirmPassword = passForm.newPassword === passForm.confirmPassword
+                        ? ''
+                        : '两次输入的新密码不一致';
+                    return !securityErrors.confirmPassword;
+                };
+
+                const validateNewEmail = (showRequired = false) => {
+                    emailForm.newEmail = formUtils.normalizeEmail(emailForm.newEmail);
+                    securityErrors.newEmail = formUtils.getEmailError(emailForm.newEmail, {
+                        required: showRequired,
+                        requiredMessage: '请输入新邮箱地址'
+                    });
+                    if (!securityErrors.newEmail) {
+                        const normalizedCurrentEmail = formUtils.normalizeEmail(user.value?.email || '');
+                        if (emailForm.newEmail === normalizedCurrentEmail) {
+                            securityErrors.newEmail = '新邮箱不能与当前邮箱相同';
+                        }
+                    }
+                    return !securityErrors.newEmail;
+                };
+
+                const handleCurrentPasswordInput = () => {
+                    resetSecurityStatus();
+                    if (!passForm.currentPassword) {
+                        securityErrors.currentPassword = '';
+                        return;
+                    }
+                    validateCurrentPassword(false);
+                };
+
+                const handleNewPasswordInput = () => {
+                    resetSecurityStatus();
+                    validateNewPassword(false);
+                    if (passForm.confirmPassword) {
+                        validateConfirmPassword(false);
+                    } else {
+                        securityErrors.confirmPassword = '';
+                    }
+                };
+
+                const handleConfirmPasswordInput = () => {
+                    resetSecurityStatus();
+                    validateConfirmPassword(false);
+                };
+
+                const handleNewEmailInput = () => {
+                    resetSecurityStatus();
+                    if (!emailForm.newEmail) {
+                        securityErrors.newEmail = '';
+                        return;
+                    }
+                    validateNewEmail(false);
+                };
+
+                const focusFieldById = (elementId) => {
+                    const input = document.getElementById(elementId);
+                    if (typeof input?.focus === 'function') {
+                        input.focus();
+                    }
+                };
+
                 const updatePassword = async () => {
-                    if (passForm.newPassword !== passForm.confirmPassword) {
-                        securityStatus.message = '两次输入的密码不一致，请重新检查。';
+                    resetSecurityStatus();
+                    const currentPasswordValid = validateCurrentPassword(true);
+                    const newPasswordValid = validateNewPassword(true);
+                    const confirmPasswordValid = validateConfirmPassword(true);
+
+                    if (!currentPasswordValid || !newPasswordValid || !confirmPasswordValid) {
+                        securityStatus.message = '请先修正密码输入中的问题。';
                         securityStatus.type = 'error';
-                        showToast('两次输入的密码不一致', 'error');
+                        if (!currentPasswordValid) focusFieldById('profileCurrentPassword');
+                        else if (!newPasswordValid) focusFieldById('profileNewPassword');
+                        else if (!confirmPasswordValid) focusFieldById('profileConfirmPassword');
                         return;
                     }
                     try {
                         isUpdatingPass.value = true;
-                        securityStatus.message = '';
                         const res = await apiClient.request('/api/auth/password', {
                             method: 'PUT',
                             body: {
@@ -404,6 +580,9 @@
                         if (res.success) {
                             securityStatus.message = '密码修改成功，即将退出并返回首页。';
                             securityStatus.type = 'success';
+                            securityErrors.currentPassword = '';
+                            securityErrors.newPassword = '';
+                            securityErrors.confirmPassword = '';
                             showToast('密码修改成功，请重新登录');
                             setTimeout(async () => {
                                 await apiClient.logout();
@@ -420,12 +599,16 @@
                 };
 
                 const changeEmail = async () => {
-                    if (!emailForm.newEmail) {
-                        showToast('请输入新邮箱地址', 'error');
+                    resetSecurityStatus();
+                    if (!validateNewEmail(true)) {
+                        securityStatus.message = '请先填写有效的新邮箱地址。';
+                        securityStatus.type = 'error';
+                        focusFieldById('profileNewEmail');
                         return;
                     }
                     try {
                         isChangingEmail.value = true;
+                        emailForm.newEmail = formUtils.normalizeEmail(emailForm.newEmail);
                         const res = await apiClient.request('/api/auth/change-email', {
                             method: 'POST',
                             body: {
@@ -435,6 +618,7 @@
                         if (res.success) {
                             showToast('验证邮件已发送到新邮箱，请查收并点击链接完成验证。');
                             emailForm.newEmail = '';
+                            securityErrors.newEmail = '';
                         }
                     } catch (e) {
                         showToast('发送失败: ' + e.message, 'error');
@@ -485,12 +669,16 @@
 
                 const goBack = () => window.location.href = 'index.html';
 
+                window.addEventListener('auth:expired', handleProfileAuthExpired);
+
                 onMounted(init);
 
                 return {
                     user, activeTab, userForm, passForm, emailForm, isUpdatingProfile, isUpdatingPass, isChangingEmail, isSendingVerificationEmail,
-                    isLoggingOut, showLogoutConfirm, securityStatus, toast,
-                    onAvatarSelected, updateProfile, updatePassword, changeEmail, sendVerificationEmail, confirmLogout, goBack, imgUrl
+                    isLoggingOut, showLogoutConfirm, securityStatus, securityErrors, toast, isPasswordFormValid, isNewEmailValid,
+                    onAvatarSelected, updateProfile, updatePassword, changeEmail, sendVerificationEmail, confirmLogout, goBack, imgUrl,
+                    validateCurrentPassword, validateNewPassword, validateConfirmPassword, validateNewEmail,
+                    handleCurrentPasswordInput, handleNewPasswordInput, handleConfirmPasswordInput, handleNewEmailInput
                 };
             }
         }).mount('#app');

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
@@ -25,7 +25,7 @@
 
     <!-- 配置脚本 -->
     <script src="js/config.js?v=20260111"></script>
-    <script src="js/api-client.js?v=20260111"></script>
+    <script src="js/api-client.js?v=20260415-1"></script>
 </head>
 
 <body class="bg-gray-50">
@@ -176,6 +176,7 @@
 
         createApp({
             setup() {
+                const nav = window.MyFlowerPotsNavigation;
                 const isLoading = ref(true);
                 const isSaving = ref(false);
                 const error = ref(null);
@@ -315,9 +316,29 @@
                             await loadPotInfo(potId.value);
                             await loadCareTypeOptions(potId.value);
                         } else {
-                            error.value = '参数缺失，无法操作';
+                            nav.redirectToError({
+                                type: 'not_found',
+                                from: 'care-record',
+                                redirect: 'index.html',
+                                message: '缺少花盆参数，无法填写养护记录。'
+                            }, { replace: true });
+                            return;
                         }
                     } catch (err) {
+                        if (['auth', 'forbidden', 'not_found'].includes(nav.classifyApiError(err))) {
+                            const redirect = recordId.value
+                                ? `care-record.html?id=${encodeURIComponent(recordId.value)}`
+                                : `care-record.html?potId=${encodeURIComponent(potId.value || '')}`;
+                            nav.redirectForApiError(err, {
+                                from: 'care-record',
+                                redirect,
+                                authType: 'login_required',
+                                forbiddenType: 'forbidden',
+                                notFoundType: 'not_found',
+                                message: err.message || '养护记录暂时无法加载。'
+                            }, { replace: true });
+                            return;
+                        }
                         error.value = '加载数据失败';
                     } finally {
                         isLoading.value = false;
@@ -483,6 +504,20 @@
                         }
                     } catch (err) {
                         console.error('保存失败:', err);
+                        if (['auth', 'forbidden', 'not_found'].includes(nav.classifyApiError(err))) {
+                            const redirect = recordId.value
+                                ? `care-record.html?id=${encodeURIComponent(recordId.value)}`
+                                : `care-record.html?potId=${encodeURIComponent(potId.value || '')}`;
+                            nav.redirectForApiError(err, {
+                                from: 'care-record',
+                                redirect,
+                                authType: 'session_expired',
+                                forbiddenType: 'forbidden',
+                                notFoundType: 'not_found',
+                                message: err.message || '当前养护记录暂时无法继续保存。'
+                            }, { replace: true });
+                            return;
+                        }
                         showToast(`保存失败: ${err.message || '未知错误'}`, 'error');
                     } finally {
                         isSaving.value = false;
@@ -509,6 +544,17 @@
                     const date = new Date(d);
                     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
                 };
+
+                window.addEventListener('auth:expired', (event) => {
+                    const redirect = recordId.value
+                        ? `care-record.html?id=${encodeURIComponent(recordId.value)}`
+                        : `care-record.html?potId=${encodeURIComponent(potId.value || '')}`;
+                    nav.redirectToSessionExpired(event.detail?.message, {
+                        from: 'care-record',
+                        redirect,
+                        source: 'auth'
+                    }, { replace: true });
+                });
 
                 onMounted(init);
 

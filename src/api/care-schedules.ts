@@ -21,6 +21,8 @@ export async function handleCareSchedulesRequest(
         return errorResponse('Authentication required', 401);
     }
 
+    await ensureCareSchedulesTable(env);
+
     // GET /api/care-schedules - 获取用户所有养护计划
     if (request.method === 'GET' && path === '/api/care-schedules') {
         return handleGetAllSchedules(env, userId);
@@ -55,6 +57,27 @@ export async function handleCareSchedulesRequest(
     }
 
     return errorResponse('Not Found', 404);
+}
+
+async function ensureCareSchedulesTable(env: any): Promise<void> {
+    const statements = [
+        `CREATE TABLE IF NOT EXISTS care_schedules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pot_id TEXT NOT NULL,
+            care_type TEXT NOT NULL,
+            interval_days INTEGER NOT NULL,
+            custom_action TEXT,
+            enabled INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        )`,
+        `CREATE INDEX IF NOT EXISTS idx_care_schedules_pot ON care_schedules(pot_id)`,
+        `CREATE INDEX IF NOT EXISTS idx_care_schedules_enabled ON care_schedules(enabled)`
+    ];
+
+    for (const statement of statements) {
+        await env.DB.prepare(statement).run();
+    }
 }
 
 // 获取用户所有养护计划
@@ -102,27 +125,41 @@ async function handleGetSchedulesByPot(env: any, userId: string, potId: string):
 async function handleGetReminders(env: any, userId: string): Promise<Response> {
     // 查询所有启用的养护计划，计算是否到期
     const { results } = await env.DB.prepare(`
+    WITH schedule_base AS (
+      SELECT 
+        cs.id as schedule_id,
+        cs.care_type,
+        cs.interval_days,
+        cs.custom_action,
+        p.id as pot_id,
+        p.name as pot_name,
+        p.image_url as pot_image,
+        p.last_care,
+        COALESCE(
+          NULLIF(p.last_care, ''),
+          NULLIF(p.plant_date, ''),
+          date('now', 'localtime')
+        ) as reminder_start_date
+      FROM care_schedules cs
+      JOIN pots p ON cs.pot_id = p.id
+      WHERE (p.user_id = ? OR p.id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?))
+        AND cs.enabled = 1
+    )
     SELECT 
-      cs.id as schedule_id,
-      cs.care_type,
-      cs.interval_days,
-      cs.custom_action,
-      p.id as pot_id,
-      p.name as pot_name,
-      p.image_url as pot_image,
-      p.last_care,
-      CASE 
-        WHEN p.last_care IS NULL THEN 999
-        ELSE julianday('now') - julianday(p.last_care)
-      END as days_since_care
-    FROM care_schedules cs
-    JOIN pots p ON cs.pot_id = p.id
-    WHERE (p.user_id = ? OR p.id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?))
-      AND cs.enabled = 1
-      AND (
-        p.last_care IS NULL 
-        OR julianday('now') - julianday(p.last_care) >= cs.interval_days
-      )
+      schedule_id,
+      care_type,
+      interval_days,
+      custom_action,
+      pot_id,
+      pot_name,
+      pot_image,
+      last_care,
+      reminder_start_date,
+      julianday(date('now', 'localtime')) - julianday(
+        reminder_start_date
+      ) as days_since_care
+    FROM schedule_base
+    WHERE julianday(date('now', 'localtime')) - julianday(reminder_start_date) >= interval_days
     ORDER BY days_since_care DESC
   `).bind(userId, userId).all();
 
@@ -137,6 +174,7 @@ async function handleGetReminders(env: any, userId: string): Promise<Response> {
         intervalDays: r.interval_days,
         daysSinceCare: Math.floor(r.days_since_care),
         lastCare: r.last_care,
+        reminderStartDate: r.reminder_start_date,
         isOverdue: r.days_since_care >= r.interval_days
     }));
 
@@ -158,10 +196,18 @@ async function handleCreateSchedule(request: Request, env: any, userId: string):
             enabled?: boolean;
         };
 
-        const { potId, careType, intervalDays, customAction, enabled = true } = body;
+        const potId = String(body.potId || '').trim();
+        const careType = String(body.careType || '').trim();
+        const intervalDays = Number(body.intervalDays);
+        const customAction = String(body.customAction || '').trim();
+        const { enabled = true } = body;
 
-        if (!potId || !careType || !intervalDays) {
-            return errorResponse('Missing required fields: potId, careType, intervalDays', 400);
+        if (!potId || !careType || !Number.isFinite(intervalDays) || intervalDays < 1) {
+            return errorResponse('缺少必要的提醒信息', 400);
+        }
+
+        if (careType === 'custom' && !customAction) {
+            return errorResponse('请输入自定义提醒名称', 400);
         }
 
         // 验证花盆归属或协作权限
@@ -175,20 +221,29 @@ async function handleCreateSchedule(request: Request, env: any, userId: string):
             return errorResponse('Pot not found or access denied', 404);
         }
 
-        // 检查是否已存在相同类型的计划
-        const existing = await env.DB.prepare(`
+        // 标准提醒同一类型只允许一个；自定义提醒按名称判重，允许添加多个不同名称。
+        const existing = careType === 'custom'
+            ? await env.DB.prepare(`
+      SELECT id FROM care_schedules
+      WHERE pot_id = ?
+        AND care_type = 'custom'
+        AND lower(trim(COALESCE(custom_action, ''))) = lower(?)
+    `).bind(potId, customAction).first()
+            : await env.DB.prepare(`
       SELECT id FROM care_schedules WHERE pot_id = ? AND care_type = ?
     `).bind(potId, careType).first();
 
         if (existing) {
-            return errorResponse('Schedule for this care type already exists', 409);
+            return errorResponse(careType === 'custom'
+                ? '已存在同名自定义提醒'
+                : '该类型提醒已存在', 409);
         }
 
         // 创建计划
         const result = await env.DB.prepare(`
       INSERT INTO care_schedules (pot_id, care_type, interval_days, custom_action, enabled)
       VALUES (?, ?, ?, ?, ?)
-    `).bind(potId, careType, intervalDays, customAction || null, enabled ? 1 : 0).run();
+    `).bind(potId, careType, intervalDays, careType === 'custom' ? customAction : null, enabled ? 1 : 0).run();
 
         return jsonResponse({
             success: true,

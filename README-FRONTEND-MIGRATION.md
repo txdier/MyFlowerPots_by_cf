@@ -118,8 +118,8 @@ frontend/
 
 当前前端状态管理的关键点：
 
-- 认证信息保存在 `sessionStorage`
-- `api-client.js` 会自动迁移旧的 `localStorage` 令牌
+- 认证信息保存在 `localStorage`
+- `api-client.js` 会自动迁移旧的 `sessionStorage` 令牌
 - 请求前会检查 JWT 是否即将过期
 - 401 时会尝试调用 `/api/auth/refresh`
 - 刷新失败后会清理认证并触发全局登录过期事件

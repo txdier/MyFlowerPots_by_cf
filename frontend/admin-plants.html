@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
@@ -624,12 +624,13 @@
     </div>
 
     <!-- Scripts -->
-    <script src="js/api-client.js"></script>
+    <script src="js/api-client.js?v=20260415-1"></script>
     <script>
         const { createApp, ref, computed, onMounted, watch } = Vue;
 
         createApp({
             setup() {
+                const nav = window.MyFlowerPotsNavigation;
                 const currentTab = ref('plants'); // 'plants' or 'users'
 
                 // 植物管理相关
@@ -969,7 +970,11 @@
                 const checkAccess = async () => {
                     const token = window.authStorage?.getToken() || null;
                     if (!token) {
-                        window.location.href = 'index.html';
+                        nav.redirectToLoginRequired({
+                            from: 'admin-plants',
+                            redirect: 'admin-plants.html',
+                            message: '请先登录管理员账号后再进入后台。'
+                        }, { replace: true });
                         return;
                     }
 
@@ -979,15 +984,37 @@
                             isCheckingAccess.value = false;
                             fetchPlants();
                         } else {
-                            alert('无管理员权限，即将跳转回主页。错误: ' + (res.message || '未知错误'));
-                            window.location.href = 'index.html';
+                            nav.redirectToAdminRequired({
+                                from: 'admin-plants',
+                                message: res.message || '当前账号没有植物管理后台权限。',
+                                source: 'admin'
+                            }, { replace: true });
                         }
                     } catch (err) {
                         console.error('Access check failed:', err);
-                        alert('权限校验失败: ' + err.message + '\n请检查是否已使用管理员账号登录。');
-                        window.location.href = 'index.html';
+                        if (nav.classifyApiError(err) === 'auth') {
+                            nav.redirectToLoginRequired({
+                                from: 'admin-plants',
+                                redirect: 'admin-plants.html',
+                                message: err.message || '请重新登录管理员账号后再进入后台。'
+                            }, { replace: true });
+                            return;
+                        }
+                        nav.redirectToAdminRequired({
+                            from: 'admin-plants',
+                            message: err.message || '权限校验失败，请确认当前账号具有管理员权限。',
+                            source: 'admin'
+                        }, { replace: true });
                     }
                 };
+
+                window.addEventListener('auth:expired', (event) => {
+                    nav.redirectToSessionExpired(event.detail?.message, {
+                        from: 'admin-plants',
+                        redirect: 'admin-plants.html',
+                        source: 'admin'
+                    }, { replace: true });
+                });
 
                 onMounted(checkAccess);
 

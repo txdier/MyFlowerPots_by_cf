@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
@@ -35,6 +35,15 @@
         [v-cloak] {
             display: none !important;
         }
+        /* 密码管理器自动填充检测：通过 animationstart 事件同步 Vue reactive 状态 */
+        @keyframes loginAutofillDetect {
+            from { opacity: 1; }
+            to   { opacity: 1; }
+        }
+        input:-webkit-autofill {
+            animation-name: loginAutofillDetect;
+            animation-duration: 0.001s;
+        }
     </style>
 
     <!-- Tailwind CSS & Custom Styles (Optimized) -->
@@ -46,7 +55,8 @@
 
     <!-- 配置脚本 -->
     <script src="js/config.js?v=20260118"></script>
-    <script src="js/api-client.js?v=20260407"></script>
+    <script src="js/api-client.js?v=20260415-1"></script>
+    <script src="js/form-utils.js?v=20260413"></script>
     <script src="js/clipboard.js?v=20260407-2"></script>
     <!-- SortableJS -->
     <script src="js/Sortable.min.js"></script>
@@ -55,8 +65,8 @@
 <body class="bg-gray-50 pb-24">
     <div id="app" v-cloak>
         <!-- 顶部导航栏 (全宽分布) -->
-	        <header class="header bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-50 h-16 w-full"
-                :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
+        <header class="header bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-50 h-16 w-full"
+            :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <div class="container relative flex justify-between items-center h-full">
                 <!-- 1. 左侧：管理模式 -->
                 <div class="flex items-center gap-2">
@@ -171,8 +181,36 @@
             </div>
         </header>
 
-	        <div v-if="careReminders.length > 0" class="container mt-2"
-                :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
+        <div v-if="entryNotice.show" class="container mt-3" :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
+            <div class="flex items-start gap-3 rounded-xl border px-4 py-3 shadow-sm transition"
+                :class="entryNoticeClass">
+                <i class="fa mt-0.5 text-sm" :class="entryNotice.icon"></i>
+                <div class="min-w-0 flex-1">
+                    <div class="text-sm font-black">{{ entryNotice.title }}</div>
+                    <p class="mt-1 text-xs leading-6 opacity-90">{{ entryNotice.message }}</p>
+                </div>
+                <button @click="dismissEntryNotice"
+                    class="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg transition active:scale-95">
+                    <i class="fa fa-times text-xs"></i>
+                </button>
+            </div>
+        </div>
+
+        <div v-if="showCareRemindersSkeleton" class="container mt-2"
+            :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 animate-pulse">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-2xl bg-orange-100"></div>
+                    <div class="flex-1 space-y-2">
+                        <div class="h-3.5 w-24 bg-gray-200 rounded"></div>
+                        <div class="h-3 w-40 max-w-full bg-gray-100 rounded"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="careReminders.length > 0" class="container mt-2"
+            :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <button @click="showRemindersExpanded = !showRemindersExpanded"
                 class="w-full py-1.5 text-center text-gray-700 transition active:scale-95">
                 <span class="inline-flex items-center gap-2">
@@ -183,9 +221,8 @@
             </button>
         </div>
 
-	        <div v-if="careReminders.length > 0 && showRemindersExpanded"
-                class="container mt-2 animate-fade-in"
-                :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
+        <div v-if="careReminders.length > 0 && showRemindersExpanded" class="container mt-2 animate-fade-in"
+            :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div class="divide-y divide-gray-50 max-h-60 overflow-y-auto">
                     <div v-for="group in groupedReminders" :key="group.potId" @click.stop="goToPotDetail(group.potId)"
@@ -249,7 +286,7 @@
             </div>
         </div>
 
-	        <main class="container" :class="careReminders.length > 0 ? 'mt-6' : 'mt-2.5'">
+        <main class="container" :class="hasTopReminderBlock ? 'mt-6' : 'mt-2.5'">
             <div v-if="isLoading" class="flex flex-col items-center justify-center py-20">
                 <div class="spinner mb-4"></div>
                 <p class="text-gray-400 text-sm">正在搬运您的花盆...</p>
@@ -307,8 +344,7 @@
                                     </div>
                                 </div>
 
-                                <button v-if="!isEditMode" @click.stop.prevent="openPotActionSheet(pot)"
-                                    type="button"
+                                <button v-if="!isEditMode" @click.stop.prevent="openPotActionSheet(pot)" type="button"
                                     class="absolute top-3 right-3 z-20 w-9 h-9 text-gray-400 flex items-center justify-center transition active:scale-95 hover:text-gray-600">
                                     <i class="fa fa-ellipsis-h text-sm"></i>
                                 </button>
@@ -369,9 +405,9 @@
         </main>
 
         <!-- 底部悬浮操作栏 -->
-		        <div v-if="pots.length > 0"
-		            class="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[650px] z-40 px-6 pointer-events-none"
-	                :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
+        <div v-if="pots.length > 0"
+            class="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[650px] z-40 px-6 pointer-events-none"
+            :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <div class="flex justify-center pointer-events-auto">
                 <!-- 正常模式：添加花盆 -->
                 <button v-if="!isEditMode" @click="goAddPot"
@@ -412,13 +448,37 @@
 
                     <h3 class="text-2xl font-black text-gray-800 mb-2">欢迎回来</h3>
                     <p class="text-gray-400 text-sm mb-8">{{ loginModalLead }}</p>
-                    <form @submit.prevent="handleLogin" class="space-y-4">
-                        <input type="email" id="loginEmail" name="loginEmail" autocomplete="username"
-                            v-model="loginForm.email" placeholder="电子邮箱" required
-                            class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
-                        <input type="password" id="loginPassword" name="loginPassword" autocomplete="current-password"
-                            v-model="loginForm.password" placeholder="密码" required
-                            class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
+                    <form @submit.prevent="handleLogin" @focusin="scheduleLoginAutofillSync" @click="scheduleLoginAutofillSync" autocomplete="on" class="space-y-4">
+                        <div class="space-y-1.5">
+                            <label for="loginEmail"
+                                class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
+                            <input type="email" id="loginEmail" name="email" autocomplete="username" inputmode="email"
+                                autocapitalize="none" spellcheck="false" maxlength="120" @input="handleLoginEmailInput"
+                                @change="syncLoginFormFromDom" @blur="validateLoginEmail(true)"
+                                @animationstart="syncLoginFormFromDom" v-model="loginForm.email" placeholder="name@example.com"
+                                required :aria-invalid="loginErrors.email ? 'true' : 'false'"
+                                class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                :class="loginErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                            <p v-if="loginErrors.email" class="text-xs text-red-500 px-1">{{ loginErrors.email }}</p>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label for="loginPassword"
+                                class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">密码</label>
+                            <input type="password" id="loginPassword" name="password" autocomplete="current-password"
+                                autocapitalize="none" spellcheck="false" @input="handleLoginPasswordInput"
+                                @change="syncLoginFormFromDom" @blur="validateLoginPassword(true)"
+                                @animationstart="syncLoginFormFromDom" v-model="loginForm.password" placeholder="请输入密码"
+                                required :aria-invalid="loginErrors.password ? 'true' : 'false'"
+                                class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                :class="loginErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                            <p v-if="loginErrors.password" class="text-xs text-red-500 px-1">{{ loginErrors.password }}</p>
+                        </div>
+                        <div v-if="loginStatus.message" class="rounded-2xl px-4 py-3 text-xs"
+                            :class="loginStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
+                            <i class="fa mr-1"
+                                :class="loginStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
+                            {{ loginStatus.message }}
+                        </div>
                         <button type="submit" :disabled="isAuthLoading || !isLoginValid"
                             class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                             {{ isAuthLoading ? '登录中...' : '立即登录' }}
@@ -445,32 +505,65 @@
                     <h3 class="text-2xl font-black text-gray-800 mb-2">创建账号</h3>
                     <p class="text-gray-400 text-sm mb-8">{{ registerModalLead }}</p>
                     <form @submit.prevent="handleRegister" class="space-y-4">
-                        <input type="email" id="registerEmail" name="registerEmail" autocomplete="email"
-                            v-model="registerForm.email" placeholder="电子邮箱" required
-                            class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
-                        <input type="text" id="registerNickname" name="registerNickname" autocomplete="nickname"
-                            v-model="registerForm.displayName" placeholder="昵称"
-                            class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
-                        <input type="password" id="registerPassword" name="registerPassword" autocomplete="new-password"
-                            v-model="registerForm.password" placeholder="密码 (至少8位)" required
-                            class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
-                        <div class="relative">
-                            <input type="password" id="registerConfirmPassword" name="registerConfirmPassword"
-                                autocomplete="new-password" v-model="registerForm.confirmPassword" placeholder="确认密码"
-                                required
-                                class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
+                        <div class="space-y-1.5">
+                            <label for="registerEmail"
+                                class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
+                            <input type="email" id="registerEmail" name="email" autocomplete="email" inputmode="email"
+                                autocapitalize="none" spellcheck="false" maxlength="120"
+                                @input="handleRegisterEmailInput" @blur="validateRegisterEmail(true)"
+                                @animationstart="syncRegisterFormFromDom"
+                                v-model="registerForm.email" placeholder="name@example.com" required
+                                :aria-invalid="registerErrors.email ? 'true' : 'false'"
+                                class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                :class="registerErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                            <p v-if="registerErrors.email" class="text-xs text-red-500 px-1">{{ registerErrors.email }}</p>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label for="registerNickname"
+                                class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">昵称
+                                <span class="font-medium normal-case tracking-normal text-gray-300">(选填)</span></label>
+                            <input type="text" id="registerNickname" name="nickname" autocomplete="nickname" maxlength="20"
+                                @input="handleRegisterDisplayNameInput" @blur="normalizeRegisterDisplayName"
+                                v-model="registerForm.displayName" placeholder="给自己起个名字"
+                                class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-green-500 transition">
+                        </div>
+                        <div class="space-y-1.5">
+                            <label for="registerPassword"
+                                class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">密码</label>
+                            <input type="password" id="registerPassword" name="password" autocomplete="new-password"
+                                minlength="8" @input="handleRegisterPasswordInput" @blur="validateRegisterPassword(true)"
+                                @animationstart="syncRegisterFormFromDom" v-model="registerForm.password"
+                                placeholder="至少 8 位" required :aria-invalid="registerErrors.password ? 'true' : 'false'"
+                                class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                :class="registerErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                            <p v-if="registerErrors.password" class="text-xs text-red-500 px-1">{{ registerErrors.password }}</p>
+                        </div>
+                        <div class="relative space-y-1.5">
+                            <label for="registerConfirmPassword"
+                                class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">确认密码</label>
+                            <input type="password" id="registerConfirmPassword" name="confirmPassword"
+                                autocomplete="new-password" minlength="8" @input="handleRegisterConfirmPasswordInput"
+                                @blur="validateRegisterConfirmPassword(true)" @animationstart="syncRegisterFormFromDom"
+                                v-model="registerForm.confirmPassword" placeholder="再次输入密码" required
+                                :aria-invalid="registerErrors.confirmPassword ? 'true' : 'false'"
+                                class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                :class="registerErrors.confirmPassword ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
                             <div v-if="registerForm.password && registerForm.confirmPassword"
                                 class="absolute right-3 top-1/2 transform -translate-y-1/2">
                                 <i v-if="passwordsMatch" class="fa fa-check text-green-500"></i>
                                 <i v-else class="fa fa-times text-red-500"></i>
                             </div>
+                            <p v-if="registerErrors.confirmPassword" class="text-xs text-red-500 px-1">
+                                {{ registerErrors.confirmPassword }}
+                            </p>
                         </div>
-                        <!-- 修复：只在密码不一致且两个密码框都有内容时显示错误提示 -->
-                        <div v-if="registerForm.password && registerForm.confirmPassword && !passwordsMatch"
-                            class="text-red-500 text-sm mt-1 px-2">
-                            两次输入的密码不一致
+                        <div v-if="registerStatus.message" class="rounded-2xl px-4 py-3 text-xs"
+                            :class="registerStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
+                            <i class="fa mr-1"
+                                :class="registerStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
+                            {{ registerStatus.message }}
                         </div>
-                        <button type="submit" :disabled="!isRegisterValid || isAuthLoading"
+                        <button type="submit" :disabled="isAuthLoading || !isRegisterValid"
                             class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                             {{ isAuthLoading ? '注册并合并数据' : '完成注册' }}
                         </button>
@@ -492,12 +585,26 @@
                     <h3 class="text-2xl font-black text-gray-800 mb-2">重置您的密码</h3>
                     <p class="text-gray-400 text-sm mb-8">我们将向您的邮箱发送重置链接</p>
                     <form @submit.prevent="handleForgotPassword" class="space-y-4">
-                        <input type="email" name="email" autocomplete="email" v-model="loginForm.email"
-                            placeholder="电子邮箱" required
-                            class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
-                        <p v-if="loginForm.email && !isForgotPasswordEmailValid" class="text-red-500 text-xs px-4">
-                            请输入正确的邮箱地址
-                        </p>
+                        <div class="space-y-1.5">
+                            <label class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
+                            <input type="email" id="loginEmail" name="email" autocomplete="email" inputmode="email"
+                                autocapitalize="none" spellcheck="false" maxlength="120" v-model="loginForm.email"
+                                @input="handleForgotPasswordEmailInput" @change="syncLoginFormFromDom"
+                                @animationstart="syncLoginFormFromDom"
+                                @blur="validateForgotPasswordEmail(true)" placeholder="name@example.com" required
+                                :aria-invalid="forgotPasswordErrors.email ? 'true' : 'false'"
+                                class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                :class="forgotPasswordErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                            <p v-if="forgotPasswordErrors.email" class="text-red-500 text-xs px-1">
+                                {{ forgotPasswordErrors.email }}
+                            </p>
+                        </div>
+                        <div v-if="forgotPasswordStatus.message" class="rounded-2xl px-4 py-3 text-xs"
+                            :class="forgotPasswordStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
+                            <i class="fa mr-1"
+                                :class="forgotPasswordStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
+                            {{ forgotPasswordStatus.message }}
+                        </div>
                         <button type="submit" :disabled="isAuthLoading || !isForgotPasswordEmailValid"
                             class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                             {{ isAuthLoading ? '发送中...' : '发送重置邮件' }}
@@ -661,7 +768,8 @@
                             <p class="text-xs text-gray-400 mt-0.5">将对选中的 {{ selectedCount }} 个花盆记录同一养护动作</p>
                         </div>
                     </div>
-                    <button type="button" @click.stop.prevent="closeBatchCareModal" class="text-gray-400 hover:text-gray-600 transition">
+                    <button type="button" @click.stop.prevent="closeBatchCareModal"
+                        class="text-gray-400 hover:text-gray-600 transition">
                         <i class="fa fa-times text-xl"></i>
                     </button>
                 </div>
@@ -706,8 +814,7 @@
                         <label class="block text-sm font-bold text-gray-700 mb-2">备注
                             <span class="text-gray-400 font-normal">（可选）</span>
                         </label>
-                        <textarea v-model="batchCareForm.description" id="batchCareDesc"
-                            placeholder="养护备注..." rows="2"
+                        <textarea v-model="batchCareForm.description" id="batchCareDesc" placeholder="养护备注..." rows="2"
                             class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-green-300 resize-none transition"></textarea>
                     </div>
                 </div>
@@ -723,7 +830,8 @@
         </div>
 
         <div v-if="showBatchInviteModal" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click.stop.prevent="closeBatchInviteModal"></div>
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click.stop.prevent="closeBatchInviteModal">
+            </div>
             <div class="relative bg-white w-full max-w-[500px] rounded-3xl shadow-2xl overflow-hidden animate-slide-up">
                 <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50">
                     <div class="flex items-center gap-3 min-w-0">
@@ -734,11 +842,13 @@
                         <div class="min-w-0">
                             <h3 class="text-xl font-black text-gray-800">批量邀请好友</h3>
                             <p class="text-xs text-gray-400 mt-0.5">
-                            将对选中的 {{ selectedOwnedCount }} 个花盆批量发送{{ batchInviteForm.permission === 'viewer' ? '仅查看' : '共同照料' }}邀请
+                                将对选中的 {{ selectedOwnedCount }} 个花盆批量发送{{ batchInviteForm.permission === 'viewer' ? '仅查看'
+                                : '共同照料' }}邀请
                             </p>
                         </div>
                     </div>
-                    <button type="button" @click.stop.prevent="closeBatchInviteModal" class="text-gray-400 hover:text-gray-600 transition">
+                    <button type="button" @click.stop.prevent="closeBatchInviteModal"
+                        class="text-gray-400 hover:text-gray-600 transition">
                         <i class="fa fa-times text-xl"></i>
                     </button>
                 </div>
@@ -812,10 +922,16 @@
                     <div v-if="batchInviteForm.method === 'email'" class="animate-fade-in">
                         <label class="block text-sm font-bold text-gray-700 mb-2">好友邮箱</label>
                         <input v-model="batchInviteForm.email" type="email" placeholder="输入好友注册邮箱"
-                            class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-green-300 transition">
+                            autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="120"
+                            class="w-full bg-gray-50 border rounded-2xl py-3 px-4 text-sm focus:outline-none transition"
+                            :class="batchInviteForm.email.trim() && !isBatchInviteEmailValid ? 'border-red-200 focus:border-red-200' : 'border-gray-100 focus:border-green-300'">
+                        <p v-if="batchInviteForm.email.trim() && !isBatchInviteEmailValid" class="text-[11px] text-red-500 mt-2">
+                            请输入正确的邮箱地址
+                        </p>
                         <p class="text-[11px] text-gray-400 mt-2">会把同样的邀请权限发给这个好友，覆盖当前选中的所有自有花盆。</p>
                     </div>
-                    <div v-else class="rounded-2xl bg-gray-50 px-4 py-3 text-[11px] text-gray-500 leading-relaxed animate-fade-in">
+                    <div v-else
+                        class="rounded-2xl bg-gray-50 px-4 py-3 text-[11px] text-gray-500 leading-relaxed animate-fade-in">
                         系统会优先调起分享面板；如果当前环境不支持，再自动复制批量邀请链接，对方确认后会一次性获得这些花盆的对应权限。
                     </div>
                 </div>
@@ -831,7 +947,8 @@
             </div>
         </div>
 
-        <div v-if="showPotActionSheet && activePotAction" class="fixed inset-0 z-[71] flex items-end justify-center p-4">
+        <div v-if="showPotActionSheet && activePotAction"
+            class="fixed inset-0 z-[71] flex items-end justify-center p-4">
             <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click.stop.prevent="closePotActionSheet"></div>
             <div class="relative w-full max-w-[500px] bg-white rounded-[2rem] shadow-2xl overflow-hidden animate-slide-up"
                 @click.stop @mousedown.stop @touchstart.stop>
@@ -851,7 +968,8 @@
                     <div class="mt-3 bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
                         <button @click="goToPotFromSheet"
                             class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition border-b border-gray-50">
-                            <div class="w-11 h-11 rounded-2xl bg-slate-50 text-slate-500 flex items-center justify-center shrink-0">
+                            <div
+                                class="w-11 h-11 rounded-2xl bg-slate-50 text-slate-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-book-open"></i>
                             </div>
                             <div class="min-w-0">
@@ -863,7 +981,8 @@
                         <button v-if="!activePotAction.is_viewer" @click="goAddCareForPot(activePotAction.id)"
                             class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition"
                             :class="isOwnedPot(activePotAction) ? 'border-b border-gray-50' : ''">
-                            <div class="w-11 h-11 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
+                            <div
+                                class="w-11 h-11 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-tint"></i>
                             </div>
                             <div class="min-w-0">
@@ -874,7 +993,8 @@
 
                         <button v-if="isOwnedPot(activePotAction)" @click="goEditPotFromSheet(activePotAction.id)"
                             class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition border-b border-gray-50">
-                            <div class="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center shrink-0">
+                            <div
+                                class="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-edit"></i>
                             </div>
                             <div class="min-w-0">
@@ -885,7 +1005,8 @@
 
                         <button v-if="isOwnedPot(activePotAction)" @click="openShareSettingsForPot(activePotAction.id)"
                             class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition">
-                            <div class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
+                            <div
+                                class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-share-alt"></i>
                             </div>
                             <div class="min-w-0">
@@ -901,7 +1022,8 @@
                     <div class="mt-3 bg-white rounded-3xl overflow-hidden border border-red-100 shadow-sm">
                         <button v-if="isOwnedPot(activePotAction)" @click="deletePotFromSheet(activePotAction.id)"
                             class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition">
-                            <div class="w-11 h-11 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                            <div
+                                class="w-11 h-11 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-trash-alt"></i>
                             </div>
                             <div class="min-w-0">
@@ -910,9 +1032,11 @@
                             </div>
                         </button>
 
-                        <button v-else-if="activePotAction.is_collaborator" @click="leaveCollaborationFromSheet(activePotAction)"
+                        <button v-else-if="activePotAction.is_collaborator"
+                            @click="leaveCollaborationFromSheet(activePotAction)"
                             class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition">
-                            <div class="w-11 h-11 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
+                            <div
+                                class="w-11 h-11 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-sign-out-alt"></i>
                             </div>
                             <div class="min-w-0">
@@ -923,7 +1047,8 @@
 
                         <button v-else-if="activePotAction.is_viewer" @click="removeViewerPotFromSheet(activePotAction)"
                             class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition">
-                            <div class="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
+                            <div
+                                class="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-eye-slash"></i>
                             </div>
                             <div class="min-w-0">
@@ -938,7 +1063,8 @@
         </div>
 
         <div v-if="showBatchActionSheet" class="fixed inset-0 z-[72] flex items-end justify-center p-4">
-            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click.stop.prevent="closeBatchActionSheet"></div>
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click.stop.prevent="closeBatchActionSheet">
+            </div>
             <div class="relative w-full max-w-[500px] bg-white rounded-[2rem] shadow-2xl overflow-hidden animate-slide-up"
                 @click.stop @mousedown.stop @touchstart.stop>
                 <div class="px-6 pt-6 pb-4 border-b border-gray-50 flex items-start justify-between gap-4">
@@ -961,7 +1087,8 @@
                     <div class="mt-3 bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
                         <button @click="openBatchCareFromSheet"
                             class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition border-b border-gray-50">
-                            <div class="w-11 h-11 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
+                            <div
+                                class="w-11 h-11 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-tint"></i>
                             </div>
                             <div class="min-w-0">
@@ -971,7 +1098,8 @@
                         </button>
                         <button @click="openBatchInviteFromSheet" :disabled="selectedOwnedCount === 0"
                             class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition disabled:opacity-40">
-                            <div class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
+                            <div
+                                class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-user-plus"></i>
                             </div>
                             <div class="min-w-0">
@@ -987,7 +1115,8 @@
                     <div class="mt-3 bg-white rounded-3xl overflow-hidden border border-red-100 shadow-sm">
                         <button @click="deleteSelectedFromSheet" :disabled="selectedOwnedCount === 0"
                             class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition disabled:opacity-40">
-                            <div class="w-11 h-11 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                            <div
+                                class="w-11 h-11 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-trash-alt"></i>
                             </div>
                             <div class="min-w-0">
@@ -1006,6 +1135,8 @@
 
         createApp({
             setup() {
+                const formUtils = window.MyFlowerPotsFormUtils;
+                const nav = window.MyFlowerPotsNavigation;
                 const isLoading = ref(true);
                 const pots = ref([]);
                 const user = ref(null);
@@ -1021,6 +1152,8 @@
                     return '未登录';
                 });
                 const careReminders = ref([]); // 今日待养护
+                const isCareRemindersLoading = ref(false);
+                const showCareRemindersSkeleton = ref(false);
                 const showRemindersExpanded = ref(false); // 默认折叠
                 const isEditMode = ref(false); // 统一管理模式
                 const potsGrid = ref(null);    // 列表容器Ref
@@ -1036,6 +1169,26 @@
                     password: '',
                     confirmPassword: '',
                     displayName: ''
+                });
+                const loginErrors = reactive({ email: '', password: '' });
+                const registerErrors = reactive({ email: '', password: '', confirmPassword: '' });
+                const forgotPasswordErrors = reactive({ email: '' });
+                const loginStatus = reactive({ type: '', message: '' });
+                const registerStatus = reactive({ type: '', message: '' });
+                const forgotPasswordStatus = reactive({ type: '', message: '' });
+                const authIntent = reactive({
+                    notice: '',
+                    open: '',
+                    redirect: '',
+                    message: '',
+                    source: ''
+                });
+                const entryNotice = reactive({
+                    show: false,
+                    tone: 'info',
+                    icon: 'fa-info-circle',
+                    title: '',
+                    message: ''
                 });
                 const unreadCount = ref(0);
                 const showMessageCenter = ref(false);
@@ -1080,29 +1233,28 @@
                 const selectedExcludedCount = computed(() => Math.max(0, selectedCount.value - selectedOwnedCount.value));
 
                 const passwordsMatch = computed(() =>
+                    !!registerForm.password &&
+                    !!registerForm.confirmPassword &&
                     registerForm.password === registerForm.confirmPassword
                 );
 
-                const isForgotPasswordEmailValid = computed(() => {
-                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                    return emailRegex.test(loginForm.email);
-                });
+                const isForgotPasswordEmailValid = computed(() =>
+                    formUtils.isValidEmail(loginForm.email)
+                );
 
                 const isLoginValid = computed(() =>
-                    isForgotPasswordEmailValid.value &&
-                    loginForm.password.trim().length > 0
+                    formUtils.isValidEmail(loginForm.email) &&
+                    loginForm.password.length > 0
                 );
 
                 const isRegisterValid = computed(() =>
-                    registerForm.email &&
-                    registerForm.password.length >= 8 &&
+                    formUtils.isValidEmail(registerForm.email) &&
+                    formUtils.isValidPassword(registerForm.password) &&
+                    !!registerForm.confirmPassword &&
                     passwordsMatch.value
                 );
                 const hasEmailAccount = computed(() => !!(user.value && user.value.userType === 'email'));
-                const isBatchInviteEmailValid = computed(() => {
-                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                    return emailRegex.test(batchInviteForm.email.trim());
-                });
+                const isBatchInviteEmailValid = computed(() => formUtils.isValidEmail(batchInviteForm.email));
                 const canUseNativeShare = computed(() => !!(
                     typeof window !== 'undefined' &&
                     window.isSecureContext !== false &&
@@ -1115,6 +1267,12 @@
                 const registerModalLead = computed(() => batchInviteToken.value
                     ? '注册后即可接受好友发来的批量邀请，并保存到你的花盆列表'
                     : '开始您的智能养花之旅');
+                const entryNoticeClass = computed(() => ({
+                    'bg-amber-50 border-amber-100 text-amber-700': entryNotice.tone === 'warning',
+                    'bg-rose-50 border-rose-100 text-rose-700': entryNotice.tone === 'error',
+                    'bg-blue-50 border-blue-100 text-blue-700': entryNotice.tone === 'info',
+                    'bg-green-50 border-green-100 text-green-700': entryNotice.tone === 'success'
+                }));
                 const hasOverlayModalOpen = computed(() =>
                     isOverlayClosing.value ||
                     showLoginModal.value ||
@@ -1191,8 +1349,12 @@
                     const index = currentSeasonalHeaderIndex.value % pool.length;
                     return pool[index];
                 });
+                const hasTopReminderBlock = computed(() =>
+                    careReminders.value.length > 0 || showCareRemindersSkeleton.value
+                );
                 let overlayCloseTimer = null;
                 let seasonalHeaderRotationTimer = null;
+                let careRemindersSkeletonTimer = null;
 
                 const holdOverlayGuard = () => {
                     isOverlayClosing.value = true;
@@ -1203,6 +1365,24 @@
                         isOverlayClosing.value = false;
                         overlayCloseTimer = null;
                     }, 260);
+                };
+
+                const hideCareRemindersSkeleton = () => {
+                    if (careRemindersSkeletonTimer) {
+                        clearTimeout(careRemindersSkeletonTimer);
+                        careRemindersSkeletonTimer = null;
+                    }
+                    showCareRemindersSkeleton.value = false;
+                };
+
+                const scheduleCareRemindersSkeleton = () => {
+                    hideCareRemindersSkeleton();
+                    careRemindersSkeletonTimer = setTimeout(() => {
+                        careRemindersSkeletonTimer = null;
+                        if (!isLoading.value && isLoggedIn.value && isCareRemindersLoading.value && careReminders.value.length === 0) {
+                            showCareRemindersSkeleton.value = true;
+                        }
+                    }, 450);
                 };
 
                 const getPotOrderStorageKey = () => {
@@ -1305,17 +1485,364 @@
                     return status === 401 || /Authentication required/i.test(message);
                 };
 
+                const clearStatus = (status) => {
+                    status.type = '';
+                    status.message = '';
+                };
+
+                const clearAuthFeedback = () => {
+                    loginErrors.email = '';
+                    loginErrors.password = '';
+                    registerErrors.email = '';
+                    registerErrors.password = '';
+                    registerErrors.confirmPassword = '';
+                    forgotPasswordErrors.email = '';
+                    clearStatus(loginStatus);
+                    clearStatus(registerStatus);
+                    clearStatus(forgotPasswordStatus);
+                };
+
+                const syncLoginFormFromDom = () => {
+                    formUtils.syncFormFieldsFromDom([
+                        { elementId: 'loginEmail', form: loginForm, key: 'email', transform: formUtils.normalizeEmail },
+                        { elementId: 'loginPassword', form: loginForm, key: 'password' }
+                    ]);
+                };
+
+                const syncRegisterFormFromDom = () => {
+                    formUtils.syncFormFieldsFromDom([
+                        { elementId: 'registerEmail', form: registerForm, key: 'email', transform: formUtils.normalizeEmail },
+                        { elementId: 'registerNickname', form: registerForm, key: 'displayName', transform: formUtils.normalizeSingleLineText },
+                        { elementId: 'registerPassword', form: registerForm, key: 'password' },
+                        { elementId: 'registerConfirmPassword', form: registerForm, key: 'confirmPassword' }
+                    ]);
+                };
+
+                let loginAutofillSyncInterval = null;
+                let loginAutofillSyncStopTimer = null;
+
+                const stopLoginAutofillWatcher = () => {
+                    if (loginAutofillSyncInterval) {
+                        window.clearInterval(loginAutofillSyncInterval);
+                        loginAutofillSyncInterval = null;
+                    }
+                    if (loginAutofillSyncStopTimer) {
+                        window.clearTimeout(loginAutofillSyncStopTimer);
+                        loginAutofillSyncStopTimer = null;
+                    }
+                };
+
+                const startLoginAutofillWatcher = (durationMs = 12000) => {
+                    stopLoginAutofillWatcher();
+                    syncLoginFormFromDom();
+                    loginAutofillSyncInterval = window.setInterval(syncLoginFormFromDom, 250);
+                    loginAutofillSyncStopTimer = window.setTimeout(() => {
+                        stopLoginAutofillWatcher();
+                    }, durationMs);
+                };
+
+                const scheduleLoginAutofillSync = async () => {
+                    await nextTick();
+                    startLoginAutofillWatcher();
+                    [80, 250, 800, 1600].forEach(delay => window.setTimeout(syncLoginFormFromDom, delay));
+                };
+
+                const focusFieldById = async (elementId) => {
+                    await nextTick();
+                    const input = document.getElementById(elementId);
+                    if (typeof input?.focus === 'function') {
+                        input.focus();
+                    }
+                };
+
+                const validateLoginEmail = (showRequired = false) => {
+                    loginForm.email = formUtils.normalizeEmail(loginForm.email);
+                    loginErrors.email = formUtils.getEmailError(loginForm.email, { required: showRequired });
+                    return !loginErrors.email;
+                };
+
+                const validateLoginPassword = (showRequired = false) => {
+                    loginErrors.password = loginForm.password
+                        ? ''
+                        : (showRequired ? '请输入密码' : '');
+                    return !loginErrors.password;
+                };
+
+                const validateForgotPasswordEmail = (showRequired = false) => {
+                    loginForm.email = formUtils.normalizeEmail(loginForm.email);
+                    forgotPasswordErrors.email = formUtils.getEmailError(loginForm.email, { required: showRequired });
+                    return !forgotPasswordErrors.email;
+                };
+
+                const validateRegisterEmail = (showRequired = false) => {
+                    registerForm.email = formUtils.normalizeEmail(registerForm.email);
+                    registerErrors.email = formUtils.getEmailError(registerForm.email, { required: showRequired });
+                    return !registerErrors.email;
+                };
+
+                const validateRegisterPassword = (showRequired = false) => {
+                    registerErrors.password = formUtils.getPasswordError(registerForm.password, {
+                        required: showRequired,
+                        requiredMessage: '请输入密码',
+                        tooShortMessage: '密码至少 8 位'
+                    });
+                    return !registerErrors.password;
+                };
+
+                const validateRegisterConfirmPassword = (showRequired = false) => {
+                    if (!registerForm.confirmPassword) {
+                        registerErrors.confirmPassword = showRequired ? '请再次输入密码' : '';
+                        return !registerErrors.confirmPassword;
+                    }
+                    registerErrors.confirmPassword = passwordsMatch.value ? '' : '两次输入的密码不一致';
+                    return !registerErrors.confirmPassword;
+                };
+
+                const normalizeRegisterDisplayName = () => {
+                    registerForm.displayName = formUtils.normalizeSingleLineText(registerForm.displayName);
+                };
+
+                const handleLoginEmailInput = () => {
+                    clearStatus(loginStatus);
+                    if (!loginForm.email) {
+                        loginErrors.email = '';
+                        return;
+                    }
+                    validateLoginEmail(false);
+                };
+
+                const handleLoginPasswordInput = () => {
+                    clearStatus(loginStatus);
+                    if (!loginForm.password) {
+                        loginErrors.password = '';
+                        return;
+                    }
+                    validateLoginPassword(false);
+                };
+
+                const handleForgotPasswordEmailInput = () => {
+                    clearStatus(forgotPasswordStatus);
+                    if (!loginForm.email) {
+                        forgotPasswordErrors.email = '';
+                        return;
+                    }
+                    validateForgotPasswordEmail(false);
+                };
+
+                const handleRegisterEmailInput = () => {
+                    clearStatus(registerStatus);
+                    if (!registerForm.email) {
+                        registerErrors.email = '';
+                        return;
+                    }
+                    validateRegisterEmail(false);
+                };
+
+                const handleRegisterDisplayNameInput = () => {
+                    clearStatus(registerStatus);
+                };
+
+                const handleRegisterPasswordInput = () => {
+                    clearStatus(registerStatus);
+                    validateRegisterPassword(false);
+                    if (registerForm.confirmPassword) {
+                        validateRegisterConfirmPassword(false);
+                    } else {
+                        registerErrors.confirmPassword = '';
+                    }
+                };
+
+                const handleRegisterConfirmPasswordInput = () => {
+                    clearStatus(registerStatus);
+                    validateRegisterConfirmPassword(false);
+                };
+
+                const validateLoginForm = async () => {
+                    syncLoginFormFromDom();
+                    clearStatus(loginStatus);
+
+                    const emailValid = validateLoginEmail(true);
+                    const passwordValid = validateLoginPassword(true);
+
+                    if (!emailValid) {
+                        await focusFieldById('loginEmail');
+                        return false;
+                    }
+
+                    if (!passwordValid) {
+                        await focusFieldById('loginPassword');
+                        return false;
+                    }
+
+                    return true;
+                };
+
+                const validateRegisterForm = async () => {
+                    syncRegisterFormFromDom();
+                    normalizeRegisterDisplayName();
+                    clearStatus(registerStatus);
+
+                    const emailValid = validateRegisterEmail(true);
+                    const passwordValid = validateRegisterPassword(true);
+                    const confirmPasswordValid = validateRegisterConfirmPassword(true);
+
+                    if (!emailValid) {
+                        await focusFieldById('registerEmail');
+                        return false;
+                    }
+
+                    if (!passwordValid) {
+                        await focusFieldById('registerPassword');
+                        return false;
+                    }
+
+                    if (!confirmPasswordValid) {
+                        await focusFieldById('registerConfirmPassword');
+                        return false;
+                    }
+
+                    return true;
+                };
+
+                watch([showLoginModal, showForgotPasswordModal, showRegisterModal], ([loginVisible, forgotVisible, registerVisible]) => {
+                    if (loginVisible || forgotVisible) {
+                        scheduleLoginAutofillSync();
+                    } else {
+                        stopLoginAutofillWatcher();
+                    }
+
+                    if (registerVisible) {
+                        nextTick(() => {
+                            [80, 250, 800, 1600].forEach(delay => window.setTimeout(syncRegisterFormFromDom, delay));
+                        });
+                    }
+                });
+
                 const promptBatchInviteAuth = () => {
+                    clearAuthFeedback();
                     showRegisterModal.value = false;
                     showForgotPasswordModal.value = false;
                     showLoginModal.value = true;
                 };
 
+                const dismissEntryNotice = () => {
+                    entryNotice.show = false;
+                };
+
+                const resolveEntryNotice = (intent) => {
+                    const templates = {
+                        login_required: {
+                            tone: 'warning',
+                            icon: 'fa-sign-in-alt',
+                            title: '请先登录',
+                            message: '登录后继续访问当前内容。'
+                        },
+                        session_expired: {
+                            tone: 'warning',
+                            icon: 'fa-history',
+                            title: '登录已过期',
+                            message: '请重新登录后继续。'
+                        },
+                        forbidden: {
+                            tone: 'warning',
+                            icon: 'fa-shield-alt',
+                            title: '无法访问',
+                            message: '当前账号没有访问权限。'
+                        },
+                        not_found: {
+                            tone: 'info',
+                            icon: 'fa-search',
+                            title: '内容不存在',
+                            message: '内容可能已删除或链接不完整。'
+                        },
+                        link_expired: {
+                            tone: 'info',
+                            icon: 'fa-link',
+                            title: '链接已失效',
+                            message: '请让对方重新发送最新链接。'
+                        },
+                        admin_required: {
+                            tone: 'error',
+                            icon: 'fa-hammer',
+                            title: '需要管理员权限',
+                            message: '请使用管理员账号登录。'
+                        },
+                        server_error: {
+                            tone: 'error',
+                            icon: 'fa-exclamation-triangle',
+                            title: '加载失败',
+                            message: '请稍后重试。'
+                        }
+                    };
+
+                    return templates[intent.notice] || (intent.message
+                        ? {
+                            tone: 'info',
+                            icon: 'fa-info-circle',
+                            title: '页面提示',
+                            message: intent.message
+                        }
+                        : null);
+                };
+
+                const applyAuthIntent = (nextIntent = {}) => {
+                    authIntent.notice = nextIntent.notice || '';
+                    authIntent.open = nextIntent.open || '';
+                    authIntent.redirect = nav?.normalizeAppPath?.(nextIntent.redirect, { fallback: '', allowEmpty: true }) || '';
+                    authIntent.message = nextIntent.message || '';
+                    authIntent.source = nextIntent.source || '';
+
+                    const notice = resolveEntryNotice(authIntent);
+                    if (!notice) {
+                        entryNotice.show = false;
+                        return;
+                    }
+
+                    entryNotice.tone = notice.tone;
+                    entryNotice.icon = notice.icon;
+                    entryNotice.title = notice.title;
+                    entryNotice.message = notice.message;
+                    entryNotice.show = true;
+                };
+
+                const openAuthFromIntent = () => {
+                    if (isLoggedIn.value) return;
+                    clearAuthFeedback();
+                    if (authIntent.open === 'register') {
+                        showLoginModal.value = false;
+                        showForgotPasswordModal.value = false;
+                        showRegisterModal.value = true;
+                        return;
+                    }
+                    if (authIntent.open === 'login') {
+                        showRegisterModal.value = false;
+                        showForgotPasswordModal.value = false;
+                        showLoginModal.value = true;
+                    }
+                };
+
+                const completeAuthSuccess = () => {
+                    dismissEntryNotice();
+                    const target = nav?.normalizeAppPath?.(authIntent.redirect, { fallback: '', allowEmpty: true }) || '';
+                    if (target && target !== nav.APP_PAGES.home) {
+                        window.location.replace(target);
+                        return;
+                    }
+                    location.reload();
+                };
+
                 const init = async () => {
-                    window.addEventListener('auth:expired', () => {
+                    window.addEventListener('auth:expired', (event) => {
                         isLoggedIn.value = false;
                         user.value = null;
                         showUserMenu.value = false;
+                        applyAuthIntent({
+                            notice: 'session_expired',
+                            open: 'login',
+                            redirect: authIntent.redirect,
+                            message: event.detail?.message || '登录状态已失效，请重新登录。',
+                            source: 'auth'
+                        });
                         promptBatchInviteAuth();
                     });
 
@@ -1334,18 +1861,31 @@
                         getInviteSessionId('batch_invite_session_id', batchInviteSessionId);
                     }
 
+                    applyAuthIntent(nav?.readAppIntent?.() || {});
+
                     await checkLoginStatus();
                     const handledBatchInvite = await tryHandleBatchInviteToken();
                     if (handledBatchInvite) return;
+                    openAuthFromIntent();
 
-                    await fetchPots();
+                    const startupTasks = [fetchPots()];
                     if (isLoggedIn.value) {
-                        fetchUnreadCount();
+                        startupTasks.push(fetchUnreadCount());
+                        startupTasks.push(loadCareReminders());
                     }
+                    await Promise.allSettled(startupTasks);
 
                     // 监听登录状态变化，登录后立即刷新未读数
                     watch(isLoggedIn, (val) => {
-                        if (val) fetchUnreadCount();
+                        if (val) {
+                            fetchUnreadCount();
+                            loadCareReminders();
+                            return;
+                        }
+                        unreadCount.value = 0;
+                        careReminders.value = [];
+                        isCareRemindersLoading.value = false;
+                        hideCareRemindersSkeleton();
                     });
                 };
 
@@ -1575,9 +2115,10 @@
                     }
                 };
 
-                const fetchPots = async () => {
+                const fetchPots = async (options = {}) => {
+                    const shouldShowLoading = options.blocking ?? pots.value.length === 0;
                     try {
-                        isLoading.value = true;
+                        if (shouldShowLoading) isLoading.value = true;
                         // 不在初始化时自动 identify
                         const res = await apiClient.getPots();
                         if (res.success) {
@@ -1585,20 +2126,24 @@
                             persistLocalPotOrder();
                             setTimeout(loadHeaderSeasonalReminder, 80);
                         } else {
-                            seasonalHeaderReminder.value = null;
+                            seasonalHeaderReminders.value = [];
                         }
-                        // 同时加载今日待养护
-                        loadCareReminders();
-                    } catch (e) { } finally { isLoading.value = false; }
+                    } catch (e) { } finally {
+                        if (shouldShowLoading) isLoading.value = false;
+                    }
                 };
 
                 const loadCareReminders = async () => {
                     if (!isLoggedIn.value || !apiClient.userId) {
                         careReminders.value = [];
+                        isCareRemindersLoading.value = false;
+                        hideCareRemindersSkeleton();
                         return;
                     }
 
                     try {
+                        isCareRemindersLoading.value = true;
+                        scheduleCareRemindersSkeleton();
                         const res = await apiClient.getCareReminders();
                         if (res.success) {
                             careReminders.value = res.data || [];
@@ -1606,7 +2151,14 @@
                             setTimeout(loadSeasonalTips, 100);
                         }
                     } catch (e) {
-                        console.warn('加载养护提醒失败:', e);
+                        careReminders.value = [];
+                        const message = String(e?.message || '');
+                        if (!message.includes('接口未命中或被静态页面接管') && !message.includes('接口返回了 HTML 页面')) {
+                            console.debug('加载养护提醒失败:', e);
+                        }
+                    } finally {
+                        isCareRemindersLoading.value = false;
+                        hideCareRemindersSkeleton();
                     }
                 };
 
@@ -1616,46 +2168,57 @@
 
                 const handleLogin = async () => {
                     try {
+                        if (!await validateLoginForm()) {
+                            return;
+                        }
                         isAuthLoading.value = true;
+                        clearStatus(loginStatus);
+                        loginForm.email = formUtils.normalizeEmail(loginForm.email);
                         const res = await apiClient.login(loginForm.email, loginForm.password);
-                        if (res.token) location.reload();
-                    } catch (e) { alert('登录失败: ' + e.message); } finally { isAuthLoading.value = false; }
+                        if (res.token) completeAuthSuccess();
+                    } catch (e) {
+                        loginStatus.type = 'error';
+                        loginStatus.message = '登录失败: ' + e.message;
+                    } finally { isAuthLoading.value = false; }
                 };
 
                 const handleForgotPassword = async () => {
-                    if (!loginForm.email) {
-                        alert('请输入您的电子邮箱');
+                    syncLoginFormFromDom();
+                    clearStatus(forgotPasswordStatus);
+                    if (!validateForgotPasswordEmail(true)) {
+                        await focusFieldById('loginEmail');
                         return;
                     }
                     try {
                         isAuthLoading.value = true;
+                        loginForm.email = formUtils.normalizeEmail(loginForm.email);
                         const res = await apiClient.forgotPassword(loginForm.email);
                         if (res.success) {
-                            alert('重置链接已发送到您的邮箱，请检查（包括垃圾箱）。');
+                            forgotPasswordStatus.type = 'success';
+                            forgotPasswordStatus.message = '重置链接已发送到您的邮箱，请检查收件箱和垃圾箱。';
+                            loginStatus.type = 'success';
+                            loginStatus.message = forgotPasswordStatus.message;
                             showForgotPasswordModal.value = false;
+                            showLoginModal.value = true;
                         }
                     } catch (e) {
-                        alert('发送失败: ' + e.message);
+                        forgotPasswordStatus.type = 'error';
+                        forgotPasswordStatus.message = '发送失败: ' + e.message;
                     } finally {
                         isAuthLoading.value = false;
                     }
                 };
 
                 const handleRegister = async () => {
-                    // 前端验证：检查密码是否一致
-                    if (!passwordsMatch.value) {
-                        alert('两次输入的密码不一致，请重新输入');
-                        return;
-                    }
-
-                    // 前端验证：检查密码长度
-                    if (registerForm.password.length < 8) {
-                        alert('密码长度至少需要8位');
+                    if (!await validateRegisterForm()) {
                         return;
                     }
 
                     try {
                         isAuthLoading.value = true;
+                        registerForm.email = formUtils.normalizeEmail(registerForm.email);
+                        normalizeRegisterDisplayName();
+                        clearStatus(registerStatus);
                         const anonymousUserId = window.authStorage?.getUserId() || null;
                         const isAnonymous = !user.value || user.value.userType === 'anonymous';
 
@@ -1668,10 +2231,11 @@
 
                         if (res.success || res.token) {
                             alert(isAnonymous ? '注册成功，您的匿名数据已合并！' : '注册成功！');
-                            location.reload();
+                            completeAuthSuccess();
                         }
                     } catch (e) {
-                        alert('注册失败: ' + e.message);
+                        registerStatus.type = 'error';
+                        registerStatus.message = '注册失败: ' + e.message;
                     } finally {
                         isAuthLoading.value = false;
                     }
@@ -1839,16 +2403,19 @@
                 const confirmDeleteSingle = async (id) => { if (confirm('确定要删除吗？')) { await apiClient.deletePot(id); await fetchPots(); } };
                 const logout = async () => { await apiClient.logout(); location.reload(); };
                 const closeAuthModals = () => {
+                    clearAuthFeedback();
                     showLoginModal.value = false;
                     showRegisterModal.value = false;
                     showForgotPasswordModal.value = false;
                 };
                 const switchToRegister = () => {
+                    clearAuthFeedback();
                     showLoginModal.value = false;
                     showRegisterModal.value = true;
                     showForgotPasswordModal.value = false;
                 };
                 const switchToLogin = () => {
+                    clearAuthFeedback();
                     showRegisterModal.value = false;
                     showLoginModal.value = true;
                     showForgotPasswordModal.value = false;
@@ -1873,6 +2440,7 @@
                 };
 
                 const switchToForgotPassword = () => {
+                    clearAuthFeedback();
                     showLoginModal.value = false;
                     showForgotPasswordModal.value = true;
                 };
@@ -2198,11 +2766,6 @@
                     return getSeasonalActionText(reminder.guideKey, reminder.text, reminder.season);
                 };
                 const toggleSeasonalHeaderReminder = () => {
-                    if (careReminders.value.length > 0) {
-                        showRemindersExpanded.value = !showRemindersExpanded.value;
-                        return;
-                    }
-
                     if (navSeasonalReminder.value?.potId) {
                         goToPotDetail(navSeasonalReminder.value.potId);
                     }
@@ -2311,7 +2874,7 @@
                     try {
                         isBatchInviteLoading.value = true;
                         if (batchInviteForm.method === 'email') {
-                            const email = batchInviteForm.email.trim();
+                            const email = formUtils.normalizeEmail(batchInviteForm.email);
                             if (!isBatchInviteEmailValid.value) {
                                 alert('请输入正确的邮箱地址。');
                                 return;
@@ -2426,7 +2989,7 @@
                         if (res.success) {
                             const msg = res.skipped > 0
                                 ? `已为 ${res.count} 个花盆记录养护（已自动跳过 ${res.skipped} 个无权限的花盆）`
-                                : `✅ 已为 ${res.count} 个花盆记录重护`;
+                                : `✅ 已为 ${res.count} 个花盆记录养护`;
                             alert(msg);
                             showBatchCareModal.value = false;
                             // 退出管理模式并刷新列表
@@ -2446,11 +3009,19 @@
                 onMounted(init);
 
                 return {
-                    isLoading, pots, user, isLoggedIn, userDisplayName, careReminders, groupedReminders, navSeasonalReminder, showRemindersExpanded,
+                    isLoading, pots, user, isLoggedIn, userDisplayName, careReminders, isCareRemindersLoading, showCareRemindersSkeleton, hasTopReminderBlock, groupedReminders, navSeasonalReminder, showRemindersExpanded,
                     ownedPots, collaborativePots, viewerPots,
                     isEditMode, potsGrid, showUserMenu, showLoginModal, showRegisterModal, showForgotPasswordModal, isAuthLoading,
-                    loginForm, registerForm, passwordsMatch, isLoginValid, isRegisterValid, isForgotPasswordEmailValid, allSelected, selectedCount,
+                    entryNotice, entryNoticeClass, dismissEntryNotice,
+                    loginForm, registerForm, loginErrors, registerErrors, forgotPasswordErrors, loginStatus, registerStatus, forgotPasswordStatus,
+                    passwordsMatch, isLoginValid, isRegisterValid, isForgotPasswordEmailValid, allSelected, selectedCount,
                     selectedOwnedCount, selectedExcludedCount, isBatchInviteEmailValid, hasOverlayModalOpen,
+                    syncLoginFormFromDom, syncRegisterFormFromDom, scheduleLoginAutofillSync,
+                    validateLoginEmail, validateLoginPassword, validateForgotPasswordEmail,
+                    validateRegisterEmail, validateRegisterPassword, validateRegisterConfirmPassword,
+                    handleLoginEmailInput, handleLoginPasswordInput, handleForgotPasswordEmailInput,
+                    handleRegisterEmailInput, handleRegisterDisplayNameInput, handleRegisterPasswordInput, handleRegisterConfirmPasswordInput,
+                    normalizeRegisterDisplayName,
                     handleLogin, handleRegister, handleForgotPassword, toggleSelectAll, toggleEditMode, deleteSelectedPots,
                     handleCardClick, confirmDeleteSingle, showPotActionSheet, activePotAction, openPotActionSheet, closePotActionSheet,
                     isOwnedPot, goToPotFromSheet, goEditPotFromSheet, goAddCareForPot, openShareSettingsForPot, deletePotFromSheet,

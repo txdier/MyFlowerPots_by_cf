@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
@@ -27,7 +27,7 @@
 
     <!-- 配置脚本 -->
     <script src="js/config.js?v=20260111"></script>
-    <script src="js/api-client.js?v=20260111"></script>
+    <script src="js/api-client.js?v=20260415-1"></script>
 </head>
 
 <body class="bg-gray-50">
@@ -143,6 +143,7 @@
 
         createApp({
             setup() {
+                const nav = window.MyFlowerPotsNavigation;
                 const isLoading = ref(true);
                 const potId = ref(null);
                 const pot = ref(null);
@@ -165,8 +166,12 @@
                     potId.value = params.get('potId');
 
                     if (!potId.value) {
-                        alert('缺少参数');
-                        window.location.href = 'index.html';
+                        nav.redirectToError({
+                            type: 'not_found',
+                            from: 'all-records',
+                            redirect: 'index.html',
+                            message: '缺少花盆参数，无法加载养护记录。'
+                        }, { replace: true });
                         return;
                     }
 
@@ -177,6 +182,14 @@
                         ]);
                     } catch (e) {
                         console.error(e);
+                        nav.redirectForApiError(e, {
+                            from: 'all-records',
+                            redirect: `all-records.html?potId=${encodeURIComponent(potId.value)}`,
+                            authType: 'login_required',
+                            forbiddenType: 'forbidden',
+                            notFoundType: 'not_found',
+                            message: e.message || '养护记录暂时无法加载。'
+                        }, { replace: true });
                     } finally {
                         isLoading.value = false;
                     }
@@ -247,6 +260,14 @@
                 };
 
                 const goAddCare = () => window.location.href = `care-record.html?potId=${potId.value}`;
+
+                window.addEventListener('auth:expired', (event) => {
+                    nav.redirectToSessionExpired(event.detail?.message, {
+                        from: 'all-records',
+                        redirect: `all-records.html?potId=${encodeURIComponent(potId.value || '')}`,
+                        source: 'auth'
+                    }, { replace: true });
+                });
 
                 const formatDate = (d) => {
                     if (!d) return '';

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
@@ -358,12 +358,13 @@
         </div>
     </div>
 
-    <script src="js/api-client.js"></script>
+    <script src="js/api-client.js?v=20260415-1"></script>
     <script>
         const { createApp, ref, computed, onMounted } = Vue;
 
         createApp({
             setup() {
+                const nav = window.MyFlowerPotsNavigation;
                 const stats = ref([]);
                 const trend = ref([]);
                 const todayVisits = ref(0);
@@ -432,34 +433,45 @@
                 const checkAccess = async () => {
                     try {
                         const token = window.authStorage?.getToken() || null;
-                        if (!token) throw new Error('No token');
+                        if (!token) {
+                            nav.redirectToLoginRequired({
+                                from: 'admin-stats',
+                                redirect: 'admin-stats.html',
+                                message: '请先登录管理员账号后再查看统计。'
+                            }, { replace: true });
+                            return;
+                        }
 
-                        const res = await fetch('/api/admin/check', {
-                            headers: { 'Authorization': `Bearer ${token}` }
-                        });
-
-                        if (!res.ok) throw new Error('Unauthorized');
+                        await apiClient.adminCheck();
 
                         isCheckingAccess.value = false;
                         loadStats();
                     } catch (err) {
                         console.error('Access denied:', err);
-                        window.location.href = '/index.html';
+                        if (nav.classifyApiError(err) === 'auth') {
+                            nav.redirectToLoginRequired({
+                                from: 'admin-stats',
+                                redirect: 'admin-stats.html',
+                                message: err.message || '请重新登录管理员账号后再查看统计。'
+                            }, { replace: true });
+                            return;
+                        }
+                        nav.redirectToAdminRequired({
+                            from: 'admin-stats',
+                            message: err.message || '当前账号没有统计后台权限。',
+                            source: 'admin'
+                        }, { replace: true });
                     }
                 };
 
                 const loadStats = async () => {
                     loading.value = true;
                     try {
-                        const token = window.authStorage?.getToken() || null;
                         let url = '/api/admin/analytics';
                         if (startDate.value && endDate.value) {
                             url += `?startDate=${startDate.value}&endDate=${endDate.value}`;
                         }
-                        const res = await fetch(url, {
-                            headers: { 'Authorization': `Bearer ${token}` }
-                        });
-                        const data = await res.json();
+                        const data = await apiClient.request(url);
                         if (data.success) {
                             stats.value = data.data || [];
                             trend.value = data.trend || [];
@@ -469,11 +481,30 @@
                             throw new Error(data.message);
                         }
                     } catch (err) {
+                        if (['auth', 'forbidden'].includes(nav.classifyApiError(err))) {
+                            nav.redirectForApiError(err, {
+                                from: 'admin-stats',
+                                redirect: 'admin-stats.html',
+                                authType: 'login_required',
+                                forbiddenType: 'admin_required',
+                                message: err.message || '统计数据暂时无法访问。',
+                                source: 'admin'
+                            }, { replace: true });
+                            return;
+                        }
                         showToast('加载失败: ' + err.message, 'fa fa-exclamation-circle');
                     } finally {
                         loading.value = false;
                     }
                 };
+
+                window.addEventListener('auth:expired', (event) => {
+                    nav.redirectToSessionExpired(event.detail?.message, {
+                        from: 'admin-stats',
+                        redirect: 'admin-stats.html',
+                        source: 'admin'
+                    }, { replace: true });
+                });
 
                 const getBarHeight = (count) => {
                     if (trendMax.value === 0) return '2px';

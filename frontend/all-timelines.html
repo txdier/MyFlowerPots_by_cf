@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
@@ -113,14 +113,22 @@
                     <div class="flex justify-between items-center mb-2">
                         <div class="flex items-center gap-2">
                             <span class="text-xs font-black text-gray-400">{{ formatDate(record.date) }}</span>
-                            <span v-if="record.operator_name" class="px-2 py-0.5 bg-gray-100 text-gray-400 text-[9px] font-bold rounded-md">
-                                <i class="fa fa-user-edit mr-0.5"></i> {{ record.operator_name }}
+                            <span v-if="record.operatorName || record.operator_name" class="px-2 py-0.5 bg-gray-100 text-gray-400 text-[9px] font-bold rounded-md">
+                                <i class="fa fa-user-edit mr-0.5"></i> {{ record.operatorName || record.operator_name }}
                             </span>
                         </div>
-                        <button @click="confirmDeleteTimeline(record.id)"
-                            class="text-gray-300 hover:text-red-400 p-1 active:scale-90 transition">
-                            <i class="fa fa-trash-alt text-xs"></i>
-                        </button>
+                        <div v-if="canManageTimelines" class="flex items-center gap-1">
+                            <button @click="openEditTimelineModal(record)"
+                                class="text-gray-300 hover:text-blue-500 p-1 active:scale-90 transition"
+                                title="编辑成长轨迹">
+                                <i class="fa fa-pen text-xs"></i>
+                            </button>
+                            <button @click="confirmDeleteTimeline(record.id)"
+                                class="text-gray-300 hover:text-red-400 p-1 active:scale-90 transition"
+                                title="删除成长轨迹">
+                                <i class="fa fa-trash-alt text-xs"></i>
+                            </button>
+                        </div>
                     </div>
                     <p class="text-sm text-gray-700 mb-3 font-medium">{{ record.description || '这一天，有了新的成长...' }}</p>
 
@@ -135,6 +143,77 @@
                 </div>
             </div>
         </main>
+
+        <!-- 编辑成长轨迹 -->
+        <div v-if="showEditTimelineModal"
+            class="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeEditTimelineModal"></div>
+            <div
+                class="relative bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
+                <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 class="text-xl font-black text-gray-800">编辑成长轨迹</h3>
+                            <p class="text-xs text-gray-400 mt-1">调整日期、文字和照片</p>
+                        </div>
+                        <button @click="closeEditTimelineModal"
+                            class="text-gray-300 hover:text-gray-500 transition active:scale-95">
+                            <i class="fa fa-times text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1">
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">记录日期</label>
+                            <input type="date" v-model="editTimelineForm.date"
+                                class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 font-bold text-gray-800">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">文字说明</label>
+                            <textarea v-model="editTimelineForm.description" rows="3" placeholder="写点什么，记录这一刻的喜悦..."
+                                class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 font-bold text-gray-800 resize-none"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">照片
+                                (多选, 最多9张)</label>
+                            <div class="grid grid-cols-4 gap-2 mt-2">
+                                <div v-for="(img, idx) in editTimelineForm.existingImages" :key="`existing-${idx}-${img}`"
+                                    class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden">
+                                    <img :src="imgUrl(img, 100, 100)" class="w-full h-full object-cover">
+                                    <button @click="removeExistingTimelineImage(idx)"
+                                        class="absolute top-1 right-1 bg-black/50 text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center">
+                                        <i class="fa fa-times"></i>
+                                    </button>
+                                </div>
+                                <div v-for="(img, idx) in editTimelineForm.tempImages" :key="`new-${idx}`"
+                                    class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden">
+                                    <img :src="img.preview" class="w-full h-full object-cover">
+                                    <button @click="removeNewImage(idx)"
+                                        class="absolute top-1 right-1 bg-black/50 text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center">
+                                        <i class="fa fa-times"></i>
+                                    </button>
+                                </div>
+                                <button v-if="editTimelineImageCount() < 9" @click="triggerFileInput"
+                                    class="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-300 hover:border-blue-500 hover:text-blue-500 transition active:scale-95">
+                                    <i class="fa fa-camera text-xl mb-1"></i>
+                                    <span class="text-[8px] font-black uppercase tracking-tighter">添加</span>
+                                </button>
+                            </div>
+                            <input type="file" ref="fileInput" @change="onFilesSelected" multiple accept="image/*"
+                                class="hidden">
+                        </div>
+                    </div>
+                    <div class="mt-10">
+                        <button @click="saveEditedTimeline" :disabled="isSavingTimeline"
+                            class="w-full bg-blue-500 text-white py-4 rounded-2xl text-lg font-black shadow-xl shadow-blue-100 disabled:opacity-50 transition active:scale-[0.98]">
+                            <span v-if="!isSavingTimeline">保存修改</span>
+                            <span v-else><i class="fa fa-spinner fa-spin mr-2"></i>正在同步...</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- 图片全屏画廊 -->
         <div v-if="previewImages.length > 0"
@@ -186,29 +265,48 @@
 
     <script src="js/vue.global.js"></script>
     <script src="js/config.js?v=20260111"></script>
-    <script src="js/api-client.js?v=20260111"></script>
+    <script src="js/api-client.js?v=20260415-1"></script>
 
     <script>
-        const { createApp, ref, onMounted, computed } = Vue;
+        const { createApp, ref, reactive, onMounted, computed } = Vue;
 
         createApp({
             setup() {
+                const nav = window.MyFlowerPotsNavigation;
                 const isLoading = ref(true);
                 const potId = ref(null);
                 const pot = ref(null);
                 const timelineRecords = ref([]);
                 const isTimelineDesc = ref(true);
+                const showEditTimelineModal = ref(false);
+                const isSavingTimeline = ref(false);
+                const fileInput = ref(null);
+                const editTimelineForm = reactive({
+                    id: null,
+                    date: '',
+                    description: '',
+                    existingImages: [],
+                    tempImages: []
+                });
 
                 const previewImages = ref([]);
                 const previewIndex = ref(0);
+                const canManageTimelines = computed(() => !!(
+                    pot.value &&
+                    (pot.value.user_id === apiClient.userId || pot.value.is_collaborator)
+                ));
 
                 const init = async () => {
                     const params = new URLSearchParams(window.location.search);
                     potId.value = params.get('potId');
 
                     if (!potId.value) {
-                        alert('缺少参数');
-                        window.location.href = 'index.html';
+                        nav.redirectToError({
+                            type: 'not_found',
+                            from: 'all-timelines',
+                            redirect: 'index.html',
+                            message: '缺少花盆参数，无法加载成长轨迹。'
+                        }, { replace: true });
                         return;
                     }
 
@@ -219,6 +317,14 @@
                         ]);
                     } catch (e) {
                         console.error(e);
+                        nav.redirectForApiError(e, {
+                            from: 'all-timelines',
+                            redirect: `all-timelines.html?potId=${encodeURIComponent(potId.value)}`,
+                            authType: 'login_required',
+                            forbiddenType: 'forbidden',
+                            notFoundType: 'not_found',
+                            message: e.message || '成长轨迹暂时无法加载。'
+                        }, { replace: true });
                     } finally {
                         isLoading.value = false;
                     }
@@ -247,9 +353,120 @@
                 const confirmDeleteTimeline = async (id) => {
                     if (confirm('确认删除这条生长记录？照片也将一并清理。')) {
                         try {
-                            const res = await apiClient.request(`/api/timelines/${id}`, { method: 'DELETE' });
+                            const res = await apiClient.deleteTimeline(id);
                             if (res.success) await loadTimelineRecords();
                         } catch (e) { alert('删除操作失败'); }
+                    }
+                };
+
+                const editTimelineImageCount = () => editTimelineForm.existingImages.length + editTimelineForm.tempImages.length;
+
+                const resetEditTimelineForm = () => {
+                    editTimelineForm.id = null;
+                    editTimelineForm.date = '';
+                    editTimelineForm.description = '';
+                    editTimelineForm.existingImages = [];
+                    editTimelineForm.tempImages = [];
+                };
+
+                const openEditTimelineModal = (record) => {
+                    editTimelineForm.id = record.id;
+                    editTimelineForm.date = record.date || '';
+                    editTimelineForm.description = record.description || '';
+                    editTimelineForm.existingImages = getImages(record.images);
+                    editTimelineForm.tempImages = [];
+                    showEditTimelineModal.value = true;
+                };
+
+                const closeEditTimelineModal = () => {
+                    if (isSavingTimeline.value) return;
+                    showEditTimelineModal.value = false;
+                    resetEditTimelineForm();
+                };
+
+                const triggerFileInput = () => fileInput.value?.click();
+
+                const compressImage = (file, maxSide = 1920, quality = 0.85) => {
+                    if (file.type === 'image/gif') return Promise.resolve(file);
+                    return new Promise((resolve) => {
+                        const img = new Image();
+                        const url = URL.createObjectURL(file);
+                        img.onload = () => {
+                            URL.revokeObjectURL(url);
+                            let { width, height } = img;
+                            if (width > maxSide || height > maxSide) {
+                                if (width >= height) {
+                                    height = Math.round(height * maxSide / width);
+                                    width = maxSide;
+                                } else {
+                                    width = Math.round(width * maxSide / height);
+                                    height = maxSide;
+                                }
+                            }
+                            const canvas = document.createElement('canvas');
+                            canvas.width = width;
+                            canvas.height = height;
+                            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                            canvas.toBlob((blob) => {
+                                resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
+                            }, 'image/jpeg', quality);
+                        };
+                        img.onerror = () => {
+                            URL.revokeObjectURL(url);
+                            resolve(file);
+                        };
+                        img.src = url;
+                    });
+                };
+
+                const onFilesSelected = async (e) => {
+                    const files = Array.from(e.target.files || []);
+                    const remaining = 9 - editTimelineImageCount();
+                    for (const file of files.slice(0, remaining)) {
+                        const compressed = await compressImage(file);
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                            editTimelineForm.tempImages.push({ file: compressed, preview: ev.target.result });
+                        };
+                        reader.readAsDataURL(compressed);
+                    }
+                    e.target.value = '';
+                };
+
+                const removeExistingTimelineImage = (idx) => editTimelineForm.existingImages.splice(idx, 1);
+                const removeNewImage = (idx) => editTimelineForm.tempImages.splice(idx, 1);
+
+                const saveEditedTimeline = async () => {
+                    if (!editTimelineForm.id) return;
+                    if (!editTimelineForm.date) {
+                        alert('请选择记录日期');
+                        return;
+                    }
+                    if (editTimelineImageCount() === 0 && !editTimelineForm.description?.trim()) {
+                        alert('请至少保留一张照片或写点描述');
+                        return;
+                    }
+                    try {
+                        isSavingTimeline.value = true;
+                        const uploadedUrls = [];
+                        for (const item of editTimelineForm.tempImages) {
+                            const res = await apiClient.uploadImage(item.file, { potId: potId.value, uploadType: 'timeline' });
+                            if (res.success && res.data?.url) uploadedUrls.push(res.data.url);
+                        }
+                        const saveRes = await apiClient.updateTimeline(editTimelineForm.id, {
+                            date: editTimelineForm.date,
+                            description: editTimelineForm.description?.trim() || '',
+                            images: [...editTimelineForm.existingImages, ...uploadedUrls]
+                        });
+                        if (saveRes.success) {
+                            showEditTimelineModal.value = false;
+                            resetEditTimelineForm();
+                            await loadTimelineRecords();
+                        }
+                    } catch (e) {
+                        alert('保存失败，请检查网络后重试');
+                    } finally {
+                        isSavingTimeline.value = false;
                     }
                 };
 
@@ -302,12 +519,23 @@
                     e.target.src = 'assets/images/icons/icons-default-pot.png';
                 };
 
+                window.addEventListener('auth:expired', (event) => {
+                    nav.redirectToSessionExpired(event.detail?.message, {
+                        from: 'all-timelines',
+                        redirect: `all-timelines.html?potId=${encodeURIComponent(potId.value || '')}`,
+                        source: 'auth'
+                    }, { replace: true });
+                });
+
                 onMounted(init);
 
                 return {
                     isLoading, pot, timelineRecords, sortedTimelineRecords, isTimelineDesc,
+                    canManageTimelines, showEditTimelineModal, isSavingTimeline, editTimelineForm, fileInput,
                     previewImages, previewIndex,
-                    toggleTimelineSort, confirmDeleteTimeline, openGallery, closeGallery, prevImg, nextImg,
+                    toggleTimelineSort, confirmDeleteTimeline, openEditTimelineModal, closeEditTimelineModal,
+                    triggerFileInput, onFilesSelected, removeExistingTimelineImage, removeNewImage,
+                    editTimelineImageCount, saveEditedTimeline, openGallery, closeGallery, prevImg, nextImg,
                     getImages, imgUrl, goBack, formatDate, handleImageError
                 };
             }

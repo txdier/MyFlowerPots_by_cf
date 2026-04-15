@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
@@ -25,7 +25,7 @@
 
     <!-- 配置脚本 -->
     <script src="js/config.js?v=20260111"></script>
-    <script src="js/api-client.js?v=20260111"></script>
+    <script src="js/api-client.js?v=20260415-1"></script>
 </head>
 
 <body class="bg-gray-50">
@@ -155,6 +155,7 @@
 
         createApp({
             setup() {
+                const nav = window.MyFlowerPotsNavigation;
                 const isLoading = ref(true);
                 const loadError = ref('');
                 const isSaving = ref(false);
@@ -197,7 +198,19 @@
                             loadError.value = '数据返回异常，请稍后重试。';
                         }
                     } catch (e) {
-                        loadError.value = e.message || '网络异常，请稍后重试。';
+                        if (!['auth', 'forbidden', 'not_found'].includes(nav.classifyApiError(e))) {
+                            loadError.value = e.message || '网络异常，请稍后重试。';
+                        } else {
+                            nav.redirectForApiError(e, {
+                                from: 'edit-pot',
+                                redirect: `edit-pot.html?id=${encodeURIComponent(potId.value)}`,
+                                authType: 'login_required',
+                                forbiddenType: 'forbidden',
+                                notFoundType: 'not_found',
+                                message: e.message || '当前花盆暂时无法编辑。'
+                            }, { replace: true });
+                            return;
+                        }
                     } finally {
                         isLoading.value = false;
                     }
@@ -298,6 +311,17 @@
                             }, 500);
                         }
                     } catch (err) {
+                        if (['auth', 'forbidden', 'not_found'].includes(nav.classifyApiError(err))) {
+                            nav.redirectForApiError(err, {
+                                from: 'edit-pot',
+                                redirect: `edit-pot.html?id=${encodeURIComponent(potId.value || '')}`,
+                                authType: 'session_expired',
+                                forbiddenType: 'forbidden',
+                                notFoundType: 'not_found',
+                                message: err.message || '当前花盆暂时无法继续编辑。'
+                            }, { replace: true });
+                            return;
+                        }
                         showToast('修改失败: ' + err.message, 'error');
                     } finally {
                         isSaving.value = false;
@@ -311,6 +335,14 @@
                     }
                     window.location.href = 'index.html';
                 };
+
+                window.addEventListener('auth:expired', (event) => {
+                    nav.redirectToSessionExpired(event.detail?.message, {
+                        from: 'edit-pot',
+                        redirect: `edit-pot.html?id=${encodeURIComponent(potId.value || '')}`,
+                        source: 'auth'
+                    }, { replace: true });
+                });
 
                 onMounted(init);
 

@@ -4,6 +4,7 @@
 const PBKDF2_MAX_ITERATIONS = 100000;
 const PBKDF2_ITERATIONS = PBKDF2_MAX_ITERATIONS;
 const PBKDF2_ALGO = 'pbkdf2-sha256';
+const AUTH_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 const INVALID_JWT_SECRETS = new Set([
   '',
   'default-secret',
@@ -193,7 +194,7 @@ export async function generateJWT(payload: any, secret: string): Promise<string>
   const encodedHeader = btoa(JSON.stringify(header)).replace(/=/g, '');
   const encodedPayload = btoa(JSON.stringify({
     ...payload,
-    exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
+    exp: Math.floor(Date.now() / 1000) + AUTH_TOKEN_TTL_SECONDS
   })).replace(/=/g, '');
 
   const tokenToSign = `${encodedHeader}.${encodedPayload}`;

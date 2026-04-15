@@ -1,0 +1,262 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>错误提示 - 我的花盆</title>
+    <meta name="theme-color" content="#ffffff">
+    <link rel="stylesheet" href="css/tailwind-built.css?v=20260227">
+    <link rel="stylesheet" href="css/app.css?v=20260227">
+    <link rel="stylesheet" href="css/icons.css">
+    <script src="js/config.js?v=20260111"></script>
+    <script src="js/api-client.js?v=20260415-1"></script>
+    <style>
+        .error-primary-button {
+            background: #16a34a !important;
+            color: #ffffff !important;
+            border: 1px solid #15803d;
+            box-shadow: 0 10px 22px rgba(22, 163, 74, 0.18);
+        }
+
+        .error-primary-button:hover {
+            background: #15803d !important;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-900">
+    <main class="min-h-screen">
+        <section class="container py-6 sm:py-10">
+            <div class="mx-auto max-w-xl">
+                <div class="flex min-h-[calc(100vh-3rem)] flex-col justify-center">
+                    <section class="rounded-lg border border-gray-200 bg-white px-6 py-8 shadow-sm sm:px-8">
+                        <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-gray-50 text-xl text-gray-600">
+                            <i id="pageIcon" class="fa fa-info-circle"></i>
+                        </div>
+                        <div class="mt-5 text-center">
+                            <h1 id="title" class="text-3xl font-black tracking-tight text-gray-900 sm:text-4xl">先回到首页继续</h1>
+                            <p id="lead" class="mt-3 text-sm leading-7 text-gray-500 sm:text-base">
+                                这个入口暂时不能继续使用，我们已经帮你准备好了下一步操作。
+                            </p>
+                            <p id="countdown" class="mt-3 hidden text-sm font-bold text-green-600"></p>
+                        </div>
+
+                        <div id="actionArea" class="mx-auto mt-6 grid w-full max-w-md gap-3 sm:grid-cols-2">
+                            <button id="primaryButton" type="button"
+                                class="error-primary-button inline-flex w-full items-center justify-center rounded-md bg-green-500 px-4 py-3 text-sm font-bold text-white transition active:scale-95">
+                                <span id="primaryLabel">去登录</span>
+                            </button>
+                            <button id="secondaryButton" type="button"
+                                class="inline-flex w-full items-center justify-center rounded-md border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-700 transition active:scale-95">
+                                <span id="secondaryLabel">注册账号</span>
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        (() => {
+            const nav = window.MyFlowerPotsNavigation;
+            const intent = nav?.readAppIntent?.() || {};
+            const type = intent.type || 'server_error';
+            const redirect = nav?.normalizeAppPath?.(intent.redirect, { fallback: '', allowEmpty: true }) || '';
+
+            const contentMap = {
+                login_required: {
+                    icon: 'fa-sign-in-alt',
+                    title: '请先登录',
+                    lead: '登录后继续访问当前内容。',
+                    primary: { label: '去登录', action: 'login' },
+                    secondary: { label: '注册账号', action: 'register' },
+                    auto: true
+                },
+                session_expired: {
+                    icon: 'fa-history',
+                    title: '登录已过期',
+                    lead: '请重新登录后继续。',
+                    primary: { label: '重新登录', action: 'login' },
+                    secondary: { label: '注册账号', action: 'register' },
+                    auto: true
+                },
+                forbidden: {
+                    icon: 'fa-shield-alt',
+                    title: '无法访问',
+                    lead: '当前账号没有访问权限。',
+                    primary: { label: '切换账号', action: 'login' },
+                    secondary: { label: '返回首页', action: 'home' },
+                    auto: false
+                },
+                admin_required: {
+                    icon: 'fa-hammer',
+                    title: '需要管理员权限',
+                    lead: '请使用管理员账号登录。',
+                    primary: { label: '返回首页', action: 'home' },
+                    secondary: { label: '重新登录', action: 'login' },
+                    auto: false
+                },
+                not_found: {
+                    icon: 'fa-search',
+                    title: '内容不存在',
+                    lead: '内容可能已删除或链接不完整。',
+                    primary: { label: '返回首页', action: 'home' },
+                    secondary: { label: '再试一次', action: 'retry' },
+                    auto: false
+                },
+                link_expired: {
+                    icon: 'fa-link',
+                    title: '链接已失效',
+                    lead: '请让对方重新发送最新链接。',
+                    primary: { label: '返回首页', action: 'home' },
+                    secondary: { label: '注册账号', action: 'register' },
+                    auto: false
+                },
+                server_error: {
+                    icon: 'fa-exclamation-triangle',
+                    title: '加载失败',
+                    lead: '请稍后重试。',
+                    primary: { label: '再试一次', action: 'retry' },
+                    secondary: { label: '返回首页', action: 'home' },
+                    auto: false
+                }
+            };
+
+            const content = contentMap[type] || contentMap.server_error;
+            const autoEnabled = intent.auto === '1' || (!intent.auto && content.auto);
+            const buildIndexUrl = (params = {}) => {
+                if (nav?.buildIndexUrl) return nav.buildIndexUrl(params);
+
+                const search = new URLSearchParams();
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value === undefined || value === null) return;
+                    const normalized = String(value).trim();
+                    if (normalized) search.set(key, normalized);
+                });
+                const query = search.toString();
+                return query ? `index.html?${query}` : 'index.html';
+            };
+
+            const setText = (id, value) => {
+                const element = document.getElementById(id);
+                if (element) element.textContent = value;
+            };
+
+            const setIcon = (id, className) => {
+                const element = document.getElementById(id);
+                if (!element) return;
+                element.className = `fa ${className}`;
+            };
+
+            const configureButton = (idPrefix, config, usedActions = new Set()) => {
+                const button = document.getElementById(`${idPrefix}Button`);
+                const label = document.getElementById(`${idPrefix}Label`);
+
+                if (!button || !label) return false;
+                if (!config?.label || !config?.action || usedActions.has(config.action)) {
+                    button.classList.add('hidden');
+                    button.dataset.action = '';
+                    return false;
+                }
+
+                label.textContent = config.label;
+                button.dataset.action = config.action;
+                usedActions.add(config.action);
+                return true;
+            };
+
+            const goHome = (replace = false) => {
+                const target = buildIndexUrl();
+                if (nav?.redirectToIndex) {
+                    nav.redirectToIndex({}, { replace });
+                    return;
+                }
+                replace ? window.location.replace(target) : window.location.href = target;
+            };
+
+            const goAuth = (open, replace = false) => {
+                const params = {
+                    notice: intent.notice || type,
+                    open,
+                    redirect,
+                    source: intent.from || intent.source || type
+                };
+
+                if (nav?.redirectToIndex) {
+                    nav.redirectToIndex(params, { replace });
+                    return;
+                }
+
+                const target = buildIndexUrl(params);
+                replace ? window.location.replace(target) : window.location.href = target;
+            };
+
+            const retryCurrent = () => {
+                if (redirect) {
+                    window.location.replace(redirect);
+                    return;
+                }
+                goHome(true);
+            };
+
+            const runAction = (action, replace = false) => {
+                if (action === 'login') {
+                    goAuth('login', replace);
+                    return;
+                }
+                if (action === 'register') {
+                    goAuth('register', replace);
+                    return;
+                }
+                if (action === 'retry') {
+                    retryCurrent();
+                    return;
+                }
+                goHome(replace);
+            };
+
+            setText('title', content.title);
+            setText('lead', content.lead);
+            setIcon('pageIcon', content.icon);
+
+            const usedActions = new Set();
+            const primaryVisible = configureButton('primary', content.primary, usedActions);
+            const secondaryVisible = configureButton('secondary', content.secondary, usedActions);
+            if (primaryVisible && !secondaryVisible) {
+                document.getElementById('actionArea')?.classList.remove('sm:grid-cols-2');
+            }
+
+            document.getElementById('primaryButton')?.addEventListener('click', () => {
+                const action = document.getElementById('primaryButton')?.dataset.action;
+                if (action) runAction(action);
+            });
+            document.getElementById('secondaryButton')?.addEventListener('click', () => {
+                const action = document.getElementById('secondaryButton')?.dataset.action;
+                if (action) runAction(action);
+            });
+
+            if (autoEnabled) {
+                const countdownElement = document.getElementById('countdown');
+                const primaryAction = content.primary.action;
+                let seconds = 3;
+
+                countdownElement.classList.remove('hidden');
+                countdownElement.textContent = `${seconds} 秒后自动跳转`;
+
+                const timer = window.setInterval(() => {
+                    seconds -= 1;
+                    if (seconds <= 0) {
+                        window.clearInterval(timer);
+                        runAction(primaryAction, true);
+                        return;
+                    }
+                    countdownElement.textContent = `${seconds} 秒后自动跳转`;
+                }, 1000);
+            }
+        })();
+    </script>
+</body>
+
+</html>

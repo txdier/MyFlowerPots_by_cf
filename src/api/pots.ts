@@ -189,7 +189,8 @@ async function handleCreatePot(request: Request, env: any, token: string | null)
       note,
       plantDate,
       imageUrl,
-      lastCare
+      lastCare,
+      createInitialTimeline
     } = body;
 
     if (!id || !userId || !name) {
@@ -251,8 +252,7 @@ async function handleCreatePot(request: Request, env: any, token: string | null)
       }
     }
 
-    await env.DB
-      .prepare(`
+    const createPotStatement = env.DB.prepare(`
         INSERT INTO pots (
           id,
           user_id,
@@ -273,10 +273,44 @@ async function handleCreatePot(request: Request, env: any, token: string | null)
         plantDate || null,
         imageUrl || null,
         lastCare || null
-      )
-      .run();
+      );
 
-    return jsonResponse({ success: true });
+    const shouldCreateInitialTimeline =
+      createInitialTimeline === true ||
+      createInitialTimeline === 1 ||
+      createInitialTimeline === 'true';
+
+    if (shouldCreateInitialTimeline) {
+      const now = new Date().toISOString();
+      const timelineDate = plantDate || now.split('T')[0];
+      const timelineImages = imageUrl ? JSON.stringify([imageUrl]) : null;
+      const createTimelineStatement = env.DB.prepare(`
+        INSERT INTO timelines (
+          pot_id,
+          date,
+          description,
+          images,
+          created_at,
+          user_id
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `).bind(
+        id,
+        timelineDate,
+        '开始记录这株植物的成长',
+        timelineImages,
+        now,
+        userId
+      );
+
+      await env.DB.batch([createPotStatement, createTimelineStatement]);
+    } else {
+      await createPotStatement.run();
+    }
+
+    return jsonResponse({
+      success: true,
+      initialTimelineCreated: shouldCreateInitialTimeline
+    });
 
   } catch (error) {
     console.error('Create pot error:', error);

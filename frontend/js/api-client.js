@@ -23,6 +23,9 @@ const AUTH_KEYS = {
     userId: 'flowerpots_user_id',
 };
 
+const AUTH_PERSISTENT_STORAGE = window.localStorage;
+const AUTH_LEGACY_STORAGE = window.sessionStorage;
+
 const safeStorageGet = (storage, key) => {
     try {
         return storage?.getItem(key) ?? null;
@@ -50,46 +53,48 @@ const safeStorageRemove = (storage, key) => {
 
 const AUTH_STORAGE = {
     migrateLegacy() {
-        const legacyToken = safeStorageGet(window.localStorage, AUTH_KEYS.token);
-        const legacyUserId = safeStorageGet(window.localStorage, AUTH_KEYS.userId);
-        const sessionToken = safeStorageGet(window.sessionStorage, AUTH_KEYS.token);
-        const sessionUserId = safeStorageGet(window.sessionStorage, AUTH_KEYS.userId);
+        const persistentToken = safeStorageGet(AUTH_PERSISTENT_STORAGE, AUTH_KEYS.token);
+        const persistentUserId = safeStorageGet(AUTH_PERSISTENT_STORAGE, AUTH_KEYS.userId);
+        const sessionToken = safeStorageGet(AUTH_LEGACY_STORAGE, AUTH_KEYS.token);
+        const sessionUserId = safeStorageGet(AUTH_LEGACY_STORAGE, AUTH_KEYS.userId);
 
-        if (!sessionToken && !sessionUserId && legacyToken && legacyUserId) {
-            safeStorageSet(window.sessionStorage, AUTH_KEYS.token, legacyToken);
-            safeStorageSet(window.sessionStorage, AUTH_KEYS.userId, legacyUserId);
+        // Migrate the most recent legacy session-based login into persistent storage.
+        if ((!persistentToken || !persistentUserId) && sessionToken && sessionUserId) {
+            safeStorageSet(AUTH_PERSISTENT_STORAGE, AUTH_KEYS.token, sessionToken);
+            safeStorageSet(AUTH_PERSISTENT_STORAGE, AUTH_KEYS.userId, sessionUserId);
         }
 
-        safeStorageRemove(window.localStorage, AUTH_KEYS.token);
-        safeStorageRemove(window.localStorage, AUTH_KEYS.userId);
+        safeStorageRemove(AUTH_LEGACY_STORAGE, AUTH_KEYS.token);
+        safeStorageRemove(AUTH_LEGACY_STORAGE, AUTH_KEYS.userId);
     },
 
     getToken() {
-        return safeStorageGet(window.sessionStorage, AUTH_KEYS.token);
+        return safeStorageGet(AUTH_PERSISTENT_STORAGE, AUTH_KEYS.token)
+            || safeStorageGet(AUTH_LEGACY_STORAGE, AUTH_KEYS.token);
     },
 
     getUserId() {
-        return safeStorageGet(window.sessionStorage, AUTH_KEYS.userId);
+        return safeStorageGet(AUTH_PERSISTENT_STORAGE, AUTH_KEYS.userId)
+            || safeStorageGet(AUTH_LEGACY_STORAGE, AUTH_KEYS.userId);
     },
 
     setAuth(token, userId) {
         if (token && userId) {
-            safeStorageSet(window.sessionStorage, AUTH_KEYS.token, token);
-            safeStorageSet(window.sessionStorage, AUTH_KEYS.userId, userId);
+            safeStorageSet(AUTH_PERSISTENT_STORAGE, AUTH_KEYS.token, token);
+            safeStorageSet(AUTH_PERSISTENT_STORAGE, AUTH_KEYS.userId, userId);
+            safeStorageRemove(AUTH_LEGACY_STORAGE, AUTH_KEYS.token);
+            safeStorageRemove(AUTH_LEGACY_STORAGE, AUTH_KEYS.userId);
         } else {
             this.clear();
             return;
         }
-
-        safeStorageRemove(window.localStorage, AUTH_KEYS.token);
-        safeStorageRemove(window.localStorage, AUTH_KEYS.userId);
     },
 
     clear() {
-        safeStorageRemove(window.sessionStorage, AUTH_KEYS.token);
-        safeStorageRemove(window.sessionStorage, AUTH_KEYS.userId);
-        safeStorageRemove(window.localStorage, AUTH_KEYS.token);
-        safeStorageRemove(window.localStorage, AUTH_KEYS.userId);
+        safeStorageRemove(AUTH_LEGACY_STORAGE, AUTH_KEYS.token);
+        safeStorageRemove(AUTH_LEGACY_STORAGE, AUTH_KEYS.userId);
+        safeStorageRemove(AUTH_PERSISTENT_STORAGE, AUTH_KEYS.token);
+        safeStorageRemove(AUTH_PERSISTENT_STORAGE, AUTH_KEYS.userId);
     }
 };
 
@@ -101,6 +106,214 @@ const emitAuthExpired = (message = '登录已过期，请重新登录') => {
         detail: { message }
     }));
 };
+
+const APP_PAGES = {
+    home: 'index.html',
+    error: 'error.html'
+};
+
+const ERROR_TYPE_DEFAULTS = {
+    login_required: { open: 'login', notice: 'login_required', auto: '1' },
+    session_expired: { open: 'login', notice: 'session_expired', auto: '1' },
+    forbidden: { open: 'login', notice: 'forbidden', auto: '0' },
+    admin_required: { open: 'none', notice: 'admin_required', auto: '0' },
+    not_found: { open: 'none', notice: 'not_found', auto: '0' },
+    link_expired: { open: 'register', notice: 'link_expired', auto: '0' },
+    server_error: { open: 'none', notice: 'server_error', auto: '0' }
+};
+
+const buildQueryString = (params = {}) => {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+        if (value === undefined || value === null) return;
+        const normalized = String(value).trim();
+        if (!normalized) return;
+        search.set(key, normalized);
+    });
+    return search.toString();
+};
+
+const normalizeAppPath = (value, options = {}) => {
+    const { fallback = APP_PAGES.home, allowEmpty = false } = options;
+    if (value == null) return allowEmpty ? '' : fallback;
+
+    let normalized = String(value).trim();
+    if (!normalized) return allowEmpty ? '' : fallback;
+
+    try {
+        normalized = decodeURIComponent(normalized);
+    } catch {
+        // Ignore malformed values and continue with the original string.
+    }
+
+    normalized = normalized.replace(/\\/g, '/');
+    if (!normalized) return allowEmpty ? '' : fallback;
+    if (/^[a-z][a-z0-9+.-]*:/i.test(normalized)) return allowEmpty ? '' : fallback;
+    if (normalized.startsWith('//')) return allowEmpty ? '' : fallback;
+    if (/[\r\n]/.test(normalized)) return allowEmpty ? '' : fallback;
+
+    if (normalized.startsWith('?')) {
+        normalized = `${APP_PAGES.home}${normalized}`;
+    }
+
+    normalized = normalized.replace(/^\.\/+/, '');
+    normalized = normalized.replace(/^\/+/, '');
+
+    if (!normalized || normalized.startsWith('../')) return allowEmpty ? '' : fallback;
+    if (normalized.startsWith(APP_PAGES.error)) {
+        return allowEmpty ? '' : fallback;
+    }
+
+    return normalized;
+};
+
+const getCurrentAppPath = () => {
+    const pathname = window.location.pathname.split('/').filter(Boolean).pop() || APP_PAGES.home;
+    return normalizeAppPath(`${pathname}${window.location.search}${window.location.hash}`, {
+        fallback: APP_PAGES.home
+    });
+};
+
+const navigateToAppPage = (target, options = {}) => {
+    const { replace = false } = options;
+    if (replace) {
+        window.location.replace(target);
+    } else {
+        window.location.href = target;
+    }
+    return target;
+};
+
+const buildIndexUrl = (options = {}) => {
+    const redirect = normalizeAppPath(options.redirect, { fallback: '', allowEmpty: true });
+    const query = buildQueryString({
+        notice: options.notice,
+        open: options.open,
+        redirect,
+        message: options.message,
+        source: options.source
+    });
+    return query ? `${APP_PAGES.home}?${query}` : APP_PAGES.home;
+};
+
+const buildErrorUrl = (options = {}) => {
+    const type = String(options.type || 'server_error').trim();
+    const defaults = ERROR_TYPE_DEFAULTS[type] || ERROR_TYPE_DEFAULTS.server_error;
+    const redirect = normalizeAppPath(options.redirect, { fallback: '', allowEmpty: true });
+    const query = buildQueryString({
+        type,
+        redirect,
+        from: options.from,
+        open: options.open ?? defaults.open,
+        notice: options.notice ?? defaults.notice,
+        auto: options.auto ?? defaults.auto,
+        message: options.message,
+        source: options.source
+    });
+    return query ? `${APP_PAGES.error}?${query}` : APP_PAGES.error;
+};
+
+const readAppIntent = () => {
+    const params = new URLSearchParams(window.location.search);
+    return {
+        type: params.get('type') || '',
+        notice: params.get('notice') || '',
+        open: params.get('open') || '',
+        redirect: normalizeAppPath(params.get('redirect'), { fallback: '', allowEmpty: true }),
+        message: params.get('message') || '',
+        source: params.get('source') || '',
+        from: params.get('from') || '',
+        auto: params.get('auto') || ''
+    };
+};
+
+const classifyApiError = (error) => {
+    const status = Number(error?.status || 0);
+    const message = String(error?.message || '').trim();
+
+    if (status === 401 || /Authentication required|Unauthorized|No token|Invalid user/i.test(message)) {
+        return 'auth';
+    }
+    if (status === 403 || /Forbidden|access denied|admin access required|account disabled/i.test(message)) {
+        return 'forbidden';
+    }
+    if (status === 404 || /Not Found|not found|invalid or expired|已失效|不存在/i.test(message)) {
+        return 'not_found';
+    }
+    return 'server';
+};
+
+const MyFlowerPotsNavigation = {
+    APP_PAGES,
+    ERROR_TYPE_DEFAULTS,
+    normalizeAppPath,
+    getCurrentAppPath,
+    buildIndexUrl,
+    buildErrorUrl,
+    readAppIntent,
+    classifyApiError,
+    redirectToIndex(options = {}, navOptions = {}) {
+        return navigateToAppPage(buildIndexUrl(options), navOptions);
+    },
+    redirectToError(options = {}, navOptions = {}) {
+        return navigateToAppPage(buildErrorUrl(options), navOptions);
+    },
+    redirectToLoginRequired(options = {}, navOptions = {}) {
+        return navigateToAppPage(buildErrorUrl({
+            type: 'login_required',
+            redirect: options.redirect || getCurrentAppPath(),
+            ...options
+        }), navOptions);
+    },
+    redirectToSessionExpired(message = '登录状态已失效，请重新登录。', options = {}, navOptions = {}) {
+        return navigateToAppPage(buildErrorUrl({
+            type: 'session_expired',
+            message,
+            redirect: options.redirect || getCurrentAppPath(),
+            ...options
+        }), navOptions);
+    },
+    redirectToAdminRequired(options = {}, navOptions = {}) {
+        return navigateToAppPage(buildErrorUrl({
+            type: 'admin_required',
+            redirect: options.redirect || APP_PAGES.home,
+            ...options
+        }), navOptions);
+    },
+    redirectForApiError(error, options = {}, navOptions = {}) {
+        const redirect = options.redirect || getCurrentAppPath();
+        const classified = classifyApiError(error);
+
+        if (classified === 'auth') {
+            return this.redirectToError({
+                type: options.authType || 'login_required',
+                redirect,
+                ...options
+            }, navOptions);
+        }
+        if (classified === 'forbidden') {
+            return this.redirectToError({
+                type: options.forbiddenType || 'forbidden',
+                redirect,
+                ...options
+            }, navOptions);
+        }
+        if (classified === 'not_found') {
+            return this.redirectToError({
+                type: options.notFoundType || 'not_found',
+                redirect,
+                ...options
+            }, navOptions);
+        }
+        return this.redirectToError({
+            type: options.serverType || 'server_error',
+            redirect,
+            ...options
+        }, navOptions);
+    }
+};
+
+window.MyFlowerPotsNavigation = MyFlowerPotsNavigation;
 
 const PUBLIC_AUTH_ENDPOINTS = new Set([
     '/api/auth/login',
@@ -259,11 +472,17 @@ class APIClient {
 
             if (!response.ok) {
                 const errorText = await response.text();
+                const contentType = response.headers.get('content-type') || '';
                 let errorData;
                 try {
                     errorData = JSON.parse(errorText);
                 } catch {
-                    errorData = { error: errorText || `HTTP ${response.status}` };
+                    const looksLikeHtml = contentType.includes('text/html') || /^\s*<!doctype html/i.test(errorText) || /^\s*<html/i.test(errorText);
+                    errorData = {
+                        error: looksLikeHtml
+                            ? `接口未命中或被静态页面接管: ${endpoint}`
+                            : (errorText || `HTTP ${response.status}`)
+                    };
                 }
 
                 // 处理 401 未授权：JWT 令牌过期或无效
@@ -287,6 +506,11 @@ class APIClient {
                 }
 
                 throw new APIError(response.status, errorData.error || '请求失败');
+            }
+
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.includes('text/html')) {
+                throw new APIError(response.status || 0, `接口返回了 HTML 页面: ${endpoint}`);
             }
 
             const data = await response.json();
@@ -699,6 +923,19 @@ class APIClient {
         return this.request('/api/timelines', {
             method: 'POST',
             body: timelineData
+        });
+    }
+
+    async updateTimeline(timelineId, timelineData) {
+        return this.request(`/api/timelines/${timelineId}`, {
+            method: 'PUT',
+            body: timelineData
+        });
+    }
+
+    async deleteTimeline(timelineId) {
+        return this.request(`/api/timelines/${timelineId}`, {
+            method: 'DELETE'
         });
     }
 

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
@@ -65,6 +65,21 @@
             }
         }
 
+        @keyframes detailAutofillDetect {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        input:-webkit-autofill {
+            animation-name: detailAutofillDetect;
+            animation-duration: 0.001s;
+        }
+
         /* Bottom Sheet 动画 */
         .bottom-sheet-enter-active,
         .bottom-sheet-leave-active {
@@ -114,19 +129,31 @@
                 transform: rotate(360deg);
             }
         }
+
+        .detail-back-button {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            color: #374151 !important;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+        }
+
+        .detail-back-button:hover {
+            color: #047857 !important;
+            background: #f9fafb;
+        }
+
     </style>
 </head>
 
 <body class="bg-gray-50">
     <div id="app" v-cloak>
         <!-- 顶部导航栏 (强制靠左+居中) -->
-        <header v-if="!shouldShowStandaloneState"
-            class="header bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-50 h-16 w-full"
+        <header class="header bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-50 h-16 w-full"
             :class="shouldHideFloatingChrome ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <div class="container relative flex items-center h-full">
                 <!-- 左侧按钮 -->
                 <div class="z-10">
-                    <button class="w-10 h-10 flex items-center justify-center text-gray-400 active:scale-90 transition"
+                    <button class="detail-back-button w-10 h-10 flex items-center justify-center rounded-md text-gray-700 active:scale-90 transition"
                         @click="goBack">
                         <i class="fa fa-arrow-left text-xl"></i>
                     </button>
@@ -340,237 +367,15 @@
                 </div>
             </div>
 
-            <!-- 分享链接失效提示 -->
-            <div v-if="tokenInvalid && !isLoading" class="container py-4 sm:py-8 lg:py-10 animate-fade-in">
-                <section
-                    class="relative isolate overflow-hidden rounded-[2rem] border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-cyan-50 shadow-[0_35px_85px_rgba(16,185,129,0.14)]">
-                    <div class="pointer-events-none absolute -top-16 right-0 h-44 w-44 rounded-full bg-white/80 blur-3xl"></div>
-                    <div class="pointer-events-none absolute -bottom-20 left-0 h-56 w-56 rounded-full bg-emerald-100/70 blur-3xl"></div>
-                    <div class="relative z-10 grid min-h-[calc(100vh-5.5rem)] items-center gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(290px,0.85fr)] lg:p-12">
-                        <div class="min-w-0">
-                            <div class="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-white/80 px-4 py-2 text-[11px] font-black tracking-[0.22em] text-emerald-600">
-                                <i class="fa fa-link"></i>
-                                链接已失效
-                            </div>
-                            <div class="mt-6 flex items-start gap-4 sm:gap-5">
-                                <div
-                                    class="flex h-16 w-16 shrink-0 items-center justify-center rounded-[1.6rem] border border-emerald-100 bg-white text-emerald-500 shadow-[0_20px_45px_rgba(16,185,129,0.16)] sm:h-20 sm:w-20">
-                                    <i class="fa fa-unlink text-2xl sm:text-3xl"></i>
-                                </div>
-                                <div class="min-w-0 pt-1">
-                                    <h2 class="text-2xl font-black tracking-tight text-gray-900 sm:text-3xl">这条分享已经不能用了</h2>
-                                    <p class="mt-3 text-sm leading-7 text-gray-500 sm:text-base">
-                                        可能是主人关闭了这次分享、重新生成了链接，或者你打开的是旧地址。当前链接不会再继续展示花盆内容。
-                                    </p>
-                                </div>
-                            </div>
-                            <div class="mt-6 rounded-[1.6rem] border border-white bg-white/85 p-4 shadow-sm sm:p-5">
-                                <div class="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-500">你可以这样做</div>
-                                <div class="mt-3 grid gap-3 text-sm text-gray-600 sm:grid-cols-2">
-                                    <div class="rounded-2xl border border-emerald-50 bg-emerald-50/80 px-4 py-3">
-                                        <div class="font-black text-gray-800">联系分享者</div>
-                                        <p class="mt-1 leading-6">让对方重新发送最新的分享或邀请链接，旧链接通常不会自动恢复。</p>
-                                    </div>
-                                    <div class="rounded-2xl border border-cyan-50 bg-cyan-50/80 px-4 py-3">
-                                        <div class="font-black text-gray-800">改从首页进入</div>
-                                        <p class="mt-1 leading-6">如果这是你自己的花盆，直接回首页登录后进入，会比继续反复打开旧链接更稳。</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="mt-6 grid gap-3 sm:grid-cols-2 xl:max-w-[34rem]">
-                                <button @click="goHome"
-                                    class="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-500 px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-green-100 transition active:scale-95">
-                                    <i class="fa fa-home"></i>
-                                    回到首页
-                                </button>
-                                <button @click="openPermissionRegister"
-                                    class="flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-100 bg-white px-5 py-3.5 text-sm font-black text-emerald-700 transition active:scale-95">
-                                    <i class="fa fa-seedling"></i>
-                                    注册后开始种花
-                                </button>
-                            </div>
-                        </div>
-
-                        <aside class="rounded-[1.8rem] border border-white bg-white/78 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)] backdrop-blur-sm sm:p-6">
-                            <div class="flex items-center gap-2 text-sm font-black text-gray-800">
-                                <i class="fa fa-compass text-emerald-500"></i>
-                                为什么会这样
-                            </div>
-                            <div class="mt-4 space-y-3">
-                                <div class="rounded-2xl border border-gray-100 bg-gray-50/85 px-4 py-3.5">
-                                    <div class="text-sm font-black text-gray-800">主人关闭了对外分享</div>
-                                    <p class="mt-1 text-xs leading-6 text-gray-500">关闭分享后，之前发出的公开链接会立即失效。</p>
-                                </div>
-                                <div class="rounded-2xl border border-gray-100 bg-gray-50/85 px-4 py-3.5">
-                                    <div class="text-sm font-black text-gray-800">链接已经被更新</div>
-                                    <p class="mt-1 text-xs leading-6 text-gray-500">当分享者重新生成新链接时，旧链接通常会被替换掉。</p>
-                                </div>
-                                <div class="rounded-2xl border border-gray-100 bg-gray-50/85 px-4 py-3.5">
-                                    <div class="text-sm font-black text-gray-800">社交软件缓存了旧页面</div>
-                                    <p class="mt-1 text-xs leading-6 text-gray-500">如果是从聊天记录里点开的旧卡片，优先让对方重新发一次最新入口。</p>
-                                </div>
-                            </div>
-                        </aside>
-                    </div>
-                </section>
-            </div>
-
-            <!-- 错误提示 -->
-            <div v-if="error && !tokenInvalid" class="error-alert container py-4 sm:py-8 lg:py-10">
-                <div v-if="isPermissionError"
-                    class="relative isolate overflow-hidden rounded-[2rem] border border-amber-100 bg-gradient-to-br from-amber-50 via-white to-orange-50 shadow-[0_35px_85px_rgba(245,158,11,0.14)]">
-                    <div class="pointer-events-none absolute -top-16 -right-10 h-40 w-40 rounded-full bg-white/70 blur-3xl"></div>
-                    <div class="pointer-events-none absolute -bottom-20 left-0 h-48 w-48 rounded-full bg-orange-100/60 blur-3xl"></div>
-                    <div class="pointer-events-none absolute top-6 right-6 rounded-full border border-amber-100 bg-white/80 px-3 py-1 text-[11px] font-black tracking-[0.2em] text-amber-500">
-                        {{ permissionErrorBadge }}
-                    </div>
-                    <div class="relative z-10 p-6 sm:p-8 lg:p-10">
-                        <div class="grid min-h-[calc(100vh-5.5rem)] items-center gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
-                            <div class="min-w-0">
-                                <div class="flex items-start gap-4 sm:gap-5">
-                                    <div
-                                        class="w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-[1.75rem] bg-white text-amber-500 flex items-center justify-center shadow-[0_20px_45px_rgba(245,158,11,0.16)] border border-amber-100">
-                                        <i :class="permissionErrorIcon" class="text-2xl sm:text-3xl"></i>
-                                    </div>
-                                    <div class="min-w-0 pt-1">
-                                        <h2 class="text-2xl sm:text-3xl font-black text-gray-800 tracking-tight">
-                                            {{ permissionErrorTitle }}
-                                        </h2>
-                                        <p class="mt-3 text-sm sm:text-base text-gray-500 leading-7">
-                                            {{ permissionErrorLead }}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div class="mt-6 rounded-[1.6rem] bg-white/85 border border-white shadow-sm p-4 sm:p-5">
-                                    <div class="text-[11px] font-black tracking-[0.18em] text-amber-500 uppercase">系统提示</div>
-                                    <p class="mt-2 text-sm text-gray-600 leading-6 break-words">{{ error }}</p>
-                                </div>
-
-                                <div class="relative z-10 mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                                    <button @click="openPermissionLogin"
-                                        class="w-full px-5 py-3.5 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-500 text-white text-sm font-black shadow-lg shadow-green-100 active:scale-95 transition flex items-center justify-center gap-2">
-                                        <i class="fa fa-right-to-bracket"></i>
-                                        {{ permissionPrimaryActionLabel }}
-                                    </button>
-                                    <button @click="openPermissionRegister"
-                                        class="w-full px-5 py-3.5 rounded-2xl bg-white text-amber-700 text-sm font-black border border-amber-100 active:scale-95 transition flex items-center justify-center gap-2">
-                                        <i class="fa fa-user-plus"></i>
-                                        注册账号
-                                    </button>
-                                    <button @click="retryCurrentPage"
-                                        class="w-full px-5 py-3.5 rounded-2xl bg-gray-900 text-white text-sm font-black shadow-lg shadow-gray-200 active:scale-95 transition flex items-center justify-center gap-2">
-                                        <i class="fa fa-rotate-right"></i>
-                                        重新检查
-                                    </button>
-                                    <button @click="goHome"
-                                        class="w-full px-5 py-3.5 rounded-2xl bg-gray-50 text-gray-600 text-sm font-bold border border-gray-100 active:scale-95 transition flex items-center justify-center gap-2">
-                                        <i class="fa fa-home"></i>
-                                        回到首页
-                                    </button>
-                                </div>
-                            </div>
-
-                            <aside class="rounded-[1.8rem] bg-white/78 border border-white shadow-[0_18px_40px_rgba(15,23,42,0.06)] p-5 sm:p-6 backdrop-blur-sm">
-                                <div class="flex items-center gap-2 text-sm font-black text-gray-800">
-                                    <i class="fa fa-compass text-amber-500"></i>
-                                    可以这样处理
-                                </div>
-                                <div class="mt-4 space-y-3">
-                                    <div v-for="item in permissionHelpCards" :key="item.title"
-                                        class="rounded-2xl border border-gray-100 bg-gray-50/85 px-4 py-3.5">
-                                        <div class="flex items-start gap-3">
-                                            <div
-                                                class="w-9 h-9 shrink-0 rounded-xl bg-white text-amber-500 border border-amber-100 flex items-center justify-center shadow-sm">
-                                                <i :class="item.icon"></i>
-                                            </div>
-                                            <div class="min-w-0">
-                                                <div class="text-sm font-black text-gray-800">{{ item.title }}</div>
-                                                <p class="mt-1 text-xs text-gray-500 leading-6">{{ item.description }}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="mt-5 pt-4 border-t border-gray-100 text-xs text-gray-400 leading-6">
-                                    {{ permissionErrorFootnote }}
-                                </div>
-                            </aside>
-                        </div>
-                    </div>
-                </div>
-                <div v-else
-                    class="relative isolate overflow-hidden rounded-[2rem] border border-rose-100 bg-gradient-to-br from-rose-50 via-white to-slate-50 shadow-[0_35px_85px_rgba(244,63,94,0.12)]">
-                    <div class="pointer-events-none absolute -top-16 right-0 h-40 w-40 rounded-full bg-white/80 blur-3xl"></div>
-                    <div class="pointer-events-none absolute -bottom-16 left-8 h-48 w-48 rounded-full bg-rose-100/70 blur-3xl"></div>
-                    <div class="relative z-10 grid min-h-[calc(100vh-5.5rem)] items-center gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(280px,0.95fr)] lg:p-10">
-                        <div class="min-w-0">
-                            <div class="inline-flex items-center gap-2 rounded-full border border-rose-100 bg-white/80 px-4 py-2 text-[11px] font-black tracking-[0.22em] text-rose-500">
-                                <i class="fa fa-circle-exclamation"></i>
-                                加载异常
-                            </div>
-                            <div class="mt-6 flex items-start gap-4 sm:gap-5">
-                                <div
-                                    class="flex h-16 w-16 shrink-0 items-center justify-center rounded-[1.6rem] border border-rose-100 bg-white text-rose-500 shadow-[0_20px_45px_rgba(244,63,94,0.14)] sm:h-20 sm:w-20">
-                                    <i class="fa fa-exclamation-triangle text-2xl sm:text-3xl"></i>
-                                </div>
-                                <div class="min-w-0 pt-1">
-                                    <h2 class="text-2xl font-black tracking-tight text-gray-900 sm:text-3xl">页面暂时没加载出来</h2>
-                                    <p class="mt-3 text-sm leading-7 text-gray-500 sm:text-base">
-                                        这通常是网络波动、链接参数不完整，或者当前访问状态已经变化导致的。你可以先重试一次，再决定是否返回首页。
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div class="mt-6 rounded-[1.6rem] border border-white bg-white/88 p-4 shadow-sm sm:p-5">
-                                <div class="text-[11px] font-black uppercase tracking-[0.18em] text-rose-500">系统提示</div>
-                                <p class="mt-2 break-words text-sm leading-6 text-gray-600">{{ error }}</p>
-                            </div>
-
-                            <div class="mt-6 grid gap-3 sm:grid-cols-2 xl:max-w-[32rem]">
-                                <button @click="retryCurrentPage"
-                                    class="flex w-full items-center justify-center gap-2 rounded-2xl bg-gray-900 px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-gray-200 transition active:scale-95">
-                                    <i class="fa fa-rotate-right"></i>
-                                    重新加载
-                                </button>
-                                <button @click="goHome"
-                                    class="flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3.5 text-sm font-black text-gray-700 transition active:scale-95">
-                                    <i class="fa fa-home"></i>
-                                    回到首页
-                                </button>
-                            </div>
-                        </div>
-
-                        <aside class="rounded-[1.8rem] border border-white bg-white/80 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)] backdrop-blur-sm sm:p-6">
-                            <div class="flex items-center gap-2 text-sm font-black text-gray-800">
-                                <i class="fa fa-wand-magic-sparkles text-rose-500"></i>
-                                建议优先排查
-                            </div>
-                            <div class="mt-4 space-y-3">
-                                <div class="rounded-2xl border border-gray-100 bg-gray-50/85 px-4 py-3.5">
-                                    <div class="text-sm font-black text-gray-800">刷新当前页面</div>
-                                    <p class="mt-1 text-xs leading-6 text-gray-500">接口偶发超时或网络抖动时，重新检查通常就能恢复。</p>
-                                </div>
-                                <div class="rounded-2xl border border-gray-100 bg-gray-50/85 px-4 py-3.5">
-                                    <div class="text-sm font-black text-gray-800">确认入口是否正确</div>
-                                    <p class="mt-1 text-xs leading-6 text-gray-500">如果是从聊天记录或收藏里打开，优先确认链接没有过期、截断或被替换。</p>
-                                </div>
-                                <div class="rounded-2xl border border-gray-100 bg-gray-50/85 px-4 py-3.5">
-                                    <div class="text-sm font-black text-gray-800">换到首页重新进入</div>
-                                    <p class="mt-1 text-xs leading-6 text-gray-500">从首页登录后再进入对应花盆，通常比继续停留在异常页面更直接。</p>
-                                </div>
-                            </div>
-                        </aside>
-                    </div>
-                </div>
-            </div>
-
             <!-- 内容区域 -->
             <div v-if="!isLoading && pot" class="container py-6 space-y-6">
                 <!-- 1. 花盆基本信息卡片 -->
                 <div id="section-overview" class="bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-50">
                     <div class="relative h-56 md:h-72">
-                        <img :src="imgUrl(pot.image_url, 800, 512) || 'assets/images/icons/icons-default-pot.png'"
-                            class="w-full h-full object-cover" @error="handleImageError">
+                        <div class="absolute inset-0 bg-gray-100"></div>
+                        <img :src="heroImageSrc" class="absolute inset-0 block w-full h-full object-cover transition-opacity duration-300"
+                            :class="heroImageLoaded ? 'opacity-100' : 'opacity-0'" @load="handleHeroImageLoad"
+                            @error="handleHeroImageError">
                         <div v-if="shouldShowCommentDanmaku && barrageComments.length > 0"
                             class="absolute inset-0 overflow-hidden pointer-events-none">
                             <div v-for="item in barrageComments" :key="item.key" class="comment-barrage-item"
@@ -727,45 +532,69 @@
                         </button>
                     </div>
                     <div v-show="showScheduleExpanded" class="p-6 space-y-4 animate-fade-in">
-                        <template v-for="schedule in careSchedules" :key="schedule.id">
-                            <div class="flex items-center justify-between gap-3 p-3 bg-gray-50/50 rounded-2xl">
-                                <div class="flex items-center gap-3 min-w-0">
-                                    <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-lg shrink-0"
-                                        :class="getScheduleTypeStyle(schedule.care_type, schedule.custom_action).bg">
-                                        {{ getScheduleTypeStyle(schedule.care_type, schedule.custom_action).icon }}
-                                    </div>
-                                    <div class="min-w-0">
-                                        <div class="text-sm font-bold text-gray-800">
-                                            {{ getScheduleTypeName(schedule.care_type, schedule.custom_action) }}
-                                        </div>
-                                        <div class="flex items-center gap-1 mt-0.5" @click.stop>
-                                            <span class="text-[10px] text-gray-400">每</span>
-                                            <input v-if="!isReadOnly" type="number"
-                                                v-model.lazy.number="schedule.intervalDays"
-                                                class="w-8 h-5 text-center text-[10px] font-bold bg-white border border-gray-200 rounded px-0 py-0 focus:ring-1 focus:ring-purple-200"
-                                                @change="updateScheduleInterval(schedule)">
-                                            <span v-else class="text-[10px] font-bold text-gray-600">{{
-                                                schedule.intervalDays }}</span>
-                                            <span class="text-[10px] text-gray-400">天提醒</span>
-                                        </div>
+                        <template v-if="isCareSchedulesLoading && careSchedules.length === 0">
+                            <div class="flex items-center justify-between gap-3 p-3 bg-gray-50/50 rounded-2xl animate-pulse">
+                                <div class="flex items-center gap-3 flex-1">
+                                    <div class="w-10 h-10 rounded-2xl bg-gray-200 shrink-0"></div>
+                                    <div class="flex-1 space-y-2">
+                                        <div class="h-4 bg-gray-200 rounded w-28"></div>
+                                        <div class="h-3 bg-gray-100 rounded w-20"></div>
                                     </div>
                                 </div>
-                                <div v-if="!isReadOnly" class="flex items-center gap-2">
-                                    <button @click="toggleScheduleEnabled(schedule)"
-                                        class="w-12 h-7 rounded-full transition-all duration-300 relative"
-                                        :class="schedule.enabled ? 'bg-green-500' : 'bg-gray-200'">
-                                        <span
-                                            class="absolute w-5 h-5 bg-white rounded-full top-1 transition-all duration-300 shadow-sm"
-                                            :class="schedule.enabled ? 'right-1' : 'left-1'"></span>
-                                    </button>
-                                    <button @click="deleteSchedule(schedule)"
-                                        class="w-8 h-8 rounded-xl text-gray-300 hover:text-red-400 hover:bg-red-50 transition">
-                                        <i class="fa fa-trash-alt text-xs"></i>
-                                    </button>
+                                <div class="w-12 h-7 rounded-full bg-gray-200"></div>
+                            </div>
+                            <div class="flex items-center justify-between gap-3 p-3 bg-gray-50/50 rounded-2xl animate-pulse">
+                                <div class="flex items-center gap-3 flex-1">
+                                    <div class="w-10 h-10 rounded-2xl bg-gray-200 shrink-0"></div>
+                                    <div class="flex-1 space-y-2">
+                                        <div class="h-4 bg-gray-200 rounded w-24"></div>
+                                        <div class="h-3 bg-gray-100 rounded w-24"></div>
+                                    </div>
                                 </div>
+                                <div class="w-12 h-7 rounded-full bg-gray-200"></div>
                             </div>
                         </template>
-                        <div v-if="careSchedules?.length === 0" class="py-8 text-center text-gray-400">暂未设置养护提醒</div>
+                        <template v-else-if="careSchedules.length > 0">
+                            <template v-for="schedule in careSchedules" :key="schedule.id">
+                                <div class="flex items-center justify-between gap-3 p-3 bg-gray-50/50 rounded-2xl">
+                                    <div class="flex items-center gap-3 min-w-0">
+                                        <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-lg shrink-0"
+                                            :class="getScheduleTypeStyle(schedule.care_type, schedule.custom_action).bg">
+                                            {{ getScheduleTypeStyle(schedule.care_type, schedule.custom_action).icon }}
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="text-sm font-bold text-gray-800">
+                                                {{ getScheduleTypeName(schedule.care_type, schedule.custom_action) }}
+                                            </div>
+                                            <div class="flex items-center gap-1 mt-0.5" @click.stop>
+                                                <span class="text-[10px] text-gray-400">每</span>
+                                                <input v-if="!isReadOnly" type="number"
+                                                    v-model.lazy.number="schedule.intervalDays"
+                                                    class="w-8 h-5 text-center text-[10px] font-bold bg-white border border-gray-200 rounded px-0 py-0 focus:ring-1 focus:ring-purple-200"
+                                                    @change="updateScheduleInterval(schedule)">
+                                                <span v-else class="text-[10px] font-bold text-gray-600">{{
+                                                    schedule.intervalDays }}</span>
+                                                <span class="text-[10px] text-gray-400">天提醒</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div v-if="!isReadOnly" class="flex items-center gap-2">
+                                        <button @click="toggleScheduleEnabled(schedule)"
+                                            class="w-12 h-7 rounded-full transition-all duration-300 relative"
+                                            :class="schedule.enabled ? 'bg-green-500' : 'bg-gray-200'">
+                                            <span
+                                                class="absolute w-5 h-5 bg-white rounded-full top-1 transition-all duration-300 shadow-sm"
+                                                :class="schedule.enabled ? 'right-1' : 'left-1'"></span>
+                                        </button>
+                                        <button @click="deleteSchedule(schedule)"
+                                            class="w-8 h-8 rounded-xl text-gray-300 hover:text-red-400 hover:bg-red-50 transition">
+                                            <i class="fa fa-trash-alt text-xs"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                        </template>
+                        <div v-else class="py-8 text-center text-gray-400">暂未设置养护提醒</div>
                     </div>
                 </div>
 
@@ -799,7 +628,41 @@
                         </div>
                     </div>
 
-                    <div v-if="careRecords?.length === 0" class="p-10 text-center text-gray-400">暂无养护记录</div>
+                    <div v-else-if="isPotStatsLoading && careRecords?.length > 0"
+                        class="px-6 py-4 bg-gray-50/50 border-b border-gray-50">
+                        <div class="grid grid-cols-3 gap-3 mb-3 animate-pulse">
+                            <div class="bg-white rounded-2xl p-3 border border-gray-50 space-y-2">
+                                <div class="h-6 bg-gray-200 rounded w-14 mx-auto"></div>
+                                <div class="h-3 bg-gray-100 rounded w-10 mx-auto"></div>
+                            </div>
+                            <div class="bg-white rounded-2xl p-3 border border-gray-50 space-y-2">
+                                <div class="h-6 bg-gray-200 rounded w-14 mx-auto"></div>
+                                <div class="h-3 bg-gray-100 rounded w-10 mx-auto"></div>
+                            </div>
+                            <div class="bg-white rounded-2xl p-3 border border-gray-50 space-y-2">
+                                <div class="h-6 bg-gray-200 rounded w-14 mx-auto"></div>
+                                <div class="h-3 bg-gray-100 rounded w-10 mx-auto"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="isCareRecordsLoading && careRecords?.length === 0" class="p-6 space-y-4 animate-pulse">
+                        <div class="flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-2xl">
+                            <div class="space-y-2">
+                                <div class="h-4 bg-gray-200 rounded w-24"></div>
+                                <div class="h-3 bg-gray-100 rounded w-36"></div>
+                            </div>
+                            <div class="w-4 h-4 bg-gray-100 rounded"></div>
+                        </div>
+                        <div class="flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-2xl">
+                            <div class="space-y-2">
+                                <div class="h-4 bg-gray-200 rounded w-28"></div>
+                                <div class="h-3 bg-gray-100 rounded w-32"></div>
+                            </div>
+                            <div class="w-4 h-4 bg-gray-100 rounded"></div>
+                        </div>
+                    </div>
+                    <div v-else-if="careRecords?.length === 0" class="p-10 text-center text-gray-400">暂无养护记录</div>
                     <div v-else class="divide-y divide-gray-50">
                         <div v-for="group in groupedCareRecords.slice(0, 5)" :key="group.date"
                             @click="showCareDetails(group)"
@@ -842,13 +705,34 @@
                                 <i class="fas text-[12px]"
                                     :class="isTimelineDesc ? 'fa-sort-amount-down' : 'fa-sort-amount-up'"></i>
                             </button>
-                            <button v-if="!isReadOnly" @click="showAddTimelineModal = true"
+                            <button v-if="!isReadOnly" @click="openAddTimelineModal"
                                 class="bg-blue-500 text-white px-4 py-1.5 rounded-full text-xs font-black shadow-lg shadow-blue-100 active:scale-95 transition">
                                 记录这一刻
                             </button>
                         </div>
                     </div>
-                    <div v-if="timelineRecords?.length === 0" class="p-10 text-center text-gray-400">还没有留下它的成长瞬间</div>
+                    <div v-if="isTimelineRecordsLoading && timelineRecords?.length === 0" class="p-6 space-y-6 animate-pulse">
+                        <div class="relative pl-6 border-l-2 border-gray-100">
+                            <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-gray-200"></div>
+                            <div class="space-y-3">
+                                <div class="h-4 bg-gray-200 rounded w-24"></div>
+                                <div class="h-4 bg-gray-100 rounded w-5/6"></div>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div class="aspect-square rounded-2xl bg-gray-200"></div>
+                                    <div class="aspect-square rounded-2xl bg-gray-100"></div>
+                                    <div class="aspect-square rounded-2xl bg-gray-100"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="relative pl-6 border-l-2 border-gray-100">
+                            <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-gray-200"></div>
+                            <div class="space-y-3">
+                                <div class="h-4 bg-gray-200 rounded w-20"></div>
+                                <div class="h-4 bg-gray-100 rounded w-2/3"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else-if="timelineRecords?.length === 0" class="p-10 text-center text-gray-400">还没有留下它的成长瞬间</div>
                     <div v-else class="p-6 space-y-6">
                         <div v-for="record in sortedTimelineRecords.slice(0, 3)" :key="record.id"
                             class="relative pl-6 border-l-2 border-blue-50">
@@ -864,10 +748,18 @@
                                         {{
                                         record.operatorName || pot.owner_name || '主人' }} 记录</span>
                                 </div>
-                                <button v-if="!isReadOnly" @click="confirmDeleteTimeline(record.id)"
-                                    class="text-gray-300 hover:text-red-400 p-1 active:scale-90 transition">
-                                    <i class="fa fa-trash-alt text-xs"></i>
-                                </button>
+                                <div v-if="!isReadOnly" class="flex items-center gap-1">
+                                    <button @click="openEditTimelineModal(record)"
+                                        class="text-gray-300 hover:text-blue-500 p-1 active:scale-90 transition"
+                                        title="编辑成长轨迹">
+                                        <i class="fa fa-pen text-xs"></i>
+                                    </button>
+                                    <button @click="confirmDeleteTimeline(record.id)"
+                                        class="text-gray-300 hover:text-red-400 p-1 active:scale-90 transition"
+                                        title="删除成长轨迹">
+                                        <i class="fa fa-trash-alt text-xs"></i>
+                                    </button>
+                                </div>
                             </div>
                             <p class="text-sm text-gray-700 mb-3 font-medium">{{ record.description || '这一天，有了新的成长...'
                                 }}</p>
@@ -1035,17 +927,17 @@
             <!-- 弹窗：添加生长记录 -->
             <div v-if="showAddTimelineModal"
                 class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4">
-                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showAddTimelineModal = false"></div>
+                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeTimelineModal"></div>
                 <div
                     class="relative bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
                     <!-- 固定头部 -->
                     <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
                         <div class="flex justify-between items-center">
                             <div>
-                                <h3 class="text-xl font-black text-gray-800">增加生长记录</h3>
-                                <p class="text-xs text-gray-400 mt-1">记录并见证它的成长蜕变</p>
+                                <h3 class="text-xl font-black text-gray-800">{{ isEditingTimeline ? '编辑成长轨迹' : '增加生长记录' }}</h3>
+                                <p class="text-xs text-gray-400 mt-1">{{ isEditingTimeline ? '调整日期、文字和照片' : '记录并见证它的成长蜕变' }}</p>
                             </div>
-                            <button @click="showAddTimelineModal = false"
+                            <button @click="closeTimelineModal"
                                 class="text-gray-300 hover:text-gray-500 transition active:scale-95">
                                 <i class="fa fa-times text-xl"></i>
                             </button>
@@ -1071,6 +963,14 @@
                                     class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">上传照片
                                     (多选, 最多9张)</label>
                                 <div class="grid grid-cols-4 gap-2 mt-2">
+                                    <div v-for="(img, idx) in newTimeline.existingImages" :key="`existing-${idx}-${img}`"
+                                        class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden">
+                                        <img :src="imgUrl(img, 100, 100)" class="w-full h-full object-cover">
+                                        <button @click="removeExistingTimelineImage(idx)"
+                                            class="absolute top-1 right-1 bg-black/50 text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center">
+                                            <i class="fa fa-times"></i>
+                                        </button>
+                                    </div>
                                     <div v-for="(img, idx) in newTimeline.tempImages" :key="idx"
                                         class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden">
                                         <img :src="img.preview" class="w-full h-full object-cover">
@@ -1079,7 +979,7 @@
                                             <i class="fa fa-times"></i>
                                         </button>
                                     </div>
-                                    <button v-if="newTimeline.tempImages.length < 9" @click="triggerFileInput"
+                                    <button v-if="timelineImageCount() < 9" @click="triggerFileInput"
                                         class="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-300 hover:border-blue-500 hover:text-blue-500 transition active:scale-95">
                                         <i class="fa fa-camera text-xl mb-1"></i>
                                         <span class="text-[8px] font-black uppercase tracking-tighter">添加</span>
@@ -1092,7 +992,7 @@
                         <div class="mt-10">
                             <button @click="saveTimelineRecord" :disabled="isSavingTimeline"
                                 class="w-full bg-blue-500 text-white py-4 rounded-2xl text-lg font-black shadow-xl shadow-blue-100 disabled:opacity-50 transition active:scale-[0.98]">
-                                <span v-if="!isSavingTimeline">发布记录</span>
+                                <span v-if="!isSavingTimeline">{{ isEditingTimeline ? '保存修改' : '发布记录' }}</span>
                                 <span v-else><i class="fa fa-spinner fa-spin mr-2"></i>正在同步...</span>
                             </button>
                         </div>
@@ -1332,6 +1232,7 @@
                                 </div>
                                 <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
                                     <input type="email" v-model="newCollaboratorEmail" placeholder="输入好友注册邮箱"
+                                        autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="120"
                                         class="w-full min-w-0 flex-1 bg-white border rounded-2xl py-4 px-6 font-bold text-gray-800 text-sm focus:ring-2 focus:ring-orange-200 transition"
                                         :class="newCollaboratorEmail.trim() && !isCollaboratorInviteEmailValid ? 'border-red-200 focus:ring-red-200' : 'border-gray-100'">
                                     <button @click="addCollaborator" :disabled="!isCollaboratorInviteEmailValid"
@@ -1421,6 +1322,7 @@
                                 </div>
                                 <div class="flex flex-col sm:flex-row gap-2 mt-auto sm:items-center">
                                     <input type="email" v-model="newViewerEmail" placeholder="输入好友注册邮箱"
+                                        autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="120"
                                         class="w-full min-w-0 flex-1 bg-white border rounded-2xl py-4 px-6 font-bold text-gray-800 text-sm focus:ring-2 focus:ring-emerald-200 transition"
                                         :class="newViewerEmail.trim() && !isViewerInviteEmailValid ? 'border-red-200 focus:ring-red-200' : 'border-gray-100'">
                                     <button @click="addViewer" :disabled="!isViewerInviteEmailValid"
@@ -1492,13 +1394,18 @@
                                     class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">接收者邮箱</label>
                                 <div class="relative group">
                                     <input type="email" v-model="transferEmail" placeholder="输入对方注册邮箱"
-                                        class="w-full bg-gray-50 border-2 border-transparent focus:border-red-100 rounded-3xl py-5 px-8 font-black text-gray-800 text-base shadow-inner transition-all outline-none"
+                                        autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="120"
+                                        class="w-full bg-gray-50 border-2 rounded-3xl py-5 px-8 font-black text-gray-800 text-base shadow-inner transition-all outline-none"
+                                        :class="transferEmail.trim() && !isTransferEmailValid ? 'border-red-200 focus:border-red-200' : 'border-transparent focus:border-red-100'"
                                         @input="selectedTransferUser = null" @focus="showTransferSuggestions = true">
                                     <div class="absolute right-6 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none transition-transform"
                                         :class="showTransferSuggestions ? 'rotate-180' : ''">
                                         <i class="fa fa-chevron-down text-xs"></i>
                                     </div>
                                 </div>
+                                <p v-if="transferEmail.trim() && !isTransferEmailValid" class="mt-2 ml-1 text-xs text-red-500">
+                                    请输入正确的邮箱地址
+                                </p>
 
                                 <!-- 联想列表 (仅在有协作者且聚焦时显示) -->
                                 <div v-if="showTransferSuggestions && collaborators?.length > 0"
@@ -1579,7 +1486,9 @@
                                 <div class="flex items-center gap-2 min-w-0">
                                     <div class="flex items-center gap-1.5 min-w-0">
                                         <div class="text-sm font-black text-gray-800 shrink-0">最近留言</div>
-                                        <div class="text-[11px] text-gray-400 shrink-0">{{ recentPotComments.length }} 条</div>
+                                        <div class="text-[11px] text-gray-400 shrink-0">
+                                            {{ isCommentsLoading && recentPotComments.length === 0 ? '加载中...' : `${recentPotComments.length} 条` }}
+                                        </div>
                                     </div>
                                     <button @click="toggleCommentSort"
                                         class="shrink-0 px-3 py-2 rounded-2xl bg-gray-50 text-gray-500 text-[11px] font-black active:scale-95 transition flex items-center gap-1.5 border border-gray-100 comment-compact-button">
@@ -1601,7 +1510,18 @@
                                     </span>
                                 </button>
                             </div>
-                            <div v-if="recentPotComments.length === 0"
+                            <div v-if="isCommentsLoading && recentPotComments.length === 0" class="mt-4 space-y-3 pr-1 pb-4 animate-pulse">
+                                <div class="rounded-3xl border border-gray-100 bg-white px-4 py-3.5 sm:py-4 space-y-3">
+                                    <div class="h-4 bg-gray-200 rounded w-32"></div>
+                                    <div class="h-3.5 bg-gray-100 rounded w-full"></div>
+                                    <div class="h-3.5 bg-gray-100 rounded w-4/5"></div>
+                                </div>
+                                <div class="rounded-3xl border border-gray-100 bg-white px-4 py-3.5 sm:py-4 space-y-3">
+                                    <div class="h-4 bg-gray-200 rounded w-28"></div>
+                                    <div class="h-3.5 bg-gray-100 rounded w-full"></div>
+                                </div>
+                            </div>
+                            <div v-else-if="recentPotComments.length === 0"
                                 class="mt-4 rounded-3xl bg-gray-50 px-4 py-5 text-center text-xs text-gray-400">
                                 还没有留言，发一条试试。
                             </div>
@@ -1704,13 +1624,37 @@
                         </button>
                         <h3 class="text-2xl font-black text-gray-800 mb-2">欢迎回来</h3>
                         <p class="text-gray-400 text-sm mb-8">登录以同步您的花盆数据</p>
-                        <form @submit.prevent="handleLogin" class="space-y-4">
-                            <input type="email" name="email" autocomplete="username" v-model="loginForm.email"
-                                placeholder="电子邮箱" required
-                                class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
-                            <input type="password" name="password" autocomplete="current-password"
-                                v-model="loginForm.password" placeholder="密码" required
-                                class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
+                        <form @submit.prevent="handleLogin" @focusin="scheduleLoginAutofillSync" @click="scheduleLoginAutofillSync" autocomplete="on" class="space-y-4">
+                            <div class="space-y-1.5">
+                                <label for="detailLoginEmail"
+                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
+                                <input type="email" id="detailLoginEmail" name="email" autocomplete="username" inputmode="email"
+                                    autocapitalize="none" spellcheck="false" maxlength="120" @input="handleLoginEmailInput"
+                                    @change="syncLoginFormFromDom" @blur="validateLoginEmail(true)"
+                                    @animationstart="syncLoginFormFromDom" v-model="loginForm.email"
+                                    placeholder="name@example.com" required :aria-invalid="loginErrors.email ? 'true' : 'false'"
+                                    class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                    :class="loginErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                                <p v-if="loginErrors.email" class="text-xs text-red-500 px-1">{{ loginErrors.email }}</p>
+                            </div>
+                            <div class="space-y-1.5">
+                                <label for="detailLoginPassword"
+                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">密码</label>
+                                <input type="password" id="detailLoginPassword" name="password" autocomplete="current-password"
+                                    autocapitalize="none" spellcheck="false" @input="handleLoginPasswordInput"
+                                    @change="syncLoginFormFromDom" @blur="validateLoginPassword(true)"
+                                    @animationstart="syncLoginFormFromDom" v-model="loginForm.password" placeholder="请输入密码"
+                                    required :aria-invalid="loginErrors.password ? 'true' : 'false'"
+                                    class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                    :class="loginErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                                <p v-if="loginErrors.password" class="text-xs text-red-500 px-1">{{ loginErrors.password }}</p>
+                            </div>
+                            <div v-if="loginStatus.message" class="rounded-2xl px-4 py-3 text-xs"
+                                :class="loginStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
+                                <i class="fa mr-1"
+                                    :class="loginStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
+                                {{ loginStatus.message }}
+                            </div>
                             <button type="submit" :disabled="isAuthLoading || !isLoginValid"
                                 class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                                 {{ isAuthLoading ? '登录中...' : '立即登录' }}
@@ -1736,26 +1680,63 @@
                         <h3 class="text-2xl font-black text-gray-800 mb-2">创建账号</h3>
                         <p class="text-gray-400 text-sm mb-8">开始您的智能养花之旅</p>
                         <form @submit.prevent="handleRegister" class="space-y-4">
-                            <input type="email" name="email" autocomplete="email" v-model="registerForm.email"
-                                placeholder="电子邮箱" required
-                                class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
-                            <input type="text" name="nickname" autocomplete="nickname"
-                                v-model="registerForm.displayName" placeholder="昵称"
-                                class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
-                            <input type="password" name="password" autocomplete="new-password"
-                                v-model="registerForm.password" placeholder="密码 (至少8位)" required
-                                class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
-                            <div class="relative">
-                                <input type="password" name="confirmPassword" autocomplete="new-password"
-                                    v-model="registerForm.confirmPassword" placeholder="确认密码" required
-                                    class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
+                            <div class="space-y-1.5">
+                                <label for="detailRegisterEmail"
+                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
+                                <input type="email" id="detailRegisterEmail" name="email" autocomplete="email" inputmode="email"
+                                    autocapitalize="none" spellcheck="false" maxlength="120" @input="handleRegisterEmailInput"
+                                    @blur="validateRegisterEmail(true)" @animationstart="syncRegisterFormFromDom"
+                                    v-model="registerForm.email" placeholder="name@example.com"
+                                    required :aria-invalid="registerErrors.email ? 'true' : 'false'"
+                                    class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                    :class="registerErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                                <p v-if="registerErrors.email" class="text-xs text-red-500 px-1">{{ registerErrors.email }}</p>
+                            </div>
+                            <div class="space-y-1.5">
+                                <label class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">昵称
+                                    <span class="font-medium normal-case tracking-normal text-gray-300">(选填)</span></label>
+                                <input type="text" id="detailRegisterNickname" name="nickname" autocomplete="nickname" maxlength="20"
+                                    @input="handleRegisterDisplayNameInput" @blur="normalizeRegisterDisplayName"
+                                    v-model="registerForm.displayName" placeholder="给自己起个名字"
+                                    class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-green-500 transition">
+                            </div>
+                            <div class="space-y-1.5">
+                                <label for="detailRegisterPassword"
+                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">密码</label>
+                                <input type="password" id="detailRegisterPassword" name="password" autocomplete="new-password"
+                                    minlength="8" @input="handleRegisterPasswordInput" @blur="validateRegisterPassword(true)"
+                                    @animationstart="syncRegisterFormFromDom" v-model="registerForm.password"
+                                    placeholder="至少 8 位" required :aria-invalid="registerErrors.password ? 'true' : 'false'"
+                                    class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                    :class="registerErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                                <p v-if="registerErrors.password" class="text-xs text-red-500 px-1">{{ registerErrors.password }}</p>
+                            </div>
+                            <div class="relative space-y-1.5">
+                                <label for="detailRegisterConfirmPassword"
+                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">确认密码</label>
+                                <input type="password" id="detailRegisterConfirmPassword" name="confirmPassword" autocomplete="new-password"
+                                    minlength="8" @input="handleRegisterConfirmPasswordInput"
+                                    @blur="validateRegisterConfirmPassword(true)" @animationstart="syncRegisterFormFromDom"
+                                    v-model="registerForm.confirmPassword" placeholder="再次输入密码" required
+                                    :aria-invalid="registerErrors.confirmPassword ? 'true' : 'false'"
+                                    class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                    :class="registerErrors.confirmPassword ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
                                 <div v-if="registerForm.password && registerForm.confirmPassword"
                                     class="absolute right-3 top-1/2 transform -translate-y-1/2">
                                     <i v-if="passwordsMatch" class="fa fa-check text-green-500"></i>
                                     <i v-else class="fa fa-times text-red-500"></i>
                                 </div>
                             </div>
-                            <button type="submit" :disabled="!isRegisterValid || isAuthLoading"
+                            <p v-if="registerErrors.confirmPassword" class="text-xs text-red-500 px-1">
+                                {{ registerErrors.confirmPassword }}
+                            </p>
+                            <div v-if="registerStatus.message" class="rounded-2xl px-4 py-3 text-xs"
+                                :class="registerStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
+                                <i class="fa mr-1"
+                                    :class="registerStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
+                                {{ registerStatus.message }}
+                            </div>
+                            <button type="submit" :disabled="isAuthLoading || !isRegisterValid"
                                 class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                                 {{ isAuthLoading ? '注册中...' : '完成注册' }}
                             </button>
@@ -1775,9 +1756,26 @@
                         <h3 class="text-2xl font-black text-gray-800 mb-2">重置您的密码</h3>
                         <p class="text-gray-400 text-sm mb-8">我们将向您的邮箱发送重置链接</p>
                         <form @submit.prevent="handleForgotPassword" class="space-y-4">
-                            <input type="email" name="email" autocomplete="email" v-model="loginForm.email"
-                                placeholder="电子邮箱" required
-                                class="w-full bg-gray-50 border-gray-100 rounded-2xl py-3 px-4 focus:ring-green-500">
+                            <div class="space-y-1.5">
+                                <label class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
+                                <input type="email" id="detailLoginEmail" name="email" autocomplete="email" inputmode="email"
+                                    autocapitalize="none" spellcheck="false" maxlength="120" v-model="loginForm.email"
+                                    @input="handleForgotPasswordEmailInput" @change="syncLoginFormFromDom"
+                                    @animationstart="syncLoginFormFromDom"
+                                    @blur="validateForgotPasswordEmail(true)" placeholder="name@example.com" required
+                                    :aria-invalid="forgotPasswordErrors.email ? 'true' : 'false'"
+                                    class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                    :class="forgotPasswordErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                                <p v-if="forgotPasswordErrors.email" class="text-red-500 text-xs px-1">
+                                    {{ forgotPasswordErrors.email }}
+                                </p>
+                            </div>
+                            <div v-if="forgotPasswordStatus.message" class="rounded-2xl px-4 py-3 text-xs"
+                                :class="forgotPasswordStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
+                                <i class="fa mr-1"
+                                    :class="forgotPasswordStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
+                                {{ forgotPasswordStatus.message }}
+                            </div>
                             <button type="submit" :disabled="isAuthLoading || !isForgotPasswordEmailValid"
                                 class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                                 {{ isAuthLoading ? '发送中...' : '发送重置邮件' }}
@@ -1794,7 +1792,8 @@
 
     <script src="js/vue.global.js"></script>
     <script src="js/config.js?v=20260227"></script>
-    <script src="js/api-client.js?v=20260227"></script>
+    <script src="js/api-client.js?v=20260415-1"></script>
+    <script src="js/form-utils.js?v=20260413"></script>
     <script src="js/clipboard.js?v=20260407-2"></script>
 
     <script>
@@ -1802,9 +1801,8 @@
 
         createApp({
             setup() {
+                const formUtils = window.MyFlowerPotsFormUtils;
                 const isLoading = ref(true);
-                const error = ref(null);
-                const tokenInvalid = ref(false);
                 const potId = ref(null);
                 const shareToken = ref(null);
                 const collabToken = ref(null);
@@ -1852,6 +1850,12 @@
                 const replyTargetComment = ref(null);
                 const commentSortOrder = ref('asc');
                 const viewers = ref([]);
+                const isPlantInfoLoading = ref(false);
+                const isCareRecordsLoading = ref(false);
+                const isTimelineRecordsLoading = ref(false);
+                const isPotStatsLoading = ref(false);
+                const isCareSchedulesLoading = ref(false);
+                const isCommentsLoading = ref(false);
                 const newCollaboratorEmail = ref('');
                 const newViewerEmail = ref('');
                 const commentForm = reactive({
@@ -1868,6 +1872,7 @@
                 const fileInput = ref(null);
                 const touchStartX = ref(0);
                 const touchEndX = ref(0);
+                const heroImageLoaded = ref(false);
 
                 // Auth UI 状态
                 const showUserMenu = ref(false);
@@ -1875,7 +1880,6 @@
                 const showRegisterModal = ref(false);
                 const showForgotPasswordModal = ref(false);
                 const isAuthLoading = ref(false);
-                const errorKind = ref('default');
                 const loginForm = reactive({ email: '', password: '' });
                 const registerForm = reactive({
                     email: '',
@@ -1883,104 +1887,51 @@
                     confirmPassword: '',
                     displayName: ''
                 });
+                const loginErrors = reactive({ email: '', password: '' });
+                const registerErrors = reactive({ email: '', password: '', confirmPassword: '' });
+                const forgotPasswordErrors = reactive({ email: '' });
+                const loginStatus = reactive({ type: '', message: '' });
+                const registerStatus = reactive({ type: '', message: '' });
+                const forgotPasswordStatus = reactive({ type: '', message: '' });
 
                 const passwordsMatch = computed(() =>
+                    !!registerForm.password &&
+                    !!registerForm.confirmPassword &&
                     registerForm.password === registerForm.confirmPassword
                 );
 
-                const isForgotPasswordEmailValid = computed(() => {
-                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                    return emailRegex.test(loginForm.email);
-                });
-                const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((email || '').trim());
-                const isCollaboratorInviteEmailValid = computed(() => isValidEmail(newCollaboratorEmail.value));
-                const isViewerInviteEmailValid = computed(() => isValidEmail(newViewerEmail.value));
+                const isForgotPasswordEmailValid = computed(() =>
+                    formUtils.isValidEmail(loginForm.email)
+                );
+                const isCollaboratorInviteEmailValid = computed(() => formUtils.isValidEmail(newCollaboratorEmail.value));
+                const isViewerInviteEmailValid = computed(() => formUtils.isValidEmail(newViewerEmail.value));
+                const isTransferEmailValid = computed(() => !transferEmail.value.trim() || formUtils.isValidEmail(transferEmail.value));
 
                 const isLoginValid = computed(() =>
-                    isForgotPasswordEmailValid.value &&
-                    loginForm.password.trim()?.length > 0
+                    formUtils.isValidEmail(loginForm.email) &&
+                    loginForm.password.length > 0
                 );
-                const hasEmailAccount = computed(() => !!(currentUser.value && currentUser.value.userType === 'email'));
-                const shouldShowStandaloneState = computed(() => !isLoading.value && (!!error.value || tokenInvalid.value));
-                const isPermissionError = computed(() => errorKind.value === 'permission');
-                const permissionErrorBadge = computed(() => hasEmailAccount.value ? '访问受限' : '需要登录');
-                const permissionErrorIcon = computed(() => hasEmailAccount.value ? 'fa fa-user-shield' : 'fa fa-lock');
-                const permissionErrorTitle = computed(() => {
-                    if (collabToken.value) return hasEmailAccount.value ? '当前账号不能接受这条邀请' : '登录后即可接受共同照料邀请';
-                    if (viewerToken.value) return hasEmailAccount.value ? '当前账号不能接受这条查看邀请' : '登录后即可接受查看邀请';
-                    return hasEmailAccount.value ? '当前账号暂时无法查看这盆花' : '登录后才能继续查看';
-                });
-                const permissionErrorLead = computed(() => {
-                    if (collabToken.value) {
-                        return hasEmailAccount.value
-                            ? '这条共同照料邀请属于另一个账号，或链接状态已经变化。切换到正确账号，或联系好友重新发送最新邀请。'
-                            : '这是一条好友发来的共同照料邀请。登录已有账号，或先注册一个账号后，即可继续完成加入。';
-                    }
-                    if (viewerToken.value) {
-                        return hasEmailAccount.value
-                            ? '这条查看邀请并不属于当前账号。你可以切换账号后重试，或让好友重新发送最新链接。'
-                            : '这是一条好友发来的查看邀请。登录或注册后，就能把这盆花加入你的“好友分享”列表。';
-                    }
-                    return hasEmailAccount.value
-                        ? '当前账号没有访问这盆花的权限。通常是链接对应的授权已变化，或者你使用了不是被授权的账号。'
-                        : '这个页面不是公开内容，需要先完成身份验证后才能继续查看。';
-                });
-                const permissionPrimaryActionLabel = computed(() => hasEmailAccount.value ? '切换账号' : '立即登录');
-                const permissionHelpCards = computed(() => {
-                    if (hasEmailAccount.value) {
-                        return [
-                            {
-                                icon: 'fa fa-right-left',
-                                title: '切换到正确账号',
-                                description: '如果你有多个账号，请先退出当前账号，再登录被授权访问这盆花的那个账号。'
-                            },
-                            {
-                                icon: 'fa fa-link',
-                                title: '确认链接是否最新',
-                                description: '邀请或分享链接可能已被更新、关闭或重新生成，让好友重新发送最新链接最稳妥。'
-                            },
-                            {
-                                icon: 'fa fa-house',
-                                title: '先返回首页继续使用',
-                                description: '如果只是误点了旧链接，可以先回到首页管理自己的花盆，再从正确入口进入。'
-                            }
-                        ];
-                    }
-
-                    return [
-                        {
-                            icon: 'fa fa-right-to-bracket',
-                            title: '登录已有账号',
-                            description: '如果你已经注册过，直接登录后重试，通常就能继续访问或完成邀请确认。'
-                        },
-                        {
-                            icon: 'fa fa-user-plus',
-                            title: '没有账号就先注册',
-                            description: '注册后可以保存自己的花盆，也能接受好友的分享、查看和共同照料邀请。'
-                        },
-                        {
-                            icon: 'fa fa-paper-plane',
-                            title: '让好友重新发链接',
-                            description: '如果这是好友分享给你的页面，优先确认他发送的是最新链接，并且你打开的是正确账号。'
-                        }
-                    ];
-                });
-                const permissionErrorFootnote = computed(() => (collabToken.value || viewerToken.value)
-                    ? '邀请链接通常与账号和会话相关。如果你是在社交软件里预览后又切换浏览器，优先使用最终打开并准备接受邀请的那个浏览器完成操作。'
-                    : '如果你确认自己应该有权限，但仍然无法访问，通常意味着链接对应的授权状态已变化，重新获取最新入口会更快。'
-                );
+                const hasEmailAuthSession = () => {
+                    const tokenType = apiClient.parseTokenPayload?.()?.type;
+                    return currentUser.value?.userType === 'email' || tokenType === 'email';
+                };
+                const fallbackPotImage = 'assets/images/icons/icons-default-pot.png';
 
                 const isRegisterValid = computed(() =>
-                    registerForm.email &&
-                    registerForm.password?.length >= 8 &&
+                    formUtils.isValidEmail(registerForm.email) &&
+                    formUtils.isValidPassword(registerForm.password) &&
+                    !!registerForm.confirmPassword &&
                     passwordsMatch.value
                 );
 
                 const newTimeline = reactive({
                     date: new Date().toISOString().split('T')[0],
                     description: '',
+                    existingImages: [],
                     tempImages: []
                 });
+                const editingTimelineId = ref(null);
+                const isEditingTimeline = computed(() => !!editingTimelineId.value);
 
                 const careSchedules = ref([]);
                 const showScheduleExpanded = ref(true);
@@ -2054,7 +2005,6 @@
                     typeof navigator.share === 'function'
                 ));
                 const shouldHideFloatingChrome = computed(() => !!(
-                    shouldShowStandaloneState.value ||
                     showPlantModal.value ||
                     showAddTimelineModal.value ||
                     showShareModal.value ||
@@ -2114,8 +2064,10 @@
                     const seed = hashCommentSeed(`${item.id || idx}-${item.createdAt || idx}`);
                     const lane = seed % 4;
                     const top = 12 + lane * 17 + (seed % 5);
-                    const delay = (seed % 6) * 1.2;
                     const duration = 12 + (seed % 9);
+                    // Use a negative delay so some barrages are already in-flight
+                    // when the header enters view instead of waiting several seconds.
+                    const delay = -((seed % 5) * (duration / 6));
                     return {
                         top: `${top}%`,
                         animationDelay: `${delay}s`,
@@ -2219,20 +2171,238 @@
                     return sessionId;
                 };
 
-                const dismissError = () => {
-                    error.value = null;
-                    errorKind.value = 'default';
+                const clearStatus = (status) => {
+                    status.type = '';
+                    status.message = '';
                 };
 
-                const showGenericError = (message) => {
-                    error.value = message;
-                    errorKind.value = 'default';
+                const clearAuthFeedback = () => {
+                    loginErrors.email = '';
+                    loginErrors.password = '';
+                    registerErrors.email = '';
+                    registerErrors.password = '';
+                    registerErrors.confirmPassword = '';
+                    forgotPasswordErrors.email = '';
+                    clearStatus(loginStatus);
+                    clearStatus(registerStatus);
+                    clearStatus(forgotPasswordStatus);
                 };
 
-                const showPermissionError = (message) => {
-                    error.value = message;
-                    errorKind.value = 'permission';
+                const syncLoginFormFromDom = () => {
+                    formUtils.syncFormFieldsFromDom([
+                        { elementId: 'detailLoginEmail', form: loginForm, key: 'email', transform: formUtils.normalizeEmail },
+                        { elementId: 'detailLoginPassword', form: loginForm, key: 'password' }
+                    ]);
                 };
+
+                const syncRegisterFormFromDom = () => {
+                    formUtils.syncFormFieldsFromDom([
+                        { elementId: 'detailRegisterEmail', form: registerForm, key: 'email', transform: formUtils.normalizeEmail },
+                        { elementId: 'detailRegisterNickname', form: registerForm, key: 'displayName', transform: formUtils.normalizeSingleLineText },
+                        { elementId: 'detailRegisterPassword', form: registerForm, key: 'password' },
+                        { elementId: 'detailRegisterConfirmPassword', form: registerForm, key: 'confirmPassword' }
+                    ]);
+                };
+
+                let loginAutofillSyncInterval = null;
+                let loginAutofillSyncStopTimer = null;
+
+                const stopLoginAutofillWatcher = () => {
+                    if (loginAutofillSyncInterval) {
+                        window.clearInterval(loginAutofillSyncInterval);
+                        loginAutofillSyncInterval = null;
+                    }
+                    if (loginAutofillSyncStopTimer) {
+                        window.clearTimeout(loginAutofillSyncStopTimer);
+                        loginAutofillSyncStopTimer = null;
+                    }
+                };
+
+                const startLoginAutofillWatcher = (durationMs = 12000) => {
+                    stopLoginAutofillWatcher();
+                    syncLoginFormFromDom();
+                    loginAutofillSyncInterval = window.setInterval(syncLoginFormFromDom, 250);
+                    loginAutofillSyncStopTimer = window.setTimeout(() => {
+                        stopLoginAutofillWatcher();
+                    }, durationMs);
+                };
+
+                const scheduleLoginAutofillSync = async () => {
+                    await nextTick();
+                    startLoginAutofillWatcher();
+                    [80, 250, 800, 1600].forEach(delay => window.setTimeout(syncLoginFormFromDom, delay));
+                };
+
+                const focusFieldById = async (elementId) => {
+                    await nextTick();
+                    const input = document.getElementById(elementId);
+                    if (typeof input?.focus === 'function') {
+                        input.focus();
+                    }
+                };
+
+                const validateLoginEmail = (showRequired = false) => {
+                    loginForm.email = formUtils.normalizeEmail(loginForm.email);
+                    loginErrors.email = formUtils.getEmailError(loginForm.email, { required: showRequired });
+                    return !loginErrors.email;
+                };
+
+                const validateLoginPassword = (showRequired = false) => {
+                    loginErrors.password = loginForm.password
+                        ? ''
+                        : (showRequired ? '请输入密码' : '');
+                    return !loginErrors.password;
+                };
+
+                const validateForgotPasswordEmail = (showRequired = false) => {
+                    loginForm.email = formUtils.normalizeEmail(loginForm.email);
+                    forgotPasswordErrors.email = formUtils.getEmailError(loginForm.email, { required: showRequired });
+                    return !forgotPasswordErrors.email;
+                };
+
+                const validateRegisterEmail = (showRequired = false) => {
+                    registerForm.email = formUtils.normalizeEmail(registerForm.email);
+                    registerErrors.email = formUtils.getEmailError(registerForm.email, { required: showRequired });
+                    return !registerErrors.email;
+                };
+
+                const validateRegisterPassword = (showRequired = false) => {
+                    registerErrors.password = formUtils.getPasswordError(registerForm.password, {
+                        required: showRequired,
+                        requiredMessage: '请输入密码',
+                        tooShortMessage: '密码至少 8 位'
+                    });
+                    return !registerErrors.password;
+                };
+
+                const validateRegisterConfirmPassword = (showRequired = false) => {
+                    if (!registerForm.confirmPassword) {
+                        registerErrors.confirmPassword = showRequired ? '请再次输入密码' : '';
+                        return !registerErrors.confirmPassword;
+                    }
+                    registerErrors.confirmPassword = passwordsMatch.value ? '' : '两次输入的密码不一致';
+                    return !registerErrors.confirmPassword;
+                };
+
+                const normalizeRegisterDisplayName = () => {
+                    registerForm.displayName = formUtils.normalizeSingleLineText(registerForm.displayName);
+                };
+
+                const handleLoginEmailInput = () => {
+                    clearStatus(loginStatus);
+                    if (!loginForm.email) {
+                        loginErrors.email = '';
+                        return;
+                    }
+                    validateLoginEmail(false);
+                };
+
+                const handleLoginPasswordInput = () => {
+                    clearStatus(loginStatus);
+                    if (!loginForm.password) {
+                        loginErrors.password = '';
+                        return;
+                    }
+                    validateLoginPassword(false);
+                };
+
+                const handleForgotPasswordEmailInput = () => {
+                    clearStatus(forgotPasswordStatus);
+                    if (!loginForm.email) {
+                        forgotPasswordErrors.email = '';
+                        return;
+                    }
+                    validateForgotPasswordEmail(false);
+                };
+
+                const handleRegisterEmailInput = () => {
+                    clearStatus(registerStatus);
+                    if (!registerForm.email) {
+                        registerErrors.email = '';
+                        return;
+                    }
+                    validateRegisterEmail(false);
+                };
+
+                const handleRegisterDisplayNameInput = () => {
+                    clearStatus(registerStatus);
+                };
+
+                const handleRegisterPasswordInput = () => {
+                    clearStatus(registerStatus);
+                    validateRegisterPassword(false);
+                    if (registerForm.confirmPassword) {
+                        validateRegisterConfirmPassword(false);
+                    } else {
+                        registerErrors.confirmPassword = '';
+                    }
+                };
+
+                const handleRegisterConfirmPasswordInput = () => {
+                    clearStatus(registerStatus);
+                    validateRegisterConfirmPassword(false);
+                };
+
+                const validateLoginForm = async () => {
+                    syncLoginFormFromDom();
+                    clearStatus(loginStatus);
+
+                    const emailValid = validateLoginEmail(true);
+                    const passwordValid = validateLoginPassword(true);
+
+                    if (!emailValid) {
+                        await focusFieldById('detailLoginEmail');
+                        return false;
+                    }
+
+                    if (!passwordValid) {
+                        await focusFieldById('detailLoginPassword');
+                        return false;
+                    }
+
+                    return true;
+                };
+
+                const validateRegisterForm = async () => {
+                    syncRegisterFormFromDom();
+                    normalizeRegisterDisplayName();
+                    clearStatus(registerStatus);
+
+                    const emailValid = validateRegisterEmail(true);
+                    const passwordValid = validateRegisterPassword(true);
+                    const confirmPasswordValid = validateRegisterConfirmPassword(true);
+
+                    if (!emailValid) {
+                        await focusFieldById('detailRegisterEmail');
+                        return false;
+                    }
+
+                    if (!passwordValid) {
+                        await focusFieldById('detailRegisterPassword');
+                        return false;
+                    }
+
+                    if (!confirmPasswordValid) {
+                        await focusFieldById('detailRegisterConfirmPassword');
+                        return false;
+                    }
+
+                    return true;
+                };
+
+                watch([showLoginModal, showForgotPasswordModal, showRegisterModal], ([loginVisible, forgotVisible, registerVisible]) => {
+                    if (loginVisible || forgotVisible) {
+                        scheduleLoginAutofillSync();
+                    } else {
+                        stopLoginAutofillWatcher();
+                    }
+
+                    if (registerVisible) {
+                        nextTick(() => {
+                            [80, 250, 800, 1600].forEach(delay => window.setTimeout(syncRegisterFormFromDom, delay));
+                        });
+                    }
+                });
 
                 const isAuthRequiredError = (err) => {
                     const status = Number(err?.status || 0);
@@ -2251,25 +2421,74 @@
                     }
                 };
 
+                const redirectToErrorPage = (type, message, options = {}) => {
+                    const nav = window.MyFlowerPotsNavigation;
+                    const redirect = nav?.getCurrentAppPath?.() || `${window.location.pathname.split('/').pop() || 'pot-detail.html'}${window.location.search}${window.location.hash}`;
+
+                    const params = {
+                        type,
+                        redirect,
+                        message,
+                        from: 'pot-detail',
+                        source: options.source || type,
+                        open: options.open,
+                        auto: options.auto
+                    };
+
+                    if (nav?.redirectToError) {
+                        nav.redirectToError(params, { replace: true });
+                        return true;
+                    }
+
+                    const search = new URLSearchParams();
+                    Object.entries(params).forEach(([key, value]) => {
+                        if (value === undefined || value === null) return;
+                        const normalized = String(value).trim();
+                        if (normalized) search.set(key, normalized);
+                    });
+                    window.location.replace(`error.html?${search.toString()}`);
+                    return true;
+                };
+
                 const handleInitError = (err) => {
                     const status = Number(err?.status || 0);
                     const rawMessage = (err?.message || '').trim();
 
                     if (status === 401 || /Authentication required/i.test(rawMessage)) {
-                        showPermissionError('这个花盆需要登录后才能继续查看。您可以先登录，或直接注册一个账号。');
+                        redirectToErrorPage('login_required', rawMessage || '这个花盆需要登录后才能继续查看。', { open: 'login' });
                         return;
                     }
 
-                    if (!shareToken.value && potId.value && (status === 403 || status === 404 || /access denied|not found/i.test(rawMessage))) {
-                        showPermissionError(
-                            hasEmailAccount.value
-                                ? '这个花盆不存在，或当前账号没有查看权限。请切换到正确账号后再试。'
-                                : '这个花盆不存在，或需要登录正确账号后才能查看。您也可以先注册一个账号。'
-                        );
+                    if ((collabToken.value || viewerToken.value) && /Invite link invalid or expired/i.test(rawMessage)) {
+                        const needsLogin = !hasEmailAuthSession();
+                        if (redirectToErrorPage(
+                            needsLogin ? 'login_required' : 'link_expired',
+                            needsLogin ? '请先登录或注册后继续处理这条邀请。' : '这条邀请链接已经失效，请让好友重新发送最新入口。',
+                            { open: needsLogin ? 'login' : undefined }
+                        )) {
+                            return;
+                        }
+                    }
+
+                    if (!shareToken.value && potId.value && (status === 404 || /not found/i.test(rawMessage))) {
+                        redirectToErrorPage('not_found', '没有找到这盆花，可能它已被删除，或者当前入口已经变化。');
                         return;
                     }
 
-                    showGenericError(`加载失败: ${rawMessage || '请稍后重试'}`);
+                    if (!shareToken.value && potId.value && (status === 403 || /access denied/i.test(rawMessage))) {
+                        const message = hasEmailAuthSession()
+                            ? '这个花盆不存在，或当前账号没有查看权限。请切换到正确账号后再试。'
+                            : '这个花盆不存在，或需要登录正确账号后才能查看。您也可以先注册一个账号。';
+                        redirectToErrorPage(hasEmailAuthSession() ? 'forbidden' : 'login_required', message, { open: 'login' });
+                        return;
+                    }
+
+                    if (shareToken.value) {
+                        redirectToErrorPage('link_expired', rawMessage || '当前分享链接已经失效，请让对方重新发送最新入口。');
+                        return;
+                    }
+
+                    redirectToErrorPage('server_error', rawMessage || '页面暂时没加载出来，请稍后重试。');
                 };
 
                 const copyTextSafely = async (text) => {
@@ -2294,22 +2513,60 @@
                     window.location.href = 'index.html';
                 };
 
-                const openPermissionLogin = () => {
-                    switchToLogin();
+                const applyCurrentUserProfile = (userRes) => {
+                    currentUser.value = userRes?.success ? userRes.user : null;
                 };
 
-                const openPermissionRegister = () => {
-                    switchToRegister();
-                };
+                const canLoadPrivateDetailData = () => !!(
+                    pot.value && (
+                        !shareToken.value ||
+                        isOwner.value ||
+                        viewerIsCollaborator.value ||
+                        viewerIsViewer.value ||
+                        pot.value.is_collaborator ||
+                        pot.value.is_viewer
+                    )
+                );
 
-                const retryCurrentPage = () => {
-                    isLoading.value = true;
-                    init();
+                const startBackgroundDetailLoads = () => {
+                    if (!pot.value) return;
+
+                    if (canLoadPrivateDetailData()) {
+                        loadCareRecords().catch(err => {
+                            if (!isOwner.value && err.message?.includes('Authentication')) {
+                                console.warn('Skipping private care records for non-owner');
+                            } else {
+                                console.error('Care records load error:', err);
+                            }
+                        });
+                        loadTimelineRecords().catch(err => {
+                            if (!isOwner.value && err.message?.includes('Authentication')) {
+                                console.warn('Skipping private timelines for non-owner');
+                            } else {
+                                console.error('Timeline load error:', err);
+                            }
+                        });
+                        loadPotStats().catch(err => {
+                            if (!isOwner.value && err.message?.includes('Authentication')) {
+                                console.warn('Skipping private stats for non-owner');
+                            } else {
+                                console.error('Stats load error:', err);
+                            }
+                        });
+                        loadCareSchedules().catch(err => {
+                            if (!isOwner.value && err.message?.includes('Authentication')) {
+                                console.warn('Skipping private schedules for non-owner');
+                            } else {
+                                console.error('Care schedules load error:', err);
+                            }
+                        });
+                    }
+
+                    loadPlantInfo().catch(err => console.warn('Plant info load error:', err));
+                    loadPotComments().catch(err => console.warn('Comment load error:', err));
                 };
 
                 const init = async () => {
-                    dismissError();
-                    tokenInvalid.value = false;
                     potId.value = getParamWithFallback('id');
                     shareToken.value = getParamWithFallback('token');
                     collabToken.value = getParamWithFallback('collabToken');
@@ -2325,80 +2582,97 @@
                         getInviteSessionId('viewer_invite_session_id', viewerInviteSessionId);
                     }
 
+                    pot.value = null;
+                    currentUser.value = null;
+                    transferPot.value = null;
+                    careRecords.value = [];
+                    timelineRecords.value = [];
+                    potStats.value = null;
+                    careSchedules.value = [];
+                    plantInfo.value = null;
+                    matchedPlantName.value = null;
+                    potComments.value = [];
+                    viewerIsCollaborator.value = false;
+                    viewerIsViewer.value = false;
+                    showCommentDanmaku.value = true;
+                    isPlantInfoLoading.value = false;
+                    isCareRecordsLoading.value = false;
+                    isTimelineRecordsLoading.value = false;
+                    isPotStatsLoading.value = false;
+                    isCareSchedulesLoading.value = false;
+                    isCommentsLoading.value = false;
+
                     try {
-                        // 获取当前用户信息
-                        const userRes = (apiClient.token && apiClient.userId)
-                            ? await apiClient.getUserProfile().catch(() => null)
-                            : null;
-                        if (userRes && userRes.success) currentUser.value = userRes.user;
+                        const userProfilePromise = (apiClient.token && apiClient.userId)
+                            ? apiClient.getUserProfile().catch(() => null)
+                            : Promise.resolve(null);
 
                         if (transferToken.value) {
-                            await loadTransferPotDetail();
+                            const [userRes] = await Promise.all([
+                                userProfilePromise,
+                                loadTransferPotDetail()
+                            ]);
+                            applyCurrentUserProfile(userRes);
                         } else if (collabToken.value) {
+                            applyCurrentUserProfile(await userProfilePromise);
+                            if (hasEmailAuthSession() && await tryResumeCollaboratorInviteFromLink()) {
+                                return;
+                            }
                             try {
                                 await openCollaboratorInviteLink();
                             } catch (inviteOpenError) {
-                                if (hasEmailAccount.value && await tryResumeCollaboratorInviteFromLink()) {
+                                if (hasEmailAuthSession() && await tryResumeCollaboratorInviteFromLink()) {
                                     return;
                                 }
                                 throw inviteOpenError;
                             }
-                            if (!hasEmailAccount.value) {
+                            if (!hasEmailAuthSession()) {
                                 isLoading.value = false;
-                                showPermissionError('请先登录或注册，再接受共同养护邀请。');
-                                showLoginModal.value = true;
+                                redirectToErrorPage('login_required', '请先登录或注册，再接受共同养护邀请。', { open: 'login' });
                                 return;
                             }
                             await acceptCollaboratorInviteFromLink();
                         } else if (viewerToken.value) {
+                            applyCurrentUserProfile(await userProfilePromise);
+                            if (hasEmailAuthSession() && await tryResumeViewerInviteFromLink()) {
+                                return;
+                            }
                             try {
                                 await openViewerInviteLink();
                             } catch (inviteOpenError) {
-                                if (hasEmailAccount.value && await tryResumeViewerInviteFromLink()) {
+                                if (hasEmailAuthSession() && await tryResumeViewerInviteFromLink()) {
                                     return;
                                 }
                                 throw inviteOpenError;
                             }
-                            if (!hasEmailAccount.value) {
+                            if (!hasEmailAuthSession()) {
                                 isLoading.value = false;
-                                showPermissionError('请先登录或注册，再接受查看邀请。');
-                                showLoginModal.value = true;
+                                redirectToErrorPage('login_required', '请先登录或注册，再接受查看邀请。', { open: 'login' });
                                 return;
                             }
                             await acceptViewerInviteFromLink();
                         } else if (shareToken.value) {
-                            await loadPublicPotDetail();
+                            const [userRes] = await Promise.all([
+                                userProfilePromise,
+                                loadPublicPotDetail()
+                            ]);
+                            applyCurrentUserProfile(userRes);
                         } else if (potId.value) {
-                            await loadPotDetail();
+                            const [userRes] = await Promise.all([
+                                userProfilePromise,
+                                loadPotDetail()
+                            ]);
+                            applyCurrentUserProfile(userRes);
                         } else {
-                            showGenericError('参数缺失');
                             isLoading.value = false;
+                            redirectToErrorPage('not_found', '当前链接缺少必要参数，请从首页或最新入口重新进入。');
                             return;
                         }
 
                         isLoading.value = false;
 
                         if (pot.value) {
-                            // 仅在非公开分享模式（有 ID 没 Token），或者是本人访问分享链接时，才加载完整私有数据
-                            // 若是纯访客（有 Token 没登录）或他人的分享链接，绝不触发私有接口
-                            if (!shareToken.value || isOwner.value || viewerIsCollaborator.value || viewerIsViewer.value || pot.value.is_collaborator || pot.value.is_viewer) {
-                                Promise.all([
-                                    loadCareRecords(),
-                                    loadTimelineRecords(),
-                                    loadPotStats(),
-                                    loadCareSchedules()
-                                ]).catch(err => {
-                                    // 给访客模式留一道防线，如果是鉴权错误则不报 error
-                                    if (!isOwner.value && err.message?.includes('Authentication')) {
-                                        console.warn('Skipping private data for non-owner');
-                                    } else {
-                                        console.error('Background load error:', err);
-                                    }
-                                });
-                            }
-
-                            loadPlantInfo().catch(err => console.warn('Plant info load error:', err));
-                            loadPotComments().catch(err => console.warn('Comment load error:', err));
+                            startBackgroundDetailLoads();
                         }
                     } catch (err) {
                         if (!isAuthRequiredError(err)) {
@@ -2438,12 +2712,8 @@
                             // 公开分享接口已包含脱敏后的记录，直接使用
                             if (res.data.careRecords) careRecords.value = res.data.careRecords;
                             if (res.data.timelines) timelineRecords.value = res.data.timelines;
-                        } else {
-                            tokenInvalid.value = true;
                         }
                     } catch (err) {
-                        // 404 = 分享不存在，403 = 分享已关闭，其他均视为失效
-                        tokenInvalid.value = true;
                         throw err; // 继续向上抛出，让 init 的 catch 停止 isLoading
                     }
                 };
@@ -2556,42 +2826,56 @@
 
                 const handleLogin = async () => {
                     try {
+                        if (!await validateLoginForm()) {
+                            return;
+                        }
                         isAuthLoading.value = true;
+                        clearStatus(loginStatus);
+                        loginForm.email = formUtils.normalizeEmail(loginForm.email);
                         const res = await apiClient.login(loginForm.email, loginForm.password);
                         if (res.token) location.reload();
-                    } catch (e) { alert('登录失败: ' + e.message); } finally { isAuthLoading.value = false; }
+                    } catch (e) {
+                        loginStatus.type = 'error';
+                        loginStatus.message = '登录失败: ' + e.message;
+                    } finally { isAuthLoading.value = false; }
                 };
 
                 const handleForgotPassword = async () => {
-                    if (!loginForm.email) {
-                        alert('请输入您的电子邮箱');
+                    syncLoginFormFromDom();
+                    clearStatus(forgotPasswordStatus);
+                    if (!validateForgotPasswordEmail(true)) {
+                        await focusFieldById('detailLoginEmail');
                         return;
                     }
                     try {
                         isAuthLoading.value = true;
+                        loginForm.email = formUtils.normalizeEmail(loginForm.email);
                         const res = await apiClient.forgotPassword(loginForm.email);
                         if (res.success) {
-                            alert('重置链接已发送到您的邮箱，请检查（包括垃圾箱）。');
+                            forgotPasswordStatus.type = 'success';
+                            forgotPasswordStatus.message = '重置链接已发送到您的邮箱，请检查收件箱和垃圾箱。';
+                            loginStatus.type = 'success';
+                            loginStatus.message = forgotPasswordStatus.message;
                             showForgotPasswordModal.value = false;
+                            showLoginModal.value = true;
                         }
                     } catch (e) {
-                        alert('发送失败: ' + e.message);
+                        forgotPasswordStatus.type = 'error';
+                        forgotPasswordStatus.message = '发送失败: ' + e.message;
                     } finally {
                         isAuthLoading.value = false;
                     }
                 };
 
                 const handleRegister = async () => {
-                    if (!passwordsMatch.value) {
-                        alert('两次输入的密码不一致，请重新输入');
-                        return;
-                    }
-                    if (registerForm.password?.length < 8) {
-                        alert('密码长度至少需要8位');
+                    if (!await validateRegisterForm()) {
                         return;
                     }
                     try {
                         isAuthLoading.value = true;
+                        registerForm.email = formUtils.normalizeEmail(registerForm.email);
+                        normalizeRegisterDisplayName();
+                        clearStatus(registerStatus);
                         const anonymousUserId = window.authStorage?.getUserId() || null;
                         const isAnonymous = !currentUser.value || currentUser.value.userType === 'anonymous';
 
@@ -2607,7 +2891,8 @@
                             location.reload();
                         }
                     } catch (e) {
-                        alert('注册失败: ' + e.message);
+                        registerStatus.type = 'error';
+                        registerStatus.message = '注册失败: ' + e.message;
                     } finally {
                         isAuthLoading.value = false;
                     }
@@ -2615,71 +2900,120 @@
 
                 const logout = async () => { await apiClient.logout(); location.reload(); };
                 const closeAuthModals = () => {
+                    clearAuthFeedback();
                     showLoginModal.value = false;
                     showRegisterModal.value = false;
                     showForgotPasswordModal.value = false;
                 };
                 const switchToRegister = () => {
+                    clearAuthFeedback();
                     showLoginModal.value = false;
                     showRegisterModal.value = true;
                     showForgotPasswordModal.value = false;
                 };
                 const switchToLogin = () => {
+                    clearAuthFeedback();
                     showRegisterModal.value = false;
                     showLoginModal.value = true;
                     showForgotPasswordModal.value = false;
                 };
                 const switchToForgotPassword = () => {
+                    clearAuthFeedback();
                     showLoginModal.value = false;
                     showForgotPasswordModal.value = true;
                 };
 
                 const loadCareRecords = async () => {
-                    const res = await apiClient.getCareRecords(potId.value);
-                    if (res.success) {
-                        careRecords.value = res.data || [];
-                        // 同步更新当前弹出的详情列表
-                        if (activeCareDate.value) {
-                            const group = groupedCareRecords.value.find(g => g.date === activeCareDate.value);
-                            if (group && group.records.length > 0) {
-                                currentSheetGroup.value = { ...group };
-                            } else {
-                                closeCareDetails();
+                    if (!potId.value) {
+                        careRecords.value = [];
+                        return;
+                    }
+                    isCareRecordsLoading.value = true;
+                    try {
+                        const res = await apiClient.getCareRecords(potId.value);
+                        if (res.success) {
+                            careRecords.value = res.data || [];
+                            // 同步更新当前弹出的详情列表
+                            if (activeCareDate.value) {
+                                const group = groupedCareRecords.value.find(g => g.date === activeCareDate.value);
+                                if (group && group.records.length > 0) {
+                                    currentSheetGroup.value = { ...group };
+                                } else {
+                                    closeCareDetails();
+                                }
                             }
                         }
+                    } finally {
+                        isCareRecordsLoading.value = false;
                     }
                 };
 
                 const loadTimelineRecords = async () => {
-                    const res = await apiClient.getTimelines(potId.value);
-                    if (res.success) timelineRecords.value = res.data || [];
+                    if (!potId.value) {
+                        timelineRecords.value = [];
+                        return;
+                    }
+                    isTimelineRecordsLoading.value = true;
+                    try {
+                        const res = await apiClient.getTimelines(potId.value);
+                        if (res.success) timelineRecords.value = res.data || [];
+                    } finally {
+                        isTimelineRecordsLoading.value = false;
+                    }
                 };
 
                 const loadPotStats = async () => {
-                    const res = await apiClient.getPotStats(potId.value);
-                    if (res.success) potStats.value = res.data;
+                    if (!potId.value) {
+                        potStats.value = null;
+                        return;
+                    }
+                    isPotStatsLoading.value = true;
+                    try {
+                        const res = await apiClient.getPotStats(potId.value);
+                        if (res.success) potStats.value = res.data;
+                    } finally {
+                        isPotStatsLoading.value = false;
+                    }
                 };
 
                 const loadCareSchedules = async () => {
-                    const res = await apiClient.getCareSchedules(potId.value);
-                    if (res.success && res.data) {
-                        careSchedules.value = res.data.map(s => ({
-                            ...s,
-                            intervalDays: s.interval_days,
-                            enabled: s.enabled === 1
-                        }));
+                    if (!potId.value) {
+                        careSchedules.value = [];
+                        return;
+                    }
+                    isCareSchedulesLoading.value = true;
+                    try {
+                        const res = await apiClient.getCareSchedules(potId.value);
+                        if (res.success && res.data) {
+                            careSchedules.value = res.data.map(s => ({
+                                ...s,
+                                intervalDays: s.interval_days,
+                                enabled: s.enabled === 1
+                            }));
+                        }
+                    } finally {
+                        isCareSchedulesLoading.value = false;
                     }
                 };
 
                 const loadPlantInfo = async () => {
-                    if (!pot.value?.name) return;
+                    if (!pot.value?.name) {
+                        plantInfo.value = null;
+                        matchedPlantName.value = null;
+                        return;
+                    }
+                    isPlantInfoLoading.value = true;
                     try {
                         const matchRes = await apiClient.smartMatchPlant(pot.value.name, pot.value.note || '');
                         if (matchRes.success && matchRes.data) {
                             plantInfo.value = transformPlantData(matchRes.data);
                             if (matchRes.data.name !== pot.value.name) matchedPlantName.value = matchRes.data.name;
                         }
-                    } catch (e) { console.warn('Plant match failed', e); }
+                    } catch (e) {
+                        console.warn('Plant match failed', e);
+                    } finally {
+                        isPlantInfoLoading.value = false;
+                    }
                 };
 
                 const transformPlantData = (d) => {
@@ -2864,7 +3198,7 @@
                 // 注意：在普通 HTML 环境中使用 Vue.createApp().mount() 时，
                 // 如果没有显式处理卸载，可能需要小心内存泄漏，但在这里通常刷新页面即重置。
 
-                const triggerFileInput = () => fileInput.value.click();
+                const triggerFileInput = () => fileInput.value?.click();
 
                 // 图片压缩：最长边 1920px，JPEG quality 0.85，GIF 不压缩
                 const compressImage = (file, maxSide = 1920, quality = 0.85) => {
@@ -2892,9 +3226,41 @@
                     });
                 };
 
+                const getTodayString = () => new Date().toISOString().split('T')[0];
+
+                const timelineImageCount = () => newTimeline.existingImages.length + newTimeline.tempImages.length;
+
+                const resetTimelineForm = () => {
+                    editingTimelineId.value = null;
+                    newTimeline.date = getTodayString();
+                    newTimeline.description = '';
+                    newTimeline.existingImages = [];
+                    newTimeline.tempImages = [];
+                };
+
+                const openAddTimelineModal = () => {
+                    resetTimelineForm();
+                    showAddTimelineModal.value = true;
+                };
+
+                const closeTimelineModal = () => {
+                    if (isSavingTimeline.value) return;
+                    showAddTimelineModal.value = false;
+                    resetTimelineForm();
+                };
+
+                const openEditTimelineModal = (record) => {
+                    editingTimelineId.value = record.id;
+                    newTimeline.date = record.date || getTodayString();
+                    newTimeline.description = record.description || '';
+                    newTimeline.existingImages = getImages(record.images);
+                    newTimeline.tempImages = [];
+                    showAddTimelineModal.value = true;
+                };
+
                 const onFilesSelected = async (e) => {
                     const files = Array.from(e.target.files);
-                    const remaining = 9 - newTimeline.tempImages.length;
+                    const remaining = 9 - timelineImageCount();
                     for (const file of files.slice(0, remaining)) {
                         const compressed = await compressImage(file);
                         const reader = new FileReader();
@@ -2906,10 +3272,15 @@
                     e.target.value = '';
                 };
 
+                const removeExistingTimelineImage = (idx) => newTimeline.existingImages.splice(idx, 1);
                 const removeNewImage = (idx) => newTimeline.tempImages.splice(idx, 1);
 
                 const saveTimelineRecord = async () => {
-                    if (newTimeline.tempImages?.length === 0 && !newTimeline.description?.trim()) {
+                    if (!newTimeline.date) {
+                        alert('请选择记录日期');
+                        return;
+                    }
+                    if (timelineImageCount() === 0 && !newTimeline.description?.trim()) {
                         alert('请至少上传一张照片或写点描述');
                         return;
                     }
@@ -2920,11 +3291,17 @@
                             const res = await apiClient.uploadImage(item.file, { potId: potId.value, uploadType: 'timeline' });
                             if (res.success && res.data?.url) uploadedUrls.push(res.data.url);
                         }
-                        const saveRes = await apiClient.createTimeline({ potId: potId.value, date: newTimeline.date, description: newTimeline.description, images: uploadedUrls });
+                        const timelinePayload = {
+                            date: newTimeline.date,
+                            description: newTimeline.description?.trim() || '',
+                            images: [...newTimeline.existingImages, ...uploadedUrls]
+                        };
+                        const saveRes = isEditingTimeline.value
+                            ? await apiClient.updateTimeline(editingTimelineId.value, timelinePayload)
+                            : await apiClient.createTimeline({ potId: potId.value, ...timelinePayload });
                         if (saveRes.success) {
                             showAddTimelineModal.value = false;
-                            newTimeline.description = '';
-                            newTimeline.tempImages = [];
+                            resetTimelineForm();
                             await loadTimelineRecords();
                         }
                     } catch (e) { alert('保存失败，请检查网络后重试'); }
@@ -2934,7 +3311,7 @@
                 const confirmDeleteTimeline = async (id) => {
                     if (confirm('确认删除这条生长记录？照片也将一并清理。')) {
                         try {
-                            const res = await apiClient.request(`/api/timelines/${id}`, { method: 'DELETE' });
+                            const res = await apiClient.deleteTimeline(id);
                             if (res.success) await loadTimelineRecords();
                         } catch (e) { alert('删除操作失败'); }
                     }
@@ -3004,7 +3381,8 @@
                 };
 
                 const saveNewSchedule = async () => {
-                    if (newSchedule.careType === 'custom' && !newSchedule.customAction) {
+                    const customAction = String(newSchedule.customAction || '').trim();
+                    if (newSchedule.careType === 'custom' && !customAction) {
                         alert('请输入自定义名称');
                         return;
                     }
@@ -3012,7 +3390,7 @@
                         const res = await apiClient.createCareSchedule({
                             potId: potId.value,
                             careType: newSchedule.careType,
-                            customAction: newSchedule.customAction,
+                            customAction,
                             intervalDays: newSchedule.intervalDays
                         });
                         if (res.success) {
@@ -3020,7 +3398,7 @@
                             newSchedule.customAction = '';
                             await loadCareSchedules();
                         }
-                    } catch (e) { alert('添加失败'); }
+                    } catch (e) { alert(e?.message || '添加失败'); }
                 };
 
                 const toggleScheduleEnabled = async (schedule) => {
@@ -3072,7 +3450,21 @@
                     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
                 };
 
-                const handleImageError = (e) => e.target.src = 'assets/images/icons/icons-default-pot.png';
+                const handleHeroImageLoad = () => {
+                    heroImageLoaded.value = true;
+                };
+
+                const handleHeroImageError = (e) => {
+                    const fallbackSrc = fallbackPotImage;
+                    if (e?.target?.src && !e.target.src.includes(fallbackSrc)) {
+                        heroImageLoaded.value = false;
+                        e.target.src = fallbackSrc;
+                        return;
+                    }
+                    heroImageLoaded.value = true;
+                };
+
+                const handleImageError = (e) => e.target.src = fallbackPotImage;
 
                 const goBack = () => window.location.href = 'index.html';
                 const goEditPage = () => window.location.href = `edit-pot.html?id=${potId.value}`;
@@ -3344,6 +3736,7 @@
                         potComments.value = [];
                         return;
                     }
+                    isCommentsLoading.value = true;
                     try {
                         const res = await apiClient.getPotComments(potId.value, shareToken.value);
                         if (res.success) {
@@ -3351,6 +3744,8 @@
                         }
                     } catch (e) {
                         console.warn('Load pot comments failed', e);
+                    } finally {
+                        isCommentsLoading.value = false;
                     }
                 };
 
@@ -3490,7 +3885,8 @@
                         return;
                     }
                     try {
-                        const res = await apiClient.addCollaborator(potId.value, newCollaboratorEmail.value.trim());
+                        const normalizedEmail = formUtils.normalizeEmail(newCollaboratorEmail.value);
+                        const res = await apiClient.addCollaborator(potId.value, normalizedEmail);
                         if (res.success) {
                             newCollaboratorEmail.value = '';
                             await loadCollaborators();
@@ -3508,7 +3904,8 @@
                         return;
                     }
                     try {
-                        const res = await apiClient.addViewer(potId.value, newViewerEmail.value.trim());
+                        const normalizedEmail = formUtils.normalizeEmail(newViewerEmail.value);
+                        const res = await apiClient.addViewer(potId.value, normalizedEmail);
                         if (res.success) {
                             newViewerEmail.value = '';
                             await loadViewers();
@@ -3555,9 +3952,14 @@
                         alert('请输入接收者的电子邮箱');
                         return;
                     }
+                    if (!formUtils.isValidEmail(transferEmail.value)) {
+                        alert('请输入正确的邮箱地址');
+                        return;
+                    }
                     if (!confirm(`确定要将花盆移交给 ${transferEmail.value} 吗？\n系统将向该邮箱发送通知邮件，对方通过邮件或消息中心确认后完成移交。`)) return;
 
                     try {
+                        transferEmail.value = formUtils.normalizeEmail(transferEmail.value);
                         const res = await apiClient.initTransfer(potId.value, transferEmail.value);
                         if (res.success) {
                             alert('移交申请已发起！\n系统已向对方发送邮件通知。您可以在页面顶部查看进度或撤销移交。');
@@ -3599,6 +4001,11 @@
                     if (!normalizedSrc.includes('img.kaside365.com')) return normalizedSrc;
                     return `/cdn-cgi/image/width=${w},height=${h},dpr=2,fit=cover,format=auto/${normalizedSrc}`;
                 };
+                const heroImageSrc = computed(() => imgUrl(pot.value?.image_url, 800, 512) || fallbackPotImage);
+
+                watch(heroImageSrc, () => {
+                    heroImageLoaded.value = false;
+                });
 
                 const plantInfoGroups = computed(() => {
                     if (!plantInfo.value) return { priority: [], extended: [] };
@@ -3643,15 +4050,17 @@
                 });
 
                 return {
-                    isLoading, error, tokenInvalid, pot, potId, isOwner, isReadOnly, isPublicVisitor, showOperatorName, matchedPlantName, plantInfo,
-                    potStats, careRecords, timelineRecords, handleImageError, showActionMenu,
-                    showAddTimelineModal, showShareModal, isSavingTimeline, fileInput,
+                    isLoading, pot, potId, isOwner, isReadOnly, isPublicVisitor, showOperatorName, matchedPlantName, plantInfo,
+                    isPlantInfoLoading, isCareRecordsLoading, isTimelineRecordsLoading, isPotStatsLoading, isCareSchedulesLoading, isCommentsLoading,
+                    potStats, careRecords, timelineRecords, handleImageError, handleHeroImageLoad, handleHeroImageError, heroImageSrc, heroImageLoaded, showActionMenu,
+                    showAddTimelineModal, showShareModal, isSavingTimeline, isEditingTimeline, fileInput,
                     previewImages, previewIndex, galleryDragOffset, galleryIsDragging,
                     newTimeline, sortedTimelineRecords, isTimelineDesc,
                     goBack, goEditPage, goAddCarePage, goCreatePot, confirmDeletePot,
                     openGallery, closeGallery, prevImg, nextImg, toggleTimelineSort,
                     handleGalleryTouchStart, handleGalleryTouchMove, handleGalleryTouchEnd,
-                    triggerFileInput, onFilesSelected, removeNewImage, saveTimelineRecord, confirmDeleteTimeline,
+                    openAddTimelineModal, openEditTimelineModal, closeTimelineModal, timelineImageCount,
+                    triggerFileInput, onFilesSelected, removeExistingTimelineImage, removeNewImage, saveTimelineRecord, confirmDeleteTimeline,
                     formatDate, formatCommentTime, getImages, getCareTypeIcon, getCareTypeColor, getCareTypeLabel,
                     imgUrl, groupedCareRecords, activeCareDate, currentSheetGroup,
                     showCareDetails, closeCareDetails, goAddCarePageWithDate,
@@ -3675,14 +4084,16 @@
                     showAcceptTransferModal, transferPot, isAcceptingTransfer,
                     // Auth
                     showUserMenu, showLoginModal, showRegisterModal, showForgotPasswordModal,
-                    isAuthLoading, loginForm, registerForm, passwordsMatch,
-                    isForgotPasswordEmailValid, isLoginValid, isRegisterValid, isCollaboratorInviteEmailValid, isViewerInviteEmailValid,
+                    isAuthLoading, loginForm, registerForm, loginErrors, registerErrors, forgotPasswordErrors, loginStatus, registerStatus, forgotPasswordStatus, passwordsMatch,
+                    isForgotPasswordEmailValid, isLoginValid, isRegisterValid, isCollaboratorInviteEmailValid, isViewerInviteEmailValid, isTransferEmailValid,
+                    syncLoginFormFromDom, syncRegisterFormFromDom, scheduleLoginAutofillSync,
+                    validateLoginEmail, validateLoginPassword, validateForgotPasswordEmail,
+                    validateRegisterEmail, validateRegisterPassword, validateRegisterConfirmPassword,
+                    handleLoginEmailInput, handleLoginPasswordInput, handleForgotPasswordEmailInput,
+                    handleRegisterEmailInput, handleRegisterDisplayNameInput, handleRegisterPasswordInput, handleRegisterConfirmPasswordInput,
+                    normalizeRegisterDisplayName,
                     handleLogin, handleForgotPassword, handleRegister, logout, goHome,
-                    closeAuthModals, switchToRegister, switchToLogin, switchToForgotPassword, dismissError,
-                    openPermissionLogin, openPermissionRegister, retryCurrentPage,
-                    shouldShowStandaloneState,
-                    isPermissionError, permissionErrorBadge, permissionErrorIcon, permissionErrorTitle, permissionErrorLead, permissionPrimaryActionLabel,
-                    permissionHelpCards, permissionErrorFootnote,
+                    closeAuthModals, switchToRegister, switchToLogin, switchToForgotPassword,
                     userDisplayName, currentUser, commentInputRef, canUseNativeShare
                 };
             }
