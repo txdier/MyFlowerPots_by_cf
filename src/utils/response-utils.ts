@@ -1,14 +1,17 @@
 // 响应工具函数
 
-export function jsonResponse(data: any, status = 200): Response {
+export function jsonResponse(data: any, status = 200, extraHeaders: HeadersInit = {}): Response {
+  const headers = new Headers({
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  });
+  new Headers(extraHeaders).forEach((value, key) => headers.set(key, value));
+
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    },
+    headers,
   });
 }
 

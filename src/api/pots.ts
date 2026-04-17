@@ -71,7 +71,7 @@ export async function handlePotsRequest(
 
   // 7️⃣ 时间线
   if (request.method === 'GET' && path.match(/^\/api\/pots\/[^/]+\/timelines$/)) {
-    return handleGetTimelines(path, env, token);
+    return handleGetTimelines(path, env, url, token);
   }
 
   // 8️⃣ 花盆统计 (新增)
@@ -109,6 +109,8 @@ async function ensurePotsRuntimeSchema(env: any): Promise<void> {
   `).run();
   await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_viewers_user ON pot_viewers(user_id)').run();
   await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_viewers_pot ON pot_viewers(pot_id)').run();
+  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_collaborators_user ON pot_collaborators(user_id)').run();
+  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_collaborators_pot ON pot_collaborators(pot_id)').run();
   await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_collab_invites_pot ON pot_collab_invites(pot_id)').run();
   await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_collab_invites_token ON pot_collab_invites(token)').run();
 
@@ -148,24 +150,46 @@ async function handleGetPots(
 
   const statusParam = String(url.searchParams.get('status') || 'active').trim().toLowerCase();
   const status = ['active', 'archived', 'all'].includes(statusParam) ? statusParam : 'active';
+  const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '50', 10) || 50));
+  const offset = (page - 1) * limit;
+  const queryLimit = limit + 1;
+
+  const cacheHeaders = {
+    'Cache-Control': 'private, max-age=30',
+    'Vary': 'Authorization'
+  };
+
+  const buildListResponse = (rows: any[]) => {
+    const data = rows.slice(0, limit);
+    const hasMore = rows.length > limit;
+    return jsonResponse({
+      success: true,
+      data,
+      page,
+      limit,
+      hasMore,
+      nextPage: hasMore ? page + 1 : null
+    }, 200, cacheHeaders);
+  };
+
+  // 列表字段：保留首页权限判断所需的布尔值，去掉详情页才需要的协作者/查看者数量统计。
   const selectedColumns = `
-        id,
-        user_id,
-        name,
-        plant_type,
-        note,
-        plant_date,
-        image_url,
-        last_care,
-        last_care_action,
-        COALESCE(status, 'active') as status,
-        archived_at,
-        archive_reason,
-        archive_note,
-        EXISTS(SELECT 1 FROM pot_collaborators WHERE pot_id = pots.id AND user_id = ?) as is_collaborator,
-        EXISTS(SELECT 1 FROM pot_viewers WHERE pot_id = pots.id AND user_id = ?) as is_viewer,
-        (SELECT COUNT(*) FROM pot_collaborators WHERE pot_id = pots.id) as collaborator_count,
-        (SELECT COUNT(*) FROM pot_viewers WHERE pot_id = pots.id) as viewer_count
+        p.id,
+        p.user_id,
+        p.name,
+        p.plant_type,
+        p.note,
+        p.plant_date,
+        p.image_url,
+        p.last_care,
+        p.last_care_action,
+        COALESCE(p.status, 'active') as status,
+        p.archived_at,
+        p.archive_reason,
+        p.archive_note,
+        CASE WHEN pc.user_id IS NULL THEN 0 ELSE 1 END as is_collaborator,
+        CASE WHEN pv.user_id IS NULL THEN 0 ELSE 1 END as is_viewer
   `;
 
   if (status === 'archived') {
@@ -173,48 +197,52 @@ async function handleGetPots(
       .prepare(`
         SELECT
           ${selectedColumns}
-        FROM pots
-        WHERE COALESCE(status, 'active') = 'archived'
+        FROM pots p
+        LEFT JOIN pot_collaborators pc
+          ON pc.pot_id = p.id AND pc.user_id = ?
+        LEFT JOIN pot_viewers pv
+          ON pv.pot_id = p.id AND pv.user_id = ?
+        WHERE COALESCE(p.status, 'active') = 'archived'
           AND (
-            user_id = ?
-            OR id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?)
-            OR id IN (SELECT pot_id FROM pot_viewers WHERE user_id = ?)
+            p.user_id = ?
+            OR pc.user_id IS NOT NULL
+            OR pv.user_id IS NOT NULL
           )
-        ORDER BY sort_order ASC, archived_at DESC, plant_date DESC
+        ORDER BY p.sort_order ASC, p.archived_at DESC, p.plant_date DESC
+        LIMIT ? OFFSET ?
       `)
-      .bind(userId, userId, userId, userId, userId)
+      .bind(userId, userId, userId, queryLimit, offset)
       .all();
 
-    return jsonResponse({
-      success: true,
-      data: results
-    });
+    return buildListResponse(results as any[]);
   }
 
   const statusClause = status === 'all'
     ? ''
-    : "AND COALESCE(status, 'active') = 'active'";
+    : "AND COALESCE(p.status, 'active') = 'active'";
 
   const { results } = await env.DB
     .prepare(`
       SELECT
         ${selectedColumns}
-      FROM pots
+      FROM pots p
+      LEFT JOIN pot_collaborators pc
+        ON pc.pot_id = p.id AND pc.user_id = ?
+      LEFT JOIN pot_viewers pv
+        ON pv.pot_id = p.id AND pv.user_id = ?
       WHERE (
-          user_id = ?
-          OR id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?)
-          OR id IN (SELECT pot_id FROM pot_viewers WHERE user_id = ?)
+          p.user_id = ?
+          OR pc.user_id IS NOT NULL
+          OR pv.user_id IS NOT NULL
         )
         ${statusClause}
-      ORDER BY sort_order ASC, plant_date DESC
+      ORDER BY p.sort_order ASC, p.plant_date DESC
+      LIMIT ? OFFSET ?
     `)
-    .bind(userId, userId, userId, userId, userId)
+    .bind(userId, userId, userId, queryLimit, offset)
     .all();
 
-  return jsonResponse({
-    success: true,
-    data: results
-  });
+  return buildListResponse(results as any[]);
 }
 
 async function handleGetPotStatusCounts(env: any, token: string | null): Promise<Response> {
@@ -922,8 +950,10 @@ async function handleGetCareRecords(path: string, env: any, token: string | null
   });
 }
 
-async function handleGetTimelines(path: string, env: any, token: string | null): Promise<Response> {
+async function handleGetTimelines(path: string, env: any, url: URL, token: string | null): Promise<Response> {
   const potId = path.split('/')[3];
+  const limitParam = url.searchParams.get('limit');
+  const limit = limitParam ? Math.min(100, Math.max(1, parseInt(limitParam, 10) || 20)) : null;
 
   // 安全加固：校验该花盆是否属于该用户 (主或协作者)
   const pot = await env.DB
@@ -955,8 +985,9 @@ async function handleGetTimelines(path: string, env: any, token: string | null):
       LEFT JOIN users u ON t.user_id = u.id
       WHERE t.pot_id = ?
       ORDER BY t.date DESC, t.id DESC
+      ${limit ? 'LIMIT ?' : ''}
     `)
-    .bind(potId)
+    .bind(...(limit ? [potId, limit] : [potId]))
     .all();
 
   return jsonResponse({

@@ -329,6 +329,7 @@ class APIClient {
         this.config = { ...API_CONFIG, ...config };
         this.token = AUTH_STORAGE.getToken();
         this.userId = AUTH_STORAGE.getUserId();
+        this.potsCacheVersion = 0;
         if (this.token && !this.userId) {
             this.clearAuth();
         }
@@ -450,6 +451,7 @@ class APIClient {
             }
         }
 
+        const method = (options.method || 'GET').toUpperCase();
         const url = `${this.config.baseUrl}${endpoint}`;
         const headers = {
             'Content-Type': 'application/json',
@@ -462,7 +464,7 @@ class APIClient {
 
         try {
             const response = await fetch(url, {
-                method: options.method || 'GET',
+                method,
                 headers,
                 body: options.body ? JSON.stringify(options.body) : undefined,
                 signal: controller.signal,
@@ -514,6 +516,9 @@ class APIClient {
             }
 
             const data = await response.json();
+            if (method !== 'GET' && this.affectsPotList(endpoint)) {
+                this.potsCacheVersion = Date.now();
+            }
             return data;
 
         } catch (error) {
@@ -529,6 +534,13 @@ class APIClient {
 
             throw new APIError(0, error.message || '网络错误');
         }
+    }
+
+    affectsPotList(endpoint) {
+        return endpoint.startsWith('/api/pots') ||
+            endpoint.startsWith('/api/collaborators') ||
+            endpoint.startsWith('/api/viewers') ||
+            endpoint.startsWith('/api/share');
     }
 
     // 用户认证API
@@ -614,7 +626,14 @@ class APIClient {
             return { success: true, data: [] };
         }
         const status = typeof options === 'object' && options !== null ? options.status : '';
-        const query = status ? `?status=${encodeURIComponent(status)}` : '';
+        const page = typeof options === 'object' && options !== null ? options.page : null;
+        const limit = typeof options === 'object' && options !== null ? options.limit : null;
+        const params = new URLSearchParams();
+        if (status) params.set('status', status);
+        if (page) params.set('page', String(page));
+        if (limit) params.set('limit', String(limit));
+        if (this.potsCacheVersion) params.set('_v', String(this.potsCacheVersion));
+        const query = params.toString() ? `?${params.toString()}` : '';
         return this.request(`/api/pots${query}`);
     }
 
@@ -953,8 +972,11 @@ class APIClient {
     }
 
     // 时间线API
-    async getTimelines(potId) {
-        return this.request(`/api/pots/${potId}/timelines`);
+    async getTimelines(potId, options = {}) {
+        const params = new URLSearchParams();
+        if (options.limit) params.set('limit', String(options.limit));
+        const query = params.toString() ? `?${params.toString()}` : '';
+        return this.request(`/api/pots/${potId}/timelines${query}`);
     }
 
     // 花盆养护统计API

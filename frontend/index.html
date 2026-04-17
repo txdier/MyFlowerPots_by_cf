@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
     <title>我的花盆</title>
     <meta name="description" content="记录每一株植物的成长，智能养护提醒。">
     <meta name="theme-color" content="#ffffff">
@@ -29,7 +29,7 @@
     <!-- v2.0.3 - Selection UI Optimization -->
 
     <!-- Vue 3 CDN -->
-    <script src="js/vue.global.js"></script>
+    <script src="js/vue.global.prod.js"></script>
 
     <style>
         [v-cloak] {
@@ -58,8 +58,6 @@
     <script src="js/api-client.js?v=20260415-1"></script>
     <script src="js/form-utils.js?v=20260413"></script>
     <script src="js/clipboard.js?v=20260407-2"></script>
-    <!-- SortableJS -->
-    <script src="js/Sortable.min.js"></script>
 </head>
 
 <body class="bg-gray-50 pb-24">
@@ -117,6 +115,7 @@
                             class="relative flex items-center gap-2 bg-white border border-gray-100 p-1 pr-3 rounded-full shadow-sm hover:shadow-md transition active:scale-95 overflow-visible">
                             <div class="relative w-8 h-8 overflow-visible">
                                 <img :src="imgUrl(user?.avatarUrl, 32, 32) || 'assets/images/icons/profile.png'"
+                                    decoding="async"
                                     class="w-full h-full rounded-full shadow-sm object-cover">
                             </div>
                             <div v-show="notificationBadgeCount > 0"
@@ -247,6 +246,7 @@
                         class="flex gap-3 p-3 cursor-pointer active:bg-gray-50 transition items-start">
                         <div class="relative w-16 h-16 shrink-0">
                             <img :src="imgUrl(group.potImage, 64, 64) || 'assets/images/icons/icons-default-pot.png'"
+                                loading="lazy" decoding="async"
                                 class="w-full h-full object-cover rounded-xl"
                                 @error="e => e.target.src = 'assets/images/icons/icons-default-pot.png'">
                             <div v-if="group.tasks.length > 1"
@@ -372,6 +372,9 @@
 
                                 <div class="w-32 h-32 shrink-0 relative p-1">
                                     <img :src="imgUrl(pot.image_url, 128, 128) || 'assets/images/icons/icons-default-pot.png'"
+                                        :loading="index < 4 ? 'eager' : 'lazy'"
+                                        :fetchpriority="index < 2 ? 'high' : 'auto'"
+                                        decoding="async"
                                         class="w-full h-full object-cover rounded-xl" @error="handleImageError">
                                     <div v-if="pot.is_collaborator || pot.collaborator_count > 0"
                                         class="absolute top-2 left-2 bg-blue-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md shadow-sm">
@@ -438,6 +441,14 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+                    <div v-if="hasMorePots || isLoadingMore"
+                        class="flex justify-center py-4">
+                        <button type="button" @click="loadMorePots" :disabled="isLoadingMore || isEditMode"
+                            class="min-w-[9rem] rounded-full border border-green-100 bg-white px-5 py-2.5 text-xs font-black text-green-600 shadow-sm transition active:scale-95 disabled:opacity-60">
+                            <span v-if="isLoadingMore"><i class="fa fa-spinner fa-spin mr-1"></i> 加载中</span>
+                            <span v-else>加载更多</span>
+                        </button>
                     </div>
                 </section>
             </div>
@@ -1298,7 +1309,7 @@
     </div>
 
     <script>
-        const { createApp, ref, reactive, onMounted, computed, nextTick, watch } = Vue;
+        const { createApp, ref, reactive, onMounted, onUnmounted, computed, nextTick, watch } = Vue;
 
         createApp({
             setup() {
@@ -1306,6 +1317,10 @@
                 const nav = window.MyFlowerPotsNavigation;
                 const isLoading = ref(true);
                 const pots = ref([]);
+                const POT_PAGE_SIZE = 20;
+                const isLoadingMore = ref(false);
+                const hasMorePots = ref(false);
+                const currentPotsPage = ref(1);
                 const activePotStatus = ref('active');
                 const potStatusTabs = [
                     { label: '养护中', value: 'active' },
@@ -1334,6 +1349,20 @@
                 const isEditMode = ref(false); // 统一管理模式
                 const potsGrid = ref(null);    // 列表容器Ref
                 let sortableInstance = null;   // Sortable实例
+                let sortableLibraryPromise = null;
+                const loadSortableLibrary = () => {
+                    if (window.Sortable) return Promise.resolve(window.Sortable);
+                    if (!sortableLibraryPromise) {
+                        sortableLibraryPromise = new Promise((resolve, reject) => {
+                            const script = document.createElement('script');
+                            script.src = 'js/Sortable.min.js';
+                            script.onload = () => resolve(window.Sortable);
+                            script.onerror = () => reject(new Error('Sortable 加载失败'));
+                            document.head.appendChild(script);
+                        });
+                    }
+                    return sortableLibraryPromise;
+                };
                 const showUserMenu = ref(false);
                 const showLoginModal = ref(false);
                 const showRegisterModal = ref(false);
@@ -2074,13 +2103,14 @@
                     if (handledBatchInvite) return;
                     openAuthFromIntent();
 
-                    const startupTasks = [fetchPots(), fetchPotStatusCounts()];
+                    await fetchPots();
+                    const startupTasks = [fetchPotStatusCounts()];
                     if (isLoggedIn.value) {
                         startupTasks.push(fetchUnreadCount());
                         if (user.value?.isAdmin) startupTasks.push(fetchSupportUnreadCount());
                         startupTasks.push(loadCareReminders());
                     }
-                    await Promise.allSettled(startupTasks);
+                    Promise.allSettled(startupTasks).catch(() => {});
 
                     // 监听登录状态变化，登录后立即刷新未读数
                     watch(isLoggedIn, (val) => {
@@ -2341,31 +2371,63 @@
                 };
 
                 const fetchPots = async (options = {}) => {
-                    const shouldShowLoading = options.blocking ?? pots.value.length === 0;
+                    const append = !!options.append;
+                    const shouldShowLoading = !append && (options.blocking ?? pots.value.length === 0);
                     const status = options.status || activePotStatus.value;
+                    const page = append ? currentPotsPage.value + 1 : 1;
                     try {
                         if (shouldShowLoading) isLoading.value = true;
+                        if (append) isLoadingMore.value = true;
                         // 不在初始化时自动 identify
-                        const res = await apiClient.getPots({ status });
+                        const res = await apiClient.getPots({ status, page, limit: POT_PAGE_SIZE });
                         if (res.success) {
                             const loadedPots = (res.data || []).map(p => ({ ...p, selected: false }));
-                            if (status === 'active' || status === 'archived') {
-                                potStatusCounts[status] = loadedPots.length;
-                            }
-                            pots.value = (status === 'active' || status === 'archived')
-                                ? applyStoredPotOrder(loadedPots, status)
+                            const existingIds = new Set(append ? pots.value.map(p => p.id) : []);
+                            const nextPots = append
+                                ? [...pots.value, ...loadedPots.filter(p => !existingIds.has(p.id))]
                                 : loadedPots;
+                            pots.value = (status === 'active' || status === 'archived')
+                                ? applyStoredPotOrder(nextPots, status)
+                                : nextPots;
+                            currentPotsPage.value = Number(res.page || page);
+                            hasMorePots.value = !!res.hasMore;
                             if (status === 'active') {
-                                persistLocalPotOrder(status);
-                                setTimeout(loadHeaderSeasonalReminder, 80);
-                            } else {
+                                if (!append) setTimeout(loadHeaderSeasonalReminder, 80);
+                            } else if (!append) {
                                 seasonalHeaderReminders.value = [];
                             }
                         } else {
                             seasonalHeaderReminders.value = [];
+                            if (!append) {
+                                hasMorePots.value = false;
+                                currentPotsPage.value = 1;
+                            }
                         }
-                    } catch (e) { } finally {
+                    } catch (e) {
+                        hasMorePots.value = false;
+                        if (!append) currentPotsPage.value = 1;
+                    } finally {
                         if (shouldShowLoading) isLoading.value = false;
+                        if (append) isLoadingMore.value = false;
+                    }
+                };
+
+                const loadMorePots = async (options = {}) => {
+                    if (isLoading.value || isLoadingMore.value || !hasMorePots.value || (isEditMode.value && !options.force)) return;
+                    await fetchPots({ status: activePotStatus.value, append: true, blocking: false });
+                };
+
+                const loadAllRemainingPots = async () => {
+                    while (hasMorePots.value && !isLoadingMore.value) {
+                        await loadMorePots({ force: true });
+                    }
+                };
+
+                const handleHomeScroll = () => {
+                    if (!hasMorePots.value || isLoadingMore.value || isEditMode.value || isLoading.value) return;
+                    const remaining = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
+                    if (remaining < 700) {
+                        loadMorePots();
                     }
                 };
 
@@ -2522,6 +2584,7 @@
                     isEditMode.value = !isEditMode.value;
                     if (isEditMode.value) {
                         if (activePotStatus.value === 'active' || activePotStatus.value === 'archived') {
+                            await loadAllRemainingPots();
                             await nextTick();
                             initSortable();
                         }
@@ -2533,7 +2596,10 @@
 
                 const initSortable = () => {
                     if (!potsGrid.value) return;
-                    sortableInstance = new Sortable(potsGrid.value, {
+                    loadSortableLibrary().then((SortableCtor) => {
+                    if (!potsGrid.value || !isEditMode.value) return;
+                    if (sortableInstance) sortableInstance.destroy();
+                    sortableInstance = new SortableCtor(potsGrid.value, {
                         animation: 220, // 更贴手的回弹速度
                         easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
                         handle: '.handle',
@@ -2568,6 +2634,7 @@
                             } catch (e) { console.error(e); }
                         }
                     });
+                    }).catch((error) => console.error(error));
                 };
 
                 const destroySortable = () => {
@@ -3487,10 +3554,18 @@
                     }
                 };
 
-                onMounted(init);
+                onMounted(() => {
+                    init();
+                    window.addEventListener('scroll', handleHomeScroll, { passive: true });
+                });
+
+                onUnmounted(() => {
+                    window.removeEventListener('scroll', handleHomeScroll);
+                    destroySortable();
+                });
 
                 return {
-                    isLoading, pots, activePotStatus, potStatusTabs, potStatusCounts, showPotStatusSwitch, setPotStatus, emptyStateTitle, emptyStateMessage,
+                    isLoading, pots, isLoadingMore, hasMorePots, loadMorePots, activePotStatus, potStatusTabs, potStatusCounts, showPotStatusSwitch, setPotStatus, emptyStateTitle, emptyStateMessage,
                     user, isLoggedIn, userDisplayName, careReminders, isCareRemindersLoading, showCareRemindersSkeleton, hasTopReminderBlock, groupedReminders, navSeasonalReminder, showRemindersExpanded,
 	                    ownedPots, collaborativePots, viewerPots, batchManageablePots,
                     isEditMode, potsGrid, showUserMenu, showLoginModal, showRegisterModal, showForgotPasswordModal, isAuthLoading,

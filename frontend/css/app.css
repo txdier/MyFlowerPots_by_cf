@@ -7,6 +7,8 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    /* 消除移动端 300ms 点击延迟：禁用双击缩放判断，直接响应 tap */
+    touch-action: manipulation;
 }
 
 body {

@@ -200,7 +200,7 @@ function renderVerificationSuccessPage(
     <html lang="zh-CN">
     <head>
       <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
       <title>${title} - 我的花盆</title>
       <style>
         body {
@@ -208,6 +208,7 @@ function renderVerificationSuccessPage(
           font-family: Arial, sans-serif;
           background: #f6faf6;
           color: #1f2937;
+          touch-action: manipulation;
         }
         .page {
           min-height: 100vh;
@@ -267,7 +268,11 @@ function renderVerificationSuccessPage(
 async function handleRegister(request: Request, env: any): Promise<Response> {
   let requestEmail: string | null = null;
   try {
-    const body = await request.json();
+    const body = (await request.json()) as {
+      email?: string;
+      password?: string;
+      displayName?: string;
+    };
     const { email, password, displayName } = body;
     requestEmail = typeof email === 'string' ? email : null;
 
@@ -351,7 +356,10 @@ async function handleRegister(request: Request, env: any): Promise<Response> {
 
 async function handleLogin(request: Request, env: any): Promise<Response> {
   try {
-    const body = await request.json();
+    const body = (await request.json()) as {
+      email?: string;
+      password?: string;
+    };
     const { email, password } = body;
 
     if (!email || !password) {
@@ -426,7 +434,9 @@ async function handleIdentify(env: any): Promise<Response> {
 
 async function handleForgotPassword(request: Request, env: any): Promise<Response> {
   try {
-    const body = await request.json();
+    const body = (await request.json()) as {
+      email?: string;
+    };
     const { email } = body;
 
     if (!email) {
@@ -477,7 +487,10 @@ async function handleForgotPassword(request: Request, env: any): Promise<Respons
 
 async function handleResetPassword(request: Request, env: any): Promise<Response> {
   try {
-    const body = await request.json();
+    const body = (await request.json()) as {
+      token?: string;
+      newPassword?: string;
+    };
     const { token, newPassword } = body;
 
     if (!token || !newPassword) {
@@ -522,7 +535,12 @@ async function handleUpgrade(request: Request, env: any): Promise<Response> {
   let requestEmail: string | null = null;
   let requestAnonymousUserId: string | null = null;
   try {
-    const body = await request.json();
+    const body = (await request.json()) as {
+      anonymousUserId?: string;
+      email?: string;
+      password?: string;
+      displayName?: string;
+    };
     const { anonymousUserId, email, password, displayName } = body;
     requestEmail = typeof email === 'string' ? email : null;
     requestAnonymousUserId = typeof anonymousUserId === 'string' ? anonymousUserId : null;
@@ -735,7 +753,10 @@ async function handleUpdateProfile(request: Request, env: any, userId: string | 
       return errorResponse('Authentication required', 401);
     }
 
-    const body = await request.json();
+    const body = (await request.json()) as {
+      displayName?: string;
+      avatarUrl?: string;
+    };
     const { displayName, avatarUrl } = body;
 
     const updates: string[] = [];
@@ -780,7 +801,10 @@ async function handleChangePassword(request: Request, env: any, userId: string |
       return errorResponse('Authentication required', 401);
     }
 
-    const body = await request.json();
+    const body = (await request.json()) as {
+      currentPassword?: string;
+      newPassword?: string;
+    };
     const { currentPassword, newPassword } = body;
 
     if (!currentPassword || !newPassword) {
@@ -840,7 +864,9 @@ async function handleChangeEmail(request: Request, env: any, userId: string | nu
       return errorResponse('Authentication required', 401);
     }
 
-    const body = await request.json();
+    const body = (await request.json()) as {
+      newEmail?: string;
+    };
     const { newEmail } = body;
 
     if (!newEmail) {
