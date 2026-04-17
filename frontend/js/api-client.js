@@ -607,16 +607,26 @@ class APIClient {
     }
 
     // 花盆管理API
-    async getPots(userId = this.userId) {
+    async getPots(options = {}) {
+        const legacyUserId = typeof options === 'string' ? options : this.userId;
         // 优化：如果没有用户ID（未登录且未创建匿名账户），直接返回空数组，避免无效API调用
-        if (!userId) {
+        if (!legacyUserId) {
             return { success: true, data: [] };
         }
-        return this.request('/api/pots');
+        const status = typeof options === 'object' && options !== null ? options.status : '';
+        const query = status ? `?status=${encodeURIComponent(status)}` : '';
+        return this.request(`/api/pots${query}`);
     }
 
     async getPotDetail(potId) {
         return this.request(`/api/pots/${potId}`);
+    }
+
+    async getPotStatusCounts() {
+        if (!this.userId) {
+            return { success: true, data: { active: 0, archived: 0 } };
+        }
+        return this.request('/api/pots/counts');
     }
 
     // 分享管理
@@ -849,6 +859,35 @@ class APIClient {
         }
         return this.request(`/api/pots/${potId}`, {
             method: 'DELETE'
+        });
+    }
+
+    async archivePot(potId, data = {}) {
+        if (!this.userId) {
+            throw new APIError(400, '用户ID不能为空');
+        }
+        return this.request(`/api/pots/${potId}/archive`, {
+            method: 'POST',
+            body: data
+        });
+    }
+
+    async restorePot(potId) {
+        if (!this.userId) {
+            throw new APIError(400, '用户ID不能为空');
+        }
+        return this.request(`/api/pots/${potId}/restore`, {
+            method: 'POST'
+        });
+    }
+
+    async batchArchivePots(data) {
+        if (!this.userId) {
+            throw new APIError(400, '用户ID不能为空');
+        }
+        return this.request('/api/pots/archive', {
+            method: 'POST',
+            body: data
         });
     }
 

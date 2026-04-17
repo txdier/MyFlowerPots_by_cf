@@ -1087,3 +1087,8 @@ button:disabled {
 ::-webkit-scrollbar-thumb:hover {
     background: #555;
 }
+
+/* 首页展开待养护提醒后，与花盆列表留出间距。需要覆盖 .container 的全局 margin。 */
+.container.home-pots-main--expanded-reminders {
+    margin-top: 1rem !important;
+}

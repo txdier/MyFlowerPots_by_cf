@@ -78,6 +78,16 @@ async function ensureCareSchedulesTable(env: any): Promise<void> {
     for (const statement of statements) {
         await env.DB.prepare(statement).run();
     }
+
+    try {
+        await env.DB.prepare("ALTER TABLE pots ADD COLUMN status TEXT DEFAULT 'active'").run();
+    } catch (error: any) {
+        const message = String(error?.message || error || '');
+        if (!message.includes('duplicate column name')) {
+            throw error;
+        }
+    }
+    await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_pots_user_status ON pots(user_id, status)').run();
 }
 
 // 获取用户所有养护计划
@@ -86,7 +96,8 @@ async function handleGetAllSchedules(env: any, userId: string): Promise<Response
     SELECT cs.*, p.name as pot_name, p.image_url as pot_image
     FROM care_schedules cs
     JOIN pots p ON cs.pot_id = p.id
-    WHERE p.user_id = ? OR p.id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?)
+    WHERE (p.user_id = ? OR p.id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?))
+      AND COALESCE(p.status, 'active') = 'active'
     ORDER BY cs.created_at DESC
   `).bind(userId, userId).all();
 
@@ -144,6 +155,7 @@ async function handleGetReminders(env: any, userId: string): Promise<Response> {
       JOIN pots p ON cs.pot_id = p.id
       WHERE (p.user_id = ? OR p.id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?))
         AND cs.enabled = 1
+        AND COALESCE(p.status, 'active') = 'active'
     )
     SELECT 
       schedule_id,
@@ -212,10 +224,12 @@ async function handleCreateSchedule(request: Request, env: any, userId: string):
 
         // 验证花盆归属或协作权限
         const pot = await env.DB.prepare(`
-          SELECT id FROM pots WHERE id = ? AND user_id = ?
-          UNION
-          SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?
-        `).bind(potId, userId, potId, userId).first();
+          SELECT p.id FROM pots p
+          LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
+          WHERE p.id = ?
+            AND COALESCE(p.status, 'active') = 'active'
+            AND (p.user_id = ? OR pc.user_id = ?)
+        `).bind(potId, userId, userId).first();
 
         if (!pot) {
             return errorResponse('Pot not found or access denied', 404);
@@ -275,7 +289,9 @@ async function handleUpdateSchedule(
       SELECT cs.id FROM care_schedules cs
       JOIN pots p ON cs.pot_id = p.id
       LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
-      WHERE cs.id = ? AND (p.user_id = ? OR pc.user_id = ?)
+      WHERE cs.id = ?
+        AND COALESCE(p.status, 'active') = 'active'
+        AND (p.user_id = ? OR pc.user_id = ?)
     `).bind(scheduleId, userId, userId).first();
 
         if (!schedule) {
@@ -328,7 +344,9 @@ async function handleDeleteSchedule(env: any, userId: string, scheduleId: number
       SELECT cs.id FROM care_schedules cs
       JOIN pots p ON cs.pot_id = p.id
       LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
-      WHERE cs.id = ? AND (p.user_id = ? OR pc.user_id = ?)
+      WHERE cs.id = ?
+        AND COALESCE(p.status, 'active') = 'active'
+        AND (p.user_id = ? OR pc.user_id = ?)
     `).bind(scheduleId, userId, userId).first();
 
         if (!schedule) {

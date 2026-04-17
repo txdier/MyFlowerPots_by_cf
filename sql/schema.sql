@@ -45,6 +45,10 @@ CREATE TABLE pots (
     image_url TEXT,
     last_care TEXT,
     last_care_action TEXT,
+    status TEXT DEFAULT 'active',        -- active / archived
+    archived_at TEXT,
+    archive_reason TEXT,
+    archive_note TEXT,
     
     -- 排序字段
     sort_order REAL DEFAULT 0,
@@ -272,6 +276,7 @@ CREATE INDEX idx_users_new_email_token ON users(new_email_verification_token);
 CREATE INDEX idx_pots_user_id ON pots(user_id);
 CREATE INDEX idx_care_records_pot ON care_records(pot_id);
 CREATE INDEX idx_care_records_user ON care_records(user_id);
+CREATE INDEX IF NOT EXISTS idx_pots_user_status ON pots(user_id, status);
 CREATE INDEX idx_timelines_pot ON timelines(pot_id);
 CREATE INDEX idx_timelines_user ON timelines(user_id);
 

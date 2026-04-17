@@ -1,5 +1,9 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
 
+function isArchivedPot(pot: any): boolean {
+  return String(pot?.status || 'active').toLowerCase() === 'archived';
+}
+
 export async function handleCollaboratorsRequest(
   request: Request,
   env: any,
@@ -100,8 +104,13 @@ async function handleGetCollaborators(potId: string, userId: string, env: any): 
 }
 
 async function handleCreateInviteLink(potId: string, userId: string, env: any): Promise<Response> {
-  const pot = await env.DB.prepare('SELECT id, name FROM pots WHERE id = ? AND user_id = ?').bind(potId, userId).first();
+  const pot = await env.DB.prepare(`
+    SELECT id, name, COALESCE(status, 'active') as status
+    FROM pots
+    WHERE id = ? AND user_id = ?
+  `).bind(potId, userId).first();
   if (!pot) return errorResponse('Pot not found or access denied', 404);
+  if (isArchivedPot(pot)) return errorResponse('Archived pots do not support collaborator invites', 400);
 
   const inviteId = crypto.randomUUID();
   const token = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
@@ -140,6 +149,14 @@ async function handleOpenInviteLink(request: Request, token: string, env: any): 
   const invite = await getActiveInvite(token, env);
   if (!invite) return errorResponse('Invite link invalid or expired', 400);
 
+  const pot = await env.DB.prepare(`
+    SELECT id, COALESCE(status, 'active') as status
+    FROM pots
+    WHERE id = ?
+  `).bind(invite.pot_id).first();
+  if (!pot) return errorResponse('Pot not found', 404);
+  if (isArchivedPot(pot)) return errorResponse('Archived pots do not support collaborator invites', 400);
+
   const hasSameSession = invite.claim_session_id === sessionId;
   if (!hasSameSession && invite.view_count >= invite.max_views) {
     return errorResponse('Invite link view limit reached', 400);
@@ -171,8 +188,13 @@ async function handleOpenInviteLink(request: Request, token: string, env: any): 
 }
 
 async function handleAddCollaborator(request: Request, potId: string, userId: string, env: any): Promise<Response> {
-  const pot = await env.DB.prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?').bind(potId, userId).first();
+  const pot = await env.DB.prepare(`
+    SELECT id, COALESCE(status, 'active') as status
+    FROM pots
+    WHERE id = ? AND user_id = ?
+  `).bind(potId, userId).first();
   if (!pot) return errorResponse('Pot not found or access denied', 404);
+  if (isArchivedPot(pot)) return errorResponse('Archived pots do not support collaborators', 400);
 
   const body = await request.json();
   const { email } = body as { email: string };
@@ -231,8 +253,13 @@ async function handleAcceptInviteLink(request: Request, token: string, userId: s
     return errorResponse('Invite link view limit reached', 400);
   }
 
-  const pot = await env.DB.prepare('SELECT id, user_id, name FROM pots WHERE id = ?').bind(invite.pot_id).first();
+  const pot = await env.DB.prepare(`
+    SELECT id, user_id, name, COALESCE(status, 'active') as status
+    FROM pots
+    WHERE id = ?
+  `).bind(invite.pot_id).first();
   if (!pot) return errorResponse('Pot not found', 404);
+  if (isArchivedPot(pot)) return errorResponse('Archived pots do not support collaborator invites', 400);
   if (pot.user_id === userId) {
     return jsonResponse({ success: true, data: { potId: invite.pot_id, alreadyJoined: true, alreadyAccepted: true } });
   }
@@ -360,11 +387,12 @@ async function resolveExistingCollaboratorInvite(token: string, userId: string, 
   if (!invite) return null;
 
   const pot = await env.DB.prepare(`
-    SELECT id, user_id
+    SELECT id, user_id, COALESCE(status, 'active') as status
     FROM pots
     WHERE id = ?
   `).bind(invite.pot_id).first();
   if (!pot) return null;
+  if (isArchivedPot(pot)) return null;
 
   if (pot.user_id === userId) {
     return jsonResponse({ success: true, data: { potId: invite.pot_id, alreadyJoined: true, alreadyAccepted: true } });

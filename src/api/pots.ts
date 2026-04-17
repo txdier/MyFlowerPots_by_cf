@@ -13,10 +13,15 @@ export async function handlePotsRequest(
   url: URL,
   token: string | null
 ): Promise<Response> {
-  await ensurePotCommentDanmakuColumn(env);
+  await ensurePotsRuntimeSchema(env);
   // 1️⃣ 花盆列表
   if (request.method === 'GET' && path === '/api/pots') {
     return handleGetPots(request, env, url, token);
+  }
+
+  // 1️⃣ 花盆状态数量
+  if (request.method === 'GET' && path === '/api/pots/counts') {
+    return handleGetPotStatusCounts(env, token);
   }
 
   // 2️⃣ 花盆详情
@@ -29,9 +34,23 @@ export async function handlePotsRequest(
     return handleCreatePot(request, env, token);
   }
 
+  // 4️⃣ 批量归档
+  if (request.method === 'POST' && path === '/api/pots/archive') {
+    return handleBatchArchivePots(request, env, token);
+  }
+
   // 8️⃣ 重新排序 (New) - 必须在通用 ID 匹配之前
   if (request.method === 'PUT' && path === '/api/pots/reorder') {
     return handleReorderPots(request, env, url, token);
+  }
+
+  // 4️⃣ 归档 / 恢复花盆
+  if (request.method === 'POST' && path.match(/^\/api\/pots\/[^/]+\/archive$/)) {
+    return handleArchivePot(request, env, path, token);
+  }
+
+  if (request.method === 'POST' && path.match(/^\/api\/pots\/[^/]+\/restore$/)) {
+    return handleRestorePot(env, path, token);
   }
 
   // 4️⃣ 更新花盆
@@ -63,7 +82,7 @@ export async function handlePotsRequest(
   return errorResponse('Not Found', 404);
 }
 
-async function ensurePotCommentDanmakuColumn(env: any): Promise<void> {
+async function ensurePotsRuntimeSchema(env: any): Promise<void> {
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS pot_viewers (
       pot_id TEXT NOT NULL,
@@ -72,16 +91,47 @@ async function ensurePotCommentDanmakuColumn(env: any): Promise<void> {
       PRIMARY KEY (pot_id, user_id)
     )
   `).run();
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS pot_collab_invites (
+      id TEXT PRIMARY KEY,
+      pot_id TEXT NOT NULL,
+      owner_id TEXT NOT NULL,
+      token TEXT NOT NULL UNIQUE,
+      expires_at TEXT NOT NULL,
+      used_at TEXT,
+      revoked_at TEXT,
+      max_views INTEGER DEFAULT 5,
+      view_count INTEGER DEFAULT 0,
+      claim_session_id TEXT,
+      claimed_by_user_id TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
   await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_viewers_user ON pot_viewers(user_id)').run();
   await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_viewers_pot ON pot_viewers(pot_id)').run();
-  try {
-    await env.DB.prepare('ALTER TABLE pots ADD COLUMN show_comment_danmaku INTEGER DEFAULT 1').run();
-  } catch (error: any) {
-    const message = String(error?.message || error || '');
-    if (!message.includes('duplicate column name')) {
-      throw error;
+  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_collab_invites_pot ON pot_collab_invites(pot_id)').run();
+  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_collab_invites_token ON pot_collab_invites(token)').run();
+
+  const columns = [
+    'ALTER TABLE pots ADD COLUMN show_comment_danmaku INTEGER DEFAULT 1',
+    "ALTER TABLE pots ADD COLUMN status TEXT DEFAULT 'active'",
+    'ALTER TABLE pots ADD COLUMN archived_at TEXT',
+    'ALTER TABLE pots ADD COLUMN archive_reason TEXT',
+    'ALTER TABLE pots ADD COLUMN archive_note TEXT'
+  ];
+
+  for (const statement of columns) {
+    try {
+      await env.DB.prepare(statement).run();
+    } catch (error: any) {
+      const message = String(error?.message || error || '');
+      if (!message.includes('duplicate column name')) {
+        throw error;
+      }
     }
   }
+
+  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_pots_user_status ON pots(user_id, status)').run();
 }
 
 async function handleGetPots(
@@ -96,9 +146,9 @@ async function handleGetPots(
     return errorResponse('Authentication required', 401);
   }
 
-  const { results } = await env.DB
-    .prepare(`
-      SELECT
+  const statusParam = String(url.searchParams.get('status') || 'active').trim().toLowerCase();
+  const status = ['active', 'archived', 'all'].includes(statusParam) ? statusParam : 'active';
+  const selectedColumns = `
         id,
         user_id,
         name,
@@ -108,14 +158,54 @@ async function handleGetPots(
         image_url,
         last_care,
         last_care_action,
+        COALESCE(status, 'active') as status,
+        archived_at,
+        archive_reason,
+        archive_note,
         EXISTS(SELECT 1 FROM pot_collaborators WHERE pot_id = pots.id AND user_id = ?) as is_collaborator,
         EXISTS(SELECT 1 FROM pot_viewers WHERE pot_id = pots.id AND user_id = ?) as is_viewer,
         (SELECT COUNT(*) FROM pot_collaborators WHERE pot_id = pots.id) as collaborator_count,
         (SELECT COUNT(*) FROM pot_viewers WHERE pot_id = pots.id) as viewer_count
+  `;
+
+  if (status === 'archived') {
+    const { results } = await env.DB
+      .prepare(`
+        SELECT
+          ${selectedColumns}
+        FROM pots
+        WHERE COALESCE(status, 'active') = 'archived'
+          AND (
+            user_id = ?
+            OR id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?)
+            OR id IN (SELECT pot_id FROM pot_viewers WHERE user_id = ?)
+          )
+        ORDER BY sort_order ASC, archived_at DESC, plant_date DESC
+      `)
+      .bind(userId, userId, userId, userId, userId)
+      .all();
+
+    return jsonResponse({
+      success: true,
+      data: results
+    });
+  }
+
+  const statusClause = status === 'all'
+    ? ''
+    : "AND COALESCE(status, 'active') = 'active'";
+
+  const { results } = await env.DB
+    .prepare(`
+      SELECT
+        ${selectedColumns}
       FROM pots
-      WHERE user_id = ?
-        OR id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?)
-        OR id IN (SELECT pot_id FROM pot_viewers WHERE user_id = ?)
+      WHERE (
+          user_id = ?
+          OR id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?)
+          OR id IN (SELECT pot_id FROM pot_viewers WHERE user_id = ?)
+        )
+        ${statusClause}
       ORDER BY sort_order ASC, plant_date DESC
     `)
     .bind(userId, userId, userId, userId, userId)
@@ -124,6 +214,43 @@ async function handleGetPots(
   return jsonResponse({
     success: true,
     data: results
+  });
+}
+
+async function handleGetPotStatusCounts(env: any, token: string | null): Promise<Response> {
+  const userId = token;
+  if (!userId) {
+    return errorResponse('Authentication required', 401);
+  }
+
+  const active = await env.DB.prepare(`
+    SELECT COUNT(*) as count
+    FROM pots
+    WHERE COALESCE(status, 'active') = 'active'
+      AND (
+        user_id = ?
+        OR id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?)
+        OR id IN (SELECT pot_id FROM pot_viewers WHERE user_id = ?)
+      )
+  `).bind(userId, userId, userId).first();
+
+  const archived = await env.DB.prepare(`
+    SELECT COUNT(*) as count
+    FROM pots
+    WHERE COALESCE(status, 'active') = 'archived'
+      AND (
+        user_id = ?
+        OR id IN (SELECT pot_id FROM pot_collaborators WHERE user_id = ?)
+        OR id IN (SELECT pot_id FROM pot_viewers WHERE user_id = ?)
+      )
+  `).bind(userId, userId, userId).first();
+
+  return jsonResponse({
+    success: true,
+    data: {
+      active: Number((active as any)?.count || 0),
+      archived: Number((archived as any)?.count || 0)
+    }
   });
 }
 
@@ -151,6 +278,10 @@ async function handleGetPotDetail(path: string, env: any, url: URL, token: strin
         pots.share_token,
         pots.is_shared,
         pots.show_comment_danmaku,
+        COALESCE(pots.status, 'active') as status,
+        pots.archived_at,
+        pots.archive_reason,
+        pots.archive_note,
         EXISTS(SELECT 1 FROM pot_collaborators WHERE pot_id = pots.id AND user_id = ?) as is_collaborator,
         EXISTS(SELECT 1 FROM pot_viewers WHERE pot_id = pots.id AND user_id = ?) as is_viewer,
         (SELECT COUNT(*) FROM pot_collaborators WHERE pot_id = pots.id) as collaborator_count,
@@ -180,7 +311,17 @@ async function handleGetPotDetail(path: string, env: any, url: URL, token: strin
 
 async function handleCreatePot(request: Request, env: any, token: string | null): Promise<Response> {
   try {
-    const body = await request.json();
+    const body = await request.json() as {
+      id?: string;
+      userId?: string;
+      name?: string;
+      plantType?: string;
+      note?: string;
+      plantDate?: string;
+      imageUrl?: string;
+      lastCare?: string;
+      createInitialTimeline?: boolean | number | string;
+    };
     const {
       id,
       userId,
@@ -325,6 +466,209 @@ async function handleCreatePot(request: Request, env: any, token: string | null)
   }
 }
 
+function normalizeArchiveText(value: unknown, fallback = ''): string {
+  const text = String(value ?? '').trim();
+  return (text || fallback).slice(0, 500);
+}
+
+async function sealArchivedPotAccess(env: any, potId: string, ownerId: string, potName: string): Promise<void> {
+  const { results: collaborators } = await env.DB.prepare(`
+    SELECT c.user_id
+    FROM pot_collaborators c
+    WHERE c.pot_id = ?
+  `).bind(potId).all();
+
+  await env.DB.batch([
+    env.DB.prepare(`
+      INSERT OR IGNORE INTO pot_viewers (pot_id, user_id)
+      SELECT pot_id, user_id
+      FROM pot_collaborators
+      WHERE pot_id = ?
+    `).bind(potId),
+    env.DB.prepare(`
+      DELETE FROM pot_collaborators
+      WHERE pot_id = ?
+    `).bind(potId),
+    env.DB.prepare(`
+      UPDATE pot_collab_invites
+      SET revoked_at = datetime('now')
+      WHERE pot_id = ?
+        AND used_at IS NULL
+        AND revoked_at IS NULL
+    `).bind(potId)
+  ]);
+
+  const formerCollaborators = ((collaborators || []) as { user_id: string }[])
+    .map(item => String(item.user_id || '').trim())
+    .filter(Boolean);
+
+  if (formerCollaborators.length === 0) return;
+
+  const content = `花盆「${potName || '未命名'}」已由主人归档，您的共同照料权限已调整为只读查看。历史记录仍可查看，但不能继续编辑或新增养护记录。`;
+  const notifications = formerCollaborators.map(targetUserId =>
+    env.DB.prepare(`
+      INSERT INTO messages (user_id, sender_id, type, title, content, related_id)
+      VALUES (?, ?, 'system_info', '花盆已归档，权限已调整', ?, ?)
+    `).bind(targetUserId, ownerId, content, potId)
+  );
+
+  try {
+    await env.DB.batch(notifications);
+  } catch (error) {
+    console.error('Failed to send archive permission notifications:', error);
+  }
+}
+
+async function handleArchivePot(
+  request: Request,
+  env: any,
+  path: string,
+  token: string | null
+): Promise<Response> {
+  try {
+    const potId = path.split('/')[3];
+    const userId = token;
+    if (!userId) {
+      return errorResponse('Authentication required', 401);
+    }
+
+    const body = await request.json().catch(() => ({})) as { reason?: string; note?: string };
+    const reason = normalizeArchiveText(body.reason, '其他').slice(0, 80);
+    const note = normalizeArchiveText(body.note);
+    const archivedAt = new Date().toISOString();
+
+    const pot = await env.DB.prepare(`
+      SELECT id, name
+      FROM pots
+      WHERE id = ? AND user_id = ?
+    `).bind(potId, userId).first();
+
+    if (!pot) {
+      return errorResponse('Pot not found or access denied', 404);
+    }
+
+    const result = await env.DB.prepare(`
+      UPDATE pots
+      SET status = 'archived',
+          archived_at = ?,
+          archive_reason = ?,
+          archive_note = ?
+      WHERE id = ? AND user_id = ?
+    `).bind(archivedAt, reason, note || null, potId, userId).run();
+
+    if (!result.meta || result.meta.changes === 0) {
+      return errorResponse('Pot not found or access denied', 404);
+    }
+
+    await sealArchivedPotAccess(env, potId, userId, pot.name || '未命名');
+
+    return jsonResponse({
+      success: true,
+      message: 'Pot archived successfully'
+    });
+  } catch (error) {
+    console.error('Archive pot error:', error);
+    return errorResponse('Failed to archive pot', 500);
+  }
+}
+
+async function handleRestorePot(
+  env: any,
+  path: string,
+  token: string | null
+): Promise<Response> {
+  try {
+    const potId = path.split('/')[3];
+    const userId = token;
+    if (!userId) {
+      return errorResponse('Authentication required', 401);
+    }
+
+    const result = await env.DB.prepare(`
+      UPDATE pots
+      SET status = 'active',
+          archived_at = NULL,
+          archive_reason = NULL,
+          archive_note = NULL
+      WHERE id = ? AND user_id = ?
+    `).bind(potId, userId).run();
+
+    if (!result.meta || result.meta.changes === 0) {
+      return errorResponse('Pot not found or access denied', 404);
+    }
+
+    return jsonResponse({
+      success: true,
+      message: 'Pot restored successfully'
+    });
+  } catch (error) {
+    console.error('Restore pot error:', error);
+    return errorResponse('Failed to restore pot', 500);
+  }
+}
+
+async function handleBatchArchivePots(
+  request: Request,
+  env: any,
+  token: string | null
+): Promise<Response> {
+  try {
+    const userId = token;
+    if (!userId) {
+      return errorResponse('Authentication required', 401);
+    }
+
+    const body = await request.json() as { potIds?: string[]; reason?: string; note?: string };
+    const requestedPotIds = Array.isArray(body.potIds)
+      ? Array.from(new Set(body.potIds.map(id => String(id || '').trim()).filter(Boolean)))
+      : [];
+
+    if (requestedPotIds.length === 0) {
+      return errorResponse('Missing potIds', 400);
+    }
+
+    const placeholders = requestedPotIds.map(() => '?').join(', ');
+    const { results: ownedPots } = await env.DB.prepare(`
+      SELECT id, name FROM pots
+      WHERE id IN (${placeholders}) AND user_id = ?
+    `).bind(...requestedPotIds, userId).all();
+
+    const ownedPotRows = (ownedPots || []) as { id: string; name?: string | null }[];
+    const ownedPotIds = ownedPotRows.map((pot: any) => pot.id);
+    if (ownedPotIds.length === 0) {
+      return errorResponse('No owned pots found in the given IDs', 403);
+    }
+
+    const reason = normalizeArchiveText(body.reason, '其他').slice(0, 80);
+    const note = normalizeArchiveText(body.note);
+    const archivedAt = new Date().toISOString();
+    const statements = ownedPotIds.map((potId: string) =>
+      env.DB.prepare(`
+        UPDATE pots
+        SET status = 'archived',
+            archived_at = ?,
+            archive_reason = ?,
+            archive_note = ?
+        WHERE id = ? AND user_id = ?
+      `).bind(archivedAt, reason, note || null, potId, userId)
+    );
+
+    await env.DB.batch(statements);
+    for (const pot of ownedPotRows) {
+      await sealArchivedPotAccess(env, pot.id, userId, pot.name || '未命名');
+    }
+
+    return jsonResponse({
+      success: true,
+      count: ownedPotIds.length,
+      skipped: requestedPotIds.length - ownedPotIds.length
+    });
+  } catch (error) {
+    console.error('Batch archive pots error:', error);
+    return errorResponse('Failed to batch archive pots', 500);
+  }
+}
+
 async function handleUpdatePot(
   request: Request,
   env: any,
@@ -335,7 +679,14 @@ async function handleUpdatePot(
 ): Promise<Response> {
   try {
     const potId = path.split('/')[3];
-    const body = await request.json();
+    const body = await request.json() as {
+      name?: string;
+      plantType?: string;
+      note?: string;
+      plantDate?: string;
+      imageUrl?: string;
+      lastCare?: string;
+    };
     const {
       name,
       plantType,

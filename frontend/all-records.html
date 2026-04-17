@@ -36,7 +36,7 @@
         <header class="header bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-50 h-16 w-full">
             <div class="container relative flex items-center h-full">
                 <div class="z-10">
-                    <button class="w-10 h-10 flex items-center justify-center text-gray-400 active:scale-90 transition"
+                    <button class="inline-flex items-center justify-center text-gray-400 active:scale-90 transition"
                         @click="goBack">
                         <i class="fa fa-arrow-left text-xl"></i>
                     </button>
@@ -57,7 +57,7 @@
                     <h3 class="font-bold text-gray-800 truncate">{{ pot.name }}</h3>
                     <p class="text-[10px] text-gray-400 mt-0.5">共 {{ records.length }} 条记录</p>
                 </div>
-                <button @click="goAddCare"
+                <button v-if="!isArchived" @click="goAddCare"
                     class="bg-green-500 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition">
                     <i class="fa fa-plus"></i>
                 </button>
@@ -114,7 +114,7 @@
                         </div>
 
                         <!-- 操作按钮 -->
-                        <div class="flex justify-end gap-4 border-t border-gray-50 pt-3">
+                        <div v-if="!isArchived" class="flex justify-end gap-4 border-t border-gray-50 pt-3">
                             <button @click="editRecord(record)"
                                 class="text-[11px] font-bold text-blue-500 flex items-center gap-1">
                                 <i class="fa fa-edit"></i> 修改
@@ -231,10 +231,15 @@
                     }
                     return records.value.filter(record => normalizeCareType(record.type, record.action) === filterType.value);
                 });
+                const isArchived = computed(() => String(pot.value?.status || 'active').toLowerCase() === 'archived');
 
-                const editRecord = (record) => window.location.href = `care-record.html?id=${record.id}`;
+                const editRecord = (record) => {
+                    if (isArchived.value) return;
+                    window.location.href = `care-record.html?id=${record.id}`;
+                };
 
                 const deleteRecord = async (record) => {
+                    if (isArchived.value) return;
                     if (!confirm('永久删除这条记录？')) return;
                     try {
                         const res = await apiClient.request(`/api/care-records/${record.id}`, { method: 'DELETE' });
@@ -259,7 +264,10 @@
                     window.location.href = `pot-detail.html?id=${potId.value}`;
                 };
 
-                const goAddCare = () => window.location.href = `care-record.html?potId=${potId.value}`;
+                const goAddCare = () => {
+                    if (isArchived.value) return;
+                    window.location.href = `care-record.html?potId=${potId.value}`;
+                };
 
                 window.addEventListener('auth:expired', (event) => {
                     nav.redirectToSessionExpired(event.detail?.message, {
@@ -299,7 +307,7 @@
                 onMounted(init);
 
                 return {
-                    isLoading, pot, filterType, filterOptions, filteredRecords, records, previewUrl,
+                    isLoading, pot, isArchived, filterType, filterOptions, filteredRecords, records, previewUrl,
                     editRecord, deleteRecord, previewImage, goBack, goAddCare, formatDate, imgUrl,
                     getCareTypeIcon, getCareTypeColor, getCareTypeLabel
                 };

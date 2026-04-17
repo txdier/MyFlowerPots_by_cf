@@ -63,7 +63,7 @@
         <header class="header bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-50 h-16 w-full">
             <div class="container relative flex items-center h-full">
                 <div class="z-10">
-                    <button class="w-10 h-10 flex items-center justify-center text-gray-400 active:scale-90 transition"
+                    <button class="inline-flex items-center justify-center text-gray-400 active:scale-90 transition"
                         @click="goBack">
                         <i class="fa fa-arrow-left text-xl"></i>
                     </button>
@@ -293,6 +293,7 @@
                 const previewIndex = ref(0);
                 const canManageTimelines = computed(() => !!(
                     pot.value &&
+                    String(pot.value.status || 'active').toLowerCase() !== 'archived' &&
                     (pot.value.user_id === apiClient.userId || pot.value.is_collaborator)
                 ));
 
@@ -351,6 +352,7 @@
                 const toggleTimelineSort = () => isTimelineDesc.value = !isTimelineDesc.value;
 
                 const confirmDeleteTimeline = async (id) => {
+                    if (!canManageTimelines.value) return;
                     if (confirm('确认删除这条生长记录？照片也将一并清理。')) {
                         try {
                             const res = await apiClient.deleteTimeline(id);
@@ -370,6 +372,7 @@
                 };
 
                 const openEditTimelineModal = (record) => {
+                    if (!canManageTimelines.value) return;
                     editTimelineForm.id = record.id;
                     editTimelineForm.date = record.date || '';
                     editTimelineForm.description = record.description || '';
@@ -437,6 +440,7 @@
                 const removeNewImage = (idx) => editTimelineForm.tempImages.splice(idx, 1);
 
                 const saveEditedTimeline = async () => {
+                    if (!canManageTimelines.value) return;
                     if (!editTimelineForm.id) return;
                     if (!editTimelineForm.date) {
                         alert('请选择记录日期');

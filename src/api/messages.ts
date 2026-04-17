@@ -59,7 +59,7 @@ async function getPotWithAccess(
   options?: { allowPublicShare?: boolean; allowViewer?: boolean }
 ) {
   const pot = await env.DB.prepare(`
-    SELECT id, user_id, name, share_token, is_shared
+    SELECT id, user_id, name, share_token, is_shared, COALESCE(status, 'active') as status
     FROM pots
     WHERE id = ?
   `).bind(potId).first();
@@ -351,6 +351,9 @@ export async function handleMessagesRequest(
       const accessResult = await getPotWithAccess(env, potId, userId, shareToken, { allowPublicShare: false, allowViewer: true });
       if (accessResult.error) return accessResult.error;
       const pot = accessResult.pot;
+      if (String(pot.status || 'active').toLowerCase() === 'archived') {
+        return errorResponse('Archived pot is read-only', 403);
+      }
 
       const sender = await env.DB.prepare(`
         SELECT display_name, email
@@ -409,6 +412,9 @@ export async function handleMessagesRequest(
       const accessResult = await getPotWithAccess(env, parentComment.pot_id, userId, shareToken, { allowPublicShare: false, allowViewer: true });
       if (accessResult.error) return accessResult.error;
       const pot = accessResult.pot;
+      if (String(pot.status || 'active').toLowerCase() === 'archived') {
+        return errorResponse('Archived pot is read-only', 403);
+      }
 
       const sender = await env.DB.prepare(`
         SELECT display_name, email

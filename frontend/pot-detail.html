@@ -130,18 +130,6 @@
             }
         }
 
-        .detail-back-button {
-            background: #ffffff;
-            border: 1px solid #e5e7eb;
-            color: #374151 !important;
-            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
-        }
-
-        .detail-back-button:hover {
-            color: #047857 !important;
-            background: #f9fafb;
-        }
-
     </style>
 </head>
 
@@ -153,7 +141,7 @@
             <div class="container relative flex items-center h-full">
                 <!-- 左侧按钮 -->
                 <div class="z-10">
-                    <button class="detail-back-button w-10 h-10 flex items-center justify-center rounded-md text-gray-700 active:scale-90 transition"
+                    <button class="inline-flex items-center justify-center text-gray-400 active:scale-90 transition"
                         @click="goBack">
                         <i class="fa fa-arrow-left text-xl"></i>
                     </button>
@@ -175,13 +163,17 @@
                         <!-- 动作下拉菜单 -->
                         <div v-if="showActionMenu"
                             class="absolute right-0 mt-2 w-36 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-fade-in pointer-events-auto">
-                            <button @click="goEditPage"
+                            <button v-if="!isArchived" @click="goEditPage"
                                 class="w-full text-left px-4 py-3.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 border-b border-gray-50 transition active:bg-gray-100">
                                 <i class="fa fa-pen text-blue-500 w-4 text-center"></i> 编辑花盆
                             </button>
                             <button @click="showShareModal = true; showActionMenu = false"
                                 class="w-full text-left px-4 py-3.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition active:bg-gray-100">
                                 <i class="fa fa-share-alt text-green-500 w-4 text-center"></i> 分享花盆
+                            </button>
+                            <button v-if="isArchived" @click="restoreArchivedPot"
+                                class="w-full text-left px-4 py-3.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition active:bg-gray-100">
+                                <i class="fa fa-undo text-green-500 w-4 text-center"></i> 恢复养护
                             </button>
                         </div>
                     </div>
@@ -192,7 +184,7 @@
         </header>
 
         <!-- 移交状态提示 (仅主人可见) -->
-        <div v-if="isOwner && pot?.transfer_token" class="container mt-4 animate-fade-in relative z-30">
+        <div v-if="isOwner && !isArchived && pot?.transfer_token" class="container mt-4 animate-fade-in relative z-30">
             <div class="bg-blue-50 border border-blue-100 p-4 rounded-3xl flex items-center justify-between shadow-sm">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 bg-blue-500/10 rounded-full flex items-center justify-center shrink-0">
@@ -397,6 +389,10 @@
                     <div class="p-6 space-y-4">
                         <div class="flex items-center gap-2">
                             <h2 class="text-2xl font-black text-gray-800 tracking-tight">{{ pot.name }}</h2>
+                            <span v-if="isArchived"
+                                class="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-black rounded-lg">
+                                <i class="fa fa-archive mr-0.5"></i> 已归档
+                            </span>
                             <span v-if="pot.is_collaborator || (isOwner && pot.collaborator_count > 0)"
                                 class="px-2 py-0.5 bg-orange-100 text-orange-600 text-[10px] font-black rounded-lg">
                                 <i class="fa fa-users mr-0.5"></i> 共同照料中
@@ -411,11 +407,18 @@
                                 <span class="text-gray-900 font-bold shrink-0 w-20">种植日期：</span>
                                 <span class="text-gray-600">{{ formatDate(pot.plant_date) }}</span>
                             </div>
-                            <div class="flex items-baseline gap-2">
-                                <span class="text-gray-900 font-bold shrink-0 w-20">花盆备注：</span>
-                                <span class="text-gray-600">{{ pot.note || '无' }}</span>
-                            </div>
-                        </div>
+	                            <div class="flex items-baseline gap-2">
+	                                <span class="text-gray-900 font-bold shrink-0 w-20">花盆备注：</span>
+	                                <span class="text-gray-600">{{ pot.note || '无' }}</span>
+	                            </div>
+	                            <div v-if="isArchived" class="flex items-baseline gap-2">
+	                                <span class="text-gray-900 font-bold shrink-0 w-20">归档原因：</span>
+	                                <span class="text-gray-600">
+	                                    {{ pot.archive_reason || '无' }}
+	                                    <template v-if="pot.archive_note">，{{ pot.archive_note }}</template>
+	                                </span>
+	                            </div>
+	                        </div>
                     </div>
                 </div>
 
@@ -520,7 +523,7 @@
                 </div>
 
                 <!-- 2. 养护周期 (Care Schedules) -->
-                <div v-if="!isPublicVisitor" id="section-schedules"
+                <div v-if="canShowCareSchedules" id="section-schedules"
                     class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
                     <div class="p-6 flex justify-between items-center border-b border-gray-50">
                         <h3 class="text-lg font-black text-gray-800 flex items-center gap-2">
@@ -685,7 +688,7 @@
                             </div>
                             <i class="fa fa-chevron-right text-[10px] text-gray-200"></i>
                         </div>
-                        <button v-if="!isReadOnly && careRecords?.length > 5" @click="viewAllRecords"
+                        <button v-if="careRecords?.length > 5" @click="viewAllRecords"
                             class="w-full py-4 text-[10px] text-gray-300 font-black uppercase tracking-widest bg-gray-50/50 border-t border-gray-50 flex items-center justify-center gap-2">
                             查看全部养护记录 ({{ careRecords?.length || 0 }}) <i class="fa fa-history"></i>
                         </button>
@@ -780,16 +783,70 @@
                 </div>
 
                 <!-- 5. 危险区域 (仅主人可见) -->
-                <div v-if="isOwner" class="pt-8 pb-10 flex flex-col items-center gap-4">
+	                <div v-if="isOwner" class="pt-8 pb-10 flex flex-col items-center gap-4">
+	                    <button v-if="!isArchived" @click="openArchiveModal"
+                        class="w-full py-4 rounded-2xl text-gray-600 font-black text-sm bg-gray-100 border border-gray-200 hover:bg-gray-200 transition active:scale-95">
+                        <i class="fa fa-archive mr-2"></i> 归档此花盆
+                    </button>
+                    <button v-if="isArchived" @click="restoreArchivedPot"
+                        class="w-full py-4 rounded-2xl text-green-700 font-black text-sm bg-green-50 border border-green-100 hover:bg-green-100 transition active:scale-95">
+                        <i class="fa fa-undo mr-2"></i> 恢复到养护中
+                    </button>
                     <button @click="confirmDeletePot"
                         class="w-full py-4 rounded-2xl text-red-500 font-black text-sm bg-red-50 border border-red-100 hover:bg-red-100 transition active:scale-95">
                         <i class="fa fa-trash-alt mr-2"></i> 删除此花盆
-                    </button>
+	                    </button>
 
-                </div>
+	                </div>
 
-                <!-- 访客转换栏 (仅外部访客可见) -->
-                <div v-if="isPublicVisitor" class="sticky bottom-4 left-0 right-0 z-50 px-4">
+	                <div v-if="showArchiveModal" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4">
+	                    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeArchiveModal"></div>
+	                    <div
+	                        class="relative bg-white w-full max-w-lg rounded-t-[2rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up">
+	                        <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50">
+	                            <div>
+	                                <h3 class="text-xl font-black text-gray-800">归档此花盆</h3>
+	                                <p class="text-xs text-gray-400 mt-0.5">为 {{ pot?.name || '这盆植物' }} 记录归档原因</p>
+	                            </div>
+	                            <button type="button" @click="closeArchiveModal"
+	                                class="text-gray-400 hover:text-gray-600 transition">
+	                                <i class="fa fa-times text-xl"></i>
+	                            </button>
+	                        </div>
+	                        <div class="p-6 space-y-5">
+	                            <div class="rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 text-xs text-amber-700 leading-relaxed">
+	                                归档后这盆植物将不再出现在养护列表，也不会收到养护提醒。记录会保留，之后可以在已归档中查看和恢复。
+	                            </div>
+	                            <div>
+	                                <label class="block text-sm font-bold text-gray-700 mb-3">归档原因</label>
+	                                <div class="grid grid-cols-2 gap-2">
+	                                    <button v-for="reason in archiveReasons" :key="reason" type="button"
+	                                        @click="archiveForm.reason = reason"
+	                                        class="rounded-2xl border px-3 py-3 text-sm font-bold transition active:scale-95"
+	                                        :class="archiveForm.reason === reason ? 'bg-green-50 border-green-300 text-green-700 shadow-sm' : 'bg-white border-gray-100 text-gray-500'">
+	                                        {{ reason }}
+	                                    </button>
+	                                </div>
+	                            </div>
+	                            <div>
+	                                <label class="block text-sm font-bold text-gray-700 mb-2">备注
+	                                    <span class="text-gray-400 font-normal">（可选）</span>
+	                                </label>
+	                                <textarea v-model="archiveForm.note" placeholder="这次失败可能和什么有关？" rows="3"
+	                                    class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-green-300 resize-none transition"></textarea>
+	                            </div>
+	                        </div>
+	                        <div class="px-6 pb-6">
+	                            <button @click="archiveCurrentPot" :disabled="isArchiveLoading"
+	                                class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+	                                {{ isArchiveLoading ? '归档中...' : '确认归档' }}
+	                            </button>
+	                        </div>
+	                    </div>
+	                </div>
+
+	                <!-- 访客转换栏 (仅外部访客可见) -->
+	                <div v-if="isPublicVisitor" class="sticky bottom-4 left-0 right-0 z-50 px-4">
                     <div
                         class="bg-green-600 rounded-3xl p-5 shadow-2xl flex items-center justify-between text-white border border-green-500">
                         <div class="flex items-center gap-4">
@@ -858,7 +915,7 @@
                     <!-- 固定头部 -->
                     <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
                         <div class="flex justify-between items-center">
-                            <h3 class="text-xl font-black text-gray-800">分享此花盆</h3>
+                            <h3 class="text-xl font-black text-gray-800">{{ isArchived ? '分享归档花盆' : '分享此花盆' }}</h3>
                             <button @click="showShareModal = false"
                                 class="text-gray-300 hover:text-gray-500 transition active:scale-95">
                                 <i class="fa fa-times text-xl"></i>
@@ -871,8 +928,10 @@
                         <!-- 分享开关 -->
                         <div class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl mb-6">
                             <div>
-                                <h4 class="text-sm font-black text-gray-800">允许公开分享</h4>
-                                <p class="text-[10px] text-gray-400 mt-0.5">开启后，任何人通过该二维码或链接即可查看详情</p>
+	                                <h4 class="text-sm font-black text-gray-800">生成公开链接 / 二维码</h4>
+	                                <p class="text-[10px] text-gray-400 mt-0.5">
+	                                    {{ isArchived ? '生成只读公开链接和二维码，接收方可查看归档记录。' : '生成公开查看链接和二维码，任何人获得后可查看详情。' }}
+	                                </p>
                             </div>
                             <button @click="toggleShare"
                                 class="w-12 h-7 rounded-full transition-all duration-300 relative"
@@ -882,6 +941,11 @@
                                     :class="pot.is_shared ? 'right-1' : 'left-1'"></span>
                             </button>
                         </div>
+                        <div v-if="isArchived"
+                            class="mb-6 rounded-2xl bg-gray-50 px-4 py-3 text-[11px] font-bold leading-relaxed text-gray-500">
+                            <i class="fa fa-archive mr-1"></i>
+                            已归档内容会以只读方式展示，不能共同照料或编辑。
+                        </div>
 
                         <!-- 二维码展示区 -->
                         <div v-show="pot.is_shared" class="flex flex-col items-center">
@@ -890,7 +954,7 @@
                                 <!-- QR Code will be rendered here -->
                             </div>
                             <p class="text-xs text-gray-500 mb-6 text-center leading-relaxed">
-                                保存上方二维码分享给好友<br>
+	                                {{ isArchived ? '保存上方二维码作为归档记录公开分享' : '保存上方二维码或复制链接进行公开分享' }}<br>
                                 <span class="font-bold text-blue-500">点击“分享链接”会优先拉起系统分享，失败时自动回退到复制链接</span>
                             </p>
                             <div class="grid grid-cols-2 gap-3 w-full">
@@ -909,13 +973,13 @@
                         <div v-if="isOwner" class="mt-8 pt-6 border-t border-gray-50 flex flex-col gap-3">
                             <button @click="showViewerModal = true; showShareModal = false"
                                 class="w-full py-4 rounded-2xl bg-emerald-50 text-emerald-600 text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition">
-                                <i class="fa fa-book-open"></i> 分享给好友查看
+	                                <i class="fa fa-book-open"></i> 分享给站内好友
                             </button>
-                            <button @click="showCollaboratorModal = true; showShareModal = false"
+                            <button v-if="!isArchived" @click="showCollaboratorModal = true; showShareModal = false"
                                 class="w-full py-4 rounded-2xl bg-orange-50 text-orange-600 text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition">
-                                <i class="fa fa-users"></i> 管理共同照料成员
+	                                <i class="fa fa-users"></i> 邀请共同养护
                             </button>
-                            <button @click="showTransferModal = true; showShareModal = false"
+                            <button v-if="!isArchived" @click="showTransferModal = true; showShareModal = false"
                                 class="w-full py-4 rounded-2xl bg-red-50 text-red-500 text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition">
                                 <i class="fa fa-exchange-alt"></i> 永久移交所有权
                             </button>
@@ -1173,12 +1237,12 @@
                     <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
                         <div class="flex items-start justify-between gap-4">
                             <button type="button" @click="showShareModal = true; showCollaboratorModal = false"
-                                class="shrink-0 text-gray-300 hover:text-gray-500 transition active:scale-95">
+                                class="shrink-0 text-gray-400 transition active:scale-95">
                                 <i class="fa fa-arrow-left text-xl"></i>
                             </button>
                             <div class="flex-1 min-w-0">
-                                <h3 class="text-xl font-black text-gray-800">共同照料</h3>
-                                <p class="text-xs text-gray-400 mt-1">邀请好友共同照料您的植物</p>
+	                                <h3 class="text-xl font-black text-gray-800">邀请共同养护</h3>
+	                                <p class="text-xs text-gray-400 mt-1">邀请站内好友一起养护您的植物</p>
                             </div>
                             <button type="button" @click="showCollaboratorModal = false"
                                 class="text-gray-300 hover:text-gray-500 transition active:scale-95">
@@ -1213,7 +1277,7 @@
                             </div>
                             <div v-if="collaborators?.length === 0"
                                 class="rounded-3xl border border-dashed border-gray-200 bg-gray-50/80 py-8 px-4 text-center text-gray-300 text-xs font-bold">
-                                还没有邀请成员一起照料
+	                                还没有邀请成员一起养护
                             </div>
                         </div>
 
@@ -1273,13 +1337,15 @@
                     <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
                         <div class="flex items-start justify-between gap-4">
                             <button type="button" @click="showShareModal = true; showViewerModal = false"
-                                class="shrink-0 text-gray-300 hover:text-gray-500 transition active:scale-95">
+                                class="shrink-0 text-gray-400 transition active:scale-95">
                                 <i class="fa fa-arrow-left text-xl"></i>
-                            </button>
-                            <div class="flex-1 min-w-0">
-                                <h3 class="text-xl font-black text-gray-800">分享给好友</h3>
-                                <p class="text-xs text-gray-400 mt-1">好友接受后会出现在他的“好友分享”中，可长期查看，但不能编辑</p>
-                            </div>
+	                            </button>
+	                            <div class="flex-1 min-w-0">
+		                                <h3 class="text-xl font-black text-gray-800">分享给站内好友</h3>
+		                                <p class="text-xs text-gray-400 mt-1">
+		                                    {{ isArchived ? '站内好友接受后只能查看归档记录，不能编辑或共同养护' : '站内好友接受后会出现在他的“好友分享”中，可长期查看，但不能编辑' }}
+		                                </p>
+	                            </div>
                             <button type="button" @click="showViewerModal = false"
                                 class="text-gray-300 hover:text-gray-500 transition active:scale-95">
                                 <i class="fa fa-times text-xl"></i>
@@ -1309,7 +1375,7 @@
                             </div>
                             <div v-if="viewers?.length === 0"
                                 class="rounded-3xl border border-dashed border-gray-200 bg-gray-50/80 py-8 px-4 text-center text-gray-300 text-xs font-bold">
-                                还没有分享给好友
+	                                还没有分享给站内好友
                             </div>
                         </div>
 
@@ -1364,7 +1430,7 @@
                     <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
                         <div class="flex items-start justify-between gap-4">
                             <button type="button" @click="showShareModal = true; showTransferModal = false"
-                                class="shrink-0 text-gray-300 hover:text-gray-500 transition active:scale-95">
+                                class="shrink-0 text-gray-400 transition active:scale-95">
                                 <i class="fa fa-arrow-left text-xl"></i>
                             </button>
                             <div class="flex-1 min-w-0">
@@ -1792,7 +1858,7 @@
 
     <script src="js/vue.global.js"></script>
     <script src="js/config.js?v=20260227"></script>
-    <script src="js/api-client.js?v=20260415-1"></script>
+    <script src="js/api-client.js?v=20260416-archive"></script>
     <script src="js/form-utils.js?v=20260413"></script>
     <script src="js/clipboard.js?v=20260407-2"></script>
 
@@ -1832,9 +1898,10 @@
                 const showShareModal = ref(false);
                 const showCollaboratorModal = ref(false);
                 const showViewerModal = ref(false);
-                const showCommentModal = ref(false);
-                const showTransferModal = ref(false);
-                const showAcceptTransferModal = ref(false);
+	                const showCommentModal = ref(false);
+	                const showTransferModal = ref(false);
+	                const showArchiveModal = ref(false);
+	                const showAcceptTransferModal = ref(false);
                 const transferToken = ref(null);
                 const transferPot = ref(null);
                 const isAcceptingTransfer = ref(false);
@@ -1844,8 +1911,9 @@
                 const selectedTransferUser = ref(null);
                 const viewerIsCollaborator = ref(false);
                 const viewerIsViewer = ref(false);
-                const isSubmittingComment = ref(false);
-                const showCommentDanmaku = ref(true);
+	                const isSubmittingComment = ref(false);
+	                const isArchiveLoading = ref(false);
+	                const showCommentDanmaku = ref(true);
                 const potComments = ref([]);
                 const replyTargetComment = ref(null);
                 const commentSortOrder = ref('asc');
@@ -1858,9 +1926,14 @@
                 const isCommentsLoading = ref(false);
                 const newCollaboratorEmail = ref('');
                 const newViewerEmail = ref('');
-                const commentForm = reactive({
-                    content: ''
-                });
+	                const commentForm = reactive({
+	                    content: ''
+	                });
+	                const archiveReasons = ['枯萎', '烂根', '干死', '病虫害', '环境不适', '送人/不再养护', '其他'];
+	                const archiveForm = reactive({
+	                    reason: '枯萎',
+	                    note: ''
+	                });
 
                 const activeSection = ref('');
                 const showActionMenu = ref(false);
@@ -1957,7 +2030,7 @@
                         { key: 'records', label: '养护历史', id: 'section-records' },
                         { key: 'timelines', label: '生长轨迹', id: 'section-timelines' }
                     ];
-                    if (!isPublicVisitor.value) {
+                    if (canShowCareSchedules.value) {
                         // 在概览后插入提醒
                         tabs.splice(1, 0, { key: 'schedules', label: '提醒', id: 'section-schedules' });
                     }
@@ -1971,8 +2044,10 @@
                         currentUser.value && currentUser.value.id &&
                         pot.value.user_id === currentUser.value.id;
                 });
-                const isReadOnly = computed(() => !!((!!shareToken.value && !isOwner.value && !viewerIsCollaborator.value) || pot.value?.is_viewer || viewerIsViewer.value));
+                const isArchived = computed(() => String(pot.value?.status || 'active').toLowerCase() === 'archived');
+                const isReadOnly = computed(() => !!(isArchived.value || (!!shareToken.value && !isOwner.value && !viewerIsCollaborator.value) || pot.value?.is_viewer || viewerIsViewer.value));
                 const isPublicVisitor = computed(() => !!shareToken.value && !currentUser.value);
+                const canShowCareSchedules = computed(() => !isPublicVisitor.value && !isArchived.value);
                 const showOperatorName = computed(() => pot.value && (pot.value.is_collaborator || pot.value.collaborator_count > 0));
                 const hasCollaborationAccess = computed(() => !!(isOwner.value || pot.value?.is_collaborator || viewerIsCollaborator.value));
                 const canCommentAsMember = computed(() => !!(
@@ -1984,7 +2059,7 @@
                         viewerIsViewer.value
                     )
                 ));
-                const canReplyComment = computed(() => !!(canCommentAsMember.value && !shareToken.value));
+                const canReplyComment = computed(() => !!(canCommentAsMember.value && !shareToken.value && !isArchived.value));
                 const hasCommentAudience = computed(() => !!(
                     pot.value && (
                         !!pot.value.is_shared ||
@@ -1997,7 +2072,7 @@
                         !!shareToken.value
                     )
                 ));
-                const canManageCommentDanmaku = computed(() => !!(isOwner.value && hasCommentAudience.value));
+                const canManageCommentDanmaku = computed(() => !!(isOwner.value && hasCommentAudience.value && !isArchived.value));
                 const canUseNativeShare = computed(() => !!(
                     typeof window !== 'undefined' &&
                     window.isSecureContext !== false &&
@@ -2009,11 +2084,12 @@
                     showAddTimelineModal.value ||
                     showShareModal.value ||
                     showCollaboratorModal.value ||
-                    showViewerModal.value ||
-                    showCommentModal.value ||
-                    showTransferModal.value ||
-                    showAcceptTransferModal.value
-                ));
+	                    showViewerModal.value ||
+	                    showCommentModal.value ||
+	                    showTransferModal.value ||
+	                    showArchiveModal.value ||
+	                    showAcceptTransferModal.value
+	                ));
                 const showCommentEntry = computed(() => !!(hasCommentAudience.value && canReplyComment.value));
                 const canLeaveComment = computed(() => canReplyComment.value);
                 const isCompactCommentViewport = computed(() => viewportWidth.value > 0 && viewportWidth.value < 640);
@@ -2090,6 +2166,14 @@
                 const syncUrlWithShareStatus = () => {
                     if (!isOwner.value || !pot.value) return;
                     const url = new URL(window.location.href);
+                    if (isArchived.value) {
+                        if (!url.searchParams.has('id') || url.searchParams.has('token')) {
+                            url.searchParams.set('id', pot.value.id);
+                            url.searchParams.delete('token');
+                            window.history.replaceState({}, '', url.toString());
+                        }
+                        return;
+                    }
                     if (pot.value.is_shared && pot.value.share_token) {
                         // 开启了分享：确保 URL 使用 token 模式，方便微信抓取分享
                         if (url.searchParams.get('token') !== pot.value.share_token) {
@@ -2117,7 +2201,7 @@
                         window.history.replaceState({}, '', url.toString());
                     }
 
-                    if (pot.value && isOwner.value) {
+                    if (pot.value && isOwner.value && !isArchived.value) {
                         showShareModal.value = true;
                     }
                 };
@@ -2553,13 +2637,17 @@
                                 console.error('Stats load error:', err);
                             }
                         });
-                        loadCareSchedules().catch(err => {
-                            if (!isOwner.value && err.message?.includes('Authentication')) {
-                                console.warn('Skipping private schedules for non-owner');
-                            } else {
-                                console.error('Care schedules load error:', err);
-                            }
-                        });
+                        if (canShowCareSchedules.value) {
+                            loadCareSchedules().catch(err => {
+                                if (!isOwner.value && err.message?.includes('Authentication')) {
+                                    console.warn('Skipping private schedules for non-owner');
+                                } else {
+                                    console.error('Care schedules load error:', err);
+                                }
+                            });
+                        } else {
+                            careSchedules.value = [];
+                        }
                     }
 
                     loadPlantInfo().catch(err => console.warn('Plant info load error:', err));
@@ -2977,7 +3065,7 @@
                 };
 
                 const loadCareSchedules = async () => {
-                    if (!potId.value) {
+                    if (!potId.value || !canShowCareSchedules.value) {
                         careSchedules.value = [];
                         return;
                     }
@@ -3114,6 +3202,7 @@
                 };
 
                 const goAddCarePageWithDate = (date) => {
+                    if (isReadOnly.value) return;
                     window.location.href = `care-record.html?potId=${potId.value}&date=${date}`;
                 };
 
@@ -3239,6 +3328,7 @@
                 };
 
                 const openAddTimelineModal = () => {
+                    if (isReadOnly.value) return;
                     resetTimelineForm();
                     showAddTimelineModal.value = true;
                 };
@@ -3250,6 +3340,7 @@
                 };
 
                 const openEditTimelineModal = (record) => {
+                    if (isReadOnly.value) return;
                     editingTimelineId.value = record.id;
                     newTimeline.date = record.date || getTodayString();
                     newTimeline.description = record.description || '';
@@ -3276,6 +3367,7 @@
                 const removeNewImage = (idx) => newTimeline.tempImages.splice(idx, 1);
 
                 const saveTimelineRecord = async () => {
+                    if (isReadOnly.value) return;
                     if (!newTimeline.date) {
                         alert('请选择记录日期');
                         return;
@@ -3309,6 +3401,7 @@
                 };
 
                 const confirmDeleteTimeline = async (id) => {
+                    if (isReadOnly.value) return;
                     if (confirm('确认删除这条生长记录？照片也将一并清理。')) {
                         try {
                             const res = await apiClient.deleteTimeline(id);
@@ -3318,7 +3411,10 @@
                 };
 
                 const confirmDeletePot = async () => {
-                    if (confirm('确定要删除这盆花吗？所有养护记录和成长轨迹都将被永久删除。')) {
+                    const message = isArchived.value
+                        ? '确定要永久删除这盆已归档植物吗？所有养护记录和成长轨迹都将被永久删除。'
+                        : '确定要删除这盆花吗？所有养护记录和成长轨迹都将被永久删除。';
+                    if (confirm(message)) {
                         try {
                             const res = await apiClient.deletePot(potId.value);
                             if (res.success) window.location.href = 'index.html';
@@ -3326,13 +3422,74 @@
                     }
                 };
 
+                const restoreArchivedPot = async () => {
+                    if (!isOwner.value || !isArchived.value) return;
+                    if (!confirm(`确定将 ${pot.value?.name || '这盆植物'} 恢复到养护中吗？`)) return;
+                    try {
+                        const res = await apiClient.restorePot(potId.value);
+                        if (res.success) {
+                            showActionMenu.value = false;
+                            await loadPotDetail();
+                            await Promise.allSettled([
+                                loadCareSchedules(),
+                                loadCareRecords(),
+                                loadTimelineRecords(),
+                                loadPotStats()
+                            ]);
+                            alert('已恢复到养护中。');
+                        }
+                    } catch (err) {
+                        alert('恢复失败: ' + (err?.message || '请稍后重试'));
+                    }
+                };
+
+	                const openArchiveModal = () => {
+	                    if (!isOwner.value || isArchived.value) return;
+	                    archiveForm.reason = '枯萎';
+	                    archiveForm.note = '';
+	                    showArchiveModal.value = true;
+	                };
+
+	                const closeArchiveModal = () => {
+	                    if (isArchiveLoading.value) return;
+	                    showArchiveModal.value = false;
+	                };
+
+	                const archiveCurrentPot = async () => {
+	                    if (!isOwner.value || isArchived.value || isArchiveLoading.value) return;
+	                    try {
+	                        isArchiveLoading.value = true;
+	                        const res = await apiClient.archivePot(potId.value, {
+	                            reason: archiveForm.reason,
+	                            note: archiveForm.note.trim() || null
+	                        });
+	                        if (res.success) {
+	                            showArchiveModal.value = false;
+	                            await loadPotDetail();
+	                            await Promise.allSettled([
+	                                loadCareSchedules(),
+                                loadCareRecords(),
+                                loadTimelineRecords(),
+                                loadPotStats()
+                            ]);
+                            alert('已归档。');
+                        }
+	                    } catch (err) {
+	                        alert('归档失败: ' + (err?.message || '请稍后重试'));
+	                    } finally {
+	                        isArchiveLoading.value = false;
+	                    }
+	                };
+
                 // 编辑记录
                 const editRecord = (record) => {
+                    if (isReadOnly.value) return;
                     window.location.href = `care-record.html?id=${record.id}`;
                 };
 
                 // 删除记录
                 const deleteRecord = async (record) => {
+                    if (isReadOnly.value) return;
                     // 自定义二次确认逻辑：点击第一次变色/变字，点击第二次执行删除
                     if (confirmingDeleteId.value !== record.id) {
                         confirmingDeleteId.value = record.id;
@@ -3381,6 +3538,7 @@
                 };
 
                 const saveNewSchedule = async () => {
+                    if (isReadOnly.value) return;
                     const customAction = String(newSchedule.customAction || '').trim();
                     if (newSchedule.careType === 'custom' && !customAction) {
                         alert('请输入自定义名称');
@@ -3402,6 +3560,7 @@
                 };
 
                 const toggleScheduleEnabled = async (schedule) => {
+                    if (isReadOnly.value) return;
                     try {
                         const nextState = !schedule.enabled;
                         const res = await apiClient.updateCareSchedule(schedule.id, {
@@ -3412,6 +3571,7 @@
                 };
 
                 const deleteSchedule = async (schedule) => {
+                    if (isReadOnly.value) return;
                     if (!confirm('确定要删除这个提醒吗？')) return;
                     try {
                         const res = await apiClient.deleteCareSchedule(schedule.id);
@@ -3420,6 +3580,7 @@
                 };
 
                 const updateScheduleInterval = async (schedule) => {
+                    if (isReadOnly.value) return;
                     if (schedule.intervalDays < 1) schedule.intervalDays = 1;
                     try {
                         await apiClient.updateCareSchedule(schedule.id, {
@@ -3467,8 +3628,14 @@
                 const handleImageError = (e) => e.target.src = fallbackPotImage;
 
                 const goBack = () => window.location.href = 'index.html';
-                const goEditPage = () => window.location.href = `edit-pot.html?id=${potId.value}`;
-                const goAddCarePage = () => window.location.href = `care-record.html?potId=${potId.value}`;
+                const goEditPage = () => {
+                    if (isReadOnly.value) return;
+                    window.location.href = `edit-pot.html?id=${potId.value}`;
+                };
+                const goAddCarePage = () => {
+                    if (isReadOnly.value) return;
+                    window.location.href = `care-record.html?potId=${potId.value}`;
+                };
                 const goCreatePot = () => window.location.href = 'index.html';
 
                 const scrollToSection = (sectionId, sectionKey) => {
@@ -3553,8 +3720,8 @@
                     }
                 });
 
-                const toggleShare = async () => {
-                    try {
+	                const toggleShare = async () => {
+	                    try {
                         if (pot.value.is_shared) {
                             const res = await apiClient.disableShare(potId.value);
                             if (res.success) {
@@ -3654,13 +3821,15 @@
                         return;
                     }
 
-                    const result = await shareViaSystem({
-                        title: pot.value?.name ? `分享植物：${pot.value.name}` : '分享花盆',
-                        text: pot.value?.name
-                            ? `邀请你一起看看 ${pot.value.name} 的成长记录。`
-                            : '邀请你一起看看这盆植物的成长记录。',
-                        url: shareUrl
-                    });
+	                    const result = await shareViaSystem({
+	                        title: pot.value?.name
+	                            ? `${isArchived.value ? '分享归档记录' : '分享植物'}：${pot.value.name}`
+	                            : (isArchived.value ? '分享归档花盆' : '分享花盆'),
+	                        text: pot.value?.name
+	                            ? `邀请你一起看看 ${pot.value.name} 的${isArchived.value ? '归档记录' : '成长记录'}。`
+	                            : `邀请你一起看看这盆植物的${isArchived.value ? '归档记录' : '成长记录'}。`,
+	                        url: shareUrl
+	                    });
 
                     if (result.status === 'shared' || result.status === 'cancelled') {
                         return;
@@ -3670,6 +3839,7 @@
                 };
 
                 const copyCollaboratorInvite = async () => {
+                    if (isArchived.value) return;
                     try {
                         const res = await apiClient.createCollaboratorInvite(potId.value);
                         const inviteUrl = res.data?.inviteUrl;
@@ -3679,10 +3849,10 @@
                         }
 
                         const shareResult = await shareViaSystem({
-                            title: pot.value?.name ? `邀请你共同照料：${pot.value.name}` : '共同照料邀请',
-                            text: pot.value?.name
-                                ? `打开链接并登录后，就可以一起照料 ${pot.value.name}。`
-                                : '打开链接并登录后，就可以一起加入共同照料。',
+	                            title: pot.value?.name ? `邀请你共同养护：${pot.value.name}` : '共同养护邀请',
+	                            text: pot.value?.name
+	                                ? `打开链接并登录后，就可以一起养护 ${pot.value.name}。`
+	                                : '打开链接并登录后，就可以一起加入共同养护。',
                             url: inviteUrl
                         });
                         if (shareResult.status === 'shared' || shareResult.status === 'cancelled') {
@@ -3712,8 +3882,8 @@
                         const shareResult = await shareViaSystem({
                             title: pot.value?.name ? `邀请你查看：${pot.value.name}` : '好友查看邀请',
                             text: pot.value?.name
-                                ? `打开链接并登录后，就可以长期查看 ${pot.value.name}。`
-                                : '打开链接并登录后，就可以查看这盆植物。',
+                                ? `打开链接并登录后，就可以${isArchived.value ? '只读查看归档记录' : '长期查看'} ${pot.value.name}。`
+                                : `打开链接并登录后，就可以${isArchived.value ? '只读查看归档记录' : '查看这盆植物'}。`,
                             url: inviteUrl
                         });
                         if (shareResult.status === 'shared' || shareResult.status === 'cancelled') {
@@ -3722,7 +3892,9 @@
 
                         const copied = await copyTextSafely(inviteUrl);
                         if (copied) {
-                            alert('查看邀请链接已复制，可直接发给好友。对方接受后会出现在“好友分享”中，但无法编辑。');
+                            alert(isArchived.value
+                                ? '归档查看链接已复制，可直接发给好友。对方接受后只能查看历史记录，无法编辑。'
+                                : '查看邀请链接已复制，可直接发给好友。对方接受后会出现在“好友分享”中，但无法编辑。');
                         } else {
                             showCopyFallback(inviteUrl, '查看邀请链接已生成。系统已切到增强复制模式；如果还没成功，可点“再次复制”：');
                         }
@@ -3879,6 +4051,7 @@
                 };
 
                 const addCollaborator = async () => {
+                    if (isArchived.value) return;
                     if (!newCollaboratorEmail.value.trim()) return;
                     if (!isCollaboratorInviteEmailValid.value) {
                         alert('请输入正确的邮箱地址');
@@ -3917,6 +4090,7 @@
                 };
 
                 const removeCollaborator = async (collab) => {
+                    if (isArchived.value) return;
                     if (!confirm(`确定移除共同照料成员 ${collab.display_name || collab.email} 吗？`)) return;
                     try {
                         const res = await apiClient.removeCollaborator(potId.value, collab.id);
@@ -3948,6 +4122,7 @@
 
                 // 移交所有权 (已在 setup 顶部处理了其他方法)
                 const initTransfer = async () => {
+                    if (isArchived.value) return;
                     if (!transferEmail.value) {
                         alert('请输入接收者的电子邮箱');
                         return;
@@ -4050,13 +4225,14 @@
                 });
 
                 return {
-                    isLoading, pot, potId, isOwner, isReadOnly, isPublicVisitor, showOperatorName, matchedPlantName, plantInfo,
+                    isLoading, pot, potId, isOwner, isArchived, isReadOnly, isPublicVisitor, canShowCareSchedules, showOperatorName, matchedPlantName, plantInfo,
                     isPlantInfoLoading, isCareRecordsLoading, isTimelineRecordsLoading, isPotStatsLoading, isCareSchedulesLoading, isCommentsLoading,
                     potStats, careRecords, timelineRecords, handleImageError, handleHeroImageLoad, handleHeroImageError, heroImageSrc, heroImageLoaded, showActionMenu,
                     showAddTimelineModal, showShareModal, isSavingTimeline, isEditingTimeline, fileInput,
                     previewImages, previewIndex, galleryDragOffset, galleryIsDragging,
                     newTimeline, sortedTimelineRecords, isTimelineDesc,
-                    goBack, goEditPage, goAddCarePage, goCreatePot, confirmDeletePot,
+	                    goBack, goEditPage, goAddCarePage, goCreatePot, confirmDeletePot, openArchiveModal, closeArchiveModal,
+	                    archiveCurrentPot, restoreArchivedPot, showArchiveModal, isArchiveLoading, archiveForm, archiveReasons,
                     openGallery, closeGallery, prevImg, nextImg, toggleTimelineSort,
                     handleGalleryTouchStart, handleGalleryTouchMove, handleGalleryTouchEnd,
                     openAddTimelineModal, openEditTimelineModal, closeTimelineModal, timelineImageCount,

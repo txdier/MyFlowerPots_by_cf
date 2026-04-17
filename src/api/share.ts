@@ -62,6 +62,26 @@ async function ensurePotCommentDanmakuColumn(env: any): Promise<void> {
   }
 }
 
+async function ensurePotArchiveColumns(env: any): Promise<void> {
+  const columns = [
+    "ALTER TABLE pots ADD COLUMN status TEXT DEFAULT 'active'",
+    'ALTER TABLE pots ADD COLUMN archived_at TEXT',
+    'ALTER TABLE pots ADD COLUMN archive_reason TEXT',
+    'ALTER TABLE pots ADD COLUMN archive_note TEXT'
+  ];
+
+  for (const statement of columns) {
+    try {
+      await env.DB.prepare(statement).run();
+    } catch (error: any) {
+      const message = String(error?.message || error || '');
+      if (!message.includes('duplicate column name')) {
+        throw error;
+      }
+    }
+  }
+}
+
 async function handleEnableShare(potId: string, userId: string, env: any): Promise<Response> {
   // 校验所有权 (仅主人可开启/重置分享)
   const pot = await env.DB.prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?').bind(potId, userId).first();
@@ -86,8 +106,17 @@ async function handleDisableShare(potId: string, userId: string, env: any): Prom
 }
 
 async function handleSetCommentDanmaku(potId: string, userId: string, env: any, request: Request): Promise<Response> {
-  const pot = await env.DB.prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?').bind(potId, userId).first();
+  await ensurePotArchiveColumns(env);
+
+  const pot = await env.DB.prepare(`
+    SELECT id, COALESCE(status, 'active') as status
+    FROM pots
+    WHERE id = ? AND user_id = ?
+  `).bind(potId, userId).first();
   if (!pot) return errorResponse('Pot not found or access denied', 404);
+  if (String(pot.status || 'active').toLowerCase() === 'archived') {
+    return errorResponse('Archived pot is read-only', 403);
+  }
 
   const body = await request.json() as { enabled?: boolean | number };
   const enabled = body.enabled ? 1 : 0;
@@ -97,9 +126,25 @@ async function handleSetCommentDanmaku(potId: string, userId: string, env: any, 
 }
 
 async function handleGetPublicPot(token: string, env: any, userId: string | null): Promise<Response> {
+  await ensurePotArchiveColumns(env);
+
   // 1. 获取花盆基本信息
   const pot = await env.DB.prepare(`
-    SELECT id, user_id, name, plant_type, note, plant_date, image_url, last_care, last_care_action, show_comment_danmaku
+    SELECT
+      id,
+      user_id,
+      name,
+      plant_type,
+      note,
+      plant_date,
+      image_url,
+      last_care,
+      last_care_action,
+      show_comment_danmaku,
+      COALESCE(status, 'active') as status,
+      archived_at,
+      archive_reason,
+      archive_note
     FROM pots
     WHERE share_token = ? AND is_shared = 1
   `).bind(token).first();

@@ -164,11 +164,13 @@ async function handleCreateCareRecord(request: Request, env: any, token: string 
     // 安全加固：校验目标花盆归属权或协作权
     const pot = await env.DB
       .prepare(`
-        SELECT id FROM pots WHERE id = ? AND user_id = ?
-        UNION
-        SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?
+        SELECT p.id FROM pots p
+        LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
+        WHERE p.id = ?
+          AND COALESCE(p.status, 'active') = 'active'
+          AND (p.user_id = ? OR pc.user_id = ?)
       `)
-      .bind(potId, token, potId, token)
+      .bind(potId, token, token)
       .first();
 
     if (!pot) {
@@ -270,11 +272,13 @@ async function handleBatchCreateCareRecord(request: Request, env: any, token: st
     const placeholders = potIds.map(() => '?').join(', ');
     const { results: validPots } = await env.DB
       .prepare(`
-        SELECT id FROM pots WHERE id IN (${placeholders}) AND user_id = ?
-        UNION
-        SELECT pot_id AS id FROM pot_collaborators WHERE pot_id IN (${placeholders}) AND user_id = ?
+        SELECT DISTINCT p.id FROM pots p
+        LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
+        WHERE p.id IN (${placeholders})
+          AND COALESCE(p.status, 'active') = 'active'
+          AND (p.user_id = ? OR pc.user_id = ?)
       `)
-      .bind(...potIds, token, ...potIds, token)
+      .bind(...potIds, token, token)
       .all();
 
     const validPotIds = validPots.map((p: any) => p.id);
@@ -324,7 +328,9 @@ async function handleUpdateCareRecord(request: Request, env: any, id: string, to
         SELECT r.id, r.image_url, r.pot_id FROM care_records r
         JOIN pots p ON r.pot_id = p.id
         LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
-        WHERE r.id = ? AND (p.user_id = ? OR pc.user_id = ?)
+        WHERE r.id = ?
+          AND COALESCE(p.status, 'active') = 'active'
+          AND (p.user_id = ? OR pc.user_id = ?)
       `)
       .bind(id, token, token)
       .first();
@@ -402,7 +408,9 @@ async function handleDeleteCareRecord(request: Request, env: any, id: string, to
         SELECT r.id, r.image_url, r.pot_id FROM care_records r
         JOIN pots p ON r.pot_id = p.id
         LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
-        WHERE r.id = ? AND (p.user_id = ? OR pc.user_id = ?)
+        WHERE r.id = ?
+          AND COALESCE(p.status, 'active') = 'active'
+          AND (p.user_id = ? OR pc.user_id = ?)
       `)
       .bind(id, token, token)
       .first();

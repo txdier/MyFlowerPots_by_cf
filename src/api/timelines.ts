@@ -50,11 +50,13 @@ async function handleCreateTimeline(request: Request, env: any, token: string | 
     // 安全加固：校验目标花盆归属权或协作权
     const pot = await env.DB
       .prepare(`
-        SELECT id FROM pots WHERE id = ? AND user_id = ?
-        UNION
-        SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?
+        SELECT p.id FROM pots p
+        LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
+        WHERE p.id = ?
+          AND COALESCE(p.status, 'active') = 'active'
+          AND (p.user_id = ? OR pc.user_id = ?)
       `)
-      .bind(potId, token, potId, token)
+      .bind(potId, token, token)
       .first();
 
     if (!pot) {
@@ -106,7 +108,9 @@ async function handleUpdateTimeline(request: Request, env: any, id: string, toke
         SELECT t.id, t.images, t.video FROM timelines t
         JOIN pots p ON t.pot_id = p.id
         LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
-        WHERE t.id = ? AND (p.user_id = ? OR pc.user_id = ?)
+        WHERE t.id = ?
+          AND COALESCE(p.status, 'active') = 'active'
+          AND (p.user_id = ? OR pc.user_id = ?)
       `)
       .bind(id, token, token)
       .first();
@@ -182,7 +186,9 @@ async function handleDeleteTimeline(request: Request, env: any, id: string, toke
         SELECT t.id, t.images, t.video FROM timelines t
         JOIN pots p ON t.pot_id = p.id
         LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
-        WHERE t.id = ? AND (p.user_id = ? OR pc.user_id = ?)
+        WHERE t.id = ?
+          AND COALESCE(p.status, 'active') = 'active'
+          AND (p.user_id = ? OR pc.user_id = ?)
       `)
       .bind(id, token, token)
       .first();
