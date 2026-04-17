@@ -213,19 +213,6 @@
             </div>
         </div>
 
-        <div v-if="activePotStatus === 'active' && showCareRemindersSkeleton" class="container mt-2"
-            :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3 animate-pulse">
-                <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-2xl bg-orange-100"></div>
-                    <div class="flex-1 space-y-2">
-                        <div class="h-3.5 w-24 bg-gray-200 rounded"></div>
-                        <div class="h-3 w-40 max-w-full bg-gray-100 rounded"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <div v-if="activePotStatus === 'active' && careReminders.length > 0" class="container mt-2"
             :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <button @click="showRemindersExpanded = !showRemindersExpanded"
@@ -1344,7 +1331,6 @@
                 });
                 const careReminders = ref([]); // 今日待养护
                 const isCareRemindersLoading = ref(false);
-                const showCareRemindersSkeleton = ref(false);
                 const showRemindersExpanded = ref(false); // 默认折叠
                 const isEditMode = ref(false); // 统一管理模式
                 const potsGrid = ref(null);    // 列表容器Ref
@@ -1583,11 +1569,10 @@
                     return pool[index];
                 });
                 const hasTopReminderBlock = computed(() =>
-                    activePotStatus.value === 'active' && (careReminders.value.length > 0 || showCareRemindersSkeleton.value)
+                    activePotStatus.value === 'active' && careReminders.value.length > 0
                 );
                 let overlayCloseTimer = null;
                 let seasonalHeaderRotationTimer = null;
-                let careRemindersSkeletonTimer = null;
 
                 const holdOverlayGuard = () => {
                     isOverlayClosing.value = true;
@@ -1598,24 +1583,6 @@
                         isOverlayClosing.value = false;
                         overlayCloseTimer = null;
                     }, 260);
-                };
-
-                const hideCareRemindersSkeleton = () => {
-                    if (careRemindersSkeletonTimer) {
-                        clearTimeout(careRemindersSkeletonTimer);
-                        careRemindersSkeletonTimer = null;
-                    }
-                    showCareRemindersSkeleton.value = false;
-                };
-
-                const scheduleCareRemindersSkeleton = () => {
-                    hideCareRemindersSkeleton();
-                    careRemindersSkeletonTimer = setTimeout(() => {
-                        careRemindersSkeletonTimer = null;
-                        if (!isLoading.value && isLoggedIn.value && isCareRemindersLoading.value && careReminders.value.length === 0) {
-                            showCareRemindersSkeleton.value = true;
-                        }
-                    }, 450);
                 };
 
                 const getPotOrderStorageKey = (status = activePotStatus.value) => {
@@ -2124,7 +2091,6 @@
                         supportUnreadCount.value = 0;
                         careReminders.value = [];
                         isCareRemindersLoading.value = false;
-                        hideCareRemindersSkeleton();
                     });
                 };
 
@@ -2469,13 +2435,11 @@
                     if (activePotStatus.value !== 'active' || !isLoggedIn.value || !apiClient.userId) {
                         careReminders.value = [];
                         isCareRemindersLoading.value = false;
-                        hideCareRemindersSkeleton();
                         return;
                     }
 
                     try {
                         isCareRemindersLoading.value = true;
-                        scheduleCareRemindersSkeleton();
                         const res = await apiClient.getCareReminders();
                         if (res.success) {
                             careReminders.value = res.data || [];
@@ -2490,7 +2454,6 @@
                         }
                     } finally {
                         isCareRemindersLoading.value = false;
-                        hideCareRemindersSkeleton();
                     }
                 };
 
@@ -3566,7 +3529,7 @@
 
                 return {
                     isLoading, pots, isLoadingMore, hasMorePots, loadMorePots, activePotStatus, potStatusTabs, potStatusCounts, showPotStatusSwitch, setPotStatus, emptyStateTitle, emptyStateMessage,
-                    user, isLoggedIn, userDisplayName, careReminders, isCareRemindersLoading, showCareRemindersSkeleton, hasTopReminderBlock, groupedReminders, navSeasonalReminder, showRemindersExpanded,
+                    user, isLoggedIn, userDisplayName, careReminders, isCareRemindersLoading, hasTopReminderBlock, groupedReminders, navSeasonalReminder, showRemindersExpanded,
 	                    ownedPots, collaborativePots, viewerPots, batchManageablePots,
                     isEditMode, potsGrid, showUserMenu, showLoginModal, showRegisterModal, showForgotPasswordModal, isAuthLoading,
                     entryNotice, entryNoticeClass, dismissEntryNotice,
