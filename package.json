@@ -7,12 +7,7 @@
     "dev": "wrangler dev",
     "build-css": "npx tailwindcss -i ./frontend/css/tailwind-input.css -o ./frontend/css/tailwind-built.css --config tailwind.config.cjs --minify",
     "watch-css": "npx tailwindcss -i ./frontend/css/tailwind-input.css -o ./frontend/css/tailwind-built.css --config tailwind.config.cjs --watch",
-    "upload-wrangler": "node upload-static-wrangler.js",
-    "upload": "npm run build-css && npm run upload-wrangler",
-    "upload-static": "node scripts/upload-static.js",
-    "deploy": "wrangler deploy",
-    "deploy-full": "npm run upload-wrangler && npm run deploy",
-    "deploy-all": "npm run upload-static && npm run deploy",
+    "deploy": "npm run build-css && wrangler deploy",
     "backup-db": "node scripts/backup-d1.js",
     "plants:generate-sql": "node scripts/generate-plants-sql.js",
     "plants:migrate-local": "node scripts/migrate-plants-to-d1.js"

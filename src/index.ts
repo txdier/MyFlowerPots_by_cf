@@ -18,7 +18,7 @@ import { handleTransferRequest } from './api/transfer';
 import { handleMessagesRequest } from './api/messages';
 import { handleSupportRequest } from './api/support';
 import { parseEmail } from './utils/email-parser';
-import { serveStatic, serveStaticDev } from './static/server';
+import { servePotDetailWithMeta } from './static/server';
 import { recordPageVisit } from './api/analytics';
 
 export default {
@@ -150,46 +150,33 @@ export default {
         return errorResponse('API Not Found', 404);
       }
 
-      // 2️⃣ 静态资源服务
-      // 开发环境：使用开发模式静态服务
-      // 生产环境：从R2获取静态资源
-      const isDevelopment = url.hostname === '127.0.0.1' || url.hostname === 'localhost';
+      // 2️⃣ 静态资源服务 — 统一使用 Workers Assets（开发/生产均通过 env.ASSETS）
+      // 注意：用户上传的媒体文件（花盆图片等）仍存储在 R2，通过 img.kaside365.com 访问，不受影响。
 
       // 📊 统计页面访问 (异步执行，不阻塞响应)
-      if (request.method === 'GET' && !path.startsWith('/api/')) {
-        // 简单判断是否是页面请求（根据需求可以调整过滤逻辑）
+      if (request.method === 'GET') {
         const isPageRequest = path === '/' || path.endsWith('.html');
         if (isPageRequest) {
           ctx.waitUntil(recordPageVisit(env, path));
         }
       }
 
-      console.log('请求处理:', {
-        path,
-        hostname: url.hostname,
-        isDevelopment,
-        hasStaticBucket: !!env.STATIC_BUCKET,
-        url: request.url
-      });
+      // ✨ 分享卡片 OG Meta 注入：对 pot-detail.html 带 token/id 的请求单独处理
+      // 先从 ASSETS 获取静态 HTML，再用 HTMLRewriter 注入花盆元数据（用于微信等社交媒体预览）
+      const isPotDetail = path === '/pot-detail.html' || path.includes('/pot-detail');
+      const shareToken = url.searchParams.get('token');
+      const shareId = url.searchParams.get('id');
 
-      // 特殊处理：确保根路径和空路径都正确处理
-      if (path === '' || path === '/') {
-        console.log('处理根路径请求，重定向到index.html');
-        path = '/index.html';
+      if (env.ASSETS && isPotDetail && (shareToken || shareId) && env.DB) {
+        const baseResponse = await env.ASSETS.fetch(request);
+        return servePotDetailWithMeta(baseResponse, env, shareToken, shareId);
       }
 
-      // 尝试作为静态资源服务
-      if (env.STATIC_BUCKET && !isDevelopment) {
-        return serveStatic(request, env, path);
-      } else if (isDevelopment) {
-        // 在开发环境中，如果配置了 ASSETS 绑定（通过 wrangler.toml 的 [assets] 配置），则优先使用它
-        if (env.ASSETS) {
-          return env.ASSETS.fetch(request);
-        }
-        return serveStaticDev(request, path);
+      // 所有其他非 API 请求直接交给 Workers Assets 处理
+      if (env.ASSETS) {
+        return env.ASSETS.fetch(request);
       }
 
-      console.log('无法处理请求，返回404，路径:', path);
       return errorResponse('Not Found', 404);
     } catch (error) {
       console.error('Unhandled worker fetch error:', error);
