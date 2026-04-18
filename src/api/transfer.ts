@@ -101,7 +101,7 @@ async function handleInitTransfer(request: Request, potId: string, userId: strin
     const sender = await env.DB.prepare('SELECT display_name, email FROM users WHERE id = ?').bind(userId).first();
     const senderName = sender?.display_name || sender?.email?.split('@')[0] || '一位好友';
     const appBaseUrl = env.APP_BASE_URL || 'https://app.kaside365.com';
-    const transferLink = `${appBaseUrl}/pot-detail.html?transferToken=${transferToken}`;
+    const transferLink = `${appBaseUrl.replace(/\/$/, '')}/pot-detail?transferToken=${transferToken}`;
     
     // 发送邮件
     const emailOptions = generateTransferEmail(targetEmail, pot.name, senderName, transferLink);
@@ -227,7 +227,7 @@ async function handleAcceptTransfer(token: string, newUserId: string, env: any):
 
   // 执行转移：变更 Owner，清除 Token
   // 备注：原所有权计划指出转移后原主人移除或降级，这里我们直接变更 user_id。
-  // 同时由于 schema.sql 中 pot_collaborators 有级联删除，或者我们手动清理。
+  // 同时由于 migrations 中 pot_collaborators 有级联删除，或者我们手动清理。
   await env.DB.batch([
     env.DB.prepare(`
       UPDATE pots 

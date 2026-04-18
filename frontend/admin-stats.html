@@ -182,7 +182,7 @@
         <div v-else class="max-w-6xl mx-auto">
             <!-- Header -->
             <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                <div class="cursor-pointer group" onclick="window.location.href='admin-plants.html'">
+                <div class="cursor-pointer group" onclick="window.location.href='admin-plants'">
                     <h1
                         class="text-2xl sm:text-3xl font-bold text-slate-800 flex items-center gap-3 transition-colors">
                         <i class="fa fa-chart-line text-emerald-500"></i>
@@ -362,7 +362,7 @@
         </div>
     </div>
 
-    <script src="js/api-client.js?v=20260415-1"></script>
+    <script src="js/api-client.js?v=20260418-d1session"></script>
     <script>
         const { createApp, ref, computed, onMounted } = Vue;
 
@@ -440,7 +440,7 @@
                         if (!token) {
                             nav.redirectToLoginRequired({
                                 from: 'admin-stats',
-                                redirect: 'admin-stats.html',
+                                redirect: 'admin-stats',
                                 message: '请先登录管理员账号后再查看统计。'
                             }, { replace: true });
                             return;
@@ -455,7 +455,7 @@
                         if (nav.classifyApiError(err) === 'auth') {
                             nav.redirectToLoginRequired({
                                 from: 'admin-stats',
-                                redirect: 'admin-stats.html',
+                                redirect: 'admin-stats',
                                 message: err.message || '请重新登录管理员账号后再查看统计。'
                             }, { replace: true });
                             return;
@@ -488,7 +488,7 @@
                         if (['auth', 'forbidden'].includes(nav.classifyApiError(err))) {
                             nav.redirectForApiError(err, {
                                 from: 'admin-stats',
-                                redirect: 'admin-stats.html',
+                                redirect: 'admin-stats',
                                 authType: 'login_required',
                                 forbiddenType: 'admin_required',
                                 message: err.message || '统计数据暂时无法访问。',
@@ -505,7 +505,7 @@
                 window.addEventListener('auth:expired', (event) => {
                     nav.redirectToSessionExpired(event.detail?.message, {
                         from: 'admin-stats',
-                        redirect: 'admin-stats.html',
+                        redirect: 'admin-stats',
                         source: 'admin'
                     }, { replace: true });
                 });

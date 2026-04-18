@@ -6,8 +6,6 @@ export async function handleViewersRequest(
   path: string,
   userId: string | null
 ): Promise<Response> {
-  await ensureViewerTables(env);
-
   if (request.method === 'POST' && path.match(/^\/api\/viewers\/open\/[^/]+$/)) {
     const token = path.split('/')[4];
     return handleOpenInviteLink(request, token!, env);
@@ -47,39 +45,6 @@ export async function handleViewersRequest(
   return errorResponse('Not Found', 404);
 }
 
-async function ensureViewerTables(env: any): Promise<void> {
-  const statements = [
-    `CREATE TABLE IF NOT EXISTS pot_viewers (
-      pot_id TEXT NOT NULL,
-      user_id TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (pot_id, user_id)
-    )`,
-    `CREATE TABLE IF NOT EXISTS pot_view_invites (
-      id TEXT PRIMARY KEY,
-      pot_id TEXT NOT NULL,
-      owner_id TEXT NOT NULL,
-      token TEXT NOT NULL UNIQUE,
-      expires_at TEXT NOT NULL,
-      used_at TEXT,
-      revoked_at TEXT,
-      max_views INTEGER DEFAULT 5,
-      view_count INTEGER DEFAULT 0,
-      claim_session_id TEXT,
-      claimed_by_user_id TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`,
-    `CREATE INDEX IF NOT EXISTS idx_viewers_user ON pot_viewers(user_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_viewers_pot ON pot_viewers(pot_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_view_invites_pot ON pot_view_invites(pot_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_view_invites_token ON pot_view_invites(token)`
-  ];
-
-  for (const statement of statements) {
-    await env.DB.prepare(statement).run();
-  }
-}
-
 async function handleGetViewers(potId: string, userId: string, env: any): Promise<Response> {
   const pot = await env.DB.prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?').bind(potId, userId).first();
   if (!pot) return errorResponse('Pot not found or access denied', 404);
@@ -115,7 +80,7 @@ async function handleCreateInviteLink(potId: string, userId: string, env: any): 
   ]);
 
   const baseUrl = env.APP_BASE_URL || 'https://app.kaside365.com';
-  const inviteUrl = `${baseUrl.replace(/\/$/, '')}/pot-detail.html?viewerToken=${token}`;
+  const inviteUrl = `${baseUrl.replace(/\/$/, '')}/pot-detail?viewerToken=${token}`;
 
   return jsonResponse({ success: true, data: { token, inviteUrl, expiresAt } });
 }

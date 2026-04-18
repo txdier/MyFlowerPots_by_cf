@@ -1,3 +1,35 @@
+type WaitUntilContext = {
+  waitUntil(promise: Promise<unknown>): void;
+};
+
+const TRACKED_PAGE_PATHS = new Set([
+  '/',
+  '/add-pot',
+  '/admin-inbox',
+  '/admin-plants',
+  '/admin-stats',
+  '/all-records',
+  '/all-timelines',
+  '/care-record',
+  '/edit-pot',
+  '/error',
+  '/pot-detail',
+  '/profile',
+  '/reset-password',
+]);
+
+export function queuePageVisit(ctx: WaitUntilContext | undefined, env: any, path: string): void {
+  if (ctx?.waitUntil) {
+    ctx.waitUntil(recordPageVisit(env, path));
+    return;
+  }
+
+  const task = recordPageVisit(env, path);
+  task.catch((error) => {
+    console.error('Failed to queue page visit:', error);
+  });
+}
+
 export async function recordPageVisit(env: any, path: string): Promise<void> {
   if (!env?.DB) {
     console.warn('Skipping page visit recording: DB binding unavailable');
@@ -7,44 +39,45 @@ export async function recordPageVisit(env: any, path: string): Promise<void> {
   path = normalizePagePath(path);
   const visitDate = getAnalyticsDateString(env);
 
-  // 归一化根路径
-  if (path === '/' || path === '') {
-    path = '/index.html';
-  }
-
-  // 只统计 .html 页面
-  if (!path.endsWith('.html') && path !== '/index.html') {
+  // 只统计站内页面，路径统一为无扩展名形式。
+  if (!TRACKED_PAGE_PATHS.has(path)) {
     return;
   }
 
   try {
-    // 同时更新总计表和每日表
-    const batch = [
-      env.DB.prepare(`
+    // 访问统计是 best-effort 后台任务，不需要和响应路径共享事务。
+    const totalVisit = env.DB.prepare(`
         INSERT INTO page_visits (path, visit_count, last_updated)
         VALUES (?, 1, datetime('now'))
         ON CONFLICT(path) DO UPDATE SET
           visit_count = visit_count + 1,
           last_updated = datetime('now')
-      `).bind(path),
-      env.DB.prepare(`
+      `).bind(path);
+
+    const dailyVisit = env.DB.prepare(`
         INSERT INTO page_visits_daily (path, visit_date, visit_count)
         VALUES (?, ?, 1)
         ON CONFLICT(path, visit_date) DO UPDATE SET
           visit_count = visit_count + 1
-      `).bind(path, visitDate),
-    ];
-    await env.DB.batch(batch);
+      `).bind(path, visitDate);
+
+    await Promise.all([
+      totalVisit.run(),
+      dailyVisit.run(),
+    ]);
   } catch (error) {
     console.error('Failed to record page visit:', error);
   }
 }
 
 function normalizePagePath(path: string): string {
-  if (!path) return '/index.html';
+  if (!path) return '/';
   const cleanPath = path.split('?')[0].split('#')[0].trim();
-  if (cleanPath === '' || cleanPath === '/') return '/index.html';
-  return cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
+  if (cleanPath === '' || cleanPath === '/') return '/';
+  const withLeadingSlash = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
+  const withoutTrailingSlash = withLeadingSlash.replace(/\/+$/, '') || '/';
+  const withoutHtml = withoutTrailingSlash.replace(/\.html$/i, '');
+  return withoutHtml === '/index' ? '/' : withoutHtml;
 }
 
 export function getAnalyticsDateString(env: any, offsetDays = 0): string {

@@ -8,8 +8,6 @@ export async function handleBatchInvitesRequest(
   path: string,
   userId: string | null
 ): Promise<Response> {
-  await ensureBatchInviteTable(env);
-
   if (request.method === 'POST' && path.match(/^\/api\/batch-invites\/open\/[^/]+$/)) {
     const token = path.split('/')[4];
     return handleOpenBatchInvite(request, token!, env);
@@ -27,32 +25,6 @@ export async function handleBatchInvitesRequest(
   }
 
   return errorResponse('Not Found', 404);
-}
-
-async function ensureBatchInviteTable(env: any): Promise<void> {
-  const statements = [
-    `CREATE TABLE IF NOT EXISTS pot_batch_invites (
-      id TEXT PRIMARY KEY,
-      owner_id TEXT NOT NULL,
-      permission_type TEXT NOT NULL,
-      pot_ids_json TEXT NOT NULL,
-      token TEXT NOT NULL UNIQUE,
-      expires_at TEXT NOT NULL,
-      used_at TEXT,
-      revoked_at TEXT,
-      max_views INTEGER DEFAULT 5,
-      view_count INTEGER DEFAULT 0,
-      claim_session_id TEXT,
-      claimed_by_user_id TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`,
-    `CREATE INDEX IF NOT EXISTS idx_pot_batch_invites_owner ON pot_batch_invites(owner_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_pot_batch_invites_token ON pot_batch_invites(token)`
-  ];
-
-  for (const statement of statements) {
-    await env.DB.prepare(statement).run();
-  }
 }
 
 async function handleCreateBatchInvite(request: Request, userId: string, env: any): Promise<Response> {
@@ -77,7 +49,7 @@ async function handleCreateBatchInvite(request: Request, userId: string, env: an
   `).bind(inviteId, userId, permission, potIdsJson, token, expiresAt).run();
 
   const baseUrl = getAppBaseUrl(request, env);
-  const inviteUrl = `${baseUrl.replace(/\/$/, '')}/index.html?batchInviteToken=${token}`;
+  const inviteUrl = `${baseUrl.replace(/\/$/, '')}/?batchInviteToken=${token}`;
 
   return jsonResponse({
     success: true,

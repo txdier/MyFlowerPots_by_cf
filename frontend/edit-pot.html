@@ -25,7 +25,7 @@
 
     <!-- 配置脚本 -->
     <script src="js/config.js?v=20260111"></script>
-    <script src="js/api-client.js?v=20260415-1"></script>
+    <script src="js/api-client.js?v=20260418-d1session"></script>
 </head>
 
 <body class="bg-gray-50">
@@ -203,7 +203,7 @@
                         } else {
                             nav.redirectForApiError(e, {
                                 from: 'edit-pot',
-                                redirect: `edit-pot.html?id=${encodeURIComponent(potId.value)}`,
+                                redirect: `edit-pot?id=${encodeURIComponent(potId.value)}`,
                                 authType: 'login_required',
                                 forbiddenType: 'forbidden',
                                 notFoundType: 'not_found',
@@ -307,14 +307,14 @@
                         if (res.success) {
                             showToast('修改成功！');
                             setTimeout(() => {
-                                window.location.href = `pot-detail.html?id=${potId.value}`;
+                                window.location.href = `pot-detail?id=${potId.value}`;
                             }, 500);
                         }
                     } catch (err) {
                         if (['auth', 'forbidden', 'not_found'].includes(nav.classifyApiError(err))) {
                             nav.redirectForApiError(err, {
                                 from: 'edit-pot',
-                                redirect: `edit-pot.html?id=${encodeURIComponent(potId.value || '')}`,
+                                redirect: `edit-pot?id=${encodeURIComponent(potId.value || '')}`,
                                 authType: 'session_expired',
                                 forbiddenType: 'forbidden',
                                 notFoundType: 'not_found',
@@ -330,16 +330,16 @@
 
                 const goBack = () => {
                     if (potId.value) {
-                        window.location.href = `pot-detail.html?id=${potId.value}`;
+                        window.location.href = `pot-detail?id=${potId.value}`;
                         return;
                     }
-                    window.location.href = 'index.html';
+                    window.location.href = '/';
                 };
 
                 window.addEventListener('auth:expired', (event) => {
                     nav.redirectToSessionExpired(event.detail?.message, {
                         from: 'edit-pot',
-                        redirect: `edit-pot.html?id=${encodeURIComponent(potId.value || '')}`,
+                        redirect: `edit-pot?id=${encodeURIComponent(potId.value || '')}`,
                         source: 'auth'
                     }, { replace: true });
                 });

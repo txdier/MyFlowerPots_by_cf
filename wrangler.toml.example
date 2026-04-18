@@ -20,8 +20,10 @@ run_worker_first = true
 
 [[d1_databases]]
 binding = "DB"
-database_name = "my-flower-pots-db"
+database_name = "my-flower-pots"
 database_id = "YOUR_D1_DATABASE_ID"
+migrations_dir = "migrations"
+migrations_table = "d1_migrations"
 
 [[r2_buckets]]
 binding = "STATIC_BUCKET"

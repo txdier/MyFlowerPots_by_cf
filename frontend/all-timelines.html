@@ -137,7 +137,7 @@
                             class="aspect-square rounded-2xl overflow-hidden bg-gray-100 shadow-sm">
                             <img :src="imgUrl(img, 100, 100)" loading="lazy"
                                 class="w-full h-full object-cover cursor-pointer active:opacity-75 transition"
-                                @click="openGallery(img, getImages(record.images))">
+                                @click="openGallery(img, getImages(record.images), imgUrl(img, 100, 100))">
                         </div>
                     </div>
                 </div>
@@ -240,10 +240,14 @@
                         transform: `translateX(${-previewIndex * 100}%)`,
                         transition: 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)'
                     }">
-                    <div v-for="(src, idx) in previewImages" :key="idx"
+                    <div v-for="(item, idx) in previewImages" :key="item.fullSrc || idx"
                         class="w-full h-full flex-shrink-0 flex items-center justify-center px-4" @click="closeGallery">
-                        <img :src="src" loading="lazy" class="max-w-full max-h-full object-contain select-none"
-                            draggable="false">
+                        <img :src="item.displaySrc" loading="lazy"
+                            class="max-w-full max-h-full object-contain select-none transition duration-300"
+                            :style="{
+                                filter: item.isFullLoaded ? 'none' : 'blur(1px)',
+                                transform: item.isFullLoaded ? 'none' : 'scale(1.02)'
+                            }" draggable="false">
                     </div>
                 </div>
             </div>
@@ -265,10 +269,10 @@
 
     <script src="js/vue.global.js"></script>
     <script src="js/config.js?v=20260111"></script>
-    <script src="js/api-client.js?v=20260415-1"></script>
+    <script src="js/api-client.js?v=20260418-d1session"></script>
 
     <script>
-        const { createApp, ref, reactive, onMounted, computed } = Vue;
+        const { createApp, ref, reactive, onMounted, computed, watch } = Vue;
 
         createApp({
             setup() {
@@ -291,6 +295,7 @@
 
                 const previewImages = ref([]);
                 const previewIndex = ref(0);
+                const galleryImageLoadToken = ref(0);
                 const canManageTimelines = computed(() => !!(
                     pot.value &&
                     String(pot.value.status || 'active').toLowerCase() !== 'archived' &&
@@ -305,7 +310,7 @@
                         nav.redirectToError({
                             type: 'not_found',
                             from: 'all-timelines',
-                            redirect: 'index.html',
+                            redirect: '/',
                             message: '缺少花盆参数，无法加载成长轨迹。'
                         }, { replace: true });
                         return;
@@ -320,7 +325,7 @@
                         console.error(e);
                         nav.redirectForApiError(e, {
                             from: 'all-timelines',
-                            redirect: `all-timelines.html?potId=${encodeURIComponent(potId.value)}`,
+                            redirect: `all-timelines?potId=${encodeURIComponent(potId.value)}`,
                             authType: 'login_required',
                             forbiddenType: 'forbidden',
                             notFoundType: 'not_found',
@@ -474,13 +479,53 @@
                     }
                 };
 
-                const openGallery = (img, allImages) => {
-                    previewImages.value = allImages;
-                    const idx = allImages.indexOf(img);
+                const buildGalleryItem = (src, previewSrc = '') => {
+                    const fullSrc = String(src || '');
+                    const thumbSrc = previewSrc || imgUrl(fullSrc, 100, 100) || fullSrc;
+                    return {
+                        fullSrc,
+                        previewSrc: thumbSrc,
+                        displaySrc: thumbSrc,
+                        isFullLoaded: !fullSrc || thumbSrc === fullSrc,
+                        isFullLoading: false
+                    };
+                };
+
+                const preloadGalleryImage = (index) => {
+                    const item = previewImages.value[index];
+                    if (!item || item.isFullLoaded || item.isFullLoading || !item.fullSrc) return;
+
+                    item.isFullLoading = true;
+                    const token = galleryImageLoadToken.value;
+                    const image = new Image();
+                    image.onload = () => {
+                        if (token !== galleryImageLoadToken.value) return;
+                        item.displaySrc = item.fullSrc;
+                        item.isFullLoaded = true;
+                        item.isFullLoading = false;
+                    };
+                    image.onerror = () => {
+                        if (token !== galleryImageLoadToken.value) return;
+                        item.isFullLoading = false;
+                    };
+                    image.src = item.fullSrc;
+                };
+
+                const preloadNearbyGalleryImages = () => {
+                    [previewIndex.value, previewIndex.value - 1, previewIndex.value + 1].forEach(preloadGalleryImage);
+                };
+
+                const openGallery = (img, allImages, previewSrc = '') => {
+                    galleryImageLoadToken.value += 1;
+                    const images = Array.isArray(allImages) ? allImages : [];
+                    previewImages.value = images.map(src => buildGalleryItem(src, src === img ? previewSrc : ''));
+                    const idx = images.indexOf(img);
                     previewIndex.value = idx >= 0 ? idx : 0;
+                    preloadNearbyGalleryImages();
                 };
 
                 const closeGallery = () => {
+                    galleryImageLoadToken.value += 1;
                     previewImages.value = [];
                     previewIndex.value = 0;
                 };
@@ -492,6 +537,8 @@
                 const nextImg = () => {
                     if (previewIndex.value < previewImages.value.length - 1) previewIndex.value++;
                 };
+
+                watch(previewIndex, preloadNearbyGalleryImages);
 
                 const getImages = (images) => {
                     if (!images) return [];
@@ -510,7 +557,7 @@
                 };
 
                 const goBack = () => {
-                    window.location.href = `pot-detail.html?id=${potId.value}`;
+                    window.location.href = `pot-detail?id=${potId.value}`;
                 };
 
                 const formatDate = (dateStr) => {
@@ -526,7 +573,7 @@
                 window.addEventListener('auth:expired', (event) => {
                     nav.redirectToSessionExpired(event.detail?.message, {
                         from: 'all-timelines',
-                        redirect: `all-timelines.html?potId=${encodeURIComponent(potId.value || '')}`,
+                        redirect: `all-timelines?potId=${encodeURIComponent(potId.value || '')}`,
                         source: 'auth'
                     }, { replace: true });
                 });

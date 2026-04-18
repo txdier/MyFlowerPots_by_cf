@@ -21,8 +21,6 @@ export async function handleCareSchedulesRequest(
         return errorResponse('Authentication required', 401);
     }
 
-    await ensureCareSchedulesTable(env);
-
     // GET /api/care-schedules - 获取用户所有养护计划
     if (request.method === 'GET' && path === '/api/care-schedules') {
         return handleGetAllSchedules(env, userId);
@@ -57,37 +55,6 @@ export async function handleCareSchedulesRequest(
     }
 
     return errorResponse('Not Found', 404);
-}
-
-async function ensureCareSchedulesTable(env: any): Promise<void> {
-    const statements = [
-        `CREATE TABLE IF NOT EXISTS care_schedules (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            pot_id TEXT NOT NULL,
-            care_type TEXT NOT NULL,
-            interval_days INTEGER NOT NULL,
-            custom_action TEXT,
-            enabled INTEGER DEFAULT 1,
-            created_at TEXT DEFAULT (datetime('now')),
-            updated_at TEXT DEFAULT (datetime('now'))
-        )`,
-        `CREATE INDEX IF NOT EXISTS idx_care_schedules_pot ON care_schedules(pot_id)`,
-        `CREATE INDEX IF NOT EXISTS idx_care_schedules_enabled ON care_schedules(enabled)`
-    ];
-
-    for (const statement of statements) {
-        await env.DB.prepare(statement).run();
-    }
-
-    try {
-        await env.DB.prepare("ALTER TABLE pots ADD COLUMN status TEXT DEFAULT 'active'").run();
-    } catch (error: any) {
-        const message = String(error?.message || error || '');
-        if (!message.includes('duplicate column name')) {
-            throw error;
-        }
-    }
-    await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_pots_user_status ON pots(user_id, status)').run();
 }
 
 // 获取用户所有养护计划

@@ -1,6 +1,8 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
 import { extractObjectKeysFromUrls, deleteFilesFromR2 } from '../utils/storage-utils';
+import { clearMemoryCache, deleteMemoryCachePrefix, getMemoryCacheStats } from '../utils/cache-utils';
 import { getAnalytics, getDailyTrend, getAnalyticsDateString } from './analytics';
+import { invalidatePlantCache } from './plants';
 
 const DELETED_USER_PLACEHOLDER_ID = '__deleted_user__';
 const DELETED_USER_PLACEHOLDER_NAME = '已删除用户';
@@ -158,6 +160,16 @@ export async function handleAdminRequest(
         return jsonResponse({ success: true, message: 'Admin access granted' });
     }
 
+    // GET /api/admin/cache/stats - 查看当前 Worker 进程内存缓存状态
+    if (path === '/api/admin/cache/stats' && request.method === 'GET') {
+        return jsonResponse({ success: true, data: getMemoryCacheStats() });
+    }
+
+    // POST /api/admin/cache/clear - 清空内存缓存
+    if (path === '/api/admin/cache/clear' && request.method === 'POST') {
+        return handleClearCache(request);
+    }
+
     // GET /api/admin/plants - 分页获取植物列表
     if (path === '/api/admin/plants' && request.method === 'GET') {
         return handleGetPlants(request, env, url);
@@ -166,6 +178,16 @@ export async function handleAdminRequest(
     // POST /api/admin/plants - 新增植物
     if (path === '/api/admin/plants' && request.method === 'POST') {
         return handleCreatePlant(request, env);
+    }
+
+    // POST /api/admin/plants/batch - 批量导入
+    if (path === '/api/admin/plants/batch' && request.method === 'POST') {
+        return handleBatchImport(request, env);
+    }
+
+    // DELETE /api/admin/plants/batch - 批量删除
+    if (path === '/api/admin/plants/batch' && request.method === 'DELETE') {
+        return handleBatchDelete(request, env);
     }
 
     // PUT /api/admin/plants/:id - 编辑植物
@@ -180,16 +202,6 @@ export async function handleAdminRequest(
         const id = path.split('/').pop();
         if (!id) return errorResponse('Missing plant ID', 400);
         return handleDeletePlant(env, id);
-    }
-
-    // POST /api/admin/plants/batch - 批量导入
-    if (path === '/api/admin/plants/batch' && request.method === 'POST') {
-        return handleBatchImport(request, env);
-    }
-
-    // DELETE /api/admin/plants/batch - 批量删除
-    if (path === '/api/admin/plants/batch' && request.method === 'DELETE') {
-        return handleBatchDelete(request, env);
     }
 
     // --- 用户管理 ---
@@ -219,6 +231,38 @@ export async function handleAdminRequest(
     }
 
     return errorResponse('Not Found', 404);
+}
+
+async function handleClearCache(request: Request): Promise<Response> {
+    try {
+        const body = await request.json().catch(() => ({})) as { scope?: string; prefix?: string };
+        const scope = String(body.scope || 'all').trim().toLowerCase();
+        let cleared = 0;
+
+        if (scope === 'all') {
+            cleared = clearMemoryCache();
+        } else if (scope === 'plants') {
+            cleared = invalidatePlantCache();
+        } else if (scope === 'prefix') {
+            const prefix = String(body.prefix || '').trim();
+            if (!prefix) {
+                return errorResponse('Prefix is required when scope is prefix', 400);
+            }
+            cleared = deleteMemoryCachePrefix(prefix);
+        } else {
+            return errorResponse('Unsupported cache scope', 400);
+        }
+
+        return jsonResponse({
+            success: true,
+            scope,
+            cleared,
+            data: getMemoryCacheStats()
+        });
+    } catch (error) {
+        console.error('Clear cache error:', error);
+        return errorResponse('Failed to clear cache', 500);
+    }
 }
 
 async function handleGetAnalytics(env: any, url: URL): Promise<Response> {
@@ -348,6 +392,7 @@ async function handleCreatePlant(request: Request, env: any): Promise<Response> 
             await env.DB.batch(batch);
         }
 
+        invalidatePlantCache();
         return jsonResponse({ success: true, message: 'Plant created successfully' });
     } catch (error) {
         console.error('Create plant error:', error);
@@ -389,6 +434,7 @@ async function handleUpdatePlant(request: Request, env: any, id: string): Promis
             await env.DB.batch(batch);
         }
 
+        invalidatePlantCache();
         return jsonResponse({ success: true, message: 'Plant updated successfully' });
     } catch (error) {
         console.error('Update plant error:', error);
@@ -400,6 +446,7 @@ async function handleDeletePlant(env: any, id: string): Promise<Response> {
     try {
         await env.DB.prepare('DELETE FROM plants WHERE id = ?').bind(id).run();
         // 别名表有外键级联删除
+        invalidatePlantCache();
         return jsonResponse({ success: true, message: 'Plant deleted successfully' });
     } catch (error) {
         console.error('Delete plant error:', error);
@@ -459,6 +506,9 @@ async function handleBatchImport(request: Request, env: any): Promise<Response> 
             }
         }
 
+        if (results.success > 0) {
+            invalidatePlantCache();
+        }
         return jsonResponse({ success: true, results });
     } catch (error) {
         console.error('Batch import error:', error);
@@ -475,6 +525,7 @@ async function handleBatchDelete(request: Request, env: any): Promise<Response> 
         const batch = ids.map(id => stmt.bind(id));
         await env.DB.batch(batch);
 
+        invalidatePlantCache();
         return jsonResponse({ success: true, message: `Deleted ${ids.length} plants` });
     } catch (error) {
         console.error('Batch delete error:', error);

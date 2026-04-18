@@ -50,7 +50,8 @@ npm run deploy-full
 
 - `frontend/`：多页面前端、共享 JS/CSS、图标和静态资源
 - `src/`：Worker API、页面分发、邮件和工具函数
-- `sql/schema.sql`：当前维护中的 D1 数据库结构
+- `migrations/`：Wrangler D1 migrations，数据库结构以这里为准
+- `sql/plants_data.sql`：植物百科数据导入脚本
 - `scripts/backup-d1.js`：数据库备份脚本
 - `upload-static-wrangler.js`：推荐使用的静态资源增量上传脚本
 

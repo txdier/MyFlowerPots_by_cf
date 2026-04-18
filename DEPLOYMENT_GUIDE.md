@@ -47,7 +47,7 @@ npx wrangler login
 如果还没有数据库：
 
 ```bash
-wrangler d1 create my-flower-pots-db
+wrangler d1 create my-flower-pots
 ```
 
 把返回的 `database_id` 写回 `wrangler.toml`。
@@ -67,10 +67,10 @@ wrangler r2 bucket create my-flower-pots
 
 ## 4. 初始化生产数据库
 
-当前推荐直接使用 `sql/schema.sql`：
+数据库结构统一通过 Wrangler migrations 初始化和更新：
 
 ```bash
-wrangler d1 execute my-flower-pots-db --remote --file=sql/schema.sql
+wrangler d1 migrations apply my-flower-pots --remote
 ```
 
 如果你只是先做本地联调，也可以先跳过这一步，等正式发布前再执行。
@@ -171,7 +171,7 @@ npm run deploy-full
 1. `npm install`
 2. 配好 `wrangler.toml`
 3. 创建 D1 / R2
-4. `wrangler d1 execute ... --remote --file=sql/schema.sql`
+4. `wrangler d1 migrations apply my-flower-pots --remote`
 5. `npm run deploy`，确认 Worker 可发布
 6. 确认最终公开地址
 7. 更新 `frontend/js/config.js` 的 `prodUrl`
@@ -241,5 +241,5 @@ npm run upload
 
 - 前端改动后先执行 `npm run upload`
 - Worker 逻辑改动后执行 `npm run deploy`
-- 数据库结构改动统一维护在 `sql/schema.sql`
+- 数据库结构改动统一通过 `migrations/` 维护，并使用 `wrangler d1 migrations apply` 应用
 - 重要数据定期使用 `scripts/backup-d1.js` 备份

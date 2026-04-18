@@ -25,7 +25,7 @@
 
     <!-- 配置脚本 -->
     <script src="js/config.js?v=20260111"></script>
-    <script src="js/api-client.js?v=20260415-1"></script>
+    <script src="js/api-client.js?v=20260418-d1session"></script>
 </head>
 
 <body class="bg-gray-50">
@@ -320,7 +320,7 @@
                             nav.redirectToError({
                                 type: 'not_found',
                                 from: 'care-record',
-                                redirect: 'index.html',
+                                redirect: '/',
                                 message: '缺少花盆参数，无法填写养护记录。'
                             }, { replace: true });
                             return;
@@ -328,8 +328,8 @@
                     } catch (err) {
                         if (['auth', 'forbidden', 'not_found'].includes(nav.classifyApiError(err))) {
                             const redirect = recordId.value
-                                ? `care-record.html?id=${encodeURIComponent(recordId.value)}`
-                                : `care-record.html?potId=${encodeURIComponent(potId.value || '')}`;
+                                ? `care-record?id=${encodeURIComponent(recordId.value)}`
+                                : `care-record?potId=${encodeURIComponent(potId.value || '')}`;
                             nav.redirectForApiError(err, {
                                 from: 'care-record',
                                 redirect,
@@ -384,7 +384,7 @@
                         if (isArchived.value) {
                             showToast('已归档植物为只读状态，不能新增或修改养护记录。', 'error');
                             setTimeout(() => {
-                                window.location.href = `pot-detail.html?id=${pid}`;
+                                window.location.href = `pot-detail?id=${pid}`;
                             }, 700);
                         }
                     }
@@ -512,15 +512,15 @@
                         if (result.success) {
                             showToast('保存成功');
                             setTimeout(() => {
-                                window.location.href = `pot-detail.html?id=${potId.value}`;
+                                window.location.href = `pot-detail?id=${potId.value}`;
                             }, 500);
                         }
                     } catch (err) {
                         console.error('保存失败:', err);
                         if (['auth', 'forbidden', 'not_found'].includes(nav.classifyApiError(err))) {
                             const redirect = recordId.value
-                                ? `care-record.html?id=${encodeURIComponent(recordId.value)}`
-                                : `care-record.html?potId=${encodeURIComponent(potId.value || '')}`;
+                                ? `care-record?id=${encodeURIComponent(recordId.value)}`
+                                : `care-record?potId=${encodeURIComponent(potId.value || '')}`;
                             nav.redirectForApiError(err, {
                                 from: 'care-record',
                                 redirect,
@@ -538,7 +538,7 @@
                 };
 
                 const goBack = () => {
-                    window.location.href = `pot-detail.html?id=${potId.value}`;
+                    window.location.href = `pot-detail?id=${potId.value}`;
                 };
 
                 // 图片优化：Cloudflare cdn-cgi/image 按需缩放
@@ -560,8 +560,8 @@
 
                 window.addEventListener('auth:expired', (event) => {
                     const redirect = recordId.value
-                        ? `care-record.html?id=${encodeURIComponent(recordId.value)}`
-                        : `care-record.html?potId=${encodeURIComponent(potId.value || '')}`;
+                        ? `care-record?id=${encodeURIComponent(recordId.value)}`
+                        : `care-record?potId=${encodeURIComponent(potId.value || '')}`;
                     nav.redirectToSessionExpired(event.detail?.message, {
                         from: 'care-record',
                         redirect,

@@ -35,11 +35,18 @@
         [v-cloak] {
             display: none !important;
         }
+
         /* 密码管理器自动填充检测：通过 animationstart 事件同步 Vue reactive 状态 */
         @keyframes loginAutofillDetect {
-            from { opacity: 1; }
-            to   { opacity: 1; }
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 1;
+            }
         }
+
         input:-webkit-autofill {
             animation-name: loginAutofillDetect;
             animation-duration: 0.001s;
@@ -55,9 +62,10 @@
 
     <!-- 配置脚本 -->
     <script src="js/config.js?v=20260118"></script>
-    <script src="js/api-client.js?v=20260415-1"></script>
+    <script src="js/api-client.js?v=20260418-d1session"></script>
     <script src="js/form-utils.js?v=20260413"></script>
     <script src="js/clipboard.js?v=20260407-2"></script>
+    <meta name="google-site-verification" content="iL2IHNd1UqW26DnjsPSya3hIf5bOUM0Z0Miq0QIKY_U" />
 </head>
 
 <body class="bg-gray-50 pb-24">
@@ -78,8 +86,8 @@
                             完成
                         </button>
                     </template>
-	                    <button v-else-if="batchManageablePots.length > 0" @click="toggleEditMode"
-	                        class="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-blue-500 transition active:scale-90">
+                    <button v-else-if="batchManageablePots.length > 0" @click="toggleEditMode"
+                        class="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-blue-500 transition active:scale-90">
                         <i class="fa fa-list-check text-xl"></i>
                     </button>
                 </div>
@@ -115,8 +123,7 @@
                             class="relative flex items-center gap-2 bg-white border border-gray-100 p-1 pr-3 rounded-full shadow-sm hover:shadow-md transition active:scale-95 overflow-visible">
                             <div class="relative w-8 h-8 overflow-visible">
                                 <img :src="imgUrl(user?.avatarUrl, 32, 32) || 'assets/images/icons/profile.png'"
-                                    decoding="async"
-                                    class="w-full h-full rounded-full shadow-sm object-cover">
+                                    decoding="async" class="w-full h-full rounded-full shadow-sm object-cover">
                             </div>
                             <div v-show="notificationBadgeCount > 0"
                                 class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-600 border-2 border-white rounded-full z-[100] shadow-sm pointer-events-none flex-none aspect-square">
@@ -186,7 +193,8 @@
             </div>
         </header>
 
-        <div v-if="entryNotice.show" class="container mt-3" :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
+        <div v-if="entryNotice.show" class="container mt-3"
+            :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <div class="flex items-start gap-3 rounded-xl border px-4 py-3 shadow-sm transition"
                 :class="entryNoticeClass">
                 <i class="fa mt-0.5 text-sm" :class="entryNotice.icon"></i>
@@ -204,8 +212,7 @@
         <div v-if="showPotStatusSwitch" class="container mt-3"
             :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <div class="grid grid-cols-2 gap-1 rounded-xl bg-white p-1 border border-gray-100 shadow-sm">
-                <button v-for="tab in potStatusTabs" :key="tab.value" type="button"
-                    @click="setPotStatus(tab.value)"
+                <button v-for="tab in potStatusTabs" :key="tab.value" type="button" @click="setPotStatus(tab.value)"
                     class="h-8 rounded-lg text-xs font-black transition active:scale-[0.99]"
                     :class="activePotStatus === tab.value ? 'bg-green-50 text-green-700' : 'text-gray-400 hover:text-gray-600'">
                     {{ tab.label }}
@@ -225,7 +232,8 @@
             </button>
         </div>
 
-        <div v-if="activePotStatus === 'active' && careReminders.length > 0 && showRemindersExpanded" class="container mt-2 animate-fade-in"
+        <div v-if="activePotStatus === 'active' && careReminders.length > 0 && showRemindersExpanded"
+            class="container mt-2 animate-fade-in"
             :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div class="divide-y divide-gray-50 max-h-60 overflow-y-auto">
@@ -233,8 +241,7 @@
                         class="flex gap-3 p-3 cursor-pointer active:bg-gray-50 transition items-start">
                         <div class="relative w-16 h-16 shrink-0">
                             <img :src="imgUrl(group.potImage, 64, 64) || 'assets/images/icons/icons-default-pot.png'"
-                                loading="lazy" decoding="async"
-                                class="w-full h-full object-cover rounded-xl"
+                                loading="lazy" decoding="async" class="w-full h-full object-cover rounded-xl"
                                 @error="e => e.target.src = 'assets/images/icons/icons-default-pot.png'">
                             <div v-if="group.tasks.length > 1"
                                 class="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white aspect-square flex-none">
@@ -360,8 +367,7 @@
                                 <div class="w-32 h-32 shrink-0 relative p-1">
                                     <img :src="imgUrl(pot.image_url, 128, 128) || 'assets/images/icons/icons-default-pot.png'"
                                         :loading="index < 4 ? 'eager' : 'lazy'"
-                                        :fetchpriority="index < 2 ? 'high' : 'auto'"
-                                        decoding="async"
+                                        :fetchpriority="index < 2 ? 'high' : 'auto'" decoding="async"
                                         class="w-full h-full object-cover rounded-xl" @error="handleImageError">
                                     <div v-if="pot.is_collaborator || pot.collaborator_count > 0"
                                         class="absolute top-2 left-2 bg-blue-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md shadow-sm">
@@ -380,7 +386,8 @@
                                                 class="shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[9px] font-black text-gray-400">已归档</span>
                                         </div>
                                         <p class="text-[11px] text-gray-400 mt-1 truncate">
-                                            {{ activePotStatus === 'archived' ? (pot.archive_reason || '暂无归档原因') : (pot.note || '暂无备注') }}
+                                            {{ activePotStatus === 'archived' ? (pot.archive_reason || '暂无归档原因') :
+                                            (pot.note || '暂无备注') }}
                                         </p>
                                     </div>
                                     <div class="flex justify-between items-end">
@@ -408,7 +415,8 @@
                                             </div>
                                             <div v-else class="flex items-center gap-2">
                                                 <span class="text-gray-400 shrink-0">归档</span>
-                                                <div class="flex items-center min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                                                <div
+                                                    class="flex items-center min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
                                                     <span class="text-green-600 font-medium shrink-0">
                                                         {{ formatDate(pot.archived_at) || '无' }}
                                                     </span>
@@ -429,8 +437,7 @@
                             </div>
                         </div>
                     </div>
-                    <div v-if="hasMorePots || isLoadingMore"
-                        class="flex justify-center py-4">
+                    <div v-if="hasMorePots || isLoadingMore" class="flex justify-center py-4">
                         <button type="button" @click="loadMorePots" :disabled="isLoadingMore || isEditMode"
                             class="min-w-[9rem] rounded-full border border-green-100 bg-white px-5 py-2.5 text-xs font-black text-green-600 shadow-sm transition active:scale-95 disabled:opacity-60">
                             <span v-if="isLoadingMore"><i class="fa fa-spinner fa-spin mr-1"></i> 加载中</span>
@@ -485,15 +492,17 @@
 
                     <h3 class="text-2xl font-black text-gray-800 mb-2">欢迎回来</h3>
                     <p class="text-gray-400 text-sm mb-8">{{ loginModalLead }}</p>
-                    <form @submit.prevent="handleLogin" @focusin="scheduleLoginAutofillSync" @click="scheduleLoginAutofillSync" autocomplete="on" class="space-y-4">
+                    <form @submit.prevent="handleLogin" @focusin="scheduleLoginAutofillSync"
+                        @click="scheduleLoginAutofillSync" autocomplete="on" class="space-y-4">
                         <div class="space-y-1.5">
                             <label for="loginEmail"
                                 class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
                             <input type="email" id="loginEmail" name="email" autocomplete="username" inputmode="email"
                                 autocapitalize="none" spellcheck="false" maxlength="120" @input="handleLoginEmailInput"
                                 @change="syncLoginFormFromDom" @blur="validateLoginEmail(true)"
-                                @animationstart="syncLoginFormFromDom" v-model="loginForm.email" placeholder="name@example.com"
-                                required :aria-invalid="loginErrors.email ? 'true' : 'false'"
+                                @animationstart="syncLoginFormFromDom" v-model="loginForm.email"
+                                placeholder="name@example.com" required
+                                :aria-invalid="loginErrors.email ? 'true' : 'false'"
                                 class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
                                 :class="loginErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
                             <p v-if="loginErrors.email" class="text-xs text-red-500 px-1">{{ loginErrors.email }}</p>
@@ -508,7 +517,8 @@
                                 required :aria-invalid="loginErrors.password ? 'true' : 'false'"
                                 class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
                                 :class="loginErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                            <p v-if="loginErrors.password" class="text-xs text-red-500 px-1">{{ loginErrors.password }}</p>
+                            <p v-if="loginErrors.password" class="text-xs text-red-500 px-1">{{ loginErrors.password }}
+                            </p>
                         </div>
                         <div v-if="loginStatus.message" class="rounded-2xl px-4 py-3 text-xs"
                             :class="loginStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
@@ -548,32 +558,36 @@
                             <input type="email" id="registerEmail" name="email" autocomplete="email" inputmode="email"
                                 autocapitalize="none" spellcheck="false" maxlength="120"
                                 @input="handleRegisterEmailInput" @blur="validateRegisterEmail(true)"
-                                @animationstart="syncRegisterFormFromDom"
-                                v-model="registerForm.email" placeholder="name@example.com" required
+                                @animationstart="syncRegisterFormFromDom" v-model="registerForm.email"
+                                placeholder="name@example.com" required
                                 :aria-invalid="registerErrors.email ? 'true' : 'false'"
                                 class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
                                 :class="registerErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                            <p v-if="registerErrors.email" class="text-xs text-red-500 px-1">{{ registerErrors.email }}</p>
+                            <p v-if="registerErrors.email" class="text-xs text-red-500 px-1">{{ registerErrors.email }}
+                            </p>
                         </div>
                         <div class="space-y-1.5">
                             <label for="registerNickname"
                                 class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">昵称
                                 <span class="font-medium normal-case tracking-normal text-gray-300">(选填)</span></label>
-                            <input type="text" id="registerNickname" name="nickname" autocomplete="nickname" maxlength="20"
-                                @input="handleRegisterDisplayNameInput" @blur="normalizeRegisterDisplayName"
-                                v-model="registerForm.displayName" placeholder="给自己起个名字"
+                            <input type="text" id="registerNickname" name="nickname" autocomplete="nickname"
+                                maxlength="20" @input="handleRegisterDisplayNameInput"
+                                @blur="normalizeRegisterDisplayName" v-model="registerForm.displayName"
+                                placeholder="给自己起个名字"
                                 class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-green-500 transition">
                         </div>
                         <div class="space-y-1.5">
                             <label for="registerPassword"
                                 class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">密码</label>
                             <input type="password" id="registerPassword" name="password" autocomplete="new-password"
-                                minlength="8" @input="handleRegisterPasswordInput" @blur="validateRegisterPassword(true)"
-                                @animationstart="syncRegisterFormFromDom" v-model="registerForm.password"
-                                placeholder="至少 8 位" required :aria-invalid="registerErrors.password ? 'true' : 'false'"
+                                minlength="8" @input="handleRegisterPasswordInput"
+                                @blur="validateRegisterPassword(true)" @animationstart="syncRegisterFormFromDom"
+                                v-model="registerForm.password" placeholder="至少 8 位" required
+                                :aria-invalid="registerErrors.password ? 'true' : 'false'"
                                 class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
                                 :class="registerErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                            <p v-if="registerErrors.password" class="text-xs text-red-500 px-1">{{ registerErrors.password }}</p>
+                            <p v-if="registerErrors.password" class="text-xs text-red-500 px-1">{{
+                                registerErrors.password }}</p>
                         </div>
                         <div class="relative space-y-1.5">
                             <label for="registerConfirmPassword"
@@ -623,12 +637,13 @@
                     <p class="text-gray-400 text-sm mb-8">我们将向您的邮箱发送重置链接</p>
                     <form @submit.prevent="handleForgotPassword" class="space-y-4">
                         <div class="space-y-1.5">
-                            <label class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
+                            <label
+                                class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
                             <input type="email" id="loginEmail" name="email" autocomplete="email" inputmode="email"
                                 autocapitalize="none" spellcheck="false" maxlength="120" v-model="loginForm.email"
                                 @input="handleForgotPasswordEmailInput" @change="syncLoginFormFromDom"
-                                @animationstart="syncLoginFormFromDom"
-                                @blur="validateForgotPasswordEmail(true)" placeholder="name@example.com" required
+                                @animationstart="syncLoginFormFromDom" @blur="validateForgotPasswordEmail(true)"
+                                placeholder="name@example.com" required
                                 :aria-invalid="forgotPasswordErrors.email ? 'true' : 'false'"
                                 class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
                                 :class="forgotPasswordErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
@@ -802,7 +817,7 @@
                         </button>
                         <div class="min-w-0">
                             <h3 class="text-xl font-black text-gray-800">批量养护</h3>
-	                            <p class="text-xs text-gray-400 mt-0.5">将对选中的 {{ selectedOwnedCount }} 个自有花盆记录同一养护动作</p>
+                            <p class="text-xs text-gray-400 mt-0.5">将对选中的 {{ selectedOwnedCount }} 个自有花盆记录同一养护动作</p>
                         </div>
                     </div>
                     <button type="button" @click.stop.prevent="closeBatchCareModal"
@@ -860,13 +875,14 @@
                     <button @click="submitBatchCare"
                         :disabled="isBatchCareLoading || (batchCareForm.type === 'custom' && !batchCareForm.action.trim())"
                         class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
-	                        {{ isBatchCareLoading ? '记录中...' : `确认养护 ${selectedOwnedCount} 个花盆` }}
+                        {{ isBatchCareLoading ? '记录中...' : `确认养护 ${selectedOwnedCount} 个花盆` }}
                     </button>
                 </div>
             </div>
         </div>
 
-        <div v-if="showBatchArchiveModal" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4">
+        <div v-if="showBatchArchiveModal"
+            class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click.stop.prevent="closeBatchArchiveModal">
             </div>
             <div class="relative bg-white w-full max-w-[500px] rounded-3xl shadow-2xl overflow-hidden animate-slide-up"
@@ -878,10 +894,11 @@
                             <i class="fa fa-arrow-left text-sm"></i>
                         </button>
                         <div class="min-w-0">
-	                            <h3 class="text-xl font-black text-gray-800">{{ archiveTargetPot ? '归档花盆' : '批量归档' }}</h3>
-	                            <p class="text-xs text-gray-400 mt-0.5">
-	                                {{ archiveTargetPot ? ('将归档 ' + archiveTargetPot.name) : ('将归档选中的 ' + selectedOwnedCount + ' 个自有花盆') }}
-	                            </p>
+                            <h3 class="text-xl font-black text-gray-800">{{ archiveTargetPot ? '归档花盆' : '批量归档' }}</h3>
+                            <p class="text-xs text-gray-400 mt-0.5">
+                                {{ archiveTargetPot ? ('将归档 ' + archiveTargetPot.name) : ('将归档选中的 ' + selectedOwnedCount
+                                + ' 个自有花盆') }}
+                            </p>
                         </div>
                     </div>
                     <button type="button" @click.stop.prevent="closeBatchArchiveModal"
@@ -890,12 +907,14 @@
                     </button>
                 </div>
                 <div class="p-6 space-y-5">
-                    <div class="rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 text-xs text-amber-700 leading-relaxed">
-	                        {{ archiveTargetPot ? '归档后这盆植物将不再出现在养护列表，也不会收到养护提醒。记录会保留，之后可以在已归档中查看和恢复。' : '归档后这些植物将不再出现在养护列表，也不会收到养护提醒。记录会保留，之后可以在已归档中查看和恢复。' }}
-	                    </div>
-	                    <div v-if="!archiveTargetPot && selectedExcludedCount > 0"
-	                        class="rounded-2xl bg-gray-50 border border-gray-100 px-4 py-3 text-xs text-gray-500 leading-relaxed">
-	                        已自动排除 {{ selectedExcludedCount }} 个非本人拥有的花盆，批量归档只会作用于自己的花盆。
+                    <div
+                        class="rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 text-xs text-amber-700 leading-relaxed">
+                        {{ archiveTargetPot ? '归档后这盆植物将不再出现在养护列表，也不会收到养护提醒。记录会保留，之后可以在已归档中查看和恢复。' :
+                        '归档后这些植物将不再出现在养护列表，也不会收到养护提醒。记录会保留，之后可以在已归档中查看和恢复。' }}
+                    </div>
+                    <div v-if="!archiveTargetPot && selectedExcludedCount > 0"
+                        class="rounded-2xl bg-gray-50 border border-gray-100 px-4 py-3 text-xs text-gray-500 leading-relaxed">
+                        已自动排除 {{ selectedExcludedCount }} 个非本人拥有的花盆，批量归档只会作用于自己的花盆。
                     </div>
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-3">归档原因</label>
@@ -917,11 +936,12 @@
                     </div>
                 </div>
                 <div class="px-6 pb-6">
-	                    <button @click="submitBatchArchive"
-	                        :disabled="isBatchArchiveLoading || (!archiveTargetPot && selectedOwnedCount === 0)"
-	                        class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
-	                        {{ isBatchArchiveLoading ? '归档中...' : (archiveTargetPot ? '确认归档' : `确认归档 ${selectedOwnedCount} 个花盆`) }}
-	                    </button>
+                    <button @click="submitBatchArchive"
+                        :disabled="isBatchArchiveLoading || (!archiveTargetPot && selectedOwnedCount === 0)"
+                        class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+                        {{ isBatchArchiveLoading ? '归档中...' : (archiveTargetPot ? '确认归档' : `确认归档 ${selectedOwnedCount}
+                        个花盆`) }}
+                    </button>
                 </div>
             </div>
         </div>
@@ -1018,11 +1038,12 @@
                     </div>
                     <div v-if="batchInviteForm.method === 'email'" class="animate-fade-in">
                         <label class="block text-sm font-bold text-gray-700 mb-2">好友邮箱</label>
-                        <input v-model="batchInviteForm.email" type="email" placeholder="输入好友注册邮箱"
-                            autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="120"
+                        <input v-model="batchInviteForm.email" type="email" placeholder="输入好友注册邮箱" autocomplete="email"
+                            inputmode="email" autocapitalize="none" spellcheck="false" maxlength="120"
                             class="w-full bg-gray-50 border rounded-2xl py-3 px-4 text-sm focus:outline-none transition"
                             :class="batchInviteForm.email.trim() && !isBatchInviteEmailValid ? 'border-red-200 focus:border-red-200' : 'border-gray-100 focus:border-green-300'">
-                        <p v-if="batchInviteForm.email.trim() && !isBatchInviteEmailValid" class="text-[11px] text-red-500 mt-2">
+                        <p v-if="batchInviteForm.email.trim() && !isBatchInviteEmailValid"
+                            class="text-[11px] text-red-500 mt-2">
                             请输入正确的邮箱地址
                         </p>
                         <p class="text-[11px] text-gray-400 mt-2">会把同样的邀请权限发给这个好友，覆盖当前选中的所有自有花盆。</p>
@@ -1060,13 +1081,13 @@
                     </button>
                 </div>
 
-	                <div v-if="(activePotStatus === 'active' && !activePotAction.is_viewer) || isOwnedPot(activePotAction)"
-	                    class="px-4 py-4 bg-gray-50/70">
-	                    <div class="px-2 text-[11px] font-black text-gray-400 tracking-wide">常用操作</div>
-	                    <div class="mt-3 bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
-	                        <button v-if="activePotStatus === 'active' && !activePotAction.is_viewer"
-	                            @click="goAddCareForPot(activePotAction.id)"
-	                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition"
+                <div v-if="(activePotStatus === 'active' && !activePotAction.is_viewer) || isOwnedPot(activePotAction)"
+                    class="px-4 py-4 bg-gray-50/70">
+                    <div class="px-2 text-[11px] font-black text-gray-400 tracking-wide">常用操作</div>
+                    <div class="mt-3 bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
+                        <button v-if="activePotStatus === 'active' && !activePotAction.is_viewer"
+                            @click="goAddCareForPot(activePotAction.id)"
+                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition"
                             :class="isOwnedPot(activePotAction) ? 'border-b border-gray-50' : ''">
                             <div
                                 class="w-11 h-11 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
@@ -1104,18 +1125,18 @@
                                 </div>
                             </div>
                         </button>
-	                    </div>
-	                </div>
+                    </div>
+                </div>
 
-	                <div v-if="isOwnedPot(activePotAction)" class="px-4 py-4">
-	                    <div class="px-2 text-[11px] font-black text-gray-400 tracking-wide">归档操作</div>
-	                    <div class="mt-3 bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
-	                        <button v-if="isOwnedPot(activePotAction) && activePotStatus === 'active'"
-	                            @click="openSingleArchiveFromSheet(activePotAction)"
-	                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition">
-	                            <div
-	                                class="w-11 h-11 rounded-2xl bg-gray-100 text-gray-500 flex items-center justify-center shrink-0">
-	                                <i class="fa fa-archive"></i>
+                <div v-if="isOwnedPot(activePotAction)" class="px-4 py-4">
+                    <div class="px-2 text-[11px] font-black text-gray-400 tracking-wide">归档操作</div>
+                    <div class="mt-3 bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
+                        <button v-if="isOwnedPot(activePotAction) && activePotStatus === 'active'"
+                            @click="openSingleArchiveFromSheet(activePotAction)"
+                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition">
+                            <div
+                                class="w-11 h-11 rounded-2xl bg-gray-100 text-gray-500 flex items-center justify-center shrink-0">
+                                <i class="fa fa-archive"></i>
                             </div>
                             <div class="min-w-0">
                                 <div class="text-sm font-black text-gray-800">归档花盆</div>
@@ -1123,68 +1144,68 @@
                             </div>
                         </button>
 
-	                        <button v-if="isOwnedPot(activePotAction) && activePotStatus === 'archived'"
-	                            @click="restorePotFromSheet(activePotAction)"
-	                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition">
-	                            <div
-	                                class="w-11 h-11 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center shrink-0">
-	                                <i class="fa fa-undo"></i>
+                        <button v-if="isOwnedPot(activePotAction) && activePotStatus === 'archived'"
+                            @click="restorePotFromSheet(activePotAction)"
+                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition">
+                            <div
+                                class="w-11 h-11 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center shrink-0">
+                                <i class="fa fa-undo"></i>
                             </div>
                             <div class="min-w-0">
                                 <div class="text-sm font-black text-gray-800">恢复养护</div>
                                 <div class="text-[11px] text-gray-400 mt-1">恢复到养护中，重新出现在首页列表</div>
-	                            </div>
-	                        </button>
-	                    </div>
-	                </div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
 
-	                <div v-if="activePotAction.is_collaborator || activePotAction.is_viewer" class="px-4 py-4">
-	                    <div class="px-2 text-[11px] font-black text-gray-400 tracking-wide">列表操作</div>
-	                    <div class="mt-3 bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
-	                        <button v-if="activePotAction.is_collaborator"
-	                            @click="leaveCollaborationFromSheet(activePotAction)"
-	                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition">
-	                            <div
-	                                class="w-11 h-11 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
-	                                <i class="fa fa-sign-out-alt"></i>
-	                            </div>
-	                            <div class="min-w-0">
-	                                <div class="text-sm font-black text-gray-800">退出共同照料</div>
-	                                <div class="text-[11px] text-gray-400 mt-1">把这盆植物从你的共同照料列表中移除</div>
-	                            </div>
-	                        </button>
+                <div v-if="activePotAction.is_collaborator || activePotAction.is_viewer" class="px-4 py-4">
+                    <div class="px-2 text-[11px] font-black text-gray-400 tracking-wide">列表操作</div>
+                    <div class="mt-3 bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
+                        <button v-if="activePotAction.is_collaborator"
+                            @click="leaveCollaborationFromSheet(activePotAction)"
+                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition">
+                            <div
+                                class="w-11 h-11 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
+                                <i class="fa fa-sign-out-alt"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="text-sm font-black text-gray-800">退出共同照料</div>
+                                <div class="text-[11px] text-gray-400 mt-1">把这盆植物从你的共同照料列表中移除</div>
+                            </div>
+                        </button>
 
-	                        <button v-else-if="activePotAction.is_viewer" @click="removeViewerPotFromSheet(activePotAction)"
-	                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition">
-	                            <div
-	                                class="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
-	                                <i class="fa fa-eye-slash"></i>
-	                            </div>
-	                            <div class="min-w-0">
-	                                <div class="text-sm font-black text-gray-800">从列表移除</div>
-	                                <div class="text-[11px] text-gray-400 mt-1">把这盆植物从好友分享列表中移除</div>
-	                            </div>
-	                        </button>
-	                    </div>
-	                </div>
+                        <button v-else-if="activePotAction.is_viewer" @click="removeViewerPotFromSheet(activePotAction)"
+                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition">
+                            <div
+                                class="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
+                                <i class="fa fa-eye-slash"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="text-sm font-black text-gray-800">从列表移除</div>
+                                <div class="text-[11px] text-gray-400 mt-1">把这盆植物从好友分享列表中移除</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
 
-	                <div v-if="isOwnedPot(activePotAction)" class="px-4 py-4">
-	                    <div class="px-2 text-[11px] font-black text-red-300 tracking-wide">危险操作</div>
-	                    <div class="mt-3 bg-white rounded-3xl overflow-hidden border border-red-100 shadow-sm">
-	                        <button @click="deletePotFromSheet(activePotAction.id)"
-	                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition">
-	                            <div
-	                                class="w-11 h-11 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center shrink-0">
-	                                <i class="fa fa-trash-alt"></i>
-	                            </div>
-	                            <div class="min-w-0">
-	                                <div class="text-sm font-black text-gray-800">删除花盆</div>
-	                                <div class="text-[11px] text-gray-400 mt-1">
-	                                    {{ activePotStatus === 'archived' ? '永久删除归档花盆及其记录' : '删除花盆及其养护记录' }}
-	                                </div>
-	                            </div>
-	                        </button>
-	                    </div>
+                <div v-if="isOwnedPot(activePotAction)" class="px-4 py-4">
+                    <div class="px-2 text-[11px] font-black text-red-300 tracking-wide">危险操作</div>
+                    <div class="mt-3 bg-white rounded-3xl overflow-hidden border border-red-100 shadow-sm">
+                        <button @click="deletePotFromSheet(activePotAction.id)"
+                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition">
+                            <div
+                                class="w-11 h-11 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                                <i class="fa fa-trash-alt"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="text-sm font-black text-gray-800">删除花盆</div>
+                                <div class="text-[11px] text-gray-400 mt-1">
+                                    {{ activePotStatus === 'archived' ? '永久删除归档花盆及其记录' : '删除花盆及其养护记录' }}
+                                </div>
+                            </div>
+                        </button>
+                    </div>
                 </div>
 
             </div>
@@ -1196,15 +1217,16 @@
             <div class="relative w-full max-w-[500px] bg-white rounded-[2rem] shadow-2xl overflow-hidden animate-slide-up"
                 @click.stop @mousedown.stop @touchstart.stop>
                 <div class="px-6 pt-6 pb-4 border-b border-gray-50 flex items-start justify-between gap-4">
-	                    <div class="min-w-0">
-	                        <h3 class="text-xl font-black text-gray-800">批量操作</h3>
-	                        <p class="text-xs text-gray-400 mt-1">已选 {{ selectedCount }} 个花盆</p>
-	                        <p class="text-[11px] text-gray-400 mt-2">
-	                            {{ activePotStatus === 'archived' ? '恢复和删除仅对自有花盆生效，好友分享花盆可从列表移除。' : '批量养护、归档、邀请和删除仅对你拥有的花盆生效，好友分享花盆可从列表移除。' }}
-	                        </p>
-	                        <p v-if="selectedExcludedCount > 0" class="text-[11px] text-amber-600 mt-1.5 font-bold">
-	                            当前有 {{ selectedExcludedCount }} 个非本人拥有的花盆，部分操作会自动排除。
-	                        </p>
+                    <div class="min-w-0">
+                        <h3 class="text-xl font-black text-gray-800">批量操作</h3>
+                        <p class="text-xs text-gray-400 mt-1">已选 {{ selectedCount }} 个花盆</p>
+                        <p class="text-[11px] text-gray-400 mt-2">
+                            {{ activePotStatus === 'archived' ? '恢复和删除仅对自有花盆生效，好友分享花盆可从列表移除。' :
+                            '批量养护、归档、邀请和删除仅对你拥有的花盆生效，好友分享花盆可从列表移除。' }}
+                        </p>
+                        <p v-if="selectedExcludedCount > 0" class="text-[11px] text-amber-600 mt-1.5 font-bold">
+                            当前有 {{ selectedExcludedCount }} 个非本人拥有的花盆，部分操作会自动排除。
+                        </p>
                     </div>
                     <button type="button" @click.stop.prevent="exitBatchMode"
                         class="shrink-0 text-gray-400 hover:text-gray-600 transition">
@@ -1212,11 +1234,12 @@
                     </button>
                 </div>
 
-	                <div class="px-4 py-4 bg-gray-50/70">
-	                    <div class="px-2 text-[11px] font-black text-gray-400 tracking-wide">常用操作</div>
-	                    <div class="mt-3 bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
-	                        <button v-if="activePotStatus === 'active'" @click="openBatchCareFromSheet" :disabled="selectedOwnedCount === 0"
-	                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition border-b border-gray-50 disabled:opacity-40">
+                <div class="px-4 py-4 bg-gray-50/70">
+                    <div class="px-2 text-[11px] font-black text-gray-400 tracking-wide">常用操作</div>
+                    <div class="mt-3 bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
+                        <button v-if="activePotStatus === 'active'" @click="openBatchCareFromSheet"
+                            :disabled="selectedOwnedCount === 0"
+                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition border-b border-gray-50 disabled:opacity-40">
                             <div
                                 class="w-11 h-11 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-tint"></i>
@@ -1226,7 +1249,8 @@
                                 <div class="text-[11px] text-gray-400 mt-1">为选中的花盆记录同一养护动作</div>
                             </div>
                         </button>
-                        <button v-if="activePotStatus === 'active'" @click="openBatchArchiveFromSheet" :disabled="selectedOwnedCount === 0"
+                        <button v-if="activePotStatus === 'active'" @click="openBatchArchiveFromSheet"
+                            :disabled="selectedOwnedCount === 0"
                             class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition border-b border-gray-50 disabled:opacity-40">
                             <div
                                 class="w-11 h-11 rounded-2xl bg-gray-100 text-gray-500 flex items-center justify-center shrink-0">
@@ -1237,7 +1261,8 @@
                                 <div class="text-[11px] text-gray-400 mt-1">保留记录，停止提醒，并从养护列表隐藏</div>
                             </div>
                         </button>
-                        <button v-if="activePotStatus === 'active'" @click="openBatchInviteFromSheet" :disabled="selectedOwnedCount === 0"
+                        <button v-if="activePotStatus === 'active'" @click="openBatchInviteFromSheet"
+                            :disabled="selectedOwnedCount === 0"
                             class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition disabled:opacity-40">
                             <div
                                 class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
@@ -1248,30 +1273,31 @@
                                 <div class="text-[11px] text-gray-400 mt-1">邀请好友仅查看或共同照料</div>
                             </div>
                         </button>
-	                        <button v-if="activePotStatus === 'archived'" @click="restoreSelectedFromSheet" :disabled="selectedOwnedCount === 0"
-	                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition disabled:opacity-40">
+                        <button v-if="activePotStatus === 'archived'" @click="restoreSelectedFromSheet"
+                            :disabled="selectedOwnedCount === 0"
+                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition disabled:opacity-40">
                             <div
                                 class="w-11 h-11 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center shrink-0">
                                 <i class="fa fa-undo"></i>
                             </div>
-	                            <div class="min-w-0">
-	                                <div class="text-sm font-black text-gray-800">批量恢复</div>
-	                                <div class="text-[11px] text-gray-400 mt-1">恢复到养护中，重新出现在首页列表</div>
-	                            </div>
-	                        </button>
-	                        <button @click="leaveSelectedViewersFromSheet" :disabled="selectedViewerCount === 0"
-	                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition disabled:opacity-40">
-	                            <div
-	                                class="w-11 h-11 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
-	                                <i class="fa fa-sign-out-alt"></i>
-	                            </div>
-	                            <div class="min-w-0">
-	                                <div class="text-sm font-black text-gray-800">批量从列表移除</div>
-	                                <div class="text-[11px] text-gray-400 mt-1">把选中的好友分享花盆从列表中移除</div>
-	                            </div>
-	                        </button>
-	                    </div>
-	                </div>
+                            <div class="min-w-0">
+                                <div class="text-sm font-black text-gray-800">批量恢复</div>
+                                <div class="text-[11px] text-gray-400 mt-1">恢复到养护中，重新出现在首页列表</div>
+                            </div>
+                        </button>
+                        <button @click="leaveSelectedViewersFromSheet" :disabled="selectedViewerCount === 0"
+                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition disabled:opacity-40">
+                            <div
+                                class="w-11 h-11 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
+                                <i class="fa fa-sign-out-alt"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="text-sm font-black text-gray-800">批量从列表移除</div>
+                                <div class="text-[11px] text-gray-400 mt-1">把选中的好友分享花盆从列表中移除</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
 
                 <div class="px-4 py-4">
                     <div class="px-2 text-[11px] font-black text-red-300 tracking-wide">危险操作</div>
@@ -1393,13 +1419,13 @@
                 const showBatchCareModal = ref(false);
                 const isBatchCareLoading = ref(false);
                 const showBatchArchiveModal = ref(false);
-	                const isBatchArchiveLoading = ref(false);
-	                const showBatchInviteModal = ref(false);
-	                const isBatchInviteLoading = ref(false);
-	                const showPotActionSheet = ref(false);
-	                const activePotAction = ref(null);
-	                const archiveTargetPot = ref(null);
-	                const isOverlayClosing = ref(false);
+                const isBatchArchiveLoading = ref(false);
+                const showBatchInviteModal = ref(false);
+                const isBatchInviteLoading = ref(false);
+                const showPotActionSheet = ref(false);
+                const activePotAction = ref(null);
+                const archiveTargetPot = ref(null);
+                const isOverlayClosing = ref(false);
                 const batchInviteToken = ref(null);
                 const batchInviteSessionId = ref('');
                 const batchCareForm = reactive({
@@ -2023,14 +2049,49 @@
                     }
                 };
 
-                const completeAuthSuccess = () => {
+                const buildUserFromAuthResponse = (res) => ({
+                    id: res.userId,
+                    email: res.email || '',
+                    displayName: res.displayName || '',
+                    emailVerified: !!res.emailVerified,
+                    userType: 'email'
+                });
+
+                const completeAuthSuccess = async (authUser = null) => {
                     dismissEntryNotice();
                     const target = nav?.normalizeAppPath?.(authIntent.redirect, { fallback: '', allowEmpty: true }) || '';
                     if (target && target !== nav.APP_PAGES.home) {
                         window.location.replace(target);
                         return;
                     }
-                    location.reload();
+
+                    clearAuthFeedback();
+                    showLoginModal.value = false;
+                    showRegisterModal.value = false;
+                    showForgotPasswordModal.value = false;
+                    showUserMenu.value = false;
+
+                    if (authUser) {
+                        user.value = authUser;
+                        isLoggedIn.value = true;
+                    }
+
+                    const verifiedUser = await checkLoginStatus();
+                    if (!verifiedUser && !isLoggedIn.value) {
+                        return;
+                    }
+
+                    if (batchInviteToken.value) {
+                        const handledBatchInvite = await tryHandleBatchInviteToken();
+                        if (handledBatchInvite) return;
+                    }
+
+                    await fetchPots({ status: activePotStatus.value, blocking: true });
+                    const postLoginTasks = [fetchPotStatusCounts(), fetchUnreadCount(), loadCareReminders()];
+                    if (user.value?.isAdmin) {
+                        postLoginTasks.push(fetchSupportUnreadCount());
+                    }
+                    Promise.allSettled(postLoginTasks).catch(() => { });
                 };
 
                 const init = async () => {
@@ -2077,7 +2138,7 @@
                         if (user.value?.isAdmin) startupTasks.push(fetchSupportUnreadCount());
                         startupTasks.push(loadCareReminders());
                     }
-                    Promise.allSettled(startupTasks).catch(() => {});
+                    Promise.allSettled(startupTasks).catch(() => { });
 
                     // 监听登录状态变化，登录后立即刷新未读数
                     watch(isLoggedIn, (val) => {
@@ -2261,7 +2322,11 @@
                             return res.user;
                         }
                     } catch (error) {
-                        console.warn('Failed to check login status:', error);
+                        if (error?.status === 401 || error?.status === 404) {
+                            apiClient.clearAuth();
+                        } else {
+                            console.warn('Failed to check login status:', error);
+                        }
                     }
 
                     isLoggedIn.value = false;
@@ -2304,7 +2369,7 @@
 
                     sessionStorage.removeItem('pending_batch_invite_token');
                     alert(buildBatchInviteAcceptMessage(res.data || {}));
-                    window.location.replace('index.html');
+                    window.location.replace('/');
                     return true;
                 };
 
@@ -2330,7 +2395,7 @@
                         sessionStorage.removeItem('pending_batch_invite_token');
                         alert('批量邀请链接无效、已过期，或已在其他设备上使用。');
                         if (window.location.search.includes('batchInviteToken=')) {
-                            window.history.replaceState({}, '', 'index.html');
+                            window.history.replaceState({}, '', '/');
                         }
                         return false;
                     }
@@ -2458,7 +2523,7 @@
                 };
 
                 const goToPotDetail = (potId) => {
-                    window.location.href = `pot-detail.html?id=${potId}`;
+                    window.location.href = `pot-detail?id=${potId}`;
                 };
 
                 const handleLogin = async () => {
@@ -2470,7 +2535,7 @@
                         clearStatus(loginStatus);
                         loginForm.email = formUtils.normalizeEmail(loginForm.email);
                         const res = await apiClient.login(loginForm.email, loginForm.password);
-                        if (res.token) completeAuthSuccess();
+                        if (res.token) await completeAuthSuccess(buildUserFromAuthResponse(res));
                     } catch (e) {
                         loginStatus.type = 'error';
                         loginStatus.message = '登录失败: ' + e.message;
@@ -2526,7 +2591,7 @@
 
                         if (res.success || res.token) {
                             alert(isAnonymous ? '注册成功，您的匿名数据已合并！' : '注册成功！');
-                            completeAuthSuccess();
+                            await completeAuthSuccess(buildUserFromAuthResponse(res));
                         }
                     } catch (e) {
                         registerStatus.type = 'error';
@@ -2560,43 +2625,43 @@
                 const initSortable = () => {
                     if (!potsGrid.value) return;
                     loadSortableLibrary().then((SortableCtor) => {
-                    if (!potsGrid.value || !isEditMode.value) return;
-                    if (sortableInstance) sortableInstance.destroy();
-                    sortableInstance = new SortableCtor(potsGrid.value, {
-                        animation: 220, // 更贴手的回弹速度
-                        easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-                        handle: '.handle',
-                        delay: 0,
-                        forceFallback: true, // 关键：使用fallback
-                        fallbackClass: 'sortable-fallback',
-                        ghostClass: 'sortable-ghost',
-                        chosenClass: 'sortable-chosen',
-                        dragClass: 'sortable-drag',
-                        scroll: true,
-                        scrollSensitivity: 50, // 增加滚动敏感区域
-                        scrollSpeed: 20,
-                        bubbleScroll: true,
-                        fallbackTolerance: 3, // 防止误触
-                        // 关键修改：禁用GPU加速，迫使Sortable使用top/left定位，
-                        // 从而允许我们使用CSS transform: scale() 来制作“浮起”效果
-                        // 如果开启GPU加速，Sortable会覆盖transform属性
-                        gpuAcceleration: false,
-                        onChoose: () => {
-                            if (navigator.vibrate) navigator.vibrate(30);
-                        },
-                        onUnchoose: () => {
-                            if (navigator.vibrate) navigator.vibrate(20);
-                        },
-                        onEnd: async (evt) => {
-                            if (navigator.vibrate) navigator.vibrate(15);
-                            const item = pots.value.splice(evt.oldIndex, 1)[0];
-                            pots.value.splice(evt.newIndex, 0, item);
-                            persistLocalPotOrder(activePotStatus.value);
-                            try {
-                                await apiClient.reorderPots(ownedPots.value.map(p => p.id));
-                            } catch (e) { console.error(e); }
-                        }
-                    });
+                        if (!potsGrid.value || !isEditMode.value) return;
+                        if (sortableInstance) sortableInstance.destroy();
+                        sortableInstance = new SortableCtor(potsGrid.value, {
+                            animation: 220, // 更贴手的回弹速度
+                            easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+                            handle: '.handle',
+                            delay: 0,
+                            forceFallback: true, // 关键：使用fallback
+                            fallbackClass: 'sortable-fallback',
+                            ghostClass: 'sortable-ghost',
+                            chosenClass: 'sortable-chosen',
+                            dragClass: 'sortable-drag',
+                            scroll: true,
+                            scrollSensitivity: 50, // 增加滚动敏感区域
+                            scrollSpeed: 20,
+                            bubbleScroll: true,
+                            fallbackTolerance: 3, // 防止误触
+                            // 关键修改：禁用GPU加速，迫使Sortable使用top/left定位，
+                            // 从而允许我们使用CSS transform: scale() 来制作“浮起”效果
+                            // 如果开启GPU加速，Sortable会覆盖transform属性
+                            gpuAcceleration: false,
+                            onChoose: () => {
+                                if (navigator.vibrate) navigator.vibrate(30);
+                            },
+                            onUnchoose: () => {
+                                if (navigator.vibrate) navigator.vibrate(20);
+                            },
+                            onEnd: async (evt) => {
+                                if (navigator.vibrate) navigator.vibrate(15);
+                                const item = pots.value.splice(evt.oldIndex, 1)[0];
+                                pots.value.splice(evt.newIndex, 0, item);
+                                persistLocalPotOrder(activePotStatus.value);
+                                try {
+                                    await apiClient.reorderPots(ownedPots.value.map(p => p.id));
+                                } catch (e) { console.error(e); }
+                            }
+                        });
                     }).catch((error) => console.error(error));
                 };
 
@@ -2623,7 +2688,7 @@
                 };
                 const handleCardClick = (pot) => {
                     if (!isEditMode.value) {
-                        window.location.href = `pot-detail.html?id=${pot.id}`;
+                        window.location.href = `pot-detail?id=${pot.id}`;
                     }
                 };
                 const restoreArchivedPot = async (pot) => {
@@ -2646,15 +2711,15 @@
                 };
                 const goEditPotFromSheet = (potId) => {
                     closePotActionSheet();
-                    window.location.href = `edit-pot.html?id=${potId}`;
+                    window.location.href = `edit-pot?id=${potId}`;
                 };
                 const goAddCareForPot = (potId) => {
                     closePotActionSheet();
-                    window.location.href = `care-record.html?potId=${potId}`;
+                    window.location.href = `care-record?potId=${potId}`;
                 };
                 const openShareSettingsForPot = (potId) => {
                     closePotActionSheet();
-                    window.location.href = `pot-detail.html?id=${potId}&openShare=1`;
+                    window.location.href = `pot-detail?id=${potId}&openShare=1`;
                 };
                 const deletePotFromSheet = async (potId) => {
                     closePotActionSheet();
@@ -2680,16 +2745,16 @@
                     }
                 };
 
-	                const confirmLeaveViewer = async (pot) => {
-	                    if (confirm(`确定将 ${pot.name} 从好友分享列表中移除吗？`)) {
-	                        try {
-	                            const res = await apiClient.leaveViewer(pot.id);
-	                            if (res.success) {
-	                                await fetchPots();
-	                                await fetchPotStatusCounts();
-	                            }
-	                        } catch (e) { alert('操作失败: ' + e.message); }
-	                    }
+                const confirmLeaveViewer = async (pot) => {
+                    if (confirm(`确定将 ${pot.name} 从好友分享列表中移除吗？`)) {
+                        try {
+                            const res = await apiClient.leaveViewer(pot.id);
+                            if (res.success) {
+                                await fetchPots();
+                                await fetchPotStatusCounts();
+                            }
+                        } catch (e) { alert('操作失败: ' + e.message); }
+                    }
                 };
 
                 const deleteSelectedPots = async () => {
@@ -3116,40 +3181,40 @@
                     showBatchCareModal.value = true;
                 };
 
-	                const closeBatchCareModal = () => {
-	                    if (showBatchCareModal.value) {
-	                        holdOverlayGuard();
-	                    }
-	                    showBatchCareModal.value = false;
-	                };
+                const closeBatchCareModal = () => {
+                    if (showBatchCareModal.value) {
+                        holdOverlayGuard();
+                    }
+                    showBatchCareModal.value = false;
+                };
 
-	                const closeBatchArchiveModal = (options = {}) => {
-	                    if (showBatchArchiveModal.value) {
-	                        holdOverlayGuard();
-	                    }
-	                    showBatchArchiveModal.value = false;
-	                    if (!options.keepArchiveTarget) {
-	                        archiveTargetPot.value = null;
-	                    }
-	                };
+                const closeBatchArchiveModal = (options = {}) => {
+                    if (showBatchArchiveModal.value) {
+                        holdOverlayGuard();
+                    }
+                    showBatchArchiveModal.value = false;
+                    if (!options.keepArchiveTarget) {
+                        archiveTargetPot.value = null;
+                    }
+                };
 
-	                const closeBatchInviteModal = () => {
-	                    if (showBatchInviteModal.value) {
-	                        holdOverlayGuard();
-	                    }
-	                    showBatchInviteModal.value = false;
-	                };
+                const closeBatchInviteModal = () => {
+                    if (showBatchInviteModal.value) {
+                        holdOverlayGuard();
+                    }
+                    showBatchInviteModal.value = false;
+                };
 
                 const openBatchActionSheet = () => {
                     showBatchActionSheet.value = true;
                 };
 
-	                const closeBatchActionSheet = () => {
-	                    if (showBatchActionSheet.value) {
-	                        holdOverlayGuard();
-	                    }
-	                    showBatchActionSheet.value = false;
-	                };
+                const closeBatchActionSheet = () => {
+                    if (showBatchActionSheet.value) {
+                        holdOverlayGuard();
+                    }
+                    showBatchActionSheet.value = false;
+                };
 
                 const exitBatchMode = () => {
                     closeBatchActionSheet();
@@ -3163,31 +3228,31 @@
                     }
                 };
 
-	                const openBatchCareFromSheet = () => {
-	                    if (selectedOwnedCount.value === 0) {
-	                        alert('请先选择自己拥有的花盆再批量养护。');
-	                        return;
-	                    }
-	                    closeBatchActionSheet();
-	                    openBatchCareModal();
-	                };
+                const openBatchCareFromSheet = () => {
+                    if (selectedOwnedCount.value === 0) {
+                        alert('请先选择自己拥有的花盆再批量养护。');
+                        return;
+                    }
+                    closeBatchActionSheet();
+                    openBatchCareModal();
+                };
 
-	                const openArchiveModal = (targetPot = null) => {
-	                    batchArchiveForm.reason = '枯萎';
-	                    batchArchiveForm.note = '';
-	                    archiveTargetPot.value = targetPot;
-	                    showBatchArchiveModal.value = true;
-	                };
+                const openArchiveModal = (targetPot = null) => {
+                    batchArchiveForm.reason = '枯萎';
+                    batchArchiveForm.note = '';
+                    archiveTargetPot.value = targetPot;
+                    showBatchArchiveModal.value = true;
+                };
 
-	                const openBatchArchiveModal = () => {
-	                    openArchiveModal(null);
-	                };
+                const openBatchArchiveModal = () => {
+                    openArchiveModal(null);
+                };
 
-	                const openSingleArchiveFromSheet = (pot) => {
-	                    if (!isOwnedPot(pot) || activePotStatus.value !== 'active') return;
-	                    closePotActionSheet();
-	                    openArchiveModal(pot);
-	                };
+                const openSingleArchiveFromSheet = (pot) => {
+                    if (!isOwnedPot(pot) || activePotStatus.value !== 'active') return;
+                    closePotActionSheet();
+                    openArchiveModal(pot);
+                };
 
                 const openBatchArchiveFromSheet = () => {
                     if (selectedOwnedCount.value === 0) {
@@ -3218,17 +3283,17 @@
                     openBatchActionSheet();
                 };
 
-	                const returnToBatchActionSheetFromArchive = () => {
-	                    if (archiveTargetPot.value) {
-	                        const pot = archiveTargetPot.value;
-	                        closeBatchArchiveModal({ keepArchiveTarget: true });
-	                        openPotActionSheet(pot);
-	                        archiveTargetPot.value = null;
-	                        return;
-	                    }
-	                    closeBatchArchiveModal();
-	                    openBatchActionSheet();
-	                };
+                const returnToBatchActionSheetFromArchive = () => {
+                    if (archiveTargetPot.value) {
+                        const pot = archiveTargetPot.value;
+                        closeBatchArchiveModal({ keepArchiveTarget: true });
+                        openPotActionSheet(pot);
+                        archiveTargetPot.value = null;
+                        return;
+                    }
+                    closeBatchArchiveModal();
+                    openBatchActionSheet();
+                };
 
                 const returnToBatchActionSheetFromInvite = () => {
                     closeBatchInviteModal();
@@ -3244,10 +3309,10 @@
                     await deleteSelectedPots();
                 };
 
-	                const restoreSelectedFromSheet = async () => {
-	                    const targetPots = selectedOwnedPots.value;
-	                    if (targetPots.length === 0) {
-	                        alert('当前选中项中没有可恢复的归档花盆。');
+                const restoreSelectedFromSheet = async () => {
+                    const targetPots = selectedOwnedPots.value;
+                    if (targetPots.length === 0) {
+                        alert('当前选中项中没有可恢复的归档花盆。');
                         return;
                     }
                     if (!confirm(`确定将选中的 ${targetPots.length} 个花盆恢复到养护中吗？`)) {
@@ -3270,70 +3335,70 @@
                         alert(`已恢复 ${targetPots.length} 个花盆。`);
                     } catch (e) {
                         alert('批量恢复失败: ' + e.message);
-	                    } finally {
-	                        isLoading.value = false;
-	                    }
-	                };
+                    } finally {
+                        isLoading.value = false;
+                    }
+                };
 
-	                const leaveSelectedViewersFromSheet = async () => {
-	                    const targetPots = selectedViewerPots.value;
-	                    if (targetPots.length === 0) {
-	                        alert('当前选中项中没有可从列表移除的好友分享花盆。');
-	                        return;
-	                    }
-	                    if (!confirm(`确定将选中的 ${targetPots.length} 个花盆从好友分享列表中移除吗？`)) {
-	                        return;
-	                    }
+                const leaveSelectedViewersFromSheet = async () => {
+                    const targetPots = selectedViewerPots.value;
+                    if (targetPots.length === 0) {
+                        alert('当前选中项中没有可从列表移除的好友分享花盆。');
+                        return;
+                    }
+                    if (!confirm(`确定将选中的 ${targetPots.length} 个花盆从好友分享列表中移除吗？`)) {
+                        return;
+                    }
 
-	                    try {
-	                        closeBatchActionSheet();
-	                        isLoading.value = true;
-	                        for (const pot of targetPots) {
-	                            await apiClient.leaveViewer(pot.id);
-	                        }
-	                        if (isEditMode.value) {
-	                            pots.value.forEach(p => p.selected = false);
-	                            isEditMode.value = false;
-	                            destroySortable();
-	                        }
-	                        await fetchPots({ status: activePotStatus.value, blocking: true });
-	                        await fetchPotStatusCounts();
-	                        alert(`已从列表移除 ${targetPots.length} 个花盆。`);
-	                    } catch (e) {
-	                        alert('批量移除失败: ' + e.message);
-	                    } finally {
-	                        isLoading.value = false;
-	                    }
-	                };
+                    try {
+                        closeBatchActionSheet();
+                        isLoading.value = true;
+                        for (const pot of targetPots) {
+                            await apiClient.leaveViewer(pot.id);
+                        }
+                        if (isEditMode.value) {
+                            pots.value.forEach(p => p.selected = false);
+                            isEditMode.value = false;
+                            destroySortable();
+                        }
+                        await fetchPots({ status: activePotStatus.value, blocking: true });
+                        await fetchPotStatusCounts();
+                        alert(`已从列表移除 ${targetPots.length} 个花盆。`);
+                    } catch (e) {
+                        alert('批量移除失败: ' + e.message);
+                    } finally {
+                        isLoading.value = false;
+                    }
+                };
 
-	                const submitBatchArchive = async () => {
-	                    const singleTarget = archiveTargetPot.value;
-	                    if (singleTarget) {
-	                        try {
-	                            isBatchArchiveLoading.value = true;
-	                            const res = await apiClient.archivePot(singleTarget.id, {
-	                                reason: batchArchiveForm.reason,
-	                                note: batchArchiveForm.note.trim() || null
-	                            });
-	                            if (res.success) {
-	                                showBatchArchiveModal.value = false;
-	                                archiveTargetPot.value = null;
-	                                await fetchPots({ status: 'active', blocking: pots.value.length <= 1 });
-	                                await fetchPotStatusCounts();
-	                                await loadCareReminders();
-	                                alert('已归档。');
-	                            }
-	                        } catch (e) {
-	                            alert('归档失败: ' + e.message);
-	                        } finally {
-	                            isBatchArchiveLoading.value = false;
-	                        }
-	                        return;
-	                    }
+                const submitBatchArchive = async () => {
+                    const singleTarget = archiveTargetPot.value;
+                    if (singleTarget) {
+                        try {
+                            isBatchArchiveLoading.value = true;
+                            const res = await apiClient.archivePot(singleTarget.id, {
+                                reason: batchArchiveForm.reason,
+                                note: batchArchiveForm.note.trim() || null
+                            });
+                            if (res.success) {
+                                showBatchArchiveModal.value = false;
+                                archiveTargetPot.value = null;
+                                await fetchPots({ status: 'active', blocking: pots.value.length <= 1 });
+                                await fetchPotStatusCounts();
+                                await loadCareReminders();
+                                alert('已归档。');
+                            }
+                        } catch (e) {
+                            alert('归档失败: ' + e.message);
+                        } finally {
+                            isBatchArchiveLoading.value = false;
+                        }
+                        return;
+                    }
 
-	                    const targetPots = selectedOwnedPots.value;
-	                    if (targetPots.length === 0) {
-	                        alert('请先选择自己拥有的花盆再批量归档。');
+                    const targetPots = selectedOwnedPots.value;
+                    if (targetPots.length === 0) {
+                        alert('请先选择自己拥有的花盆再批量归档。');
                         return;
                     }
 
@@ -3477,9 +3542,9 @@
                     }
                 };
 
-	                const submitBatchCare = async () => {
-	                    const selectedPots = selectedOwnedPots.value;
-	                    if (selectedPots.length === 0) return;
+                const submitBatchCare = async () => {
+                    const selectedPots = selectedOwnedPots.value;
+                    if (selectedPots.length === 0) return;
 
                     const finalAction = batchCareForm.action.trim();
                     if (!finalAction) {
@@ -3530,12 +3595,12 @@
                 return {
                     isLoading, pots, isLoadingMore, hasMorePots, loadMorePots, activePotStatus, potStatusTabs, potStatusCounts, showPotStatusSwitch, setPotStatus, emptyStateTitle, emptyStateMessage,
                     user, isLoggedIn, userDisplayName, careReminders, isCareRemindersLoading, hasTopReminderBlock, groupedReminders, navSeasonalReminder, showRemindersExpanded,
-	                    ownedPots, collaborativePots, viewerPots, batchManageablePots,
+                    ownedPots, collaborativePots, viewerPots, batchManageablePots,
                     isEditMode, potsGrid, showUserMenu, showLoginModal, showRegisterModal, showForgotPasswordModal, isAuthLoading,
                     entryNotice, entryNoticeClass, dismissEntryNotice,
                     loginForm, registerForm, loginErrors, registerErrors, forgotPasswordErrors, loginStatus, registerStatus, forgotPasswordStatus,
                     passwordsMatch, isLoginValid, isRegisterValid, isForgotPasswordEmailValid, allSelected, selectedCount,
-	                    selectedOwnedCount, selectedViewerCount, selectedExcludedCount, isBatchInviteEmailValid, hasOverlayModalOpen,
+                    selectedOwnedCount, selectedViewerCount, selectedExcludedCount, isBatchInviteEmailValid, hasOverlayModalOpen,
                     syncLoginFormFromDom, syncRegisterFormFromDom, scheduleLoginAutofillSync,
                     validateLoginEmail, validateLoginPassword, validateForgotPasswordEmail,
                     validateRegisterEmail, validateRegisterPassword, validateRegisterConfirmPassword,
@@ -3543,16 +3608,16 @@
                     handleRegisterEmailInput, handleRegisterDisplayNameInput, handleRegisterPasswordInput, handleRegisterConfirmPasswordInput,
                     normalizeRegisterDisplayName,
                     handleLogin, handleRegister, handleForgotPassword, toggleSelectAll, toggleEditMode, deleteSelectedPots,
-	                    handleCardClick, restoreArchivedPot, restorePotFromSheet, confirmDeleteSingle, showPotActionSheet, activePotAction, openPotActionSheet, closePotActionSheet,
-	                    isOwnedPot, goEditPotFromSheet, goAddCareForPot, openShareSettingsForPot, openSingleArchiveFromSheet, deletePotFromSheet,
+                    handleCardClick, restoreArchivedPot, restorePotFromSheet, confirmDeleteSingle, showPotActionSheet, activePotAction, openPotActionSheet, closePotActionSheet,
+                    isOwnedPot, goEditPotFromSheet, goAddCareForPot, openShareSettingsForPot, openSingleArchiveFromSheet, deletePotFromSheet,
                     leaveCollaborationFromSheet, removeViewerPotFromSheet,
                     confirmLeaveCollaboration, confirmLeaveViewer,
                     logout, closeAuthModals, switchToRegister, switchToLogin, switchToForgotPassword,
                     formatDate, handleImageError, imgUrl, seedDemoData, goToPotDetail,
-                    goEditPot: (id) => window.location.href = `edit-pot.html?id=${id}`,
-                    goAddPot: () => window.location.href = 'add-pot.html',
-                    goProfile: () => window.location.href = 'profile.html',
-                    goAdmin: () => window.location.href = 'admin-plants.html',
+                    goEditPot: (id) => window.location.href = `edit-pot?id=${id}`,
+                    goAddPot: () => window.location.href = 'add-pot',
+                    goProfile: () => window.location.href = 'profile',
+                    goAdmin: () => window.location.href = 'admin-plants',
                     // Seasonal
                     seasonalTipsMap,
                     getTaskSeasonalTip,
@@ -3585,10 +3650,10 @@
                     // 批量养护
                     showBatchActionSheet, showBatchCareModal, isBatchCareLoading, batchCareForm,
                     openBatchActionSheet, closeBatchActionSheet, openBatchCareModal, closeBatchCareModal, openBatchCareFromSheet, returnToBatchActionSheetFromCare, selectBatchCareType, submitBatchCare, exitBatchMode,
-	                    showBatchArchiveModal, isBatchArchiveLoading, batchArchiveForm, batchArchiveReasons, archiveTargetPot,
+                    showBatchArchiveModal, isBatchArchiveLoading, batchArchiveForm, batchArchiveReasons, archiveTargetPot,
                     openBatchArchiveFromSheet, closeBatchArchiveModal, returnToBatchActionSheetFromArchive, submitBatchArchive,
                     showBatchInviteModal, isBatchInviteLoading, batchInviteForm,
-	                    openBatchInviteModal, closeBatchInviteModal, openBatchInviteFromSheet, returnToBatchActionSheetFromInvite, deleteSelectedFromSheet, restoreSelectedFromSheet, leaveSelectedViewersFromSheet, submitBatchInvite,
+                    openBatchInviteModal, closeBatchInviteModal, openBatchInviteFromSheet, returnToBatchActionSheetFromInvite, deleteSelectedFromSheet, restoreSelectedFromSheet, leaveSelectedViewersFromSheet, submitBatchInvite,
                     apiClient
                 };
             }

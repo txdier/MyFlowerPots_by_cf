@@ -5,7 +5,8 @@ export function jsonResponse(data: any, status = 200, extraHeaders: HeadersInit 
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-d1-bookmark',
+    'Access-Control-Expose-Headers': 'x-d1-bookmark',
   });
   new Headers(extraHeaders).forEach((value, key) => headers.set(key, value));
 
@@ -25,6 +26,7 @@ export function htmlResponse(html: string, status = 200): Response {
     headers: {
       'Content-Type': 'text/html;charset=UTF-8',
       'Access-Control-Allow-Origin': '*',
+      'Access-Control-Expose-Headers': 'x-d1-bookmark',
     },
   });
 }
@@ -34,7 +36,8 @@ export function corsResponse(): Response {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-d1-bookmark',
+      'Access-Control-Expose-Headers': 'x-d1-bookmark',
     },
   });
 }

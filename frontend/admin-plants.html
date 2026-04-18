@@ -78,7 +78,7 @@
         <div v-else class="max-w-6xl mx-auto">
             <!-- Header -->
             <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                <div class="cursor-pointer group" onclick="window.location.href='index.html'">
+                <div class="cursor-pointer group" onclick="window.location.href='/'">
                     <h1
                         class="text-2xl sm:text-3xl font-bold text-slate-800 flex items-center gap-3 transition-colors">
                         <i class="fa fa-shield-alt text-emerald-500"></i>
@@ -102,12 +102,17 @@
                             class="px-4 sm:px-6 py-2 rounded-xl font-medium transition-all whitespace-nowrap">
                             用户管理
                         </button>
-                        <a href="admin-stats.html"
+                        <button @click="currentTab = 'cache'"
+                            :class="currentTab === 'cache' ? 'bg-white shadow-sm text-emerald-600' : 'text-slate-500'"
+                            class="px-4 sm:px-6 py-2 rounded-xl font-medium transition-all whitespace-nowrap">
+                            缓存
+                        </button>
+                        <a href="admin-stats"
                             class="px-4 sm:px-6 py-2 rounded-xl font-medium text-slate-500 hover:text-emerald-600 transition-all flex items-center gap-2 whitespace-nowrap">
                             <i class="fa fa-chart-bar"></i>
                             统计
                         </a>
-                        <a href="admin-inbox.html"
+                        <a href="admin-inbox"
                             class="px-4 sm:px-6 py-2 rounded-xl font-medium text-slate-500 hover:text-emerald-600 transition-all flex items-center gap-2 whitespace-nowrap">
                             <i class="fa fa-envelope"></i>
                             收件箱
@@ -323,6 +328,90 @@
                         <button @click="changeUserPage(userPagination.page + 1)"
                             :disabled="userPagination.page === totalUserPages"
                             class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-slate-600 disabled:opacity-50">下一页</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 缓存管理视图 -->
+            <div v-else-if="currentTab === 'cache'" class="space-y-6">
+                <div class="glass border border-white rounded-2xl p-5 shadow-sm">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                <i class="fa fa-rotate-left text-emerald-500"></i>
+                                缓存管理
+                            </h2>
+                            <p class="text-sm text-slate-500 mt-1">
+                                手动查看和清理当前 Worker 进程内的内存缓存。
+                            </p>
+                        </div>
+                        <button @click="fetchCacheStats" :disabled="cacheLoading"
+                            class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:border-emerald-500 hover:text-emerald-600 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+                            <i :class="cacheLoading ? 'fa fa-spinner fa-spin' : 'fa fa-rotate-left'"></i>
+                            {{ cacheLoading ? '读取中...' : '刷新状态' }}
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
+                        <div class="bg-slate-50 rounded-xl p-4">
+                            <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">缓存条目</p>
+                            <p class="text-2xl font-black text-slate-800 mt-2">{{ cacheStats.size || 0 }}</p>
+                        </div>
+                        <div class="bg-slate-50 rounded-xl p-4">
+                            <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">前缀数量</p>
+                            <p class="text-2xl font-black text-slate-800 mt-2">{{ cachePrefixEntries.length }}</p>
+                        </div>
+                        <div class="bg-slate-50 rounded-xl p-4">
+                            <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">最近清理</p>
+                            <p class="text-sm font-semibold text-slate-700 mt-2">
+                                <span v-if="cacheLastResult">{{ cacheLastResult.cleared }} 条，{{ cacheLastResult.scopeLabel }}</span>
+                                <span v-else>暂无操作</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass border border-white rounded-2xl p-5 shadow-sm">
+                    <div class="flex flex-col md:flex-row gap-3 md:items-end">
+                        <div class="flex-[2_1_16rem] min-w-0">
+                            <label class="block text-sm font-semibold text-slate-600 mb-2">清理范围</label>
+                            <select v-model="cacheClearScope"
+                                class="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
+                                <option value="plants">植物匹配缓存</option>
+                                <option value="all">全部内存缓存</option>
+                                <option value="prefix">指定前缀</option>
+                            </select>
+                        </div>
+                        <div v-if="cacheClearScope === 'prefix'" class="flex-[2_1_16rem] min-w-0">
+                            <label class="block text-sm font-semibold text-slate-600 mb-2">缓存前缀</label>
+                            <input v-model.trim="cachePrefix" type="text" placeholder="例如 plant"
+                                class="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
+                        </div>
+                        <button @click="clearAdminCache" :disabled="cacheClearing"
+                            class="w-full md:w-24 px-3 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-all flex items-center justify-center gap-1.5 disabled:opacity-60 shrink-0 text-sm font-semibold whitespace-nowrap">
+                            <i :class="cacheClearing ? 'fa fa-spinner fa-spin' : 'fa fa-trash-alt'"></i>
+                            {{ cacheClearing ? '清理中' : '清理' }}
+                        </button>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-3">
+                        植物数据保存、删除和导入会自动刷新植物缓存；这里用于生产排查或手动刷新。
+                    </p>
+                </div>
+
+                <div class="glass border border-white rounded-2xl overflow-hidden shadow-sm">
+                    <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                        <h3 class="font-bold text-slate-700">缓存前缀分布</h3>
+                        <span class="text-xs text-slate-400">来自 /api/admin/cache/stats</span>
+                    </div>
+                    <div v-if="cachePrefixEntries.length === 0" class="p-6 text-sm text-slate-400">
+                        当前没有可展示的缓存条目。
+                    </div>
+                    <div v-else class="divide-y divide-slate-100">
+                        <div v-for="entry in cachePrefixEntries" :key="entry[0]"
+                            class="px-5 py-4 flex items-center justify-between">
+                            <span class="font-mono text-sm text-slate-700 break-all">{{ entry[0] }}</span>
+                            <span class="px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold">{{ entry[1] }}</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -632,7 +721,7 @@
     </div>
 
     <!-- Scripts -->
-    <script src="js/api-client.js?v=20260415-1"></script>
+    <script src="js/api-client.js?v=20260418-admincache"></script>
     <script>
         const { createApp, ref, computed, onMounted, watch } = Vue;
 
@@ -667,6 +756,12 @@
                 const toast = ref({ show: false, message: '', icon: '' });
                 const isCheckingAccess = ref(true);
                 const supportUnreadCount = ref(0);
+                const cacheStats = ref({ size: 0, prefixes: {} });
+                const cacheLoading = ref(false);
+                const cacheClearing = ref(false);
+                const cacheClearScope = ref('plants');
+                const cachePrefix = ref('');
+                const cacheLastResult = ref(null);
 
                 const tabs = [
                     { id: 'basic', name: '基本信息' },
@@ -688,6 +783,10 @@
                 const totalPages = computed(() => Math.ceil(pagination.value.total / pagination.value.pageSize));
                 const totalUserPages = computed(() => Math.ceil(userPagination.value.total / userPagination.value.pageSize));
                 const isAllSelected = computed(() => plants.value.length > 0 && selectedIds.value.length === plants.value.length);
+                const cachePrefixEntries = computed(() => {
+                    const prefixes = cacheStats.value?.prefixes || {};
+                    return Object.entries(prefixes).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+                });
 
                 const fetchPlants = async () => {
                     try {
@@ -725,10 +824,67 @@
                     }
                 };
 
+                const normalizeCacheStats = (stats) => ({
+                    size: Number(stats?.size) || 0,
+                    prefixes: stats?.prefixes || {}
+                });
+
+                const fetchCacheStats = async () => {
+                    cacheLoading.value = true;
+                    try {
+                        const res = await apiClient.adminGetCacheStats();
+                        if (res.success) {
+                            cacheStats.value = normalizeCacheStats(res.data);
+                        }
+                    } catch (err) {
+                        showToast(err.message, 'fa fa-exclamation-circle');
+                    } finally {
+                        cacheLoading.value = false;
+                    }
+                };
+
+                const getCacheScopeLabel = (scope = cacheClearScope.value) => {
+                    if (scope === 'all') return '全部内存缓存';
+                    if (scope === 'plants') return '植物匹配缓存';
+                    if (scope === 'prefix') return `前缀 ${cachePrefix.value || '-'}`;
+                    return scope;
+                };
+
+                const clearAdminCache = async () => {
+                    const scope = cacheClearScope.value;
+                    const prefix = cachePrefix.value.trim();
+
+                    if (scope === 'prefix' && !prefix) {
+                        showToast('请输入要清理的缓存前缀', 'fa fa-exclamation-circle');
+                        return;
+                    }
+
+                    const scopeLabel = getCacheScopeLabel(scope);
+                    if (!confirm(`确定要清理 ${scopeLabel} 吗？`)) return;
+
+                    cacheClearing.value = true;
+                    try {
+                        const res = await apiClient.adminClearCache({ scope, prefix });
+                        if (res.success) {
+                            cacheStats.value = normalizeCacheStats(res.data);
+                            cacheLastResult.value = {
+                                cleared: Number(res.cleared) || 0,
+                                scopeLabel
+                            };
+                            showToast(`已清理 ${cacheLastResult.value.cleared} 条缓存`, 'fa fa-check-circle');
+                        }
+                    } catch (err) {
+                        showToast(err.message, 'fa fa-exclamation-circle');
+                    } finally {
+                        cacheClearing.value = false;
+                    }
+                };
+
                 // 监听页签切换自动加载数据
                 watch(currentTab, (newVal) => {
                     if (newVal === 'plants') fetchPlants();
                     if (newVal === 'users') fetchUsers();
+                    if (newVal === 'cache') fetchCacheStats();
                 });
 
                 const changePage = (p) => {
@@ -993,7 +1149,7 @@
                     if (!token) {
                         nav.redirectToLoginRequired({
                             from: 'admin-plants',
-                            redirect: 'admin-plants.html',
+                            redirect: 'admin-plants',
                             message: '请先登录管理员账号后再进入后台。'
                         }, { replace: true });
                         return;
@@ -1017,7 +1173,7 @@
                         if (nav.classifyApiError(err) === 'auth') {
                             nav.redirectToLoginRequired({
                                 from: 'admin-plants',
-                                redirect: 'admin-plants.html',
+                                redirect: 'admin-plants',
                                 message: err.message || '请重新登录管理员账号后再进入后台。'
                             }, { replace: true });
                             return;
@@ -1033,7 +1189,7 @@
                 window.addEventListener('auth:expired', (event) => {
                     nav.redirectToSessionExpired(event.detail?.message, {
                         from: 'admin-plants',
-                        redirect: 'admin-plants.html',
+                        redirect: 'admin-plants',
                         source: 'admin'
                     }, { replace: true });
                 });
@@ -1045,10 +1201,12 @@
                     showModal, isEditing, activeTab, tabs, formData, saving, synonymsInput,
                     showImportModal, importJson, importing, toast, fileInput, isCheckingAccess,
                     supportUnreadCount,
+                    cacheStats, cachePrefixEntries, cacheLoading, cacheClearing, cacheClearScope, cachePrefix, cacheLastResult,
                     users, userPagination, userSearchQuery, showLimitModal, activeUser, newLimit, savingLimit, totalUserPages,
                     fetchPlants, fetchUsers, changePage, changeUserPage, toggleAll, difficultyClass, openCreateModal,
                     openEditModal, savePlant, deleteSingle, batchDelete, downloadTemplate, formatDateTime,
-                    doImport, triggerUpload, handleUpload, openLimitModal, saveLimit, toggleUserStatus, confirmDeleteUser
+                    doImport, triggerUpload, handleUpload, openLimitModal, saveLimit, toggleUserStatus, confirmDeleteUser,
+                    fetchCacheStats, clearAdminCache
                 };
             }
         }).mount('#app');

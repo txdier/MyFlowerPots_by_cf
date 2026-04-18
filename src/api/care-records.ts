@@ -443,18 +443,37 @@ async function handleDeleteCareRecord(request: Request, env: any, id: string, to
 }
 
 async function syncPotLastCareSummary(env: any, potId: string): Promise<void> {
-  const latestRecord: any = await env.DB
+  const summary: any = await env.DB
     .prepare(`
-      SELECT care_date
-      FROM care_records
-      WHERE pot_id = ?
-      ORDER BY care_date DESC, created_at DESC, id DESC
-      LIMIT 1
+      WITH latest AS (
+        SELECT care_date
+        FROM care_records
+        WHERE pot_id = ?
+        ORDER BY care_date DESC, created_at DESC, id DESC
+        LIMIT 1
+      ),
+      actions AS (
+        SELECT action, MIN(id) AS first_id
+        FROM care_records
+        WHERE pot_id = ?
+          AND care_date = (SELECT care_date FROM latest)
+        GROUP BY action
+      )
+      SELECT
+        (SELECT care_date FROM latest) AS care_date,
+        (
+          SELECT GROUP_CONCAT(action, '、')
+          FROM (
+            SELECT action
+            FROM actions
+            ORDER BY first_id ASC
+          )
+        ) AS actions
     `)
-    .bind(potId)
+    .bind(potId, potId)
     .first();
 
-  if (!latestRecord?.care_date) {
+  if (!summary?.care_date) {
     await env.DB
       .prepare('UPDATE pots SET last_care = NULL, last_care_action = NULL WHERE id = ?')
       .bind(potId)
@@ -462,21 +481,8 @@ async function syncPotLastCareSummary(env: any, potId: string): Promise<void> {
     return;
   }
 
-  const latestActionRow: any = await env.DB
-    .prepare(`
-      SELECT GROUP_CONCAT(action, '、') as actions
-      FROM (
-        SELECT DISTINCT action
-        FROM care_records
-        WHERE pot_id = ? AND care_date = ?
-        ORDER BY id ASC
-      )
-    `)
-    .bind(potId, latestRecord.care_date)
-    .first();
-
   await env.DB
     .prepare('UPDATE pots SET last_care = ?, last_care_action = ? WHERE id = ?')
-    .bind(latestRecord.care_date, latestActionRow?.actions || null, potId)
+    .bind(summary.care_date, summary.actions || null, potId)
     .run();
 }

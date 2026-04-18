@@ -19,8 +19,6 @@ export async function handleShareRequest(
   // 以下接口需要授权
   if (!userId) return errorResponse('Authentication required', 401);
 
-  await ensurePotCommentDanmakuColumn(env);
-
   // 2️⃣ 开启分享
   if (request.method === 'POST' && path.match(/^\/api\/share\/enable\/[^/]+$/)) {
     const potId = path.split('/').pop();
@@ -39,47 +37,6 @@ export async function handleShareRequest(
   }
 
   return errorResponse('Not Found', 404);
-}
-
-async function ensurePotCommentDanmakuColumn(env: any): Promise<void> {
-  await env.DB.prepare(`
-    CREATE TABLE IF NOT EXISTS pot_viewers (
-      pot_id TEXT NOT NULL,
-      user_id TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (pot_id, user_id)
-    )
-  `).run();
-  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_viewers_user ON pot_viewers(user_id)').run();
-  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_viewers_pot ON pot_viewers(pot_id)').run();
-  try {
-    await env.DB.prepare('ALTER TABLE pots ADD COLUMN show_comment_danmaku INTEGER DEFAULT 1').run();
-  } catch (error: any) {
-    const message = String(error?.message || error || '');
-    if (!message.includes('duplicate column name')) {
-      throw error;
-    }
-  }
-}
-
-async function ensurePotArchiveColumns(env: any): Promise<void> {
-  const columns = [
-    "ALTER TABLE pots ADD COLUMN status TEXT DEFAULT 'active'",
-    'ALTER TABLE pots ADD COLUMN archived_at TEXT',
-    'ALTER TABLE pots ADD COLUMN archive_reason TEXT',
-    'ALTER TABLE pots ADD COLUMN archive_note TEXT'
-  ];
-
-  for (const statement of columns) {
-    try {
-      await env.DB.prepare(statement).run();
-    } catch (error: any) {
-      const message = String(error?.message || error || '');
-      if (!message.includes('duplicate column name')) {
-        throw error;
-      }
-    }
-  }
 }
 
 async function handleEnableShare(potId: string, userId: string, env: any): Promise<Response> {
@@ -106,8 +63,6 @@ async function handleDisableShare(potId: string, userId: string, env: any): Prom
 }
 
 async function handleSetCommentDanmaku(potId: string, userId: string, env: any, request: Request): Promise<Response> {
-  await ensurePotArchiveColumns(env);
-
   const pot = await env.DB.prepare(`
     SELECT id, COALESCE(status, 'active') as status
     FROM pots
@@ -126,8 +81,6 @@ async function handleSetCommentDanmaku(potId: string, userId: string, env: any, 
 }
 
 async function handleGetPublicPot(token: string, env: any, userId: string | null): Promise<Response> {
-  await ensurePotArchiveColumns(env);
-
   // 1. 获取花盆基本信息
   const pot = await env.DB.prepare(`
     SELECT

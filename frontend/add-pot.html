@@ -27,7 +27,7 @@
 
     <!-- 配置脚本 -->
     <script src="js/config.js?v=20260111"></script>
-    <script src="js/api-client.js?v=20260415-1"></script>
+    <script src="js/api-client.js?v=20260418-d1session"></script>
 </head>
 
 <body class="bg-gray-50">
@@ -252,7 +252,7 @@
                         if (res.success) {
                             showToast('恭喜！新花盆添加成功');
                             setTimeout(() => {
-                                window.location.href = 'index.html';
+                                window.location.href = '/';
                             }, 500);
                         }
                     } catch (err) {
@@ -264,7 +264,7 @@
 
                 const goBack = () => {
                     // 添加页回首页
-                    window.location.href = 'index.html';
+                    window.location.href = '/';
                 };
 
                 return {

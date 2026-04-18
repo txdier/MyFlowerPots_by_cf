@@ -21,29 +21,6 @@ import { isAdmin } from './admin';
 import { jsonResponse, errorResponse, htmlResponse } from '../utils/response-utils';
 
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
-let authSchemaReady: Promise<void> | null = null;
-const USER_SCHEMA_MIGRATIONS = [
-  'ALTER TABLE users ADD COLUMN email TEXT',
-  'ALTER TABLE users ADD COLUMN password_hash TEXT',
-  'ALTER TABLE users ADD COLUMN display_name TEXT',
-  'ALTER TABLE users ADD COLUMN avatar_url TEXT',
-  'ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT FALSE',
-  'ALTER TABLE users ADD COLUMN verification_token TEXT',
-  'ALTER TABLE users ADD COLUMN verification_token_expires DATETIME',
-  'ALTER TABLE users ADD COLUMN reset_token TEXT',
-  'ALTER TABLE users ADD COLUMN reset_token_expires DATETIME',
-  'ALTER TABLE users ADD COLUMN last_login DATETIME',
-  'ALTER TABLE users ADD COLUMN new_email TEXT',
-  'ALTER TABLE users ADD COLUMN new_email_verification_token TEXT',
-  'ALTER TABLE users ADD COLUMN new_email_verification_expires DATETIME',
-  'ALTER TABLE users ADD COLUMN max_pots INTEGER DEFAULT NULL',
-  'ALTER TABLE users ADD COLUMN is_disabled INTEGER DEFAULT 0',
-];
-
-function isDuplicateColumnError(error: unknown): boolean {
-  const message = String((error as any)?.message || error || '');
-  return /duplicate column name/i.test(message);
-}
 
 function isUniqueConstraintError(error: unknown, tableOrColumn?: string): boolean {
   const message = String((error as any)?.message || error || '');
@@ -68,7 +45,7 @@ function getClientSafeAuthErrorMessage(error: unknown, fallback: string): string
   }
 
   if (/no such column:\s*(is_disabled|max_pots|verification_token_expires)/i.test(message)) {
-    return 'User schema is out of date. Please redeploy the latest code so the users table can self-migrate.';
+    return 'User schema is out of date. Please apply the latest database migrations and redeploy.';
   }
 
   if (/PBKDF2 iteration count .* exceeds the Cloudflare Workers limit of 100000|above 100000 are not supported/i.test(message)) {
@@ -90,24 +67,6 @@ async function issueAuthToken(
   return generateJWT(payload, secret);
 }
 
-async function ensureAuthSchema(env: any): Promise<void> {
-  if (!authSchemaReady) {
-    authSchemaReady = (async () => {
-      for (const statement of USER_SCHEMA_MIGRATIONS) {
-        try {
-          await env.DB.prepare(statement).run();
-        } catch (error: any) {
-          if (!isDuplicateColumnError(error)) {
-            throw error;
-          }
-        }
-      }
-    })();
-  }
-
-  await authSchemaReady;
-}
-
 export async function handleAuthRequest(
   request: Request,
   env: any,
@@ -115,8 +74,6 @@ export async function handleAuthRequest(
   url: URL,
   userId: string | null
 ): Promise<Response> {
-  await ensureAuthSchema(env);
-
   // 1️⃣ 邮箱注册
   if (request.method === 'POST' && path === '/api/auth/register') {
     return handleRegister(request, env);

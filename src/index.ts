@@ -19,7 +19,36 @@ import { handleMessagesRequest } from './api/messages';
 import { handleSupportRequest } from './api/support';
 import { parseEmail } from './utils/email-parser';
 import { servePotDetailWithMeta } from './static/server';
-import { recordPageVisit } from './api/analytics';
+import { queuePageVisit } from './api/analytics';
+import { appendD1Bookmark, createD1SessionContext } from './utils/d1-session-utils';
+
+const STATIC_PAGE_PATHS = new Set([
+  '/',
+  '/index',
+  '/add-pot',
+  '/admin-inbox',
+  '/admin-plants',
+  '/admin-stats',
+  '/all-records',
+  '/all-timelines',
+  '/care-record',
+  '/edit-pot',
+  '/error',
+  '/pot-detail',
+  '/profile',
+  '/reset-password',
+]);
+
+function normalizeStaticPagePath(path: string): string {
+  const cleanPath = (path || '/').split('?')[0].split('#')[0].trim();
+  if (cleanPath === '' || cleanPath === '/') return '/';
+  const withoutTrailingSlash = cleanPath.replace(/\/+$/, '') || '/';
+  return withoutTrailingSlash.replace(/\.html$/i, '');
+}
+
+function isStaticPagePath(path: string): boolean {
+  return STATIC_PAGE_PATHS.has(normalizeStaticPagePath(path));
+}
 
 export default {
   async fetch(request: Request, env: any, ctx: any): Promise<Response> {
@@ -34,13 +63,19 @@ export default {
 
       // 1️⃣ API路由处理
       if (path.startsWith('/api/')) {
+        const d1SessionContext = createD1SessionContext(request, env, path);
+        const requestEnv = d1SessionContext.env;
+        const respond = async (response: Promise<Response> | Response) => (
+          appendD1Bookmark(await response, d1SessionContext)
+        );
+
         const rawToken = getTokenFromHeader(request);
         let userId: string | null = null;
 
         // 验证 JWT 并提取 userId
         if (rawToken) {
           try {
-            const secret = getJwtSecret(env);
+            const secret = getJwtSecret(requestEnv);
             const payload = await verifyJWT(rawToken, secret);
             if (payload) {
               userId = payload.userId;
@@ -51,7 +86,7 @@ export default {
             }
           } catch (error) {
             console.error('JWT configuration error:', error);
-            return errorResponse('Server authentication is not configured securely. JWT_SECRET is missing or uses a known insecure placeholder value in the active deployment.', 500);
+            return respond(errorResponse('Server authentication is not configured securely. JWT_SECRET is missing or uses a known insecure placeholder value in the active deployment.', 500));
           }
         }
 
@@ -68,86 +103,86 @@ export default {
 
         // 认证相关API
         if (path.startsWith('/api/auth/')) {
-          return handleAuthRequest(request, env, path, url, userId);
+          return respond(handleAuthRequest(request, requestEnv, path, url, userId));
         }
 
         // 支持收件箱API（管理员专用，需在 handleAdminRequest 之前拦截）
         if (path.startsWith('/api/admin/support/')) {
-          return handleSupportRequest(request, env, path, url, userId);
+          return respond(handleSupportRequest(request, requestEnv, path, url, userId));
         }
 
         // 管理员专用API
         if (path.startsWith('/api/admin/')) {
-          return handleAdminRequest(request, env, path, url, userId);
+          return respond(handleAdminRequest(request, requestEnv, path, url, userId));
         }
 
         // 花盆相关API
         if (path.startsWith('/api/pots')) {
-          return handlePotsRequest(request, env, ctx, path, url, userId);
+          return respond(handlePotsRequest(request, requestEnv, ctx, path, url, userId));
         }
 
         // 养护记录API
         if (path.startsWith('/api/care-records')) {
-          return handleCareRecordsRequest(request, env, path, userId);
+          return respond(handleCareRecordsRequest(request, requestEnv, path, userId));
         }
 
         // 养护计划API (新增)
         if (path.startsWith('/api/care-schedules')) {
-          return handleCareSchedulesRequest(request, env, path, userId);
+          return respond(handleCareSchedulesRequest(request, requestEnv, path, userId));
         }
 
         // 时间线API
         if (path.startsWith('/api/timelines')) {
-          return handleTimelinesRequest(request, env, path, userId);
+          return respond(handleTimelinesRequest(request, requestEnv, path, userId));
         }
 
         // 图片上传API
         if (path.startsWith('/api/upload/')) {
-          return handleUploadRequest(request, env, path, userId);
+          return respond(handleUploadRequest(request, requestEnv, path, userId));
         }
 
         // 植物相关API
         if (path.startsWith('/api/plants/')) {
-          return handlePlantsRequest(request, env, path, url);
+          return respond(handlePlantsRequest(request, requestEnv, path, url));
         }
 
         // 天气相关API
         if (path === '/api/weather') {
-          return handleWeatherRequest(request, env, url);
+          return respond(handleWeatherRequest(request, requestEnv, url));
         }
 
         // 养护建议API
         if (path === '/api/care-advice') {
-          return handleCareAdviceRequest(request, env);
+          return respond(handleCareAdviceRequest(request, requestEnv));
         }
 
         // 分享、协作与转移API (新增)
         if (path.startsWith('/api/share/') || path.startsWith('/api/public/pots/')) {
-          return handleShareRequest(request, env, path, userId);
+          return respond(handleShareRequest(request, requestEnv, path, userId));
         }
 
         if (path.startsWith('/api/transfer/') || path.startsWith('/api/public/transfer/')) {
-          return handleTransferRequest(request, env, path, userId);
+          return respond(handleTransferRequest(request, requestEnv, path, userId));
         }
 
         if (path.startsWith('/api/collaborators/')) {
-          return handleCollaboratorsRequest(request, env, path, userId);
+          return respond(handleCollaboratorsRequest(request, requestEnv, path, userId));
         }
 
         if (path.startsWith('/api/viewers/')) {
-          return handleViewersRequest(request, env, path, userId);
+          return respond(handleViewersRequest(request, requestEnv, path, userId));
         }
 
         if (path.startsWith('/api/batch-invites')) {
-          return handleBatchInvitesRequest(request, env, path, userId);
+          return respond(handleBatchInvitesRequest(request, requestEnv, path, userId));
         }
 
         if (path.startsWith('/api/messages')) {
-          return handleMessagesRequest(request, env, path, userId);
+          return respond(handleMessagesRequest(request, requestEnv, path, userId));
         }
 
         // 其他API路由可以在这里添加
-        return errorResponse('API Not Found', 404);
+        return respond(errorResponse('API Not Found', 404));
       }
 
       // 2️⃣ 静态资源服务 — 统一使用 Workers Assets（开发/生产均通过 env.ASSETS）
@@ -155,21 +190,25 @@ export default {
 
       // 📊 统计页面访问 (异步执行，不阻塞响应)
       if (request.method === 'GET') {
-        const isPageRequest = path === '/' || path.endsWith('.html');
+        const isPageRequest = isStaticPagePath(path);
         if (isPageRequest) {
-          ctx.waitUntil(recordPageVisit(env, path));
+          queuePageVisit(ctx, env, path);
         }
       }
 
-      // ✨ 分享卡片 OG Meta 注入：对 pot-detail.html 带 token/id 的请求单独处理
+      // ✨ 分享卡片 OG Meta 注入：对 pot-detail 带 token/id 的请求单独处理
       // 先从 ASSETS 获取静态 HTML，再用 HTMLRewriter 注入花盆元数据（用于微信等社交媒体预览）
-      const isPotDetail = path === '/pot-detail.html' || path.includes('/pot-detail');
+      const isPotDetail = normalizeStaticPagePath(path) === '/pot-detail';
       const shareToken = url.searchParams.get('token');
       const shareId = url.searchParams.get('id');
 
       if (env.ASSETS && isPotDetail && (shareToken || shareId) && env.DB) {
+        const d1SessionContext = createD1SessionContext(request, env, path);
         const baseResponse = await env.ASSETS.fetch(request);
-        return servePotDetailWithMeta(baseResponse, env, shareToken, shareId);
+        return appendD1Bookmark(
+          await servePotDetailWithMeta(baseResponse, d1SessionContext.env, shareToken, shareId),
+          d1SessionContext
+        );
       }
 
       // 所有其他非 API 请求直接交给 Workers Assets 处理

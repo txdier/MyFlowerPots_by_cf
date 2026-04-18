@@ -1,4 +1,5 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
+import { deleteMemoryCachePrefix, getMemoryCache, setMemoryCache } from '../utils/cache-utils';
 
 // 植物数据结构
 interface PlantData {
@@ -295,7 +296,7 @@ function findFallbackPlantById(plantId: string) {
 function findFallbackSmartMatch(potName?: string, potNote?: string) {
   const normalizedPotName = normalizePlantText(potName);
   const combinedText = `${potName || ''} ${potNote || ''}`.trim();
-  const keywords = extractKeywords(combinedText);
+  const keywords = extractSmartMatchKeywords(combinedText);
 
   if (normalizedPotName) {
     const directMatch = PLANT_DATABASE.find((plant) => (
@@ -397,6 +398,8 @@ const STOP_WORDS = new Set([
   '办公室', '家里', '公司', '朋友', '妈妈', '爸爸', '奶奶', '爷爷', '姥姥', '姥爷'
 ]);
 
+const SMART_MATCH_KEYWORD_LIMIT = 12;
+
 // 从文本中提取可能的植物关键词
 function extractKeywords(text: string): string[] {
   if (!text) return [];
@@ -426,6 +429,232 @@ function extractKeywords(text: string): string[] {
   }
 
   return keywords;
+}
+
+function extractSmartMatchKeywords(text: string): string[] {
+  return extractKeywords(text).slice(0, SMART_MATCH_KEYWORD_LIMIT);
+}
+
+type PlantRecord = Record<string, any> & {
+  id: string;
+  name: string;
+  category?: string | null;
+  care_difficulty?: string | null;
+  basic_info: Record<string, any>;
+  ornamental_features: Record<string, any>;
+  care_guide: Record<string, any>;
+  image_url?: string | null;
+};
+
+type PlantSearchEntry = {
+  value: string;
+  plant: PlantRecord;
+};
+
+type PlantIndex = {
+  plants: PlantRecord[];
+  byId: Map<string, PlantRecord>;
+  byName: Map<string, PlantRecord>;
+  bySynonym: Map<string, PlantRecord>;
+  nameEntries: PlantSearchEntry[];
+  idEntries: PlantSearchEntry[];
+  synonymEntries: PlantSearchEntry[];
+  loadedAt: number;
+};
+
+const PLANT_CACHE_PREFIX = 'plants:';
+const PLANT_INDEX_CACHE_KEY = `${PLANT_CACHE_PREFIX}index:v1`;
+const PLANT_INDEX_TTL_MS = 10 * 60 * 1000;
+
+export function invalidatePlantCache(): number {
+  return deleteMemoryCachePrefix(PLANT_CACHE_PREFIX);
+}
+
+function parsePlantJsonField(value: any): Record<string, any> {
+  if (!value) {
+    return {};
+  }
+
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    return value;
+  }
+
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function normalizeDbPlant(row: any): PlantRecord | null {
+  const id = String(row?.id || '').trim();
+  const name = String(row?.name || '').trim();
+  if (!id || !name) {
+    return null;
+  }
+
+  return {
+    ...row,
+    id,
+    name,
+    category: row.category || null,
+    care_difficulty: row.care_difficulty || null,
+    basic_info: parsePlantJsonField(row.basic_info),
+    ornamental_features: parsePlantJsonField(row.ornamental_features),
+    care_guide: parsePlantJsonField(row.care_guide),
+    image_url: row.image_url || null
+  };
+}
+
+function clonePlantForResponse(plant: PlantRecord): PlantRecord {
+  return {
+    ...plant,
+    basic_info: { ...(plant.basic_info || {}) },
+    ornamental_features: { ...(plant.ornamental_features || {}) },
+    care_guide: { ...(plant.care_guide || {}) }
+  };
+}
+
+function toPlantSearchResult(plant: PlantRecord) {
+  return {
+    id: plant.id,
+    name: plant.name,
+    category: plant.category || null,
+    care_difficulty: plant.care_difficulty || null
+  };
+}
+
+function addFirstMapValue(map: Map<string, PlantRecord>, key: string, plant: PlantRecord) {
+  if (key && !map.has(key)) {
+    map.set(key, plant);
+  }
+}
+
+async function getPlantIndex(env: any): Promise<PlantIndex> {
+  const cached = getMemoryCache<PlantIndex>(PLANT_INDEX_CACHE_KEY);
+  if (cached) {
+    return cached;
+  }
+
+  const [plantRows, synonymRows] = await Promise.all([
+    env.DB.prepare('SELECT * FROM plants ORDER BY name ASC').all(),
+    env.DB.prepare('SELECT plant_id, synonym FROM plant_synonyms ORDER BY synonym ASC').all()
+  ]);
+
+  const plants = (plantRows.results || [])
+    .map(normalizeDbPlant)
+    .filter(Boolean) as PlantRecord[];
+  const byId = new Map<string, PlantRecord>();
+  const byName = new Map<string, PlantRecord>();
+  const bySynonym = new Map<string, PlantRecord>();
+  const nameEntries: PlantSearchEntry[] = [];
+  const idEntries: PlantSearchEntry[] = [];
+  const synonymEntries: PlantSearchEntry[] = [];
+
+  for (const plant of plants) {
+    const normalizedId = normalizePlantText(plant.id);
+    const normalizedName = normalizePlantText(plant.name);
+
+    addFirstMapValue(byId, normalizedId, plant);
+    addFirstMapValue(byName, normalizedName, plant);
+
+    if (normalizedId) {
+      idEntries.push({ value: normalizedId, plant });
+    }
+    if (normalizedName) {
+      nameEntries.push({ value: normalizedName, plant });
+    }
+  }
+
+  for (const row of synonymRows.results || []) {
+    const plant = byId.get(normalizePlantText(row.plant_id));
+    const synonym = normalizePlantText(row.synonym);
+    if (!plant || !synonym) {
+      continue;
+    }
+
+    addFirstMapValue(bySynonym, synonym, plant);
+    synonymEntries.push({ value: synonym, plant });
+  }
+
+  return setMemoryCache(PLANT_INDEX_CACHE_KEY, {
+    plants,
+    byId,
+    byName,
+    bySynonym,
+    nameEntries,
+    idEntries,
+    synonymEntries,
+    loadedAt: Date.now()
+  }, PLANT_INDEX_TTL_MS);
+}
+
+function addUniquePlant(results: PlantRecord[], seen: Set<string>, plant: PlantRecord, limit: number): boolean {
+  const key = normalizePlantText(plant.id);
+  if (!key || seen.has(key)) {
+    return results.length >= limit;
+  }
+
+  seen.add(key);
+  results.push(plant);
+  return results.length >= limit;
+}
+
+function findDirectPlantMatch(index: PlantIndex, value: string): PlantRecord | null {
+  const normalizedValue = normalizePlantText(value);
+  if (!normalizedValue) {
+    return null;
+  }
+
+  return index.byName.get(normalizedValue)
+    || index.bySynonym.get(normalizedValue)
+    || index.byId.get(normalizedValue)
+    || null;
+}
+
+function findPrefixPlantMatch(index: PlantIndex, value: string): PlantRecord | null {
+  const normalizedValue = normalizePlantText(value);
+  if (!normalizedValue) {
+    return null;
+  }
+
+  const nameMatch = index.nameEntries.find((entry) => entry.value.startsWith(normalizedValue));
+  if (nameMatch) {
+    return nameMatch.plant;
+  }
+
+  return index.synonymEntries.find((entry) => entry.value.startsWith(normalizedValue))?.plant || null;
+}
+
+function searchPlantIndex(index: PlantIndex, query: string, limit = 20): PlantRecord[] {
+  const normalizedQuery = normalizePlantText(query);
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  const results: PlantRecord[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of index.nameEntries) {
+    if (entry.value.startsWith(normalizedQuery) && addUniquePlant(results, seen, entry.plant, limit)) {
+      return results;
+    }
+  }
+
+  for (const entry of index.idEntries) {
+    if (entry.value.startsWith(normalizedQuery) && addUniquePlant(results, seen, entry.plant, limit)) {
+      return results;
+    }
+  }
+
+  for (const entry of index.synonymEntries) {
+    if (entry.value.startsWith(normalizedQuery) && addUniquePlant(results, seen, entry.plant, limit)) {
+      return results;
+    }
+  }
+
+  return results;
 }
 
 // 智能植物匹配
@@ -459,54 +688,21 @@ async function handleSmartMatch(request: Request, env: any): Promise<Response> {
       return errorResponse('数据库未配置', 500);
     }
 
+    const plantIndex = await getPlantIndex(env);
+
     // 第一步：尝试直接匹配花盆名（最高优先级 - 先精确匹配主名称）
     if (potName && potName.trim()) {
-      // 优先级1：精确匹配主名称
-      let directMatch = await env.DB.prepare(`
-        SELECT id, name, category, care_difficulty,
-               basic_info, ornamental_features, care_guide
-        FROM plants
-        WHERE name = ?
-        LIMIT 1
-      `).bind(potName.trim()).first();
-
-      // 优先级2：如果主名称无精确匹配，尝试别名精确匹配
-      if (!directMatch) {
-        directMatch = await env.DB.prepare(`
-          SELECT DISTINCT p.id, p.name, p.category, p.care_difficulty,
-                 p.basic_info, p.ornamental_features, p.care_guide
-          FROM plants p
-          INNER JOIN plant_synonyms ps ON p.id = ps.plant_id
-          WHERE ps.synonym = ?
-          LIMIT 1
-        `).bind(potName.trim()).first();
-      }
-
-      // 优先级3：如果仍无匹配，尝试模糊匹配（LIKE）
-      if (!directMatch) {
-        directMatch = await env.DB.prepare(`
-          SELECT DISTINCT p.id, p.name, p.category, p.care_difficulty,
-                 p.basic_info, p.ornamental_features, p.care_guide
-          FROM plants p
-          LEFT JOIN plant_synonyms ps ON p.id = ps.plant_id
-          WHERE p.name LIKE ? OR ps.synonym LIKE ?
-          LIMIT 1
-        `).bind(`%${potName.trim()}%`, `%${potName.trim()}%`).first();
-      }
+      const trimmedPotName = potName.trim();
+      const directMatch = findDirectPlantMatch(plantIndex, trimmedPotName)
+        || findPrefixPlantMatch(plantIndex, trimmedPotName);
 
       if (directMatch) {
         console.log('直接匹配成功:', directMatch.name);
-        const plantData = {
-          ...directMatch,
-          basic_info: directMatch.basic_info ? JSON.parse(directMatch.basic_info) : {},
-          ornamental_features: directMatch.ornamental_features ? JSON.parse(directMatch.ornamental_features) : {},
-          care_guide: directMatch.care_guide ? JSON.parse(directMatch.care_guide) : {}
-        };
 
         return jsonResponse({
           success: true,
           message: `直接匹配成功: ${directMatch.name}`,
-          data: plantData,
+          data: clonePlantForResponse(directMatch),
           matchType: 'direct',
           matchScore: 10
         });
@@ -515,7 +711,7 @@ async function handleSmartMatch(request: Request, env: any): Promise<Response> {
 
     // 第二步：关键词提取匹配（备选方案）
     const combinedText = `${potName || ''} ${potNote || ''}`;
-    const keywords = extractKeywords(combinedText);
+    const keywords = extractSmartMatchKeywords(combinedText);
 
     console.log('智能匹配 - 提取关键词:', keywords);
 
@@ -524,25 +720,23 @@ async function handleSmartMatch(request: Request, env: any): Promise<Response> {
     }
 
     // 构建多关键词查询
-    let bestMatch = null;
+    let bestMatch: PlantRecord | null = null;
     let highestScore = 0;
 
-    for (const keyword of keywords) {
-      const { results } = await env.DB.prepare(`
-        SELECT DISTINCT p.id, p.name, p.category, p.care_difficulty,
-               p.basic_info, p.ornamental_features, p.care_guide
-        FROM plants p
-        LEFT JOIN plant_synonyms ps ON p.id = ps.plant_id
-        WHERE p.name LIKE ? OR ps.synonym LIKE ?
-        LIMIT 5
-      `).bind(`%${keyword}%`, `%${keyword}%`).all();
+    const keywordMatches = keywords.map((keyword) => ({
+      keyword,
+      results: searchPlantIndex(plantIndex, keyword, 5)
+    }));
 
+    for (const { keyword, results } of keywordMatches) {
       for (const result of results) {
+        const normalizedKeyword = normalizePlantText(keyword);
+        const normalizedResultName = normalizePlantText(result.name);
         // 计算匹配分数（名称完全匹配得分最高）
         let score = 1;
-        if (result.name === keyword) score = 10;
-        else if (result.name.includes(keyword)) score = 5;
-        else if (keyword.includes(result.name)) score = 8; // 关键词包含植物名
+        if (normalizedResultName === normalizedKeyword) score = 10;
+        else if (normalizedResultName.includes(normalizedKeyword)) score = 5;
+        else if (normalizedKeyword.includes(normalizedResultName)) score = 8; // 关键词包含植物名
 
         if (score > highestScore) {
           highestScore = score;
@@ -550,23 +744,15 @@ async function handleSmartMatch(request: Request, env: any): Promise<Response> {
         }
       }
 
-      // 如果找到完全匹配，提前返回
+      // 保留原来的关键词优先级：前面的完全匹配优先。
       if (highestScore >= 10) break;
     }
 
     if (bestMatch) {
-      // 解析 JSON 字段
-      const plantData = {
-        ...bestMatch,
-        basic_info: bestMatch.basic_info ? JSON.parse(bestMatch.basic_info) : {},
-        ornamental_features: bestMatch.ornamental_features ? JSON.parse(bestMatch.ornamental_features) : {},
-        care_guide: bestMatch.care_guide ? JSON.parse(bestMatch.care_guide) : {}
-      };
-
       return jsonResponse({
         success: true,
         message: `匹配成功: ${bestMatch.name}`,
-        data: plantData,
+        data: clonePlantForResponse(bestMatch),
         keywords: keywords,
         matchScore: highestScore
       });
@@ -646,14 +832,9 @@ async function handlePlantSearch(request: Request, env: any, url: URL): Promise<
       return errorResponse('数据库未配置', 500);
     }
 
-    console.log('从D1搜索植物:', query);
-    const { results } = await env.DB.prepare(`
-      SELECT DISTINCT p.id, p.name, p.category, p.care_difficulty 
-      FROM plants p
-      LEFT JOIN plant_synonyms ps ON p.id = ps.plant_id
-      WHERE p.name LIKE ? OR p.id LIKE ? OR ps.synonym LIKE ?
-      LIMIT 20
-    `).bind(`%${query}%`, `%${query}%`, `%${query}%`).all();
+    console.log('从植物索引搜索:', query);
+    const plantIndex = await getPlantIndex(env);
+    const results = searchPlantIndex(plantIndex, query, 20).map(toPlantSearchResult);
 
     if (results.length > 0 || !allowLocalFallback) {
       return jsonResponse({
@@ -723,9 +904,8 @@ async function handleGetPlantInfo(request: Request, plantId: string | undefined,
       return errorResponse('数据库未配置', 500);
     }
 
-    const plant = await env.DB.prepare(
-      "SELECT * FROM plants WHERE id = ?"
-    ).bind(plantId).first();
+    const plantIndex = await getPlantIndex(env);
+    const plant = plantIndex.byId.get(normalizePlantText(plantId));
 
     if (!plant) {
       if (allowLocalFallback) {
@@ -742,18 +922,10 @@ async function handleGetPlantInfo(request: Request, plantId: string | undefined,
       return errorResponse('植物未找到', 404);
     }
 
-    // 解析 JSON 字符串
-    const plantData = {
-      ...plant,
-      basic_info: plant.basic_info ? JSON.parse(plant.basic_info) : {},
-      ornamental_features: plant.ornamental_features ? JSON.parse(plant.ornamental_features) : {},
-      care_guide: plant.care_guide ? JSON.parse(plant.care_guide) : {}
-    };
-
     return jsonResponse({
       success: true,
       message: '获取植物信息成功',
-      data: plantData
+      data: clonePlantForResponse(plant)
     });
 
   } catch (error) {

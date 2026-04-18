@@ -10,8 +10,6 @@ export async function handleCollaboratorsRequest(
   path: string,
   userId: string | null
 ): Promise<Response> {
-  await ensureInviteTable(env);
-
   if (request.method === 'POST' && path.match(/^\/api\/collaborators\/open\/[^/]+$/)) {
     const token = path.split('/')[4];
     return handleOpenInviteLink(request, token!, env);
@@ -50,43 +48,6 @@ export async function handleCollaboratorsRequest(
   }
 
   return errorResponse('Not Found', 404);
-}
-
-async function ensureInviteTable(env: any): Promise<void> {
-  await env.DB.prepare(`
-    CREATE TABLE IF NOT EXISTS pot_viewers (
-      pot_id TEXT NOT NULL,
-      user_id TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (pot_id, user_id)
-    )
-  `).run();
-  await env.DB.prepare(`
-    CREATE TABLE IF NOT EXISTS pot_collab_invites (
-      id TEXT PRIMARY KEY,
-      pot_id TEXT NOT NULL,
-      owner_id TEXT NOT NULL,
-      token TEXT NOT NULL UNIQUE,
-      expires_at TEXT NOT NULL,
-      used_at TEXT,
-      revoked_at TEXT,
-      max_views INTEGER DEFAULT 5,
-      view_count INTEGER DEFAULT 0,
-      claim_session_id TEXT,
-      claimed_by_user_id TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `).run();
-
-  await env.DB.prepare(`
-    CREATE INDEX IF NOT EXISTS idx_collab_invites_pot
-    ON pot_collab_invites(pot_id)
-  `).run();
-
-  await env.DB.prepare(`
-    CREATE INDEX IF NOT EXISTS idx_collab_invites_token
-    ON pot_collab_invites(token)
-  `).run();
 }
 
 async function handleGetCollaborators(potId: string, userId: string, env: any): Promise<Response> {
@@ -129,7 +90,7 @@ async function handleCreateInviteLink(potId: string, userId: string, env: any): 
   ]);
 
   const baseUrl = env.APP_BASE_URL || 'https://app.kaside365.com';
-  const inviteUrl = `${baseUrl.replace(/\/$/, '')}/pot-detail.html?collabToken=${token}`;
+  const inviteUrl = `${baseUrl.replace(/\/$/, '')}/pot-detail?collabToken=${token}`;
 
   return jsonResponse({
     success: true,

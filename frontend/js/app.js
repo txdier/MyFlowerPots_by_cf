@@ -461,12 +461,12 @@ document.addEventListener('alpine:init', () => {
         goPotDetail(potId) {
             if (this.isBatchMode) return;
 
-            window.location.href = `pot-detail.html?id=${potId}`;
+            window.location.href = `pot-detail?id=${potId}`;
         },
 
         // 添加花盆
         goAddPot() {
-            window.location.href = 'add-pot.html';
+            window.location.href = 'add-pot';
         },
 
         // 显示错误信息

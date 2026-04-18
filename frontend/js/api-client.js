@@ -23,6 +23,9 @@ const AUTH_KEYS = {
     userId: 'flowerpots_user_id',
 };
 
+const D1_BOOKMARK_HEADER = 'x-d1-bookmark';
+const D1_BOOKMARK_KEY_PREFIX = 'flowerpots_d1_bookmark';
+
 const AUTH_PERSISTENT_STORAGE = window.localStorage;
 const AUTH_LEGACY_STORAGE = window.sessionStorage;
 
@@ -108,8 +111,8 @@ const emitAuthExpired = (message = '登录已过期，请重新登录') => {
 };
 
 const APP_PAGES = {
-    home: 'index.html',
-    error: 'error.html'
+    home: '/',
+    error: 'error'
 };
 
 const ERROR_TYPE_DEFAULTS = {
@@ -157,10 +160,26 @@ const normalizeAppPath = (value, options = {}) => {
     }
 
     normalized = normalized.replace(/^\.\/+/, '');
+    if (normalized === '/' || normalized.startsWith('/?') || normalized.startsWith('/#')) {
+        return normalized;
+    }
     normalized = normalized.replace(/^\/+/, '');
 
-    if (!normalized || normalized.startsWith('../')) return allowEmpty ? '' : fallback;
-    if (normalized.startsWith(APP_PAGES.error)) {
+    if (!normalized || normalized.split('/').includes('..')) return allowEmpty ? '' : fallback;
+
+    const pathMatch = normalized.match(/^([^?#]*)([?#].*)?$/);
+    if (pathMatch) {
+        let pathPart = pathMatch[1].replace(/\.html$/i, '');
+        const suffix = pathMatch[2] || '';
+        if (pathPart === 'index') {
+            normalized = suffix ? `${APP_PAGES.home}${suffix}` : APP_PAGES.home;
+        } else {
+            normalized = `${pathPart}${suffix}`;
+        }
+    }
+
+    const normalizedPath = normalized.split(/[?#]/)[0];
+    if (normalizedPath === APP_PAGES.error) {
         return allowEmpty ? '' : fallback;
     }
 
@@ -349,6 +368,27 @@ class APIClient {
         AUTH_STORAGE.clear();
     }
 
+    getD1BookmarkStorageKey() {
+        return `${D1_BOOKMARK_KEY_PREFIX}:${this.config.baseUrl || window.location.origin}`;
+    }
+
+    getD1Bookmark() {
+        return safeStorageGet(AUTH_PERSISTENT_STORAGE, this.getD1BookmarkStorageKey());
+    }
+
+    setD1Bookmark(bookmark) {
+        if (bookmark) {
+            safeStorageSet(AUTH_PERSISTENT_STORAGE, this.getD1BookmarkStorageKey(), bookmark);
+        }
+    }
+
+    captureD1Bookmark(response) {
+        const bookmark = response.headers.get(D1_BOOKMARK_HEADER);
+        if (bookmark) {
+            this.setD1Bookmark(bookmark);
+        }
+    }
+
     // 刷新 JWT 令牌（使用当前已认证会话续签）
     // 使用锁机制防止并发刷新
     _refreshPromise = null;
@@ -381,10 +421,13 @@ class APIClient {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.token}`
+                    'Authorization': `Bearer ${this.token}`,
+                    ...(this.getD1Bookmark() && { [D1_BOOKMARK_HEADER]: this.getD1Bookmark() })
                 },
                 body: JSON.stringify({})
             });
+
+            this.captureD1Bookmark(response);
 
             if (response.ok) {
                 const data = await response.json();
@@ -456,6 +499,7 @@ class APIClient {
         const headers = {
             'Content-Type': 'application/json',
             ...(shouldSendAuth && { 'Authorization': `Bearer ${this.token}` }),
+            ...(this.getD1Bookmark() && { [D1_BOOKMARK_HEADER]: this.getD1Bookmark() }),
             ...options.headers,
         };
 
@@ -471,6 +515,7 @@ class APIClient {
             });
 
             clearTimeout(timeoutId);
+            this.captureD1Bookmark(response);
 
             if (!response.ok) {
                 const errorText = await response.text();
@@ -487,9 +532,15 @@ class APIClient {
                     };
                 }
 
+                if (response.status === 404 && endpoint === '/api/auth/me' && /user not found/i.test(errorData.error || '')) {
+                    this.clearAuth();
+                }
+
                 // 处理 401 未授权：JWT 令牌过期或无效
                 if (response.status === 401) {
-                    const canRefresh = endpoint !== '/api/auth/refresh' && !!(this.token && this.userId && !this.isTokenExpired());
+                    const canRefresh = endpoint !== '/api/auth/refresh' &&
+                        !PUBLIC_AUTH_ENDPOINTS.has(endpoint) &&
+                        !!(this.token && this.userId && !this.isTokenExpired());
                     if (canRefresh) {
                         console.warn('Token expired or invalid, attempting refresh...');
                         const refreshed = await this.refreshToken();
@@ -1090,6 +1141,17 @@ class APIClient {
     // 管理员API
     async adminCheck() {
         return this.request('/api/admin/check');
+    }
+
+    async adminGetCacheStats() {
+        return this.request('/api/admin/cache/stats');
+    }
+
+    async adminClearCache({ scope = 'all', prefix = '' } = {}) {
+        return this.request('/api/admin/cache/clear', {
+            method: 'POST',
+            body: { scope, prefix }
+        });
     }
 
     async adminGetPlants(page = 1, pageSize = 20, search = '') {

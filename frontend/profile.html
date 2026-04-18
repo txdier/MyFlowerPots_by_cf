@@ -24,7 +24,7 @@
 
     <!-- 配置脚本 -->
     <script src="js/config.js?v=20260111"></script>
-    <script src="js/api-client.js?v=20260415-1"></script>
+    <script src="js/api-client.js?v=20260418-d1session"></script>
     <script src="js/form-utils.js?v=20260413"></script>
 </head>
 
@@ -362,7 +362,7 @@
                 const redirectToProfileGuide = (error, options = {}) => {
                     nav.redirectForApiError(error, {
                         from: 'profile',
-                        redirect: 'profile.html',
+                        redirect: 'profile',
                         authType: 'login_required',
                         forbiddenType: 'forbidden',
                         notFoundType: 'not_found',
@@ -373,7 +373,7 @@
                 const handleProfileAuthExpired = (event) => {
                     nav.redirectToSessionExpired(event.detail?.message, {
                         from: 'profile',
-                        redirect: 'profile.html',
+                        redirect: 'profile',
                         source: 'auth'
                     }, { replace: true });
                 };
@@ -387,7 +387,7 @@
                         } else {
                             nav.redirectToLoginRequired({
                                 from: 'profile',
-                                redirect: 'profile.html',
+                                redirect: 'profile',
                                 message: '请先登录后继续查看个人资料。'
                             }, { replace: true });
                         }
@@ -586,7 +586,7 @@
                             showToast('密码修改成功，请重新登录');
                             setTimeout(async () => {
                                 await apiClient.logout();
-                                window.location.href = 'index.html';
+                                window.location.href = '/';
                             }, 500);
                         }
                     } catch (e) {
@@ -649,7 +649,7 @@
                         await apiClient.logout();
                         showToast('已退出登录');
                         setTimeout(() => {
-                            window.location.href = 'index.html';
+                            window.location.href = '/';
                         }, 300);
                     } catch (e) {
                         showToast('退出失败: ' + e.message, 'error');
@@ -667,7 +667,7 @@
                     return `/cdn-cgi/image/width=${w},height=${h},dpr=2,fit=cover,format=auto/${src}`;
                 };
 
-                const goBack = () => window.location.href = 'index.html';
+                const goBack = () => window.location.href = '/';
 
                 window.addEventListener('auth:expired', handleProfileAuthExpired);
 

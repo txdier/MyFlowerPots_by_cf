@@ -38,8 +38,10 @@ run_worker_first = true
 
 [[d1_databases]]
 binding = "DB"
-database_name = "my-flower-pots-db"
+database_name = "my-flower-pots"
 database_id = "YOUR_D1_DATABASE_ID"
+migrations_dir = "migrations"
+migrations_table = "d1_migrations"
 
 [[r2_buckets]]
 binding = "STATIC_BUCKET"
@@ -151,7 +153,7 @@ npm run upload
 ### 创建数据库
 
 ```bash
-wrangler d1 create my-flower-pots-db
+wrangler d1 create my-flower-pots
 ```
 
 把输出的 `database_id` 回填到 `wrangler.toml`。
@@ -159,10 +161,10 @@ wrangler d1 create my-flower-pots-db
 ### 初始化或更新结构
 
 ```bash
-wrangler d1 execute my-flower-pots-db --remote --file=sql/schema.sql
+wrangler d1 migrations apply my-flower-pots --remote
 ```
 
-当前推荐以 `sql/schema.sql` 为准，不再依赖历史迁移脚本说明。
+当前以 `migrations/` 为数据库结构的唯一来源；不要再维护独立的结构快照文件。
 
 ## 6. R2 配置
 

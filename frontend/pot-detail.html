@@ -770,7 +770,7 @@
                                     class="aspect-square rounded-2xl overflow-hidden bg-gray-100 shadow-sm">
                                     <img :src="imgUrl(img, 100, 100)" loading="lazy"
                                         class="w-full h-full object-cover cursor-pointer"
-                                        @click="openGallery(img, getImages(record.images))">
+                                        @click="openGallery(img, getImages(record.images), imgUrl(img, 100, 100))">
                                 </div>
                             </div>
                         </div>
@@ -1149,11 +1149,15 @@
                             transform: `translateX(calc(${-previewIndex * 100}% + ${galleryDragOffset}px))`,
                             transition: galleryIsDragging ? 'none' : 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)'
                         }">
-                        <div v-for="(src, idx) in previewImages" :key="idx"
+                        <div v-for="(item, idx) in previewImages" :key="item.fullSrc || idx"
                             class="w-full h-full flex-shrink-0 flex items-center justify-center px-4"
                             @click="closeGallery">
-                            <img :src="src" loading="lazy" class="max-w-full max-h-full object-contain select-none"
-                                draggable="false">
+                            <img :src="item.displaySrc" loading="lazy"
+                                class="max-w-full max-h-full object-contain select-none transition duration-300"
+                                :style="{
+                                    filter: item.isFullLoaded ? 'none' : 'blur(1px)',
+                                    transform: item.isFullLoaded ? 'none' : 'scale(1.02)'
+                                }" draggable="false">
                         </div>
                     </div>
                 </div>
@@ -1676,7 +1680,7 @@
                 </div>
             </div>
 
-            <!-- 登录/注册 弹窗 (与 index.html 保持一致) -->
+            <!-- 登录/注册 弹窗 (与首页保持一致) -->
             <div v-if="showLoginModal || showRegisterModal || showForgotPasswordModal"
                 class="fixed inset-0 z-[120] flex items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeAuthModals"></div>
@@ -1858,7 +1862,7 @@
 
     <script src="js/vue.global.prod.js"></script>
     <script src="js/config.js?v=20260227"></script>
-    <script src="js/api-client.js?v=20260416-archive"></script>
+    <script src="js/api-client.js?v=20260418-d1session"></script>
     <script src="js/form-utils.js?v=20260413"></script>
     <script src="js/clipboard.js?v=20260407-2"></script>
 
@@ -1939,6 +1943,7 @@
                 const showActionMenu = ref(false);
                 const previewImages = ref([]);
                 const previewIndex = ref(0);
+                const galleryImageLoadToken = ref(0);
                 const galleryDragOffset = ref(0);
                 const galleryIsDragging = ref(false);
                 const isSavingTimeline = ref(false);
@@ -2507,7 +2512,7 @@
 
                 const redirectToErrorPage = (type, message, options = {}) => {
                     const nav = window.MyFlowerPotsNavigation;
-                    const redirect = nav?.getCurrentAppPath?.() || `${window.location.pathname.split('/').pop() || 'pot-detail.html'}${window.location.search}${window.location.hash}`;
+                    const redirect = nav?.getCurrentAppPath?.() || `${window.location.pathname.split('/').pop() || 'pot-detail'}${window.location.search}${window.location.hash}`;
 
                     const params = {
                         type,
@@ -2530,7 +2535,7 @@
                         const normalized = String(value).trim();
                         if (normalized) search.set(key, normalized);
                     });
-                    window.location.replace(`error.html?${search.toString()}`);
+                    window.location.replace(`error?${search.toString()}`);
                     return true;
                 };
 
@@ -2594,7 +2599,7 @@
                 };
 
                 const goHome = () => {
-                    window.location.href = 'index.html';
+                    window.location.href = '/';
                 };
 
                 const applyCurrentUserProfile = (userRes) => {
@@ -2829,7 +2834,7 @@
                         const res = await apiClient.acceptCollaboratorInvite(collabToken.value, getInviteSessionId('collab_invite_session_id', collabInviteSessionId));
                         if (res.success && res.data?.potId) {
                             clearPendingInviteState('collab');
-                            window.location.replace(`pot-detail.html?id=${res.data.potId}`);
+                            window.location.replace(`pot-detail?id=${res.data.potId}`);
                             return true;
                         }
                     } catch (e) {
@@ -2856,7 +2861,7 @@
                         const res = await apiClient.acceptViewerInvite(viewerToken.value, getInviteSessionId('viewer_invite_session_id', viewerInviteSessionId));
                         if (res.success && res.data?.potId) {
                             clearPendingInviteState('viewer');
-                            window.location.replace(`pot-detail.html?id=${res.data.potId}`);
+                            window.location.replace(`pot-detail?id=${res.data.potId}`);
                             return true;
                         }
                     } catch (e) {
@@ -2890,7 +2895,7 @@
                         const res = await apiClient.acceptTransfer(tToken);
                         if (res.success) {
                             alert('接收成功！您现在是该花盆的主人了。');
-                            window.location.href = `pot-detail.html?id=${pot.value.id}`;
+                            window.location.href = `pot-detail?id=${pot.value.id}`;
                         }
                     } catch (e) {
                         alert('接收失败: ' + e.message);
@@ -2906,7 +2911,7 @@
                         const res = await apiClient.rejectTransfer(tToken);
                         if (res.success) {
                             alert('已拒绝移交');
-                            window.location.href = 'index.html';
+                            window.location.href = '/';
                         }
                     } catch (e) { alert('操作失败: ' + e.message); }
                 };
@@ -3213,7 +3218,7 @@
 
                 const goAddCarePageWithDate = (date) => {
                     if (isReadOnly.value) return;
-                    window.location.href = `care-record.html?potId=${potId.value}&date=${date}`;
+                    window.location.href = `care-record?potId=${potId.value}&date=${date}`;
                 };
 
                 const sortedTimelineRecords = computed(() => {
@@ -3226,19 +3231,65 @@
 
                 const toggleTimelineSort = () => isTimelineDesc.value = !isTimelineDesc.value;
 
-                const openGallery = (img, allImages) => {
-                    previewImages.value = allImages;
-                    const idx = allImages.indexOf(img);
+                const buildGalleryItem = (src, previewSrc = '') => {
+                    const fullSrc = String(src || '');
+                    const thumbSrc = previewSrc || imgUrl(fullSrc, 100, 100) || fullSrc;
+                    return {
+                        fullSrc,
+                        previewSrc: thumbSrc,
+                        displaySrc: thumbSrc,
+                        isFullLoaded: !fullSrc || thumbSrc === fullSrc,
+                        isFullLoading: false
+                    };
+                };
+
+                const preloadGalleryImage = (index) => {
+                    const item = previewImages.value[index];
+                    if (!item || item.isFullLoaded || item.isFullLoading || !item.fullSrc) return;
+
+                    item.isFullLoading = true;
+                    const token = galleryImageLoadToken.value;
+                    const image = new Image();
+                    image.onload = () => {
+                        if (token !== galleryImageLoadToken.value) return;
+                        item.displaySrc = item.fullSrc;
+                        item.isFullLoaded = true;
+                        item.isFullLoading = false;
+                    };
+                    image.onerror = () => {
+                        if (token !== galleryImageLoadToken.value) return;
+                        item.isFullLoading = false;
+                    };
+                    image.src = item.fullSrc;
+                };
+
+                const preloadNearbyGalleryImages = () => {
+                    [previewIndex.value, previewIndex.value - 1, previewIndex.value + 1].forEach(preloadGalleryImage);
+                };
+
+                const openGallery = (img, allImages, previewSrc = '') => {
+                    galleryImageLoadToken.value += 1;
+                    const images = Array.isArray(allImages) ? allImages : [];
+                    previewImages.value = images.map(src => buildGalleryItem(src, src === img ? previewSrc : ''));
+                    const idx = images.indexOf(img);
                     previewIndex.value = idx >= 0 ? idx : 0;
+                    galleryDragOffset.value = 0;
+                    galleryIsDragging.value = false;
+                    preloadNearbyGalleryImages();
                 };
 
                 const closeGallery = () => {
+                    galleryImageLoadToken.value += 1;
                     previewImages.value = [];
                     previewIndex.value = 0;
+                    galleryDragOffset.value = 0;
+                    galleryIsDragging.value = false;
                 };
 
                 const prevImg = () => { if (previewIndex.value > 0) previewIndex.value--; };
                 const nextImg = () => { if (previewIndex.value < previewImages.value.length - 1) previewIndex.value++; };
+
+                watch(previewIndex, preloadNearbyGalleryImages);
 
                 const handleGalleryTouchStart = (e) => {
                     touchStartX.value = e.changedTouches[0].screenX;
@@ -3427,7 +3478,7 @@
                     if (confirm(message)) {
                         try {
                             const res = await apiClient.deletePot(potId.value);
-                            if (res.success) window.location.href = 'index.html';
+                            if (res.success) window.location.href = '/';
                         } catch (err) { alert('删除失败: ' + err.message); }
                     }
                 };
@@ -3494,7 +3545,7 @@
                 // 编辑记录
                 const editRecord = (record) => {
                     if (isReadOnly.value) return;
-                    window.location.href = `care-record.html?id=${record.id}`;
+                    window.location.href = `care-record?id=${record.id}`;
                 };
 
                 // 删除记录
@@ -3600,8 +3651,8 @@
                 };
 
                 // 查看全部记录/轨迹
-                const viewAllRecords = () => window.location.href = `all-records.html?potId=${potId.value}`;
-                const viewAllTimelines = () => window.location.href = `all-timelines.html?potId=${potId.value}`;
+                const viewAllRecords = () => window.location.href = `all-records?potId=${potId.value}`;
+                const viewAllTimelines = () => window.location.href = `all-timelines?potId=${potId.value}`;
 
                 // 统计
                 const statsWaterCount = computed(() => potStats.value?.byType?.find(t => t.type === 'water')?.total_count || 0);
@@ -3637,16 +3688,16 @@
 
                 const handleImageError = (e) => e.target.src = fallbackPotImage;
 
-                const goBack = () => window.location.href = 'index.html';
+                const goBack = () => window.location.href = '/';
                 const goEditPage = () => {
                     if (isReadOnly.value) return;
-                    window.location.href = `edit-pot.html?id=${potId.value}`;
+                    window.location.href = `edit-pot?id=${potId.value}`;
                 };
                 const goAddCarePage = () => {
                     if (isReadOnly.value) return;
-                    window.location.href = `care-record.html?potId=${potId.value}`;
+                    window.location.href = `care-record?potId=${potId.value}`;
                 };
-                const goCreatePot = () => window.location.href = 'index.html';
+                const goCreatePot = () => window.location.href = '/';
 
                 const scrollToSection = (sectionId, sectionKey) => {
                     const el = document.getElementById(sectionId);
@@ -3684,9 +3735,9 @@
 
                     const baseUrl = config.isDevelopment ? frontendConfig.devUrl : frontendConfig.prodUrl;
 
-                    // 确保 baseUrl 不以 / 结尾，且 pathname 是固定的 /pot-detail.html
+                    // 确保 baseUrl 不以 / 结尾，且 pathname 是固定的 /pot-detail
                     const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-                    return `${cleanBaseUrl}/pot-detail.html?token=${pot.value.share_token}`;
+                    return `${cleanBaseUrl}/pot-detail?token=${pot.value.share_token}`;
                 };
 
                 const shareViaSystem = async ({ title, text, url }) => {

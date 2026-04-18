@@ -146,7 +146,8 @@ export function jsonResponse(data: any, status: number = 200): Response {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-d1-bookmark',
+      'Access-Control-Expose-Headers': 'x-d1-bookmark',
     },
   });
 }

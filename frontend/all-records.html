@@ -27,7 +27,7 @@
 
     <!-- 配置脚本 -->
     <script src="js/config.js?v=20260111"></script>
-    <script src="js/api-client.js?v=20260415-1"></script>
+    <script src="js/api-client.js?v=20260418-d1session"></script>
 </head>
 
 <body class="bg-gray-50">
@@ -169,7 +169,7 @@
                         nav.redirectToError({
                             type: 'not_found',
                             from: 'all-records',
-                            redirect: 'index.html',
+                            redirect: '/',
                             message: '缺少花盆参数，无法加载养护记录。'
                         }, { replace: true });
                         return;
@@ -184,7 +184,7 @@
                         console.error(e);
                         nav.redirectForApiError(e, {
                             from: 'all-records',
-                            redirect: `all-records.html?potId=${encodeURIComponent(potId.value)}`,
+                            redirect: `all-records?potId=${encodeURIComponent(potId.value)}`,
                             authType: 'login_required',
                             forbiddenType: 'forbidden',
                             notFoundType: 'not_found',
@@ -235,7 +235,7 @@
 
                 const editRecord = (record) => {
                     if (isArchived.value) return;
-                    window.location.href = `care-record.html?id=${record.id}`;
+                    window.location.href = `care-record?id=${record.id}`;
                 };
 
                 const deleteRecord = async (record) => {
@@ -261,18 +261,18 @@
                 const previewImage = (url) => previewUrl.value = url;
 
                 const goBack = () => {
-                    window.location.href = `pot-detail.html?id=${potId.value}`;
+                    window.location.href = `pot-detail?id=${potId.value}`;
                 };
 
                 const goAddCare = () => {
                     if (isArchived.value) return;
-                    window.location.href = `care-record.html?potId=${potId.value}`;
+                    window.location.href = `care-record?potId=${potId.value}`;
                 };
 
                 window.addEventListener('auth:expired', (event) => {
                     nav.redirectToSessionExpired(event.detail?.message, {
                         from: 'all-records',
-                        redirect: `all-records.html?potId=${encodeURIComponent(potId.value || '')}`,
+                        redirect: `all-records?potId=${encodeURIComponent(potId.value || '')}`,
                         source: 'auth'
                     }, { replace: true });
                 });

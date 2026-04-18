@@ -219,7 +219,7 @@ export function generatePasswordResetEmail(
   resetToken: string,
   appBaseUrl: string
 ): EmailOptions {
-  const resetLink = `${appBaseUrl}/reset-password.html?token=${resetToken}`;
+  const resetLink = `${appBaseUrl.replace(/\/$/, '')}/reset-password?token=${resetToken}`;
 
   return {
     to: email,

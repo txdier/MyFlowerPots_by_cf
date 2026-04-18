@@ -13,7 +13,6 @@ export async function handlePotsRequest(
   url: URL,
   token: string | null
 ): Promise<Response> {
-  await ensurePotsRuntimeSchema(env);
   // 1️⃣ 花盆列表
   if (request.method === 'GET' && path === '/api/pots') {
     return handleGetPots(request, env, url, token);
@@ -82,60 +81,6 @@ export async function handlePotsRequest(
   return errorResponse('Not Found', 404);
 }
 
-async function ensurePotsRuntimeSchema(env: any): Promise<void> {
-  await env.DB.prepare(`
-    CREATE TABLE IF NOT EXISTS pot_viewers (
-      pot_id TEXT NOT NULL,
-      user_id TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (pot_id, user_id)
-    )
-  `).run();
-  await env.DB.prepare(`
-    CREATE TABLE IF NOT EXISTS pot_collab_invites (
-      id TEXT PRIMARY KEY,
-      pot_id TEXT NOT NULL,
-      owner_id TEXT NOT NULL,
-      token TEXT NOT NULL UNIQUE,
-      expires_at TEXT NOT NULL,
-      used_at TEXT,
-      revoked_at TEXT,
-      max_views INTEGER DEFAULT 5,
-      view_count INTEGER DEFAULT 0,
-      claim_session_id TEXT,
-      claimed_by_user_id TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `).run();
-  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_viewers_user ON pot_viewers(user_id)').run();
-  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_viewers_pot ON pot_viewers(pot_id)').run();
-  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_collaborators_user ON pot_collaborators(user_id)').run();
-  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_collaborators_pot ON pot_collaborators(pot_id)').run();
-  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_collab_invites_pot ON pot_collab_invites(pot_id)').run();
-  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_collab_invites_token ON pot_collab_invites(token)').run();
-
-  const columns = [
-    'ALTER TABLE pots ADD COLUMN show_comment_danmaku INTEGER DEFAULT 1',
-    "ALTER TABLE pots ADD COLUMN status TEXT DEFAULT 'active'",
-    'ALTER TABLE pots ADD COLUMN archived_at TEXT',
-    'ALTER TABLE pots ADD COLUMN archive_reason TEXT',
-    'ALTER TABLE pots ADD COLUMN archive_note TEXT'
-  ];
-
-  for (const statement of columns) {
-    try {
-      await env.DB.prepare(statement).run();
-    } catch (error: any) {
-      const message = String(error?.message || error || '');
-      if (!message.includes('duplicate column name')) {
-        throw error;
-      }
-    }
-  }
-
-  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_pots_user_status ON pots(user_id, status)').run();
-}
-
 async function handleGetPots(
   request: Request,
   env: any,
@@ -173,7 +118,7 @@ async function handleGetPots(
     }, 200, cacheHeaders);
   };
 
-  // 列表字段：保留首页权限判断所需的布尔值，去掉详情页才需要的协作者/查看者数量统计。
+  // 列表字段：保留首页权限判断所需字段。collaborator_count 只需判断是否存在，用于自有花盆的共同照料标识。
   const selectedColumns = `
         p.id,
         p.user_id,
@@ -189,7 +134,13 @@ async function handleGetPots(
         p.archive_reason,
         p.archive_note,
         CASE WHEN pc.user_id IS NULL THEN 0 ELSE 1 END as is_collaborator,
-        CASE WHEN pv.user_id IS NULL THEN 0 ELSE 1 END as is_viewer
+        CASE WHEN pv.user_id IS NULL THEN 0 ELSE 1 END as is_viewer,
+        CASE WHEN EXISTS (
+          SELECT 1
+          FROM pot_collaborators owner_pc
+          WHERE owner_pc.pot_id = p.id
+          LIMIT 1
+        ) THEN 1 ELSE 0 END as collaborator_count
   `;
 
   if (status === 'archived') {

@@ -23,34 +23,6 @@ function trimCommentText(content: string, maxLength: number): string {
   return `${normalized.slice(0, maxLength)}...`;
 }
 
-async function ensurePotCommentsTable(env: any): Promise<void> {
-  const statements = [
-    `CREATE TABLE IF NOT EXISTS pot_viewers (
-      pot_id TEXT NOT NULL,
-      user_id TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (pot_id, user_id)
-    )`,
-    `CREATE INDEX IF NOT EXISTS idx_viewers_user ON pot_viewers(user_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_viewers_pot ON pot_viewers(pot_id)`,
-    `CREATE TABLE IF NOT EXISTS pot_comments (
-      id TEXT PRIMARY KEY,
-      pot_id TEXT NOT NULL,
-      sender_id TEXT NOT NULL,
-      parent_comment_id TEXT,
-      content TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`,
-    `CREATE INDEX IF NOT EXISTS idx_pot_comments_pot ON pot_comments(pot_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_pot_comments_parent ON pot_comments(parent_comment_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_pot_comments_created ON pot_comments(created_at)`
-  ];
-
-  for (const statement of statements) {
-    await env.DB.prepare(statement).run();
-  }
-}
-
 async function getPotWithAccess(
   env: any,
   potId: string,
@@ -204,8 +176,6 @@ export async function handleMessagesRequest(
   path: string,
   userId: string | null
 ): Promise<Response> {
-  await ensurePotCommentsTable(env);
-
   // GET /api/messages - 获取消息列表
   if (request.method === 'GET' && path === '/api/messages') {
     if (!userId) return errorResponse('Authentication required', 401);

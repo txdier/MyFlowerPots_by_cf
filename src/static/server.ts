@@ -3,7 +3,7 @@
 /**
  * 动态分享卡片 Meta 注入
  *
- * 当用户分享花盆链接时（pot-detail.html?token=xxx），微信/社交媒体会抓取页面
+ * 当用户分享花盆链接时（pot-detail?token=xxx），微信/社交媒体会抓取页面
  * 的 OG meta 标签用于预览。此函数使用 HTMLRewriter 将静态 HTML 中的占位 meta
  * 替换为真实的花盆名称、描述和图片，而无需修改前端 HTML 文件本身。
  *
