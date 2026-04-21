@@ -12,7 +12,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="assets/images/icons/pots.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/images/icons/pots-180.png">
 
     <!-- Open Graph / WeChat -->
     <meta property="og:type" content="website">
@@ -54,11 +54,11 @@
     </style>
 
     <!-- Tailwind CSS & Custom Styles (Optimized) -->
-    <link rel="stylesheet" href="css/tailwind-built.css?v=20260227">
+    <link rel="stylesheet" href="css/tailwind-built.css?v=20260421-search">
     <link rel="stylesheet" href="css/app.css?v=20260416-home-gap-3">
 
     <!-- 图标库 -->
-    <link rel="stylesheet" href="css/icons.css">
+    <link rel="stylesheet" href="css/icons.css?v=20260421-search">
 
     <!-- 配置脚本 -->
     <script src="js/config.js?v=20260118"></script>
@@ -90,9 +90,35 @@
                         class="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-blue-500 transition active:scale-90">
                         <i class="fa fa-list-check text-xl"></i>
                     </button>
+                    <button v-if="pots.length > 0 && !isEditMode" @click="openPotSearch" type="button"
+                        class="w-10 h-10 flex items-center justify-center transition active:scale-90"
+                        :class="isPotSearchActive ? 'text-green-600' : 'text-gray-400 hover:text-green-600'"
+                        aria-label="搜索花盆" title="搜索花盆">
+                        <i class="fa fa-search text-lg"></i>
+                    </button>
                 </div>
 
-                <div v-if="navSeasonalReminder && !isEditMode"
+                <div v-if="isPotSearchActive && !isEditMode"
+                    class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[48vw] min-w-[170px] max-w-[280px] pointer-events-none animate-fade-in">
+                    <div
+                        class="pointer-events-auto h-10 w-full flex items-center gap-2 rounded-full border border-green-100 bg-white px-3 shadow-sm shadow-green-50">
+                        <input ref="potSearchInput" v-model="potSearchQuery" @keydown.esc="closePotSearch"
+                            type="text" enterkeyhint="search" placeholder="搜索花盆"
+                            class="min-w-0 flex-1 bg-transparent text-sm font-semibold text-gray-700 placeholder:text-gray-300 outline-none">
+                        <button v-if="hasPotSearchQuery" @click="clearPotSearch" type="button"
+                            class="w-7 h-7 shrink-0 flex items-center justify-center rounded-full bg-green-50 text-green-500 transition active:scale-90 hover:bg-green-100"
+                            aria-label="清空搜索内容" title="清空搜索内容">
+                            <i class="fa fa-delete-left text-xs"></i>
+                        </button>
+                        <button @click="closePotSearch" type="button"
+                            class="w-7 h-7 shrink-0 flex items-center justify-center rounded-full text-gray-400 transition active:scale-90 hover:bg-gray-50 hover:text-gray-600"
+                            aria-label="关闭搜索" title="关闭搜索">
+                            <i class="fa fa-times text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div v-else-if="navSeasonalReminder && !isEditMode"
                     class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[46vw] max-w-[240px] pointer-events-none">
                     <button :key="`${navSeasonalReminder.potId}:${navSeasonalReminder.text}`"
                         @click="toggleSeasonalHeaderReminder"
@@ -213,9 +239,14 @@
             :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <div class="grid grid-cols-2 gap-1 rounded-xl bg-white p-1 border border-gray-100 shadow-sm">
                 <button v-for="tab in potStatusTabs" :key="tab.value" type="button" @click="setPotStatus(tab.value)"
-                    class="h-8 rounded-lg text-xs font-black transition active:scale-[0.99]"
-                    :class="activePotStatus === tab.value ? 'bg-green-50 text-green-700' : 'text-gray-400 hover:text-gray-600'">
-                    {{ tab.label }}
+                    class="relative h-8 overflow-hidden rounded-lg text-xs font-black transition active:scale-[0.99]"
+                    :class="getPotStatusTabButtonClass(tab.value)"
+                    :aria-current="activePotStatus === tab.value ? 'page' : null">
+                    <span aria-hidden="true" class="absolute inset-y-0 rounded-lg bg-green-50"
+                        :style="getPotStatusTabFillStyle(tab.value)"></span>
+                    <span class="relative z-10 transition-colors" :class="getPotStatusTabTextClass(tab.value)">
+                        {{ tab.label }}
+                    </span>
                 </button>
             </div>
         </div>
@@ -300,7 +331,8 @@
 
         <main class="container home-pots-main" :class="{
             'home-pots-main--expanded-reminders': activePotStatus === 'active' && careReminders.length > 0 && showRemindersExpanded
-        }">
+        }" @touchstart="handlePotStatusSwipeStart" @touchmove="handlePotStatusSwipeMove"
+            @touchend="handlePotStatusSwipeEnd" @touchcancel="handlePotStatusSwipeCancel">
             <div v-if="isLoading" class="flex flex-col items-center justify-center py-20">
                 <div class="spinner mb-4"></div>
                 <p class="text-gray-400 text-sm">正在搬运您的花盆...</p>
@@ -326,9 +358,9 @@
 
             <!-- 花盆列表 -->
             <div v-else class="space-y-6">
-                <section v-if="pots.length > 0">
+                <section v-if="displayedPots.length > 0">
                     <div ref="potsGrid" class="grid grid-cols-1 gap-4">
-                        <div v-for="(pot, index) in pots" :key="pot.id"
+                        <div v-for="(pot, index) in displayedPots" :key="pot.id"
                             class="relative bg-white rounded-xl shadow-sm overflow-hidden transition-all duration-300"
                             :class="{
                                 'border border-gray-100': isOwnedPot(pot),
@@ -445,6 +477,16 @@
                         </button>
                     </div>
                 </section>
+                <div v-else-if="hasPotSearchQuery"
+                    class="flex flex-col items-center justify-center py-16 text-center">
+                    <div class="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center text-green-300 mb-5">
+                        <i class="fa fa-search text-3xl"></i>
+                    </div>
+                    <h3 class="text-base font-bold text-gray-800">没有找到匹配的花盆</h3>
+                    <p class="text-gray-400 text-xs mt-2 px-10">
+                        {{ isLoadingMore ? '正在加载更多花盆继续查找...' : '试试搜索名称、植物类型或备注' }}
+                    </p>
+                </div>
             </div>
         </main>
 
@@ -1330,6 +1372,9 @@
                 const nav = window.MyFlowerPotsNavigation;
                 const isLoading = ref(true);
                 const pots = ref([]);
+                const isPotSearchActive = ref(false);
+                const potSearchQuery = ref('');
+                const potSearchInput = ref(null);
                 const POT_PAGE_SIZE = 20;
                 const isLoadingMore = ref(false);
                 const hasMorePots = ref(false);
@@ -1342,6 +1387,19 @@
                 const potStatusCounts = reactive({
                     active: 0,
                     archived: 0
+                });
+                const POT_STATUS_SWIPE_EDGE_GUARD = 36;
+                const POT_STATUS_SWIPE_DISTANCE = 108;
+                const POT_STATUS_SWIPE_RATIO = 1.8;
+                const potStatusSwipe = reactive({
+                    tracking: false,
+                    active: false,
+                    startX: 0,
+                    startY: 0,
+                    source: '',
+                    target: '',
+                    direction: 0,
+                    progress: 0
                 });
                 const user = ref(null);
                 const isLoggedIn = ref(false);
@@ -1458,6 +1516,34 @@
                 const batchManageablePots = computed(() =>
                     pots.value.filter(p => (!p.is_collaborator && !p.is_viewer) || (p.is_viewer && !p.is_collaborator))
                 );
+                const potSearchTerms = computed(() => (
+                    potSearchQuery.value
+                        .trim()
+                        .toLowerCase()
+                        .split(/\s+/)
+                        .filter(Boolean)
+                ));
+                const hasPotSearchQuery = computed(() => potSearchTerms.value.length > 0);
+                const displayedPots = computed(() => {
+                    const terms = potSearchTerms.value;
+                    if (terms.length === 0) return pots.value;
+
+                    return pots.value.filter(pot => {
+                        const searchableText = [
+                            pot.name,
+                            pot.plant_type,
+                            pot.note,
+                            pot.archive_reason,
+                            pot.archive_note,
+                            pot.last_care_action
+                        ]
+                            .filter(Boolean)
+                            .join(' ')
+                            .toLowerCase();
+
+                        return terms.every(term => searchableText.includes(term));
+                    });
+                });
                 const selectedOwnedPots = computed(() => pots.value.filter(p => p.selected && !p.is_collaborator && !p.is_viewer));
                 const selectedViewerPots = computed(() => pots.value.filter(p => p.selected && p.is_viewer && !p.is_collaborator));
                 const selectedOwnedCount = computed(() => selectedOwnedPots.value.length);
@@ -2454,6 +2540,190 @@
                     }
                 };
 
+                const openPotSearch = () => {
+                    if (isEditMode.value || pots.value.length === 0) return;
+                    isPotSearchActive.value = true;
+                    showUserMenu.value = false;
+                    nextTick(() => potSearchInput.value?.focus?.());
+                    if (hasMorePots.value && !isLoadingMore.value) {
+                        loadAllRemainingPots();
+                    }
+                };
+
+                const closePotSearch = () => {
+                    isPotSearchActive.value = false;
+                    potSearchQuery.value = '';
+                };
+
+                const clearPotSearch = () => {
+                    potSearchQuery.value = '';
+                    nextTick(() => potSearchInput.value?.focus?.());
+                };
+
+                let potStatusSwipeSuppressClickUntil = 0;
+
+                const getPotStatusIndex = (status) => potStatusTabs.findIndex(tab => tab.value === status);
+
+                const resetPotStatusSwipe = () => {
+                    potStatusSwipe.tracking = false;
+                    potStatusSwipe.active = false;
+                    potStatusSwipe.startX = 0;
+                    potStatusSwipe.startY = 0;
+                    potStatusSwipe.source = '';
+                    potStatusSwipe.target = '';
+                    potStatusSwipe.direction = 0;
+                    potStatusSwipe.progress = 0;
+                };
+
+                const canUsePotStatusSwipe = () => (
+                    showPotStatusSwitch.value &&
+                    !isEditMode.value &&
+                    !hasOverlayModalOpen.value &&
+                    !isPotSearchActive.value &&
+                    !isLoading.value &&
+                    !isLoadingMore.value
+                );
+
+                const getPotStatusSwipeTarget = (dx) => {
+                    const sourceIndex = getPotStatusIndex(activePotStatus.value);
+                    if (sourceIndex < 0) return null;
+
+                    const targetIndex = sourceIndex + (dx < 0 ? 1 : -1);
+                    return potStatusTabs[targetIndex]?.value || null;
+                };
+
+                const getPotStatusTabFillRatio = (status) => {
+                    if (!potStatusSwipe.active || !potStatusSwipe.source || !potStatusSwipe.target) {
+                        return activePotStatus.value === status ? 1 : 0;
+                    }
+
+                    const progress = Math.min(1, Math.max(0, potStatusSwipe.progress));
+                    if (status === potStatusSwipe.source) {
+                        return progress < 0.5 ? 1 - progress * 2 : 0;
+                    }
+                    if (status === potStatusSwipe.target) {
+                        return progress > 0.5 ? (progress - 0.5) * 2 : 0;
+                    }
+                    return 0;
+                };
+
+                const getPotStatusTabFillStyle = (status) => {
+                    const fillRatio = getPotStatusTabFillRatio(status);
+                    const sourceIndex = getPotStatusIndex(potStatusSwipe.source || activePotStatus.value);
+                    const targetIndex = getPotStatusIndex(potStatusSwipe.target);
+                    let anchor = 'left';
+
+                    if (potStatusSwipe.active && sourceIndex >= 0 && targetIndex >= 0) {
+                        const movingRight = targetIndex > sourceIndex;
+                        if (status === potStatusSwipe.source) {
+                            anchor = movingRight ? 'right' : 'left';
+                        } else if (status === potStatusSwipe.target) {
+                            anchor = movingRight ? 'left' : 'right';
+                        }
+                    }
+
+                    return {
+                        width: `${Math.round(fillRatio * 1000) / 10}%`,
+                        opacity: fillRatio > 0 ? 1 : 0,
+                        left: anchor === 'left' ? '0' : 'auto',
+                        right: anchor === 'right' ? '0' : 'auto',
+                        transition: potStatusSwipe.active ? 'none' : 'width 180ms ease-out, opacity 180ms ease-out'
+                    };
+                };
+
+                const getPotStatusTabTextClass = (status) => (
+                    getPotStatusTabFillRatio(status) > 0.05 ? 'text-green-700' : 'text-gray-400 hover:text-gray-600'
+                );
+
+                const getPotStatusTabButtonClass = (status) => (
+                    activePotStatus.value === status ? '' : 'hover:bg-gray-50'
+                );
+
+                const handlePotStatusSwipeStart = (event) => {
+                    if (!canUsePotStatusSwipe() || event.touches.length !== 1) {
+                        resetPotStatusSwipe();
+                        return;
+                    }
+
+                    const touch = event.touches[0];
+                    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+                    if (
+                        touch.clientX < POT_STATUS_SWIPE_EDGE_GUARD ||
+                        viewportWidth - touch.clientX < POT_STATUS_SWIPE_EDGE_GUARD
+                    ) {
+                        resetPotStatusSwipe();
+                        return;
+                    }
+
+                    potStatusSwipe.tracking = true;
+                    potStatusSwipe.active = false;
+                    potStatusSwipe.startX = touch.clientX;
+                    potStatusSwipe.startY = touch.clientY;
+                    potStatusSwipe.source = activePotStatus.value;
+                    potStatusSwipe.target = '';
+                    potStatusSwipe.direction = 0;
+                    potStatusSwipe.progress = 0;
+                };
+
+                const handlePotStatusSwipeMove = (event) => {
+                    if (!potStatusSwipe.tracking || event.touches.length !== 1 || !canUsePotStatusSwipe()) {
+                        resetPotStatusSwipe();
+                        return;
+                    }
+
+                    const touch = event.touches[0];
+                    const dx = touch.clientX - potStatusSwipe.startX;
+                    const dy = touch.clientY - potStatusSwipe.startY;
+                    const absDx = Math.abs(dx);
+                    const absDy = Math.abs(dy);
+
+                    if (absDx < 12) return;
+                    if (absDx < absDy * POT_STATUS_SWIPE_RATIO) {
+                        if (absDy > 16) resetPotStatusSwipe();
+                        return;
+                    }
+
+                    const target = getPotStatusSwipeTarget(dx);
+                    if (!target) {
+                        resetPotStatusSwipe();
+                        return;
+                    }
+
+                    if (event.cancelable) event.preventDefault();
+                    potStatusSwipe.active = true;
+                    potStatusSwipe.target = target;
+                    potStatusSwipe.direction = dx < 0 ? 1 : -1;
+                    potStatusSwipe.progress = Math.min(1, absDx / POT_STATUS_SWIPE_DISTANCE);
+                };
+
+                const handlePotStatusSwipeEnd = (event) => {
+                    if (!potStatusSwipe.tracking) {
+                        resetPotStatusSwipe();
+                        return;
+                    }
+
+                    const shouldSwitch = (
+                        potStatusSwipe.active &&
+                        potStatusSwipe.target &&
+                        potStatusSwipe.progress >= 1
+                    );
+                    const target = potStatusSwipe.target;
+
+                    if (potStatusSwipe.active) {
+                        potStatusSwipeSuppressClickUntil = Date.now() + 450;
+                        if (event?.cancelable) event.preventDefault();
+                    }
+
+                    resetPotStatusSwipe();
+                    if (shouldSwitch) {
+                        setPotStatus(target);
+                    }
+                };
+
+                const handlePotStatusSwipeCancel = () => {
+                    resetPotStatusSwipe();
+                };
+
                 const handleHomeScroll = () => {
                     if (!hasMorePots.value || isLoadingMore.value || isEditMode.value || isLoading.value) return;
                     const remaining = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
@@ -2474,9 +2744,10 @@
                     }
                 };
 
-                const setPotStatus = async (status) => {
-                    if (activePotStatus.value === status) return;
-                    closePotActionSheet();
+                    const setPotStatus = async (status) => {
+                        resetPotStatusSwipe();
+                        if (activePotStatus.value === status) return;
+                        closePotActionSheet();
                     closeBatchActionSheet();
                     closeBatchCareModal();
                     closeBatchArchiveModal();
@@ -2609,6 +2880,7 @@
                 // 切换管理模式
                 const toggleEditMode = async () => {
                     closePotActionSheet();
+                    closePotSearch();
                     isEditMode.value = !isEditMode.value;
                     if (isEditMode.value) {
                         if (activePotStatus.value === 'active' || activePotStatus.value === 'archived') {
@@ -2683,13 +2955,15 @@
                     activePotAction.value = null;
                 };
                 const openPotActionSheet = (pot) => {
+                    if (Date.now() < potStatusSwipeSuppressClickUntil) return;
                     activePotAction.value = pot;
                     showPotActionSheet.value = true;
                 };
-                const handleCardClick = (pot) => {
-                    if (!isEditMode.value) {
-                        window.location.href = `pot-detail?id=${pot.id}`;
-                    }
+                    const handleCardClick = (pot) => {
+                        if (Date.now() < potStatusSwipeSuppressClickUntil) return;
+                        if (!isEditMode.value) {
+                            window.location.href = `pot-detail?id=${pot.id}`;
+                        }
                 };
                 const restoreArchivedPot = async (pot) => {
                     if (!pot?.id) return;
@@ -3593,7 +3867,11 @@
                 });
 
                 return {
-                    isLoading, pots, isLoadingMore, hasMorePots, loadMorePots, activePotStatus, potStatusTabs, potStatusCounts, showPotStatusSwitch, setPotStatus, emptyStateTitle, emptyStateMessage,
+                    isLoading, pots, displayedPots, isPotSearchActive, potSearchQuery, potSearchInput, hasPotSearchQuery, openPotSearch, closePotSearch, clearPotSearch,
+                        isLoadingMore, hasMorePots, loadMorePots, activePotStatus, potStatusTabs, potStatusCounts, showPotStatusSwitch, setPotStatus,
+                        getPotStatusTabButtonClass, getPotStatusTabFillStyle, getPotStatusTabTextClass,
+                        handlePotStatusSwipeStart, handlePotStatusSwipeMove, handlePotStatusSwipeEnd, handlePotStatusSwipeCancel,
+                        emptyStateTitle, emptyStateMessage,
                     user, isLoggedIn, userDisplayName, careReminders, isCareRemindersLoading, hasTopReminderBlock, groupedReminders, navSeasonalReminder, showRemindersExpanded,
                     ownedPots, collaborativePots, viewerPots, batchManageablePots,
                     isEditMode, potsGrid, showUserMenu, showLoginModal, showRegisterModal, showForgotPasswordModal, isAuthLoading,

@@ -3,16 +3,17 @@ main = "src/index.ts"
 compatibility_date = "2025-01-01"
 keep_vars = true
 
-# Recommended production mode:
-# - manage vars in Cloudflare Dashboard / Wrangler secrets
-# - keep local development values in `.dev.vars`
-# - omit `[vars]` here so deploys do not overwrite dashboard vars
+# Production vars are managed in the Cloudflare dashboard / secrets.
+# `keep_vars = true` prevents `wrangler deploy` from overwriting them
+# when this local-only file does not declare a `[vars]` block.
 
+# 开发环境静态资源目录
 [dev]
 port = 8787
 ip = "127.0.0.1"
 local_protocol = "http"
 
+# 启用静态资源及其在 Worker 中的绑定 (ASSETS)
 [assets]
 directory = "./frontend"
 binding = "ASSETS"
@@ -27,4 +28,22 @@ migrations_table = "d1_migrations"
 
 [[r2_buckets]]
 binding = "STATIC_BUCKET"
-bucket_name = "YOUR_R2_BUCKET_NAME"
+bucket_name = "my-flower-pots"
+
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = true
+persist = true
+head_sampling_rate = 1
+
+[placement]
+mode = "smart"
