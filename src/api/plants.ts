@@ -465,6 +465,7 @@ type PlantIndex = {
 const PLANT_CACHE_PREFIX = 'plants:';
 const PLANT_INDEX_CACHE_KEY = `${PLANT_CACHE_PREFIX}index:v1`;
 const PLANT_INDEX_TTL_MS = 10 * 60 * 1000;
+let plantIndexLoadPromise: Promise<PlantIndex> | null = null;
 
 export function invalidatePlantCache(): number {
   return deleteMemoryCachePrefix(PLANT_CACHE_PREFIX);
@@ -537,6 +538,16 @@ async function getPlantIndex(env: any): Promise<PlantIndex> {
     return cached;
   }
 
+  if (!plantIndexLoadPromise) {
+    plantIndexLoadPromise = loadPlantIndex(env).finally(() => {
+      plantIndexLoadPromise = null;
+    });
+  }
+
+  return plantIndexLoadPromise;
+}
+
+async function loadPlantIndex(env: any): Promise<PlantIndex> {
   const [plantRows, synonymRows] = await Promise.all([
     env.DB.prepare('SELECT * FROM plants ORDER BY name ASC').all(),
     env.DB.prepare('SELECT plant_id, synonym FROM plant_synonyms ORDER BY synonym ASC').all()

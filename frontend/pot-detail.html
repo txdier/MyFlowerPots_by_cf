@@ -406,13 +406,21 @@
                                 <span class="text-gray-900 font-bold shrink-0 w-20">种植日期：</span>
                                 <span class="text-gray-600">{{ formatDate(pot.plant_date) }}</span>
                             </div>
-	                            <div class="flex items-baseline gap-2">
-	                                <span class="text-gray-900 font-bold shrink-0 w-20">花盆备注：</span>
-	                                <span class="text-gray-600">{{ pot.note || '无' }}</span>
-	                            </div>
-	                            <div v-if="isArchived" class="flex items-baseline gap-2">
-	                                <span class="text-gray-900 font-bold shrink-0 w-20">归档原因：</span>
-	                                <span class="text-gray-600">
+                            <div class="flex items-baseline gap-2">
+                                <span class="text-gray-900 font-bold shrink-0 w-20">养护天数：</span>
+                                <span class="text-gray-600">{{ careElapsedDaysText }}</span>
+                            </div>
+                            <div class="flex items-baseline gap-2">
+                                <span class="text-gray-900 font-bold shrink-0 w-20">花盆备注：</span>
+                                <span class="text-gray-600">{{ pot.note || '无' }}</span>
+                            </div>
+                            <div v-if="isArchived" class="flex items-baseline gap-2">
+                                <span class="text-gray-900 font-bold shrink-0 w-20">归档日期：</span>
+                                <span class="text-gray-600">{{ formatDate(pot.archived_at) || '无' }}</span>
+                            </div>
+                            <div v-if="isArchived" class="flex items-baseline gap-2">
+                                <span class="text-gray-900 font-bold shrink-0 w-20">归档原因：</span>
+                                <span class="text-gray-600">
 	                                    {{ pot.archive_reason || '无' }}
 	                                    <template v-if="pot.archive_note">，{{ pot.archive_note }}</template>
 	                                </span>
@@ -521,180 +529,205 @@
                     </div>
                 </div>
 
-                <!-- 2. 养护周期 (Care Schedules) -->
-                <div v-if="canShowCareSchedules" id="section-schedules"
-                    class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
-                    <div class="p-6 flex justify-between items-center border-b border-gray-50">
-                        <h3 class="text-lg font-black text-gray-800 flex items-center gap-2">
-                            <i class="fa fa-clock text-purple-400"></i> 养护提醒
-                        </h3>
-                        <button v-if="!isReadOnly" @click="showAddScheduleModal = true"
-                            class="text-xs font-bold text-purple-500 bg-purple-50 px-3 py-1.5 rounded-full active:scale-95 transition">
-                            <i class="fa fa-plus mr-1"></i> 添加
-                        </button>
+                <!-- 2. 养护管理 (Care Records + Schedules) -->
+                <div id="section-records" class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
+                    <div class="px-6 pt-3 border-b border-gray-50">
+                        <div class="flex items-stretch gap-3">
+                            <div class="flex flex-1 min-w-0">
+                                <button @click="carePanelActiveTab = 'records'"
+                                    class="flex-1 py-4 text-sm font-black border-b-2 transition flex items-center justify-center gap-2"
+                                    :class="carePanelActiveTab === 'records' ? 'text-orange-500 border-orange-400' : 'text-gray-400 border-transparent'">
+                                    <i class="fa fa-history"></i>
+                                    养护历史
+                                </button>
+                                <button v-if="canShowCareSchedules" @click="carePanelActiveTab = 'schedules'"
+                                    class="flex-1 py-4 text-sm font-black border-b-2 transition flex items-center justify-center gap-2"
+                                    :class="carePanelActiveTab === 'schedules' ? 'text-purple-500 border-purple-400' : 'text-gray-400 border-transparent'">
+                                    <i class="fa fa-clock"></i>
+                                    养护提醒
+                                </button>
+                            </div>
+                            <button v-if="showCarePanelAddButton" type="button" @click="handleCarePanelAdd"
+                                class="mt-1 mb-3 w-12 h-12 shrink-0 rounded-2xl bg-white flex items-center justify-center text-xl transition active:scale-95 hover:bg-gray-50"
+                                :class="carePanelActiveTab === 'records' ? 'text-orange-500' : 'text-purple-500'"
+                                :title="carePanelAddLabel" :aria-label="carePanelAddLabel">
+                                <i class="fa fa-plus"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div v-show="showScheduleExpanded" class="p-6 space-y-4 animate-fade-in">
-                        <template v-if="isCareSchedulesLoading && careSchedules.length === 0">
-                            <div class="flex items-center justify-between gap-3 p-3 bg-gray-50/50 rounded-2xl animate-pulse">
-                                <div class="flex items-center gap-3 flex-1">
-                                    <div class="w-10 h-10 rounded-2xl bg-gray-200 shrink-0"></div>
-                                    <div class="flex-1 space-y-2">
-                                        <div class="h-4 bg-gray-200 rounded w-28"></div>
-                                        <div class="h-3 bg-gray-100 rounded w-20"></div>
+
+                    <div v-show="carePanelActiveTab === 'records'">
+                        <!--
+                        <div v-if="!isReadOnly" class="px-6 py-4 flex justify-end border-b border-gray-50">
+                            <button @click="goAddCarePage"
+                                class="bg-orange-400 text-white px-4 py-1.5 rounded-full text-xs font-black shadow-lg shadow-orange-100 active:scale-95 transition">
+                                新增养护
+                            </button>
+                        </div>
+                        -->
+
+                        <!--
+                        <div v-if="potStats && careRecords?.length > 0"
+                            class="px-6 py-4 bg-gray-50/50 border-b border-gray-50">
+                            <div class="grid grid-cols-3 gap-3 mb-3">
+                                <div class="bg-white rounded-2xl p-3 text-center shadow-sm border border-gray-50">
+                                    <div class="text-xl font-black text-blue-500">💧 {{ statsWaterCount }}</div>
+                                    <div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">浇水</div>
+                                </div>
+                                <div class="bg-white rounded-2xl p-3 text-center shadow-sm border border-gray-50">
+                                    <div class="text-xl font-black text-green-500">🌿 {{ statsFertilizeCount }}</div>
+                                    <div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">施肥</div>
+                                </div>
+                                <div class="bg-white rounded-2xl p-3 text-center shadow-sm border border-gray-50">
+                                    <div class="text-xl font-black text-orange-500">📌 {{ statsCareCount }}</div>
+                                    <div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">次数</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-else-if="isPotStatsLoading && careRecords?.length > 0"
+                            class="px-6 py-4 bg-gray-50/50 border-b border-gray-50">
+                            <div class="grid grid-cols-3 gap-3 mb-3 animate-pulse">
+                                <div class="bg-white rounded-2xl p-3 border border-gray-50 space-y-2">
+                                    <div class="h-6 bg-gray-200 rounded w-14 mx-auto"></div>
+                                    <div class="h-3 bg-gray-100 rounded w-10 mx-auto"></div>
+                                </div>
+                                <div class="bg-white rounded-2xl p-3 border border-gray-50 space-y-2">
+                                    <div class="h-6 bg-gray-200 rounded w-14 mx-auto"></div>
+                                    <div class="h-3 bg-gray-100 rounded w-10 mx-auto"></div>
+                                </div>
+                                <div class="bg-white rounded-2xl p-3 border border-gray-50 space-y-2">
+                                    <div class="h-6 bg-gray-200 rounded w-14 mx-auto"></div>
+                                    <div class="h-3 bg-gray-100 rounded w-10 mx-auto"></div>
+                                </div>
+                            </div>
+                        </div>
+                        -->
+
+                        <div v-if="isCareRecordsLoading && careRecords?.length === 0" class="p-6 space-y-4 animate-pulse">
+                            <div class="flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-2xl">
+                                <div class="space-y-2">
+                                    <div class="h-4 bg-gray-200 rounded w-24"></div>
+                                    <div class="h-3 bg-gray-100 rounded w-36"></div>
+                                </div>
+                                <div class="w-4 h-4 bg-gray-100 rounded"></div>
+                            </div>
+                            <div class="flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-2xl">
+                                <div class="space-y-2">
+                                    <div class="h-4 bg-gray-200 rounded w-28"></div>
+                                    <div class="h-3 bg-gray-100 rounded w-32"></div>
+                                </div>
+                                <div class="w-4 h-4 bg-gray-100 rounded"></div>
+                            </div>
+                        </div>
+                        <div v-else-if="careRecords?.length === 0" class="p-10 text-center text-gray-400">暂无养护记录</div>
+                        <div v-else class="divide-y divide-gray-50">
+                            <div v-for="group in groupedCareRecords.slice(0, 5)" :key="group.date"
+                                @click="showCareDetails(group)"
+                                class="group py-4 px-6 active:bg-gray-50 transition cursor-pointer flex items-center justify-between">
+                                <div class="flex items-baseline gap-4 min-w-0">
+                                    <span class="text-xs font-black text-gray-800 uppercase shrink-0 w-24">{{ group.date
+                                        }}</span>
+                                    <div class="min-w-0">
+                                        <div class="flex items-center gap-2">
+                                            <div class="text-xs font-bold text-gray-400 truncate">{{ group.displayAction }}
+                                            </div>
+                                            <span v-if="showOperatorName"
+                                                class="text-[9px] px-1.5 py-0.5 bg-gray-50 text-gray-400 rounded-md font-bold shrink-0">{{
+                                                group.records[0].operatorName || pot.owner_name || '主人' }}</span>
+                                        </div>
+                                        <p v-if="group.displayDescription"
+                                            class="text-[10px] text-gray-300 truncate max-w-[200px] mt-0.5">{{
+                                            group.displayDescription }}</p>
                                     </div>
                                 </div>
-                                <div class="w-12 h-7 rounded-full bg-gray-200"></div>
+                                <i class="fa fa-chevron-right text-[10px] text-gray-200"></i>
                             </div>
-                            <div class="flex items-center justify-between gap-3 p-3 bg-gray-50/50 rounded-2xl animate-pulse">
-                                <div class="flex items-center gap-3 flex-1">
-                                    <div class="w-10 h-10 rounded-2xl bg-gray-200 shrink-0"></div>
-                                    <div class="flex-1 space-y-2">
-                                        <div class="h-4 bg-gray-200 rounded w-24"></div>
-                                        <div class="h-3 bg-gray-100 rounded w-24"></div>
+                            <button v-if="careRecords?.length > 5" @click="viewAllRecords"
+                                class="w-full py-4 text-[10px] text-gray-300 font-black uppercase tracking-widest bg-gray-50/50 border-t border-gray-50 flex items-center justify-center gap-2">
+                                查看全部养护记录 ({{ careRecords?.length || 0 }}) <i class="fa fa-history"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div v-if="canShowCareSchedules" v-show="carePanelActiveTab === 'schedules'">
+                        <!--
+                        <div v-if="!isReadOnly" class="px-6 py-4 flex justify-end border-b border-gray-50">
+                            <button @click="showAddScheduleModal = true"
+                                class="text-xs font-bold text-purple-500 bg-purple-50 px-3 py-1.5 rounded-full active:scale-95 transition">
+                                <i class="fa fa-plus mr-1"></i> 添加提醒
+                            </button>
+                        </div>
+                        -->
+                        <div class="p-6 space-y-4 animate-fade-in">
+                            <template v-if="isCareSchedulesLoading && careSchedules.length === 0">
+                                <div class="flex items-center justify-between gap-3 p-3 bg-gray-50/50 rounded-2xl animate-pulse">
+                                    <div class="flex items-center gap-3 flex-1">
+                                        <div class="w-10 h-10 rounded-2xl bg-gray-200 shrink-0"></div>
+                                        <div class="flex-1 space-y-2">
+                                            <div class="h-4 bg-gray-200 rounded w-28"></div>
+                                            <div class="h-3 bg-gray-100 rounded w-20"></div>
+                                        </div>
                                     </div>
+                                    <div class="w-12 h-7 rounded-full bg-gray-200"></div>
                                 </div>
-                                <div class="w-12 h-7 rounded-full bg-gray-200"></div>
-                            </div>
-                        </template>
-                        <template v-else-if="careSchedules.length > 0">
-                            <template v-for="schedule in careSchedules" :key="schedule.id">
-                                <div class="flex items-center justify-between gap-3 p-3 bg-gray-50/50 rounded-2xl">
-                                    <div class="flex items-center gap-3 min-w-0">
-                                        <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-lg shrink-0"
-                                            :class="getScheduleTypeStyle(schedule.care_type, schedule.custom_action).bg">
-                                            {{ getScheduleTypeStyle(schedule.care_type, schedule.custom_action).icon }}
-                                        </div>
-                                        <div class="min-w-0">
-                                            <div class="text-sm font-bold text-gray-800">
-                                                {{ getScheduleTypeName(schedule.care_type, schedule.custom_action) }}
-                                            </div>
-                                            <div class="flex items-center gap-1 mt-0.5" @click.stop>
-                                                <span class="text-[10px] text-gray-400">每</span>
-                                                <input v-if="!isReadOnly" type="number"
-                                                    v-model.lazy.number="schedule.intervalDays"
-                                                    class="w-8 h-5 text-center text-[10px] font-bold bg-white border border-gray-200 rounded px-0 py-0 focus:ring-1 focus:ring-purple-200"
-                                                    @change="updateScheduleInterval(schedule)">
-                                                <span v-else class="text-[10px] font-bold text-gray-600">{{
-                                                    schedule.intervalDays }}</span>
-                                                <span class="text-[10px] text-gray-400">天提醒</span>
-                                            </div>
+                                <div class="flex items-center justify-between gap-3 p-3 bg-gray-50/50 rounded-2xl animate-pulse">
+                                    <div class="flex items-center gap-3 flex-1">
+                                        <div class="w-10 h-10 rounded-2xl bg-gray-200 shrink-0"></div>
+                                        <div class="flex-1 space-y-2">
+                                            <div class="h-4 bg-gray-200 rounded w-24"></div>
+                                            <div class="h-3 bg-gray-100 rounded w-24"></div>
                                         </div>
                                     </div>
-                                    <div v-if="!isReadOnly" class="flex items-center gap-2">
-                                        <button @click="toggleScheduleEnabled(schedule)"
-                                            class="w-12 h-7 rounded-full transition-all duration-300 relative"
-                                            :class="schedule.enabled ? 'bg-green-500' : 'bg-gray-200'">
-                                            <span
-                                                class="absolute w-5 h-5 bg-white rounded-full top-1 transition-all duration-300 shadow-sm"
-                                                :class="schedule.enabled ? 'right-1' : 'left-1'"></span>
-                                        </button>
-                                        <button @click="deleteSchedule(schedule)"
-                                            class="w-8 h-8 rounded-xl text-gray-300 hover:text-red-400 hover:bg-red-50 transition">
-                                            <i class="fa fa-trash-alt text-xs"></i>
-                                        </button>
-                                    </div>
+                                    <div class="w-12 h-7 rounded-full bg-gray-200"></div>
                                 </div>
                             </template>
-                        </template>
-                        <div v-else class="py-8 text-center text-gray-400">暂未设置养护提醒</div>
-                    </div>
-                </div>
-
-                <!-- 3. 养护记录 (Care Records) -->
-                <div id="section-records" class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
-                    <div class="p-6 flex justify-between items-center border-b border-gray-50">
-                        <h3 class="text-lg font-black text-gray-800 flex items-center gap-2">
-                            <i class="fa fa-history text-orange-400"></i> 养护历史
-                        </h3>
-                        <button v-if="!isReadOnly" @click="goAddCarePage"
-                            class="bg-orange-400 text-white px-4 py-1.5 rounded-full text-xs font-black shadow-lg shadow-orange-100 active:scale-95 transition">
-                            新增养护
-                        </button>
-                    </div>
-
-                    <div v-if="potStats && careRecords?.length > 0"
-                        class="px-6 py-4 bg-gray-50/50 border-b border-gray-50">
-                        <div class="grid grid-cols-3 gap-3 mb-3">
-                            <div class="bg-white rounded-2xl p-3 text-center shadow-sm border border-gray-50">
-                                <div class="text-xl font-black text-blue-500">💧 {{ statsWaterCount }}</div>
-                                <div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">浇水</div>
-                            </div>
-                            <div class="bg-white rounded-2xl p-3 text-center shadow-sm border border-gray-50">
-                                <div class="text-xl font-black text-green-500">🌿 {{ statsFertilizeCount }}</div>
-                                <div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">施肥</div>
-                            </div>
-                            <div class="bg-white rounded-2xl p-3 text-center shadow-sm border border-gray-50">
-                                <div class="text-xl font-black text-orange-500">📅 {{ statsCareDays }}</div>
-                                <div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">养护天</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div v-else-if="isPotStatsLoading && careRecords?.length > 0"
-                        class="px-6 py-4 bg-gray-50/50 border-b border-gray-50">
-                        <div class="grid grid-cols-3 gap-3 mb-3 animate-pulse">
-                            <div class="bg-white rounded-2xl p-3 border border-gray-50 space-y-2">
-                                <div class="h-6 bg-gray-200 rounded w-14 mx-auto"></div>
-                                <div class="h-3 bg-gray-100 rounded w-10 mx-auto"></div>
-                            </div>
-                            <div class="bg-white rounded-2xl p-3 border border-gray-50 space-y-2">
-                                <div class="h-6 bg-gray-200 rounded w-14 mx-auto"></div>
-                                <div class="h-3 bg-gray-100 rounded w-10 mx-auto"></div>
-                            </div>
-                            <div class="bg-white rounded-2xl p-3 border border-gray-50 space-y-2">
-                                <div class="h-6 bg-gray-200 rounded w-14 mx-auto"></div>
-                                <div class="h-3 bg-gray-100 rounded w-10 mx-auto"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div v-if="isCareRecordsLoading && careRecords?.length === 0" class="p-6 space-y-4 animate-pulse">
-                        <div class="flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-2xl">
-                            <div class="space-y-2">
-                                <div class="h-4 bg-gray-200 rounded w-24"></div>
-                                <div class="h-3 bg-gray-100 rounded w-36"></div>
-                            </div>
-                            <div class="w-4 h-4 bg-gray-100 rounded"></div>
-                        </div>
-                        <div class="flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-2xl">
-                            <div class="space-y-2">
-                                <div class="h-4 bg-gray-200 rounded w-28"></div>
-                                <div class="h-3 bg-gray-100 rounded w-32"></div>
-                            </div>
-                            <div class="w-4 h-4 bg-gray-100 rounded"></div>
-                        </div>
-                    </div>
-                    <div v-else-if="careRecords?.length === 0" class="p-10 text-center text-gray-400">暂无养护记录</div>
-                    <div v-else class="divide-y divide-gray-50">
-                        <div v-for="group in groupedCareRecords.slice(0, 5)" :key="group.date"
-                            @click="showCareDetails(group)"
-                            class="group py-4 px-6 active:bg-gray-50 transition cursor-pointer flex items-center justify-between">
-                            <div class="flex items-baseline gap-4 min-w-0">
-                                <span class="text-xs font-black text-gray-800 uppercase shrink-0 w-24">{{ group.date
-                                    }}</span>
-                                <div class="min-w-0">
-                                    <div class="flex items-center gap-2">
-                                        <div class="text-xs font-bold text-gray-400 truncate">{{ group.displayAction }}
+                            <template v-else-if="careSchedules.length > 0">
+                                <template v-for="schedule in careSchedules" :key="schedule.id">
+                                    <div class="flex items-center justify-between gap-3 p-3 bg-gray-50/50 rounded-2xl">
+                                        <div class="flex items-center gap-3 min-w-0">
+                                            <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-lg shrink-0"
+                                                :class="getScheduleTypeStyle(schedule.care_type, schedule.custom_action).bg">
+                                                {{ getScheduleTypeStyle(schedule.care_type, schedule.custom_action).icon }}
+                                            </div>
+                                            <div class="min-w-0">
+                                                <div class="text-sm font-bold text-gray-800">
+                                                    {{ getScheduleTypeName(schedule.care_type, schedule.custom_action) }}
+                                                </div>
+                                                <div class="flex items-center gap-1 mt-0.5" @click.stop>
+                                                    <span class="text-[10px] text-gray-400">每</span>
+                                                    <input v-if="!isReadOnly" type="number"
+                                                        v-model.lazy.number="schedule.intervalDays"
+                                                        class="w-8 h-5 text-center text-[10px] font-bold bg-white border border-gray-200 rounded px-0 py-0 focus:ring-1 focus:ring-purple-200"
+                                                        @change="updateScheduleInterval(schedule)">
+                                                    <span v-else class="text-[10px] font-bold text-gray-600">{{
+                                                        schedule.intervalDays }}</span>
+                                                    <span class="text-[10px] text-gray-400">天提醒</span>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <span v-if="showOperatorName"
-                                            class="text-[9px] px-1.5 py-0.5 bg-gray-50 text-gray-400 rounded-md font-bold shrink-0">{{
-                                            group.records[0].operatorName || pot.owner_name || '主人' }}</span>
+                                        <div v-if="!isReadOnly" class="flex items-center gap-2">
+                                            <button @click="toggleScheduleEnabled(schedule)"
+                                                class="w-12 h-7 rounded-full transition-all duration-300 relative"
+                                                :class="schedule.enabled ? 'bg-green-500' : 'bg-gray-200'">
+                                                <span
+                                                    class="absolute w-5 h-5 bg-white rounded-full top-1 transition-all duration-300 shadow-sm"
+                                                    :class="schedule.enabled ? 'right-1' : 'left-1'"></span>
+                                            </button>
+                                            <button @click="deleteSchedule(schedule)"
+                                                class="w-8 h-8 rounded-xl text-gray-300 hover:text-red-400 hover:bg-red-50 transition">
+                                                <i class="fa fa-trash-alt text-xs"></i>
+                                            </button>
+                                        </div>
                                     </div>
-                                    <p v-if="group.displayDescription"
-                                        class="text-[10px] text-gray-300 truncate max-w-[200px] mt-0.5">{{
-                                        group.displayDescription }}</p>
-                                </div>
-                            </div>
-                            <i class="fa fa-chevron-right text-[10px] text-gray-200"></i>
+                                </template>
+                            </template>
+                            <div v-else class="py-8 text-center text-gray-400">暂未设置养护提醒</div>
                         </div>
-                        <button v-if="careRecords?.length > 5" @click="viewAllRecords"
-                            class="w-full py-4 text-[10px] text-gray-300 font-black uppercase tracking-widest bg-gray-50/50 border-t border-gray-50 flex items-center justify-center gap-2">
-                            查看全部养护记录 ({{ careRecords?.length || 0 }}) <i class="fa fa-history"></i>
-                        </button>
                     </div>
                 </div>
 
-                <!-- 4. 生长记录 (Timelines) -->
+                <!-- 3. 生长记录 (Timelines) -->
                 <div id="section-timelines"
                     class="bg-white rounded-3xl shadow-sm border border-gray-50 overflow-hidden">
                     <div class="p-6 flex justify-between items-center border-b border-gray-50">
@@ -702,16 +735,17 @@
                             <i class="fa fa-chart-line text-blue-500"></i> 生长轨迹
                         </h3>
                         <div class="flex gap-2">
-                            <button v-if="timelineRecords?.length >= 2" @click="toggleTimelineSort"
-                                class="w-8 h-8 rounded-full bg-gray-100/80 text-gray-500 flex items-center justify-center active:scale-90 transition">
-                                <i class="fas text-[12px]"
-                                    :class="isTimelineDesc ? 'fa-sort-amount-down' : 'fa-sort-amount-up'"></i>
-                            </button>
-                            <button v-if="!isReadOnly" @click="openAddTimelineModal"
-                                class="bg-blue-500 text-white px-4 py-1.5 rounded-full text-xs font-black shadow-lg shadow-blue-100 active:scale-95 transition">
-                                记录这一刻
-                            </button>
-                        </div>
+	                            <button v-if="timelineRecords?.length >= 2" @click="toggleTimelineSort"
+	                                class="w-8 h-8 rounded-full bg-gray-100/80 text-gray-500 flex items-center justify-center active:scale-90 transition">
+	                                <i class="fas text-[12px]"
+	                                    :class="isTimelineDesc ? 'fa-sort-amount-down' : 'fa-sort-amount-up'"></i>
+	                            </button>
+	                            <button v-if="!isReadOnly" type="button" @click="openAddTimelineModal"
+	                                class="w-10 h-10 rounded-2xl text-blue-500 flex items-center justify-center text-xl transition active:scale-95 hover:bg-gray-50"
+                                    title="记录这一刻" aria-label="记录这一刻">
+	                                <i class="fa fa-plus"></i>
+	                            </button>
+	                        </div>
                     </div>
                     <div v-if="isTimelineRecordsLoading && timelineRecords?.length === 0" class="p-6 space-y-6 animate-pulse">
                         <div class="relative pl-6 border-l-2 border-gray-100">
@@ -800,9 +834,9 @@
 
 	                <div v-if="showArchiveModal" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4">
 	                    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeArchiveModal"></div>
-	                    <div
-	                        class="relative bg-white w-full max-w-lg rounded-t-[2rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up">
-	                        <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50">
+		                    <div
+		                        class="relative bg-white w-full max-w-lg rounded-t-[2rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col max-h-[90vh]">
+		                        <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 shrink-0">
 	                            <div>
 	                                <h3 class="text-xl font-black text-gray-800">归档此花盆</h3>
 	                                <p class="text-xs text-gray-400 mt-0.5">为 {{ pot?.name || '这盆植物' }} 记录归档原因</p>
@@ -812,7 +846,7 @@
 	                                <i class="fa fa-times text-xl"></i>
 	                            </button>
 	                        </div>
-	                        <div class="p-6 space-y-5">
+		                        <div class="p-6 space-y-5 overflow-y-auto">
 	                            <div class="rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 text-xs text-amber-700 leading-relaxed">
 	                                归档后这盆植物将不再出现在养护列表，也不会收到养护提醒。记录会保留，之后可以在已归档中查看和恢复。
 	                            </div>
@@ -834,8 +868,30 @@
 	                                <textarea v-model="archiveForm.note" placeholder="这次失败可能和什么有关？" rows="3"
 	                                    class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-green-300 resize-none transition"></textarea>
 	                            </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-gray-700 mb-2">归档照片
+                                        <span class="text-gray-400 font-normal">（可选，会加入成长轨迹）</span>
+                                    </label>
+                                    <div class="grid grid-cols-4 gap-2">
+                                        <div v-for="(img, idx) in archiveForm.tempImages" :key="`archive-${idx}`"
+                                            class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden">
+                                            <img :src="img.preview" decoding="async" class="w-full h-full object-cover">
+                                            <button type="button" @click="removeArchiveImage(idx)"
+                                                class="absolute top-1 right-1 bg-black/50 text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center">
+                                                <i class="fa fa-times"></i>
+                                            </button>
+                                        </div>
+                                        <button v-if="archiveImageCount() < 3" type="button" @click="triggerArchiveFileInput"
+                                            class="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-300 hover:border-green-500 hover:text-green-500 transition active:scale-95">
+                                            <i class="fa fa-camera text-xl mb-1"></i>
+                                            <span class="text-[8px] font-black uppercase tracking-tighter">添加</span>
+                                        </button>
+                                    </div>
+                                    <input type="file" ref="archiveFileInput" @change="onArchiveFilesSelected" multiple
+                                        accept="image/*" class="hidden">
+                                </div>
 	                        </div>
-	                        <div class="px-6 pb-6">
+		                        <div class="px-6 pb-6 shrink-0">
 	                            <button @click="archiveCurrentPot" :disabled="isArchiveLoading"
 	                                class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
 	                                {{ isArchiveLoading ? '归档中...' : '确认归档' }}
@@ -1152,12 +1208,19 @@
                         <div v-for="(item, idx) in previewImages" :key="item.fullSrc || idx"
                             class="w-full h-full flex-shrink-0 flex items-center justify-center px-4"
                             @click="closeGallery">
-                            <img :src="item.displaySrc" loading="lazy"
+                            <img v-if="item.isFullLoaded" :src="item.displaySrc" loading="lazy"
                                 class="max-w-full max-h-full object-contain select-none transition duration-300"
-                                :style="{
-                                    filter: item.isFullLoaded ? 'none' : 'blur(1px)',
-                                    transform: item.isFullLoaded ? 'none' : 'scale(1.02)'
-                                }" draggable="false">
+                                draggable="false">
+                            <div v-else class="flex flex-col items-center justify-center gap-3 text-white/60">
+                                <div v-if="item.isFullLoadFailed" class="text-center">
+                                    <i class="fa fa-exclamation-circle text-2xl mb-2"></i>
+                                    <div class="text-xs font-bold">图片加载失败</div>
+                                </div>
+                                <template v-else>
+                                    <div class="spinner"></div>
+                                    <div class="text-xs font-bold tracking-widest">加载原图中...</div>
+                                </template>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1765,7 +1828,7 @@
                             <div class="space-y-1.5">
                                 <label class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">昵称
                                     <span class="font-medium normal-case tracking-normal text-gray-300">(选填)</span></label>
-                                <input type="text" id="detailRegisterNickname" name="nickname" autocomplete="nickname" maxlength="20"
+                                <input type="text" id="detailRegisterNickname" name="nickname" autocomplete="nickname" maxlength="12"
                                     @input="handleRegisterDisplayNameInput" @blur="normalizeRegisterDisplayName"
                                     v-model="registerForm.displayName" placeholder="给自己起个名字"
                                     class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-green-500 transition">
@@ -1934,10 +1997,11 @@
 	                    content: ''
 	                });
 	                const archiveReasons = ['枯萎', '烂根', '干死', '病虫害', '环境不适', '送人/不再养护', '其他'];
-	                const archiveForm = reactive({
-	                    reason: '枯萎',
-	                    note: ''
-	                });
+		                const archiveForm = reactive({
+		                    reason: '枯萎',
+		                    note: '',
+                            tempImages: []
+		                });
 
                 const activeSection = ref('');
                 const showActionMenu = ref(false);
@@ -1946,9 +2010,10 @@
                 const galleryImageLoadToken = ref(0);
                 const galleryDragOffset = ref(0);
                 const galleryIsDragging = ref(false);
-                const isSavingTimeline = ref(false);
-                const fileInput = ref(null);
-                const touchStartX = ref(0);
+	                const isSavingTimeline = ref(false);
+	                const fileInput = ref(null);
+                    const archiveFileInput = ref(null);
+	                const touchStartX = ref(0);
                 const touchEndX = ref(0);
                 const heroImageLoaded = ref(false);
 
@@ -2011,8 +2076,9 @@
                 const editingTimelineId = ref(null);
                 const isEditingTimeline = computed(() => !!editingTimelineId.value);
 
-                const careSchedules = ref([]);
-                const showScheduleExpanded = ref(true);
+	                const careSchedules = ref([]);
+                    const carePanelActiveTab = ref('records');
+	                const showScheduleExpanded = ref(true);
                 const showAddScheduleModal = ref(false);
                 const newSchedule = reactive({
                     careType: 'water',
@@ -2029,18 +2095,14 @@
                     { value: 'custom', icon: '⚙️', label: '自定义' }
                 ];
 
-                const sectionTabs = computed(() => {
-                    const tabs = [
-                        { key: 'overview', label: '概览', id: 'section-overview' },
-                        { key: 'records', label: '养护历史', id: 'section-records' },
-                        { key: 'timelines', label: '生长轨迹', id: 'section-timelines' }
-                    ];
-                    if (canShowCareSchedules.value) {
-                        // 在概览后插入提醒
-                        tabs.splice(1, 0, { key: 'schedules', label: '提醒', id: 'section-schedules' });
-                    }
-                    return tabs;
-                });
+	                const sectionTabs = computed(() => {
+	                    const tabs = [
+	                        { key: 'overview', label: '概览', id: 'section-overview' },
+	                        { key: 'records', label: '养护历史', id: 'section-records' },
+	                        { key: 'timelines', label: '生长轨迹', id: 'section-timelines' }
+	                    ];
+	                    return tabs;
+	                });
 
                 // 核心权限逻辑
                 // 确保 user_id 存在且匹配，防止 undefined === undefined 的误判
@@ -2050,10 +2112,15 @@
                         pot.value.user_id === currentUser.value.id;
                 });
                 const isArchived = computed(() => String(pot.value?.status || 'active').toLowerCase() === 'archived');
-                const isReadOnly = computed(() => !!(isArchived.value || (!!shareToken.value && !isOwner.value && !viewerIsCollaborator.value) || pot.value?.is_viewer || viewerIsViewer.value));
-                const isPublicVisitor = computed(() => !!shareToken.value && !currentUser.value);
-                const canShowCareSchedules = computed(() => !isPublicVisitor.value && !isArchived.value);
-                const showOperatorName = computed(() => pot.value && (pot.value.is_collaborator || pot.value.collaborator_count > 0));
+	                const isReadOnly = computed(() => !!(isArchived.value || (!!shareToken.value && !isOwner.value && !viewerIsCollaborator.value) || pot.value?.is_viewer || viewerIsViewer.value));
+	                const isPublicVisitor = computed(() => !!shareToken.value && !currentUser.value);
+	                const canShowCareSchedules = computed(() => !isPublicVisitor.value && !isArchived.value);
+                    watch(canShowCareSchedules, (canShow) => {
+                        if (!canShow && carePanelActiveTab.value === 'schedules') {
+                            carePanelActiveTab.value = 'records';
+                        }
+                    });
+	                const showOperatorName = computed(() => pot.value && (pot.value.is_collaborator || pot.value.collaborator_count > 0));
                 const hasCollaborationAccess = computed(() => !!(isOwner.value || pot.value?.is_collaborator || viewerIsCollaborator.value));
                 const canCommentAsMember = computed(() => !!(
                     currentUser.value && pot.value && (
@@ -2287,7 +2354,7 @@
                 const syncRegisterFormFromDom = () => {
                     formUtils.syncFormFieldsFromDom([
                         { elementId: 'detailRegisterEmail', form: registerForm, key: 'email', transform: formUtils.normalizeEmail },
-                        { elementId: 'detailRegisterNickname', form: registerForm, key: 'displayName', transform: formUtils.normalizeSingleLineText },
+                        { elementId: 'detailRegisterNickname', form: registerForm, key: 'displayName', transform: formUtils.normalizeDisplayName },
                         { elementId: 'detailRegisterPassword', form: registerForm, key: 'password' },
                         { elementId: 'detailRegisterConfirmPassword', form: registerForm, key: 'confirmPassword' }
                     ]);
@@ -2374,7 +2441,7 @@
                 };
 
                 const normalizeRegisterDisplayName = () => {
-                    registerForm.displayName = formUtils.normalizeSingleLineText(registerForm.displayName);
+                    registerForm.displayName = formUtils.normalizeDisplayName(registerForm.displayName);
                 };
 
                 const handleLoginEmailInput = () => {
@@ -2415,6 +2482,7 @@
 
                 const handleRegisterDisplayNameInput = () => {
                     clearStatus(registerStatus);
+                    registerForm.displayName = formUtils.normalizeDisplayName(registerForm.displayName);
                 };
 
                 const handleRegisterPasswordInput = () => {
@@ -3239,7 +3307,8 @@
                         previewSrc: thumbSrc,
                         displaySrc: thumbSrc,
                         isFullLoaded: !fullSrc || thumbSrc === fullSrc,
-                        isFullLoading: false
+                        isFullLoading: false,
+                        isFullLoadFailed: false
                     };
                 };
 
@@ -3248,6 +3317,7 @@
                     if (!item || item.isFullLoaded || item.isFullLoading || !item.fullSrc) return;
 
                     item.isFullLoading = true;
+                    item.isFullLoadFailed = false;
                     const token = galleryImageLoadToken.value;
                     const image = new Image();
                     image.onload = () => {
@@ -3255,10 +3325,12 @@
                         item.displaySrc = item.fullSrc;
                         item.isFullLoaded = true;
                         item.isFullLoading = false;
+                        item.isFullLoadFailed = false;
                     };
                     image.onerror = () => {
                         if (token !== galleryImageLoadToken.value) return;
                         item.isFullLoading = false;
+                        item.isFullLoadFailed = true;
                     };
                     image.src = item.fullSrc;
                 };
@@ -3424,10 +3496,53 @@
                     e.target.value = '';
                 };
 
-                const removeExistingTimelineImage = (idx) => newTimeline.existingImages.splice(idx, 1);
-                const removeNewImage = (idx) => newTimeline.tempImages.splice(idx, 1);
+	                const removeExistingTimelineImage = (idx) => newTimeline.existingImages.splice(idx, 1);
+	                const removeNewImage = (idx) => newTimeline.tempImages.splice(idx, 1);
 
-                const saveTimelineRecord = async () => {
+                    const archiveImageCount = () => archiveForm.tempImages.length;
+
+                    const resetArchiveForm = () => {
+                        archiveForm.reason = '枯萎';
+                        archiveForm.note = '';
+                        archiveForm.tempImages = [];
+                        if (archiveFileInput.value) archiveFileInput.value.value = '';
+                    };
+
+                    const triggerArchiveFileInput = () => {
+                        archiveFileInput.value?.click();
+                    };
+
+                    const onArchiveFilesSelected = async (e) => {
+                        const files = Array.from(e.target.files || []);
+                        const remaining = 3 - archiveImageCount();
+                        for (const file of files.slice(0, remaining)) {
+                            const compressed = await compressImage(file);
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                                archiveForm.tempImages.push({ file: compressed, preview: ev.target.result });
+                            };
+                            reader.readAsDataURL(compressed);
+                        }
+                        e.target.value = '';
+                    };
+
+                    const removeArchiveImage = (idx) => {
+                        archiveForm.tempImages.splice(idx, 1);
+                    };
+
+                    const uploadArchiveImagesForPot = async (targetPotId) => {
+                        const uploadedUrls = [];
+                        for (const item of archiveForm.tempImages) {
+                            const res = await apiClient.uploadImage(item.file, {
+                                potId: targetPotId,
+                                uploadType: 'timeline'
+                            });
+                            if (res.success && res.data?.url) uploadedUrls.push(res.data.url);
+                        }
+                        return uploadedUrls;
+                    };
+	
+	                const saveTimelineRecord = async () => {
                     if (isReadOnly.value) return;
                     if (!newTimeline.date) {
                         alert('请选择记录日期');
@@ -3504,29 +3619,32 @@
                     }
                 };
 
-	                const openArchiveModal = () => {
-	                    if (!isOwner.value || isArchived.value) return;
-	                    archiveForm.reason = '枯萎';
-	                    archiveForm.note = '';
-	                    showArchiveModal.value = true;
-	                };
+		                const openArchiveModal = () => {
+		                    if (!isOwner.value || isArchived.value) return;
+                            resetArchiveForm();
+		                    showArchiveModal.value = true;
+		                };
 
-	                const closeArchiveModal = () => {
-	                    if (isArchiveLoading.value) return;
-	                    showArchiveModal.value = false;
-	                };
+		                const closeArchiveModal = () => {
+		                    if (isArchiveLoading.value) return;
+		                    showArchiveModal.value = false;
+                            resetArchiveForm();
+		                };
 
 	                const archiveCurrentPot = async () => {
 	                    if (!isOwner.value || isArchived.value || isArchiveLoading.value) return;
-	                    try {
-	                        isArchiveLoading.value = true;
-	                        const res = await apiClient.archivePot(potId.value, {
-	                            reason: archiveForm.reason,
-	                            note: archiveForm.note.trim() || null
-	                        });
-	                        if (res.success) {
-	                            showArchiveModal.value = false;
-	                            await loadPotDetail();
+		                    try {
+		                        isArchiveLoading.value = true;
+                                const imageUrls = await uploadArchiveImagesForPot(potId.value);
+		                        const res = await apiClient.archivePot(potId.value, {
+		                            reason: archiveForm.reason,
+		                            note: archiveForm.note.trim() || null,
+                                    imageUrls
+		                        });
+		                        if (res.success) {
+		                            showArchiveModal.value = false;
+                                    resetArchiveForm();
+		                            await loadPotDetail();
 	                            await Promise.allSettled([
 	                                loadCareSchedules(),
                                 loadCareRecords(),
@@ -3654,16 +3772,46 @@
                 const viewAllRecords = () => window.location.href = `all-records?potId=${potId.value}`;
                 const viewAllTimelines = () => window.location.href = `all-timelines?potId=${potId.value}`;
 
-                // 统计
-                const statsWaterCount = computed(() => potStats.value?.byType?.find(t => t.type === 'water')?.total_count || 0);
-                const statsFertilizeCount = computed(() => potStats.value?.byType?.find(t => t.type === 'fertilize')?.total_count || 0);
-                const statsCareDays = computed(() => potStats.value?.total?.care_days || 0);
+	                // 统计
+	                const statsWaterCount = computed(() => potStats.value?.byType?.find(t => t.type === 'water')?.total_count || 0);
+	                const statsFertilizeCount = computed(() => potStats.value?.byType?.find(t => t.type === 'fertilize')?.total_count || 0);
+                    const statsCareCount = computed(() => Number(potStats.value?.total?.total_records || 0));
+	
+	                const formatDate = (dateStr) => {
+	                    if (!dateStr) return '';
+	                    const date = new Date(dateStr);
+	                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+	                };
 
-                const formatDate = (dateStr) => {
-                    if (!dateStr) return '';
-                    const date = new Date(dateStr);
-                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                };
+                    const parseCalendarDay = (value) => {
+                        if (!value) return null;
+                        if (value instanceof Date) {
+                            if (Number.isNaN(value.getTime())) return null;
+                            return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+                        }
+                        const text = String(value);
+                        const match = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                        if (match) {
+                            return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+                        }
+                        const date = new Date(text);
+                        if (Number.isNaN(date.getTime())) return null;
+                        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                    };
+
+                    const careElapsedDays = computed(() => {
+                        const start = parseCalendarDay(pot.value?.plant_date);
+                        if (!start) return null;
+                        const end = isArchived.value && pot.value?.archived_at
+                            ? parseCalendarDay(pot.value.archived_at)
+                            : parseCalendarDay(new Date());
+                        if (!end) return null;
+                        return Math.max(1, Math.floor((end.getTime() - start.getTime()) / 86400000) + 1);
+                    });
+
+                    const careElapsedDaysText = computed(() =>
+                        careElapsedDays.value ? `${careElapsedDays.value} 天` : '无'
+                    );
 
                 const formatCommentTime = (dateStr) => {
                     if (!dateStr) return '';
@@ -3693,11 +3841,29 @@
                     if (isReadOnly.value) return;
                     window.location.href = `edit-pot?id=${potId.value}`;
                 };
-                const goAddCarePage = () => {
-                    if (isReadOnly.value) return;
-                    window.location.href = `care-record?potId=${potId.value}`;
-                };
-                const goCreatePot = () => window.location.href = '/';
+	                const goAddCarePage = () => {
+	                    if (isReadOnly.value) return;
+	                    window.location.href = `care-record?potId=${potId.value}`;
+	                };
+                    const showCarePanelAddButton = computed(() =>
+                        !isReadOnly.value &&
+                        (
+                            carePanelActiveTab.value === 'records' ||
+                            (carePanelActiveTab.value === 'schedules' && canShowCareSchedules.value)
+                        )
+                    );
+                    const carePanelAddLabel = computed(() =>
+                        carePanelActiveTab.value === 'schedules' ? '添加提醒' : '新增养护'
+                    );
+                    const handleCarePanelAdd = () => {
+                        if (!showCarePanelAddButton.value) return;
+                        if (carePanelActiveTab.value === 'schedules') {
+                            showAddScheduleModal.value = true;
+                            return;
+                        }
+                        goAddCarePage();
+                    };
+	                const goCreatePot = () => window.location.href = '/';
 
                 const scrollToSection = (sectionId, sectionKey) => {
                     const el = document.getElementById(sectionId);
@@ -4310,11 +4476,12 @@
                     isLoading, pot, potId, isOwner, isArchived, isReadOnly, isPublicVisitor, canShowCareSchedules, showOperatorName, matchedPlantName, plantInfo,
                     isPlantInfoLoading, isCareRecordsLoading, isTimelineRecordsLoading, isPotStatsLoading, isCareSchedulesLoading, isCommentsLoading,
                     potStats, careRecords, timelineRecords, handleImageError, handleHeroImageLoad, handleHeroImageError, heroImageSrc, heroImageLoaded, showActionMenu,
-                    showAddTimelineModal, showShareModal, isSavingTimeline, isEditingTimeline, fileInput,
+                    showAddTimelineModal, showShareModal, isSavingTimeline, isEditingTimeline, fileInput, archiveFileInput,
                     previewImages, previewIndex, galleryDragOffset, galleryIsDragging,
                     newTimeline, sortedTimelineRecords, isTimelineDesc,
 	                    goBack, goEditPage, goAddCarePage, goCreatePot, confirmDeletePot, openArchiveModal, closeArchiveModal,
-	                    archiveCurrentPot, restoreArchivedPot, showArchiveModal, isArchiveLoading, archiveForm, archiveReasons,
+		                    archiveCurrentPot, restoreArchivedPot, showArchiveModal, isArchiveLoading, archiveForm, archiveReasons,
+                            archiveImageCount, triggerArchiveFileInput, onArchiveFilesSelected, removeArchiveImage,
                     openGallery, closeGallery, prevImg, nextImg, toggleTimelineSort,
                     handleGalleryTouchStart, handleGalleryTouchMove, handleGalleryTouchEnd,
                     openAddTimelineModal, openEditTimelineModal, closeTimelineModal, timelineImageCount,
@@ -4323,8 +4490,9 @@
                     imgUrl, groupedCareRecords, activeCareDate, currentSheetGroup,
                     showCareDetails, closeCareDetails, goAddCarePageWithDate,
                     plantInfoActiveTab, showFullPlantInfo, showFullCareTips, plantInfoGroups, careTipsGroups,
-                    statsWaterCount, statsFertilizeCount, statsCareDays,
-                    careSchedules, showScheduleExpanded, showAddScheduleModal, newSchedule,
+	                    statsWaterCount, statsFertilizeCount, statsCareCount, careElapsedDaysText,
+	                    careSchedules, carePanelActiveTab, showCarePanelAddButton, carePanelAddLabel, handleCarePanelAdd,
+                        showScheduleExpanded, showAddScheduleModal, newSchedule,
                     scheduleTypeOptions,
                     loadCareSchedules, saveNewSchedule, toggleScheduleEnabled, deleteSchedule, updateScheduleInterval,
                     getScheduleTypeStyle, getScheduleTypeName, scrollToSection, sectionTabs, activeSection,

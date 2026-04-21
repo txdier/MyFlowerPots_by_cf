@@ -259,13 +259,25 @@ async function handleCreateCareRecord(request: Request, env: any, token: string 
 async function handleBatchCreateCareRecord(request: Request, env: any, token: string | null): Promise<Response> {
   try {
     const body: any = await request.json();
-    const { potIds, type, action, careDate, description } = body;
+    const { potIds, type, types, action, actions, careDate, description } = body;
 
     if (!potIds || !Array.isArray(potIds) || potIds.length === 0) {
       return errorResponse('Missing potIds', 400);
     }
-    if (!type || !action || !careDate) {
-      return errorResponse('Missing required fields: type, action, careDate', 400);
+    const finalTypes = Array.isArray(types)
+      ? types.map((item: unknown) => String(item || '').trim()).filter(Boolean)
+      : (type ? [String(type).trim()] : []);
+    const finalActions = Array.isArray(actions)
+      ? actions.map((item: unknown) => String(item || '').trim())
+      : (action ? [String(action).trim()] : []);
+
+    if (finalTypes.length === 0 || !careDate) {
+      return errorResponse('Missing required fields: types, careDate', 400);
+    }
+
+    const normalizedActions = finalTypes.map((item: string, index: number) => finalActions[index] || item);
+    if (normalizedActions.some((item: string) => !item)) {
+      return errorResponse('Missing required field: action', 400);
     }
 
     // 安全校验：筛选出 potIds 中当前用户拥有或协作的花盆
@@ -289,17 +301,20 @@ async function handleBatchCreateCareRecord(request: Request, env: any, token: st
 
     const now = new Date().toISOString();
     const statements = [];
+    const lastAction = normalizedActions.join('、');
 
     for (const potId of validPotIds) {
-      statements.push(
-        env.DB.prepare(`
-          INSERT INTO care_records (pot_id, type, action, care_date, description, created_at, user_id)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).bind(potId, type, action, careDate, description || null, now, token)
-      );
+      finalTypes.forEach((careType: string, index: number) => {
+        statements.push(
+          env.DB.prepare(`
+            INSERT INTO care_records (pot_id, type, action, care_date, description, created_at, user_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+          `).bind(potId, careType, normalizedActions[index], careDate, description || null, now, token)
+        );
+      });
       statements.push(
         env.DB.prepare('UPDATE pots SET last_care = ?, last_care_action = ? WHERE id = ?')
-          .bind(careDate, action, potId)
+          .bind(careDate, lastAction, potId)
       );
     }
 
@@ -308,6 +323,7 @@ async function handleBatchCreateCareRecord(request: Request, env: any, token: st
     return jsonResponse({
       success: true,
       count: validPotIds.length,
+      recordCount: validPotIds.length * finalTypes.length,
       skipped: potIds.length - validPotIds.length
     });
 

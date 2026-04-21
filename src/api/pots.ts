@@ -450,6 +450,79 @@ function normalizeArchiveText(value: unknown, fallback = ''): string {
   return (text || fallback).slice(0, 500);
 }
 
+type ArchiveRequestBody = {
+  reason?: string;
+  note?: string;
+  imageUrls?: unknown;
+  archiveImageUrls?: unknown;
+  imageUrlsByPotId?: Record<string, unknown>;
+  archiveImagesByPotId?: Record<string, unknown>;
+};
+
+function normalizeArchiveImageUrls(value: unknown): string[] {
+  let rawItems: unknown[] = [];
+
+  if (Array.isArray(value)) {
+    rawItems = value;
+  } else if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      rawItems = Array.isArray(parsed) ? parsed : [trimmed];
+    } catch {
+      rawItems = [trimmed];
+    }
+  }
+
+  return Array.from(new Set(
+    rawItems
+      .map(item => String(item || '').trim())
+      .filter(Boolean)
+  )).slice(0, 9);
+}
+
+function getArchiveImageUrlsForPot(body: ArchiveRequestBody, potId: string): string[] {
+  const imagesByPotId = body.archiveImagesByPotId || body.imageUrlsByPotId;
+  if (imagesByPotId && typeof imagesByPotId === 'object') {
+    return normalizeArchiveImageUrls(imagesByPotId[potId]);
+  }
+
+  return normalizeArchiveImageUrls(body.archiveImageUrls ?? body.imageUrls);
+}
+
+function buildArchiveTimelineStatement(
+  env: any,
+  potId: string,
+  userId: string,
+  archivedAt: string,
+  note: string,
+  imageUrls: string[]
+): any | null {
+  if (imageUrls.length === 0) return null;
+
+  const timelineDate = archivedAt.slice(0, 10);
+  const description = normalizeArchiveText(note, '归档时留下的最后记录');
+
+  return env.DB.prepare(`
+    INSERT INTO timelines (
+      pot_id,
+      date,
+      description,
+      images,
+      created_at,
+      user_id
+    ) VALUES (?, ?, ?, ?, ?, ?)
+  `).bind(
+    potId,
+    timelineDate,
+    description,
+    JSON.stringify(imageUrls),
+    archivedAt,
+    userId
+  );
+}
+
 async function sealArchivedPotAccess(env: any, potId: string, ownerId: string, potName: string): Promise<void> {
   const { results: collaborators } = await env.DB.prepare(`
     SELECT c.user_id
@@ -511,9 +584,10 @@ async function handleArchivePot(
       return errorResponse('Authentication required', 401);
     }
 
-    const body = await request.json().catch(() => ({})) as { reason?: string; note?: string };
+    const body = await request.json().catch(() => ({})) as ArchiveRequestBody;
     const reason = normalizeArchiveText(body.reason, '其他').slice(0, 80);
     const note = normalizeArchiveText(body.note);
+    const imageUrls = getArchiveImageUrlsForPot(body, potId);
     const archivedAt = new Date().toISOString();
 
     const pot = await env.DB.prepare(`
@@ -526,14 +600,21 @@ async function handleArchivePot(
       return errorResponse('Pot not found or access denied', 404);
     }
 
-    const result = await env.DB.prepare(`
+    const updateStatement = env.DB.prepare(`
       UPDATE pots
       SET status = 'archived',
           archived_at = ?,
           archive_reason = ?,
           archive_note = ?
       WHERE id = ? AND user_id = ?
-    `).bind(archivedAt, reason, note || null, potId, userId).run();
+    `).bind(archivedAt, reason, note || null, potId, userId);
+
+    const statements = [updateStatement];
+    const timelineStatement = buildArchiveTimelineStatement(env, potId, userId, archivedAt, note, imageUrls);
+    if (timelineStatement) statements.push(timelineStatement);
+
+    const archiveResults = await env.DB.batch(statements);
+    const result = Array.isArray(archiveResults) ? archiveResults[0] : archiveResults;
 
     if (!result.meta || result.meta.changes === 0) {
       return errorResponse('Pot not found or access denied', 404);
@@ -597,7 +678,7 @@ async function handleBatchArchivePots(
       return errorResponse('Authentication required', 401);
     }
 
-    const body = await request.json() as { potIds?: string[]; reason?: string; note?: string };
+    const body = await request.json() as ArchiveRequestBody & { potIds?: string[] };
     const requestedPotIds = Array.isArray(body.potIds)
       ? Array.from(new Set(body.potIds.map(id => String(id || '').trim()).filter(Boolean)))
       : [];
@@ -621,8 +702,10 @@ async function handleBatchArchivePots(
     const reason = normalizeArchiveText(body.reason, '其他').slice(0, 80);
     const note = normalizeArchiveText(body.note);
     const archivedAt = new Date().toISOString();
-    const statements = ownedPotIds.map((potId: string) =>
-      env.DB.prepare(`
+
+    const statements: any[] = [];
+    for (const potId of ownedPotIds) {
+      statements.push(env.DB.prepare(`
         UPDATE pots
         SET status = 'archived',
             archived_at = ?,
@@ -630,7 +713,12 @@ async function handleBatchArchivePots(
             archive_note = ?
         WHERE id = ? AND user_id = ?
       `).bind(archivedAt, reason, note || null, potId, userId)
-    );
+      );
+
+      const imageUrls = getArchiveImageUrlsForPot(body, potId);
+      const timelineStatement = buildArchiveTimelineStatement(env, potId, userId, archivedAt, note, imageUrls);
+      if (timelineStatement) statements.push(timelineStatement);
+    }
 
     await env.DB.batch(statements);
     for (const pot of ownedPotRows) {

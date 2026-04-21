@@ -242,12 +242,19 @@
                     }">
                     <div v-for="(item, idx) in previewImages" :key="item.fullSrc || idx"
                         class="w-full h-full flex-shrink-0 flex items-center justify-center px-4" @click="closeGallery">
-                        <img :src="item.displaySrc" loading="lazy"
+                        <img v-if="item.isFullLoaded" :src="item.displaySrc" loading="lazy"
                             class="max-w-full max-h-full object-contain select-none transition duration-300"
-                            :style="{
-                                filter: item.isFullLoaded ? 'none' : 'blur(1px)',
-                                transform: item.isFullLoaded ? 'none' : 'scale(1.02)'
-                            }" draggable="false">
+                            draggable="false">
+                        <div v-else class="flex flex-col items-center justify-center gap-3 text-white/60">
+                            <div v-if="item.isFullLoadFailed" class="text-center">
+                                <i class="fa fa-exclamation-circle text-2xl mb-2"></i>
+                                <div class="text-xs font-bold">图片加载失败</div>
+                            </div>
+                            <template v-else>
+                                <div class="spinner"></div>
+                                <div class="text-xs font-bold tracking-widest">加载原图中...</div>
+                            </template>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -487,7 +494,8 @@
                         previewSrc: thumbSrc,
                         displaySrc: thumbSrc,
                         isFullLoaded: !fullSrc || thumbSrc === fullSrc,
-                        isFullLoading: false
+                        isFullLoading: false,
+                        isFullLoadFailed: false
                     };
                 };
 
@@ -496,6 +504,7 @@
                     if (!item || item.isFullLoaded || item.isFullLoading || !item.fullSrc) return;
 
                     item.isFullLoading = true;
+                    item.isFullLoadFailed = false;
                     const token = galleryImageLoadToken.value;
                     const image = new Image();
                     image.onload = () => {
@@ -503,10 +512,12 @@
                         item.displaySrc = item.fullSrc;
                         item.isFullLoaded = true;
                         item.isFullLoading = false;
+                        item.isFullLoadFailed = false;
                     };
                     image.onerror = () => {
                         if (token !== galleryImageLoadToken.value) return;
                         item.isFullLoading = false;
+                        item.isFullLoadFailed = true;
                     };
                     image.src = item.fullSrc;
                 };

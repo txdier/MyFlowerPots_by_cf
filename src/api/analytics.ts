@@ -61,10 +61,7 @@ export async function recordPageVisit(env: any, path: string): Promise<void> {
           visit_count = visit_count + 1
       `).bind(path, visitDate);
 
-    await Promise.all([
-      totalVisit.run(),
-      dailyVisit.run(),
-    ]);
+    await env.DB.batch([totalVisit, dailyVisit]);
   } catch (error) {
     console.error('Failed to record page visit:', error);
   }

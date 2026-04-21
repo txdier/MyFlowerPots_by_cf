@@ -70,12 +70,23 @@ async function ensureDeletedUserPlaceholder(env: any): Promise<void> {
     `).bind(DELETED_USER_PLACEHOLDER_ID, DELETED_USER_PLACEHOLDER_NAME).run();
 }
 
+type AdminUserSnapshot = {
+    email?: string | null;
+    email_verified?: number | boolean | null;
+    user_type?: string | null;
+};
+
 function isLocalDevelopmentRequest(request: Request): boolean {
     const hostname = new URL(request.url).hostname.toLowerCase();
     return hostname === '127.0.0.1' || hostname === 'localhost';
 }
 
-export async function isAdmin(request: Request, env: any, userId: string | null): Promise<boolean> {
+export async function isAdmin(
+    request: Request,
+    env: any,
+    userId: string | null,
+    knownUser: AdminUserSnapshot | null = null
+): Promise<boolean> {
     if (!userId) {
         console.error('isAdmin: No userId (token) provided');
         return false;
@@ -94,7 +105,7 @@ export async function isAdmin(request: Request, env: any, userId: string | null)
 
     try {
         // 根据 token (userId) 查找用户邮箱
-        const user: any = await env.DB
+        const user: any = knownUser || await env.DB
             .prepare('SELECT email, email_verified, user_type FROM users WHERE id = ?')
             .bind(userId)
             .first();

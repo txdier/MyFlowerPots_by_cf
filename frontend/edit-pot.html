@@ -129,7 +129,7 @@
 
                     <!-- 提交按钮 -->
                     <div class="pt-4">
-                        <button type="submit" :disabled="isSaving"
+                        <button type="submit" :disabled="isSaving || !canEditPot"
                             class="w-full bg-green-500 text-white py-5 rounded-[1.5rem] text-lg font-black shadow-xl shadow-green-100 hover:bg-green-600 disabled:opacity-50 transition-all active:scale-[0.98]">
                             <span v-if="!isSaving">保存修改</span>
                             <span v-else><i class="fa fa-spinner fa-spin mr-2"></i>正在同步...</span>
@@ -159,6 +159,7 @@
                 const isLoading = ref(true);
                 const loadError = ref('');
                 const isSaving = ref(false);
+                const canEditPot = ref(false);
                 const potId = ref(null);
                 const imageFile = ref(null);
                 const imagePreview = ref(null);
@@ -189,6 +190,18 @@
                         const res = await apiClient.getPotDetail(potId.value);
                         if (res.success) {
                             const p = res.data;
+                            const isArchivedPot = String(p.status || 'active').toLowerCase() === 'archived';
+                            canEditPot.value = p.user_id === apiClient.userId && !isArchivedPot;
+                            if (!canEditPot.value) {
+                                showToast(isArchivedPot
+                                    ? '已归档植物为只读状态，不能编辑花盆资料。'
+                                    : '仅花盆主人可以编辑花盆资料。', 'error');
+                                setTimeout(() => {
+                                    window.location.href = `pot-detail?id=${potId.value}`;
+                                }, 700);
+                                return;
+                            }
+
                             form.name = p.name;
                             form.plant_date = p.plant_date;
                             form.note = p.note || '';
@@ -283,6 +296,11 @@
                 };
 
                 const updatePot = async () => {
+                    if (!canEditPot.value) {
+                        showToast('仅花盆主人可以保存花盆资料。', 'error');
+                        return;
+                    }
+
                     try {
                         isSaving.value = true;
                         let imageUrl = originalImageUrl.value;
@@ -347,7 +365,7 @@
                 onMounted(init);
 
                 return {
-                    isLoading, loadError, form, isSaving, imagePreview, suggestions, toast,
+                    isLoading, loadError, form, isSaving, canEditPot, imagePreview, suggestions, toast,
                     onFileSelected, onNameInput, selectSuggestion, updatePot, retryInit, goBack
                 };
             }

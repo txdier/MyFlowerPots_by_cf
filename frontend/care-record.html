@@ -148,7 +148,7 @@
 
                         <!-- 提交按钮 -->
                         <div class="space-y-3">
-                            <button type="submit" :disabled="isSaving || isArchived"
+                            <button type="submit" :disabled="isSaving || !canManageCareRecord"
                                 class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                                 <span v-if="!isSaving">{{ isEditMode ? '保存修改' : '确认添加' }}</span>
                                 <span v-else><i class="fa fa-spinner fa-spin mr-2"></i>处理中...</span>
@@ -182,6 +182,11 @@
                 const error = ref(null);
                 const pot = ref(null);
                 const isArchived = computed(() => String(pot.value?.status || 'active').toLowerCase() === 'archived');
+                const canManageCareRecord = computed(() => !!(
+                    pot.value &&
+                    !isArchived.value &&
+                    (pot.value.user_id === apiClient.userId || pot.value.is_collaborator)
+                ));
                 const isEditMode = ref(false);
                 const recordId = ref(null);
                 const potId = ref(null);
@@ -381,8 +386,10 @@
                     const res = await apiClient.getPotDetail(pid);
                     if (res.success) {
                         pot.value = res.data;
-                        if (isArchived.value) {
-                            showToast('已归档植物为只读状态，不能新增或修改养护记录。', 'error');
+                        if (!canManageCareRecord.value) {
+                            showToast(isArchived.value
+                                ? '已归档植物为只读状态，不能新增或修改养护记录。'
+                                : '仅查看权限不能新增或修改养护记录。', 'error');
                             setTimeout(() => {
                                 window.location.href = `pot-detail?id=${pid}`;
                             }, 700);
@@ -429,8 +436,10 @@
                 };
 
                 const saveRecord = async () => {
-                    if (isArchived.value) {
-                        showToast('已归档植物为只读状态，不能保存养护记录。', 'error');
+                    if (!canManageCareRecord.value) {
+                        showToast(isArchived.value
+                            ? '已归档植物为只读状态，不能保存养护记录。'
+                            : '仅查看权限不能保存养护记录。', 'error');
                         return;
                     }
                     if (form.types.length === 0) {
@@ -572,7 +581,7 @@
                 onMounted(init);
 
                 return {
-                    isLoading, isSaving, error, pot, isArchived, isEditMode, careTypes, form, fileInput, toast,
+                    isLoading, isSaving, error, pot, isArchived, canManageCareRecord, isEditMode, careTypes, form, fileInput, toast,
                     toggleCareType, isTypeSelected,
                     triggerFileInput, onFilesSelected, removeImage, saveRecord, goBack, formatDate, imgUrl,
                     potId, shouldShowCustomActionInput

@@ -21,6 +21,62 @@ import { isAdmin } from './admin';
 import { jsonResponse, errorResponse, htmlResponse } from '../utils/response-utils';
 
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
+const DISPLAY_NAME_MAX_LENGTH = 12;
+const VERIFICATION_EMAIL_COOLDOWN_MS = 60 * 1000;
+const VERIFICATION_EMAIL_WINDOW_MS = 24 * 60 * 60 * 1000;
+const VERIFICATION_EMAIL_WINDOW_LIMIT = 5;
+
+function normalizeOptionalDisplayName(value: unknown): { value: string | null; error?: string } {
+  if (value === undefined || value === null) {
+    return { value: null };
+  }
+  if (typeof value !== 'string') {
+    return { value: null, error: '显示名称格式无效' };
+  }
+
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return { value: null };
+  }
+  if (Array.from(normalized).length > DISPLAY_NAME_MAX_LENGTH) {
+    return { value: null, error: `显示名称最多 ${DISPLAY_NAME_MAX_LENGTH} 个字符` };
+  }
+
+  return { value: normalized };
+}
+
+function parseDateMs(value: unknown): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = Date.parse(String(value));
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+async function recordVerificationEmailSend(
+  env: any,
+  userId: string,
+  nowMs = Date.now(),
+  windowStartMs: number | null = null,
+  previousWindowCount = 0
+): Promise<void> {
+  const nowIso = new Date(nowMs).toISOString();
+  const isExistingWindow = windowStartMs !== null && nowMs - windowStartMs < VERIFICATION_EMAIL_WINDOW_MS;
+  const nextWindowStartIso = isExistingWindow ? new Date(windowStartMs).toISOString() : nowIso;
+  const nextCount = isExistingWindow ? previousWindowCount + 1 : 1;
+
+  await env.DB
+    .prepare(`
+      UPDATE users
+      SET verification_email_sent_at = ?,
+          verification_email_send_window_start = ?,
+          verification_email_send_count = ?
+      WHERE id = ?
+    `)
+    .bind(nowIso, nextWindowStartIso, nextCount, userId)
+    .run();
+}
 
 function isUniqueConstraintError(error: unknown, tableOrColumn?: string): boolean {
   const message = String((error as any)?.message || error || '');
@@ -44,7 +100,7 @@ function getClientSafeAuthErrorMessage(error: unknown, fallback: string): string
     return 'Server authentication is not configured securely. JWT_SECRET is missing or uses a known insecure placeholder value in the active deployment.';
   }
 
-  if (/no such column:\s*(is_disabled|max_pots|verification_token_expires)/i.test(message)) {
+  if (/no such column:\s*(is_disabled|max_pots|verification_token_expires|verification_email_sent_at|verification_email_send_count|verification_email_send_window_start)/i.test(message)) {
     return 'User schema is out of date. Please apply the latest database migrations and redeploy.';
   }
 
@@ -246,6 +302,12 @@ async function handleRegister(request: Request, env: any): Promise<Response> {
       return errorResponse(passwordValidation.message || 'Invalid password', 400);
     }
 
+    const displayNameResult = normalizeOptionalDisplayName(displayName);
+    if (displayNameResult.error) {
+      return errorResponse(displayNameResult.error, 400);
+    }
+    const normalizedDisplayName = displayNameResult.value;
+
     // 检查邮箱是否已存在
     const existingUser = await env.DB
       .prepare('SELECT id FROM users WHERE email = ?')
@@ -270,7 +332,7 @@ async function handleRegister(request: Request, env: any): Promise<Response> {
           email_verified, verification_token, verification_token_expires, created_at
         ) VALUES (?, 'email', ?, ?, ?, FALSE, ?, ?, CURRENT_TIMESTAMP)
       `)
-      .bind(userId, email, passwordHash, displayName || null, verificationToken, verificationTokenExpires)
+      .bind(userId, email, passwordHash, normalizedDisplayName, verificationToken, verificationTokenExpires)
       .run();
 
     // 发送验证邮件（可选）
@@ -283,6 +345,12 @@ async function handleRegister(request: Request, env: any): Promise<Response> {
       const emailSent = await sendEmail(verificationEmail, env);
       if (!emailSent) {
         console.warn('Verification email was not sent during registration:', email);
+      } else {
+        try {
+          await recordVerificationEmailSend(env, userId);
+        } catch (trackingError) {
+          console.warn('Verification email send tracking failed during registration:', trackingError);
+        }
       }
     }
 
@@ -291,7 +359,7 @@ async function handleRegister(request: Request, env: any): Promise<Response> {
       userId,
       token: jwtToken,
       email,
-      displayName: displayName || null,
+      displayName: normalizedDisplayName,
       emailVerified: false,
       message: 'Registration successful. You can now login.'
     });
@@ -515,6 +583,12 @@ async function handleUpgrade(request: Request, env: any): Promise<Response> {
       return errorResponse(passwordValidation.message || 'Invalid password', 400);
     }
 
+    const displayNameResult = normalizeOptionalDisplayName(displayName);
+    if (displayNameResult.error) {
+      return errorResponse(displayNameResult.error, 400);
+    }
+    const normalizedDisplayName = displayNameResult.value;
+
     // 检查匿名用户是否存在（兼容 'device' 类型）
     const anonymousUser = await env.DB
       .prepare('SELECT id FROM users WHERE id = ? AND (user_type = "anonymous" OR user_type = "device")')
@@ -547,7 +621,7 @@ async function handleUpgrade(request: Request, env: any): Promise<Response> {
           email_verified, created_at
         ) VALUES (?, 'email', ?, ?, ?, FALSE, CURRENT_TIMESTAMP)
       `)
-      .bind(newUserId, email, passwordHash, displayName || null)
+      .bind(newUserId, email, passwordHash, normalizedDisplayName)
       .run();
 
     // 迁移数据：将原匿名用户的所有数据转移到新用户
@@ -579,7 +653,7 @@ async function handleUpgrade(request: Request, env: any): Promise<Response> {
       userId: newUserId,
       token: jwtToken,
       email,
-      displayName: displayName || null,
+      displayName: normalizedDisplayName,
       emailVerified: false,
       message: 'Account upgraded successfully. Your data has been migrated.'
     });
@@ -680,7 +754,7 @@ async function handleGetMe(request: Request, env: any, userId: string | null): P
     }
 
     // 检查是否为管理员
-    const adminStatus = await isAdmin(request, env, userId);
+    const adminStatus = await isAdmin(request, env, userId, user);
 
     return jsonResponse({
       success: true,
@@ -720,8 +794,12 @@ async function handleUpdateProfile(request: Request, env: any, userId: string | 
     const params: any[] = [];
 
     if (displayName !== undefined) {
+      const displayNameResult = normalizeOptionalDisplayName(displayName);
+      if (displayNameResult.error) {
+        return errorResponse(displayNameResult.error, 400);
+      }
       updates.push('display_name = ?');
-      params.push(displayName.trim());
+      params.push(displayNameResult.value);
     }
 
     if (avatarUrl !== undefined) {
@@ -950,7 +1028,12 @@ async function handleSendVerificationEmail(request: Request, env: any, userId: s
 
     // 获取用户信息
     const user = await env.DB
-      .prepare('SELECT id, email, email_verified, verification_token, verification_token_expires FROM users WHERE id = ?')
+      .prepare(`
+        SELECT id, email, email_verified, verification_token, verification_token_expires,
+               verification_email_sent_at, verification_email_send_window_start, verification_email_send_count
+        FROM users
+        WHERE id = ?
+      `)
       .bind(userId)
       .first();
 
@@ -963,17 +1046,66 @@ async function handleSendVerificationEmail(request: Request, env: any, userId: s
       return errorResponse('Email already verified', 400);
     }
 
+    if (!user.email) {
+      return errorResponse('Email is required', 400);
+    }
+
+    const nowMs = Date.now();
+    const lastSentMs = parseDateMs(user.verification_email_sent_at);
+    if (lastSentMs !== null) {
+      const retryAfterMs = VERIFICATION_EMAIL_COOLDOWN_MS - (nowMs - lastSentMs);
+      if (retryAfterMs > 0) {
+        const retryAfterSeconds = Math.ceil(retryAfterMs / 1000);
+        return errorResponse(`发送太频繁，请 ${retryAfterSeconds} 秒后再试`, 429);
+      }
+    }
+
+    const windowStartMs = parseDateMs(user.verification_email_send_window_start);
+    const isExistingWindow = windowStartMs !== null && nowMs - windowStartMs < VERIFICATION_EMAIL_WINDOW_MS;
+    const currentWindowCount = isExistingWindow ? Number(user.verification_email_send_count || 0) : 0;
+    if (currentWindowCount >= VERIFICATION_EMAIL_WINDOW_LIMIT) {
+      return errorResponse(`验证邮件 24 小时内最多发送 ${VERIFICATION_EMAIL_WINDOW_LIMIT} 次，请稍后再试`, 429);
+    }
+
     // 生成或使用现有的验证令牌
     let verificationToken = user.verification_token;
     let verificationTokenExpires = user.verification_token_expires;
     const tokenExpired = !verificationTokenExpires || new Date(verificationTokenExpires) <= new Date();
     if (!verificationToken || tokenExpired) {
       verificationToken = generateToken();
-      verificationTokenExpires = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS).toISOString();
-      await env.DB
-        .prepare('UPDATE users SET verification_token = ?, verification_token_expires = ? WHERE id = ?')
-        .bind(verificationToken, verificationTokenExpires, user.id)
-        .run();
+      verificationTokenExpires = new Date(nowMs + EMAIL_VERIFICATION_TTL_MS).toISOString();
+    }
+
+    const nowIso = new Date(nowMs).toISOString();
+    const nextWindowStartIso = isExistingWindow && windowStartMs !== null
+      ? new Date(windowStartMs).toISOString()
+      : nowIso;
+    const nextWindowCount = isExistingWindow ? currentWindowCount + 1 : 1;
+    const cooldownCutoffIso = new Date(nowMs - VERIFICATION_EMAIL_COOLDOWN_MS).toISOString();
+    const reserveResult = await env.DB
+      .prepare(`
+        UPDATE users
+        SET verification_token = ?,
+            verification_token_expires = ?,
+            verification_email_sent_at = ?,
+            verification_email_send_window_start = ?,
+            verification_email_send_count = ?
+        WHERE id = ?
+          AND (verification_email_sent_at IS NULL OR verification_email_sent_at <= ?)
+      `)
+      .bind(
+        verificationToken,
+        verificationTokenExpires,
+        nowIso,
+        nextWindowStartIso,
+        nextWindowCount,
+        user.id,
+        cooldownCutoffIso
+      )
+      .run();
+
+    if (!reserveResult.meta || reserveResult.meta.changes === 0) {
+      return errorResponse(`发送太频繁，请 ${Math.ceil(VERIFICATION_EMAIL_COOLDOWN_MS / 1000)} 秒后再试`, 429);
     }
 
     // 发送验证邮件
@@ -991,12 +1123,13 @@ async function handleSendVerificationEmail(request: Request, env: any, userId: s
 
     return jsonResponse({
       success: true,
-      message: 'Verification email sent successfully'
+      message: 'Verification email sent successfully',
+      retryAfterSeconds: Math.ceil(VERIFICATION_EMAIL_COOLDOWN_MS / 1000)
     });
 
   } catch (error) {
     console.error('Send verification email error:', error);
-    return errorResponse('Failed to send verification email', 500);
+    return errorResponse(getClientSafeAuthErrorMessage(error, 'Failed to send verification email'), 500);
   }
 }
 

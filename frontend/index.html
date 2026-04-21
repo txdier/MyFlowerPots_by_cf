@@ -154,8 +154,8 @@
                             <div v-show="notificationBadgeCount > 0"
                                 class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-600 border-2 border-white rounded-full z-[100] shadow-sm pointer-events-none flex-none aspect-square">
                             </div>
-                            <span class="text-[10px] font-black text-gray-700 max-w-[80px] truncate">{{ userDisplayName
-                                }}</span>
+                            <span class="text-[10px] font-black text-gray-700 max-w-[80px] truncate"
+                                :title="userDisplayName">{{ navUserDisplayName }}</span>
                         </button>
                         <!-- 透明遮罩层，点击关闭下拉菜单 -->
                         <div v-if="showUserMenu" class="fixed inset-0 z-40" @click="showUserMenu = false"></div>
@@ -424,11 +424,15 @@
                                     </div>
                                     <div class="flex justify-between items-end">
                                         <div class="text-xs text-gray-500 flex-1 min-w-0 space-y-1">
-                                            <div class="flex items-center gap-2">
-                                                <span class="text-gray-400 shrink-0">种植</span>
-                                                <span class="font-medium">{{ formatDate(pot.plant_date) }}</span>
-                                            </div>
-                                            <div v-if="activePotStatus === 'active'" class="flex items-center gap-2">
+	                                            <div class="flex items-center gap-2">
+	                                                <span class="text-gray-400 shrink-0">种植</span>
+	                                                <span class="font-medium">{{ formatDate(pot.plant_date) }}</span>
+	                                            </div>
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-gray-400 shrink-0">天数</span>
+                                                    <span class="font-medium">{{ formatCareElapsedDays(pot) }}</span>
+                                                </div>
+	                                            <div v-if="activePotStatus === 'active'" class="flex items-center gap-2">
                                                 <span class="text-gray-400 shrink-0">养护</span>
                                                 <div
                                                     class="flex items-center min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
@@ -613,7 +617,7 @@
                                 class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">昵称
                                 <span class="font-medium normal-case tracking-normal text-gray-300">(选填)</span></label>
                             <input type="text" id="registerNickname" name="nickname" autocomplete="nickname"
-                                maxlength="20" @input="handleRegisterDisplayNameInput"
+                                maxlength="12" @input="handleRegisterDisplayNameInput"
                                 @blur="normalizeRegisterDisplayName" v-model="registerForm.displayName"
                                 placeholder="给自己起个名字"
                                 class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-green-500 transition">
@@ -870,28 +874,19 @@
                 <!-- 内容区 -->
                 <div class="p-6 space-y-5">
                     <!-- 养护类型选择 -->
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-3">养护类型</label>
-                        <div class="grid grid-cols-3 gap-2">
-                            <button @click="selectBatchCareType('water', '浇水')"
-                                class="py-3 rounded-2xl text-sm font-bold transition-all active:scale-95 border-2"
-                                :class="batchCareForm.type === 'water' ? 'bg-blue-500 text-white border-blue-500 shadow-md shadow-blue-100' : 'bg-white text-gray-600 border-gray-100 hover:border-blue-200'">
-                                <i class="fa fa-tint block text-lg mb-1"></i>浇水
-                            </button>
-                            <button @click="selectBatchCareType('fertilize', '施肥')"
-                                class="py-3 rounded-2xl text-sm font-bold transition-all active:scale-95 border-2"
-                                :class="batchCareForm.type === 'fertilize' ? 'bg-green-500 text-white border-green-500 shadow-md shadow-green-100' : 'bg-white text-gray-600 border-gray-100 hover:border-green-200'">
-                                <i class="fa fa-seedling block text-lg mb-1"></i>施肥
-                            </button>
-                            <button @click="selectBatchCareType('custom', '')"
-                                class="py-3 rounded-2xl text-sm font-bold transition-all active:scale-95 border-2"
-                                :class="batchCareForm.type === 'custom' ? 'bg-purple-500 text-white border-purple-500 shadow-md shadow-purple-100' : 'bg-white text-gray-600 border-gray-100 hover:border-purple-200'">
-                                <i class="fa fa-pen block text-lg mb-1"></i>自定义
-                            </button>
-                        </div>
-                    </div>
-                    <!-- 自定义动作名称（仅在自定义时显示） -->
-                    <div v-if="batchCareForm.type === 'custom'" class="animate-fade-in">
+	                    <div>
+	                        <label class="block text-sm font-bold text-gray-700 mb-3">养护类型</label>
+	                        <div class="grid grid-cols-3 gap-2">
+	                            <button v-for="option in batchCareTypeOptions" :key="option.type"
+                                    type="button" @click="toggleBatchCareType(option.type)"
+	                                class="py-3 rounded-2xl text-sm font-bold transition-all active:scale-95 border-2"
+	                                :class="isBatchCareTypeSelected(option.type) ? option.activeClass : option.inactiveClass">
+	                                <i class="fa block text-lg mb-1" :class="option.icon"></i>{{ option.label }}
+	                            </button>
+	                        </div>
+	                    </div>
+	                    <!-- 自定义动作名称（仅在自定义时显示） -->
+	                    <div v-if="isBatchCareTypeSelected('custom')" class="animate-fade-in">
                         <label class="block text-sm font-bold text-gray-700 mb-2">动作名称</label>
                         <input v-model="batchCareForm.action" type="text" id="batchCareAction"
                             placeholder="例如：修剪、换土、除虫..."
@@ -913,10 +908,10 @@
                     </div>
                 </div>
                 <!-- 确认按钮 -->
-                <div class="px-6 pb-6">
-                    <button @click="submitBatchCare"
-                        :disabled="isBatchCareLoading || (batchCareForm.type === 'custom' && !batchCareForm.action.trim())"
-                        class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+	                <div class="px-6 pb-6">
+	                    <button @click="submitBatchCare"
+	                        :disabled="isBatchCareSubmitDisabled"
+	                        class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                         {{ isBatchCareLoading ? '记录中...' : `确认养护 ${selectedOwnedCount} 个花盆` }}
                     </button>
                 </div>
@@ -927,9 +922,9 @@
             class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click.stop.prevent="closeBatchArchiveModal">
             </div>
-            <div class="relative bg-white w-full max-w-[500px] rounded-3xl shadow-2xl overflow-hidden animate-slide-up"
-                @click.stop @mousedown.stop @touchstart.stop>
-                <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50">
+	            <div class="relative bg-white w-full max-w-[500px] rounded-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col max-h-[90vh]"
+	                @click.stop @mousedown.stop @touchstart.stop>
+	                <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 shrink-0">
                     <div class="flex items-center gap-3 min-w-0">
                         <button type="button" @click.stop.prevent="returnToBatchActionSheetFromArchive"
                             class="shrink-0 inline-flex items-center justify-center text-gray-400 transition active:scale-95">
@@ -948,7 +943,7 @@
                         <i class="fa fa-times text-xl"></i>
                     </button>
                 </div>
-                <div class="p-6 space-y-5">
+	                <div class="p-6 space-y-5 overflow-y-auto">
                     <div
                         class="rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 text-xs text-amber-700 leading-relaxed">
                         {{ archiveTargetPot ? '归档后这盆植物将不再出现在养护列表，也不会收到养护提醒。记录会保留，之后可以在已归档中查看和恢复。' :
@@ -969,15 +964,37 @@
                             </button>
                         </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">备注
-                            <span class="text-gray-400 font-normal">（可选）</span>
-                        </label>
-                        <textarea v-model="batchArchiveForm.note" placeholder="这次失败可能和什么有关？" rows="3"
-                            class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-green-300 resize-none transition"></textarea>
-                    </div>
-                </div>
-                <div class="px-6 pb-6">
+	                    <div>
+	                        <label class="block text-sm font-bold text-gray-700 mb-2">备注
+	                            <span class="text-gray-400 font-normal">（可选）</span>
+	                        </label>
+	                        <textarea v-model="batchArchiveForm.note" placeholder="这次失败可能和什么有关？" rows="3"
+	                            class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-green-300 resize-none transition"></textarea>
+	                    </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">归档照片
+                                <span class="text-gray-400 font-normal">（可选，会加入成长轨迹）</span>
+                            </label>
+                            <div class="grid grid-cols-4 gap-2">
+                                <div v-for="(img, idx) in batchArchiveForm.tempImages" :key="`archive-${idx}`"
+                                    class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden">
+                                    <img :src="img.preview" decoding="async" class="w-full h-full object-cover">
+                                    <button type="button" @click="removeArchiveImage(idx)"
+                                        class="absolute top-1 right-1 bg-black/50 text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center">
+                                        <i class="fa fa-times"></i>
+                                    </button>
+                                </div>
+                                <button v-if="archiveImageCount() < 3" type="button" @click="triggerArchiveFileInput"
+                                    class="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-300 hover:border-green-500 hover:text-green-500 transition active:scale-95">
+                                    <i class="fa fa-camera text-xl mb-1"></i>
+                                    <span class="text-[8px] font-black uppercase tracking-tighter">添加</span>
+                                </button>
+                            </div>
+                            <input type="file" ref="archiveFileInput" @change="onArchiveFilesSelected" multiple
+                                accept="image/*" class="hidden">
+                        </div>
+	                </div>
+	                <div class="px-6 pb-6 shrink-0">
                     <button @click="submitBatchArchive"
                         :disabled="isBatchArchiveLoading || (!archiveTargetPot && selectedOwnedCount === 0)"
                         class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
@@ -1413,6 +1430,10 @@
                     // 未登录
                     return '未登录';
                 });
+                const navUserDisplayName = computed(() => {
+                    if (user.value?.userType === 'anonymous') return '匿名';
+                    return formUtils.limitTextDisplayWidth(userDisplayName.value, 4);
+                });
                 const careReminders = ref([]); // 今日待养护
                 const isCareRemindersLoading = ref(false);
                 const showRemindersExpanded = ref(false); // 默认折叠
@@ -1480,23 +1501,52 @@
                 const isBatchArchiveLoading = ref(false);
                 const showBatchInviteModal = ref(false);
                 const isBatchInviteLoading = ref(false);
-                const showPotActionSheet = ref(false);
-                const activePotAction = ref(null);
-                const archiveTargetPot = ref(null);
+	                const showPotActionSheet = ref(false);
+	                const activePotAction = ref(null);
+	                const archiveTargetPot = ref(null);
+                    const archiveFileInput = ref(null);
                 const isOverlayClosing = ref(false);
                 const batchInviteToken = ref(null);
                 const batchInviteSessionId = ref('');
-                const batchCareForm = reactive({
-                    type: 'water',
-                    action: '浇水',
-                    careDate: new Date().toISOString().split('T')[0],
-                    description: ''
-                });
-                const batchArchiveReasons = ['枯萎', '烂根', '干死', '病虫害', '环境不适', '送人/不再养护', '其他'];
-                const batchArchiveForm = reactive({
-                    reason: '枯萎',
-                    note: ''
-                });
+	                const batchCareForm = reactive({
+	                    type: 'water',
+                        types: ['water'],
+	                    action: '',
+	                    careDate: new Date().toISOString().split('T')[0],
+	                    description: ''
+	                });
+                    const batchCareTypeOptions = [
+                        {
+                            type: 'water',
+                            action: '浇水',
+                            label: '浇水',
+                            icon: 'fa-tint',
+                            activeClass: 'bg-blue-500 text-white border-blue-500 shadow-md shadow-blue-100',
+                            inactiveClass: 'bg-white text-gray-600 border-gray-100 hover:border-blue-200'
+                        },
+                        {
+                            type: 'fertilize',
+                            action: '施肥',
+                            label: '施肥',
+                            icon: 'fa-seedling',
+                            activeClass: 'bg-green-500 text-white border-green-500 shadow-md shadow-green-100',
+                            inactiveClass: 'bg-white text-gray-600 border-gray-100 hover:border-green-200'
+                        },
+                        {
+                            type: 'custom',
+                            action: '',
+                            label: '自定义',
+                            icon: 'fa-pen',
+                            activeClass: 'bg-purple-500 text-white border-purple-500 shadow-md shadow-purple-100',
+                            inactiveClass: 'bg-white text-gray-600 border-gray-100 hover:border-purple-200'
+                        }
+                    ];
+	                const batchArchiveReasons = ['枯萎', '烂根', '干死', '病虫害', '环境不适', '送人/不再养护', '其他'];
+	                const batchArchiveForm = reactive({
+	                    reason: '枯萎',
+	                    note: '',
+                        tempImages: []
+	                });
                 const batchInviteForm = reactive({
                     permission: 'viewer',
                     method: 'email',
@@ -1826,7 +1876,7 @@
                 const syncRegisterFormFromDom = () => {
                     formUtils.syncFormFieldsFromDom([
                         { elementId: 'registerEmail', form: registerForm, key: 'email', transform: formUtils.normalizeEmail },
-                        { elementId: 'registerNickname', form: registerForm, key: 'displayName', transform: formUtils.normalizeSingleLineText },
+                        { elementId: 'registerNickname', form: registerForm, key: 'displayName', transform: formUtils.normalizeDisplayName },
                         { elementId: 'registerPassword', form: registerForm, key: 'password' },
                         { elementId: 'registerConfirmPassword', form: registerForm, key: 'confirmPassword' }
                     ]);
@@ -1913,7 +1963,7 @@
                 };
 
                 const normalizeRegisterDisplayName = () => {
-                    registerForm.displayName = formUtils.normalizeSingleLineText(registerForm.displayName);
+                    registerForm.displayName = formUtils.normalizeDisplayName(registerForm.displayName);
                 };
 
                 const handleLoginEmailInput = () => {
@@ -1954,6 +2004,7 @@
 
                 const handleRegisterDisplayNameInput = () => {
                     clearStatus(registerStatus);
+                    registerForm.displayName = formUtils.normalizeDisplayName(registerForm.displayName);
                 };
 
                 const handleRegisterPasswordInput = () => {
@@ -3160,13 +3211,39 @@
                         custom: '养护'
                     }[type] || '养护';
                 };
-                const formatDate = (d) => {
-                    if (!d) return '';
-                    const date = new Date(d);
-                    if (isNaN(date.getTime())) return ''; // 处理非法日期
-                    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
-                };
-                const handleImageError = (e) => e.target.src = 'assets/images/icons/icons-default-pot.png';
+	                const formatDate = (d) => {
+	                    if (!d) return '';
+	                    const date = new Date(d);
+	                    if (isNaN(date.getTime())) return ''; // 处理非法日期
+	                    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+	                };
+                    const parseCalendarDay = (value) => {
+                        if (!value) return null;
+                        if (value instanceof Date) {
+                            if (Number.isNaN(value.getTime())) return null;
+                            return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+                        }
+                        const text = String(value);
+                        const match = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                        if (match) {
+                            return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+                        }
+                        const date = new Date(text);
+                        if (Number.isNaN(date.getTime())) return null;
+                        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                    };
+                    const formatCareElapsedDays = (pot) => {
+                        const start = parseCalendarDay(pot?.plant_date);
+                        if (!start) return '无';
+                        const isPotArchived = String(pot?.status || activePotStatus.value || 'active').toLowerCase() === 'archived';
+                        const end = isPotArchived && pot?.archived_at
+                            ? parseCalendarDay(pot.archived_at)
+                            : parseCalendarDay(new Date());
+                        if (!end) return '无';
+                        const days = Math.max(1, Math.floor((end.getTime() - start.getTime()) / 86400000) + 1);
+                        return `${days} 天`;
+                    };
+	                const handleImageError = (e) => e.target.src = 'assets/images/icons/icons-default-pot.png';
 
                 // 图片优化：通过 Cloudflare cdn-cgi/image 按需缩放
                 // 仅对 img.kaside365.com 域名的图片生效，本地/占位图原样返回
@@ -3444,16 +3521,38 @@
                     }
                 );
 
-                const selectBatchCareType = (type, action) => {
-                    batchCareForm.type = type;
-                    batchCareForm.action = action;
-                };
+                    const isBatchCareTypeSelected = (type) => batchCareForm.types.includes(type);
 
-                const openBatchCareModal = () => {
-                    // 每次打开时重置日期为今天
-                    batchCareForm.careDate = new Date().toISOString().split('T')[0];
-                    showBatchCareModal.value = true;
-                };
+                    const toggleBatchCareType = (type) => {
+                        if (isBatchCareTypeSelected(type)) {
+                            batchCareForm.types = batchCareForm.types.filter(item => item !== type);
+                        } else {
+                            batchCareForm.types = [...batchCareForm.types, type];
+                        }
+                        batchCareForm.type = batchCareForm.types[0] || '';
+                    };
+
+                    const selectedBatchCareActions = computed(() =>
+                        batchCareForm.types.map(type => {
+                            const option = batchCareTypeOptions.find(item => item.type === type);
+                            return type === 'custom' ? batchCareForm.action.trim() : (option?.action || type);
+                        })
+                    );
+
+                    const isBatchCareSubmitDisabled = computed(() =>
+                        isBatchCareLoading.value ||
+                        batchCareForm.types.length === 0 ||
+                        (isBatchCareTypeSelected('custom') && !batchCareForm.action.trim())
+                    );
+
+	                const openBatchCareModal = () => {
+	                    // 每次打开时重置日期为今天
+                        batchCareForm.type = 'water';
+                        batchCareForm.types = ['water'];
+                        batchCareForm.action = '';
+	                    batchCareForm.careDate = new Date().toISOString().split('T')[0];
+	                    showBatchCareModal.value = true;
+	                };
 
                 const closeBatchCareModal = () => {
                     if (showBatchCareModal.value) {
@@ -3462,15 +3561,17 @@
                     showBatchCareModal.value = false;
                 };
 
-                const closeBatchArchiveModal = (options = {}) => {
-                    if (showBatchArchiveModal.value) {
-                        holdOverlayGuard();
-                    }
-                    showBatchArchiveModal.value = false;
-                    if (!options.keepArchiveTarget) {
-                        archiveTargetPot.value = null;
-                    }
-                };
+	                const closeBatchArchiveModal = (options = {}) => {
+                        if (isBatchArchiveLoading.value) return;
+	                    if (showBatchArchiveModal.value) {
+	                        holdOverlayGuard();
+	                    }
+	                    showBatchArchiveModal.value = false;
+                        resetBatchArchiveForm();
+	                    if (!options.keepArchiveTarget) {
+	                        archiveTargetPot.value = null;
+	                    }
+	                };
 
                 const closeBatchInviteModal = () => {
                     if (showBatchInviteModal.value) {
@@ -3511,12 +3612,11 @@
                     openBatchCareModal();
                 };
 
-                const openArchiveModal = (targetPot = null) => {
-                    batchArchiveForm.reason = '枯萎';
-                    batchArchiveForm.note = '';
-                    archiveTargetPot.value = targetPot;
-                    showBatchArchiveModal.value = true;
-                };
+	                const openArchiveModal = (targetPot = null) => {
+                        resetBatchArchiveForm();
+	                    archiveTargetPot.value = targetPot;
+	                    showBatchArchiveModal.value = true;
+	                };
 
                 const openBatchArchiveModal = () => {
                     openArchiveModal(null);
@@ -3552,13 +3652,99 @@
                     openBatchInviteModal();
                 };
 
-                const returnToBatchActionSheetFromCare = () => {
-                    closeBatchCareModal();
-                    openBatchActionSheet();
-                };
+	                const returnToBatchActionSheetFromCare = () => {
+	                    closeBatchCareModal();
+	                    openBatchActionSheet();
+	                };
 
-                const returnToBatchActionSheetFromArchive = () => {
-                    if (archiveTargetPot.value) {
+                    const compressArchiveImage = (file, maxSide = 1920, quality = 0.85) => {
+                        if (file.type === 'image/gif') return Promise.resolve(file);
+                        return new Promise((resolve) => {
+                            const img = new Image();
+                            const url = URL.createObjectURL(file);
+                            img.onload = () => {
+                                URL.revokeObjectURL(url);
+                                let { width, height } = img;
+                                if (width > maxSide || height > maxSide) {
+                                    if (width >= height) {
+                                        height = Math.round(height * maxSide / width);
+                                        width = maxSide;
+                                    } else {
+                                        width = Math.round(width * maxSide / height);
+                                        height = maxSide;
+                                    }
+                                }
+                                const canvas = document.createElement('canvas');
+                                canvas.width = width;
+                                canvas.height = height;
+                                canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                                canvas.toBlob((blob) => {
+                                    resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
+                                }, 'image/jpeg', quality);
+                            };
+                            img.onerror = () => {
+                                URL.revokeObjectURL(url);
+                                resolve(file);
+                            };
+                            img.src = url;
+                        });
+                    };
+
+                    const archiveImageCount = () => batchArchiveForm.tempImages.length;
+
+                    const resetBatchArchiveForm = () => {
+                        batchArchiveForm.reason = '枯萎';
+                        batchArchiveForm.note = '';
+                        batchArchiveForm.tempImages = [];
+                        if (archiveFileInput.value) archiveFileInput.value.value = '';
+                    };
+
+                    const triggerArchiveFileInput = () => {
+                        archiveFileInput.value?.click();
+                    };
+
+                    const onArchiveFilesSelected = async (e) => {
+                        const files = Array.from(e.target.files || []);
+                        const remaining = 3 - archiveImageCount();
+                        for (const file of files.slice(0, remaining)) {
+                            const compressed = await compressArchiveImage(file);
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                                batchArchiveForm.tempImages.push({ file: compressed, preview: ev.target.result });
+                            };
+                            reader.readAsDataURL(compressed);
+                        }
+                        e.target.value = '';
+                    };
+
+                    const removeArchiveImage = (idx) => {
+                        batchArchiveForm.tempImages.splice(idx, 1);
+                    };
+
+                    const uploadArchiveImagesForPot = async (potId) => {
+                        const uploadedUrls = [];
+                        for (const item of batchArchiveForm.tempImages) {
+                            const res = await apiClient.uploadImage(item.file, {
+                                potId,
+                                uploadType: 'timeline'
+                            });
+                            if (res.success && res.data?.url) uploadedUrls.push(res.data.url);
+                        }
+                        return uploadedUrls;
+                    };
+
+                    const uploadArchiveImagesByPotId = async (targetPots) => {
+                        const imagesByPotId = {};
+                        if (batchArchiveForm.tempImages.length === 0) return imagesByPotId;
+                        for (const pot of targetPots) {
+                            imagesByPotId[pot.id] = await uploadArchiveImagesForPot(pot.id);
+                        }
+                        return imagesByPotId;
+                    };
+
+	                const returnToBatchActionSheetFromArchive = () => {
+                        if (isBatchArchiveLoading.value) return;
+	                    if (archiveTargetPot.value) {
                         const pot = archiveTargetPot.value;
                         closeBatchArchiveModal({ keepArchiveTarget: true });
                         openPotActionSheet(pot);
@@ -3647,18 +3833,21 @@
 
                 const submitBatchArchive = async () => {
                     const singleTarget = archiveTargetPot.value;
-                    if (singleTarget) {
-                        try {
-                            isBatchArchiveLoading.value = true;
-                            const res = await apiClient.archivePot(singleTarget.id, {
-                                reason: batchArchiveForm.reason,
-                                note: batchArchiveForm.note.trim() || null
-                            });
-                            if (res.success) {
-                                showBatchArchiveModal.value = false;
-                                archiveTargetPot.value = null;
-                                await fetchPots({ status: 'active', blocking: pots.value.length <= 1 });
-                                await fetchPotStatusCounts();
+	                    if (singleTarget) {
+	                        try {
+	                            isBatchArchiveLoading.value = true;
+                                const imageUrls = await uploadArchiveImagesForPot(singleTarget.id);
+	                            const res = await apiClient.archivePot(singleTarget.id, {
+	                                reason: batchArchiveForm.reason,
+	                                note: batchArchiveForm.note.trim() || null,
+                                    imageUrls
+	                            });
+	                            if (res.success) {
+	                                showBatchArchiveModal.value = false;
+	                                archiveTargetPot.value = null;
+                                    resetBatchArchiveForm();
+	                                await fetchPots({ status: 'active', blocking: pots.value.length <= 1 });
+	                                await fetchPotStatusCounts();
                                 await loadCareReminders();
                                 alert('已归档。');
                             }
@@ -3676,22 +3865,25 @@
                         return;
                     }
 
-                    try {
-                        isBatchArchiveLoading.value = true;
-                        const res = await apiClient.batchArchivePots({
-                            potIds: pots.value.filter(p => p.selected).map(p => p.id),
-                            reason: batchArchiveForm.reason,
-                            note: batchArchiveForm.note.trim() || null
-                        });
+	                    try {
+	                        isBatchArchiveLoading.value = true;
+                            const archiveImagesByPotId = await uploadArchiveImagesByPotId(targetPots);
+	                        const res = await apiClient.batchArchivePots({
+	                            potIds: pots.value.filter(p => p.selected).map(p => p.id),
+	                            reason: batchArchiveForm.reason,
+	                            note: batchArchiveForm.note.trim() || null,
+                                archiveImagesByPotId
+	                        });
 
                         if (res.success) {
                             const skipped = Number(res.skipped || 0);
                             const message = skipped > 0
                                 ? `已归档 ${res.count} 个花盆，自动排除 ${skipped} 个非本人拥有的花盆。`
                                 : `已归档 ${res.count} 个花盆。`;
-                            alert(message);
-                            showBatchArchiveModal.value = false;
-                            showBatchActionSheet.value = false;
+	                            alert(message);
+	                            showBatchArchiveModal.value = false;
+	                            showBatchActionSheet.value = false;
+                                resetBatchArchiveForm();
                             if (isEditMode.value) {
                                 pots.value.forEach(p => p.selected = false);
                                 isEditMode.value = false;
@@ -3816,30 +4008,37 @@
                     }
                 };
 
-                const submitBatchCare = async () => {
-                    const selectedPots = selectedOwnedPots.value;
-                    if (selectedPots.length === 0) return;
-
-                    const finalAction = batchCareForm.action.trim();
-                    if (!finalAction) {
-                        alert('请填写养护动作名称');
-                        return;
-                    }
-
-                    try {
-                        isBatchCareLoading.value = true;
-                        const res = await apiClient.batchCreateCareRecord({
-                            potIds: selectedPots.map(p => p.id),
-                            type: batchCareForm.type,
-                            action: finalAction,
-                            careDate: batchCareForm.careDate,
-                            description: batchCareForm.description.trim() || null
-                        });
-
-                        if (res.success) {
-                            const msg = res.skipped > 0
-                                ? `已为 ${res.count} 个花盆记录养护（已自动跳过 ${res.skipped} 个无权限的花盆）`
-                                : `✅ 已为 ${res.count} 个花盆记录养护`;
+	                const submitBatchCare = async () => {
+	                    const selectedPots = selectedOwnedPots.value;
+	                    if (selectedPots.length === 0) return;
+	
+                        const selectedTypes = [...batchCareForm.types];
+                        const selectedActions = selectedBatchCareActions.value;
+	                    if (selectedTypes.length === 0) {
+	                        alert('请至少选择一个养护类型');
+	                        return;
+	                    }
+	                    if (selectedTypes.includes('custom') && !batchCareForm.action.trim()) {
+	                        alert('请填写自定义养护动作名称');
+	                        return;
+	                    }
+	
+	                    try {
+	                        isBatchCareLoading.value = true;
+	                        const res = await apiClient.batchCreateCareRecord({
+	                            potIds: selectedPots.map(p => p.id),
+	                            type: selectedTypes[0],
+                                types: selectedTypes,
+	                            action: selectedActions[0],
+                                actions: selectedActions,
+	                            careDate: batchCareForm.careDate,
+	                            description: batchCareForm.description.trim() || null
+	                        });
+	
+	                        if (res.success) {
+	                            const msg = res.skipped > 0
+	                                ? `已为 ${res.count} 个花盆记录养护（已自动跳过 ${res.skipped} 个无权限的花盆）`
+	                                : `已为 ${res.count} 个花盆记录 ${selectedTypes.length} 项养护`;
                             alert(msg);
                             showBatchCareModal.value = false;
                             // 退出管理模式并刷新列表
@@ -3872,7 +4071,7 @@
                         getPotStatusTabButtonClass, getPotStatusTabFillStyle, getPotStatusTabTextClass,
                         handlePotStatusSwipeStart, handlePotStatusSwipeMove, handlePotStatusSwipeEnd, handlePotStatusSwipeCancel,
                         emptyStateTitle, emptyStateMessage,
-                    user, isLoggedIn, userDisplayName, careReminders, isCareRemindersLoading, hasTopReminderBlock, groupedReminders, navSeasonalReminder, showRemindersExpanded,
+                    user, isLoggedIn, userDisplayName, navUserDisplayName, careReminders, isCareRemindersLoading, hasTopReminderBlock, groupedReminders, navSeasonalReminder, showRemindersExpanded,
                     ownedPots, collaborativePots, viewerPots, batchManageablePots,
                     isEditMode, potsGrid, showUserMenu, showLoginModal, showRegisterModal, showForgotPasswordModal, isAuthLoading,
                     entryNotice, entryNoticeClass, dismissEntryNotice,
@@ -3891,7 +4090,7 @@
                     leaveCollaborationFromSheet, removeViewerPotFromSheet,
                     confirmLeaveCollaboration, confirmLeaveViewer,
                     logout, closeAuthModals, switchToRegister, switchToLogin, switchToForgotPassword,
-                    formatDate, handleImageError, imgUrl, seedDemoData, goToPotDetail,
+	                    formatDate, formatCareElapsedDays, handleImageError, imgUrl, seedDemoData, goToPotDetail,
                     goEditPot: (id) => window.location.href = `edit-pot?id=${id}`,
                     goAddPot: () => window.location.href = 'add-pot',
                     goProfile: () => window.location.href = 'profile',
@@ -3925,11 +4124,13 @@
                     clearReadMessages,
                     messageTab,
                     filteredMessages,
-                    // 批量养护
-                    showBatchActionSheet, showBatchCareModal, isBatchCareLoading, batchCareForm,
-                    openBatchActionSheet, closeBatchActionSheet, openBatchCareModal, closeBatchCareModal, openBatchCareFromSheet, returnToBatchActionSheetFromCare, selectBatchCareType, submitBatchCare, exitBatchMode,
-                    showBatchArchiveModal, isBatchArchiveLoading, batchArchiveForm, batchArchiveReasons, archiveTargetPot,
-                    openBatchArchiveFromSheet, closeBatchArchiveModal, returnToBatchActionSheetFromArchive, submitBatchArchive,
+	                    // 批量养护
+	                    showBatchActionSheet, showBatchCareModal, isBatchCareLoading, batchCareForm,
+	                    openBatchActionSheet, closeBatchActionSheet, openBatchCareModal, closeBatchCareModal, openBatchCareFromSheet, returnToBatchActionSheetFromCare,
+                        batchCareTypeOptions, isBatchCareTypeSelected, toggleBatchCareType, isBatchCareSubmitDisabled, submitBatchCare, exitBatchMode,
+	                    showBatchArchiveModal, isBatchArchiveLoading, batchArchiveForm, batchArchiveReasons, archiveTargetPot, archiveFileInput,
+                        archiveImageCount, triggerArchiveFileInput, onArchiveFilesSelected, removeArchiveImage,
+	                    openBatchArchiveFromSheet, closeBatchArchiveModal, returnToBatchActionSheetFromArchive, submitBatchArchive,
                     showBatchInviteModal, isBatchInviteLoading, batchInviteForm,
                     openBatchInviteModal, closeBatchInviteModal, openBatchInviteFromSheet, returnToBatchActionSheetFromInvite, deleteSelectedFromSheet, restoreSelectedFromSheet, leaveSelectedViewersFromSheet, submitBatchInvite,
                     apiClient

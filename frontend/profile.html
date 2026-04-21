@@ -94,7 +94,7 @@
                     <div>
                         <label
                             class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">显示名称</label>
-                        <input type="text" v-model="userForm.displayName" maxlength="20" autocomplete="nickname"
+                        <input type="text" v-model="userForm.displayName" maxlength="12" autocomplete="nickname"
                             class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 focus:ring-2 focus:ring-green-500 transition-all font-bold text-gray-800"
                             placeholder="设置一个昵称吧">
                     </div>
@@ -112,7 +112,7 @@
                         <p class="mt-2 ml-1 text-xs text-gray-400">这里只显示当前绑定邮箱。需要更换邮箱时，请前往安全中心。</p>
 
                         <!-- 邮箱验证状态 -->
-                        <div class="mt-2 flex items-center justify-between">
+                        <div class="mt-2 space-y-3">
                             <div v-if="user?.emailVerified" class="flex items-center text-green-600 text-sm">
                                 <i class="fa fa-check-circle mr-2"></i>
                                 <span class="font-medium">邮箱已验证</span>
@@ -124,10 +124,11 @@
 
                             <!-- 发送验证邮件按钮（仅当邮箱未验证时显示） -->
                             <button v-if="user?.userType === 'email' && !user?.emailVerified"
-                                @click="sendVerificationEmail" :disabled="isSendingVerificationEmail"
-                                class="text-xs bg-amber-100 text-amber-700 hover:bg-amber-200 px-3 py-1 rounded-full font-medium transition disabled:opacity-50">
-                                <span v-if="!isSendingVerificationEmail">发送验证邮件</span>
-                                <span v-else><i class="fa fa-spinner fa-spin mr-1"></i>发送中...</span>
+                                @click="sendVerificationEmail" :disabled="isVerificationEmailSendDisabled"
+                                class="w-full bg-amber-500 text-white py-4 rounded-2xl text-sm font-black shadow-lg shadow-amber-100 hover:bg-amber-600 disabled:opacity-50 transition active:scale-95">
+                                <span v-if="isSendingVerificationEmail"><i class="fa fa-spinner fa-spin mr-1"></i>发送中...</span>
+                                <span v-else-if="verificationEmailCooldownSeconds > 0">{{ verificationEmailCooldownSeconds }} 秒后可重发</span>
+                                <span v-else>发送验证邮件</span>
                             </button>
                         </div>
                     </div>
@@ -297,7 +298,7 @@
     </div>
 
     <script>
-        const { createApp, ref, reactive, onMounted, computed } = Vue;
+        const { createApp, ref, reactive, onMounted, onUnmounted, computed } = Vue;
 
         createApp({
             setup() {
@@ -337,6 +338,8 @@
 
                 const isChangingEmail = ref(false);
                 const isSendingVerificationEmail = ref(false);
+                const verificationEmailCooldownSeconds = ref(0);
+                let verificationEmailCooldownTimer = null;
                 const isPasswordFormValid = computed(() =>
                     !!passForm.currentPassword &&
                     formUtils.isValidPassword(passForm.newPassword) &&
@@ -350,6 +353,30 @@
                         formUtils.isValidEmail(normalizedNextEmail) &&
                         normalizedNextEmail !== normalizedCurrentEmail;
                 });
+                const isVerificationEmailSendDisabled = computed(() =>
+                    isSendingVerificationEmail.value || verificationEmailCooldownSeconds.value > 0
+                );
+
+                const stopVerificationEmailCooldown = () => {
+                    if (verificationEmailCooldownTimer) {
+                        clearInterval(verificationEmailCooldownTimer);
+                        verificationEmailCooldownTimer = null;
+                    }
+                };
+
+                const startVerificationEmailCooldown = (seconds = 60) => {
+                    stopVerificationEmailCooldown();
+                    verificationEmailCooldownSeconds.value = Math.max(0, Number(seconds) || 0);
+                    if (verificationEmailCooldownSeconds.value <= 0) return;
+
+                    verificationEmailCooldownTimer = setInterval(() => {
+                        verificationEmailCooldownSeconds.value -= 1;
+                        if (verificationEmailCooldownSeconds.value <= 0) {
+                            verificationEmailCooldownSeconds.value = 0;
+                            stopVerificationEmailCooldown();
+                        }
+                    }, 1000);
+                };
 
                 const showToast = (message, type = 'success') => {
                     toast.value = { show: true, message, type };
@@ -383,7 +410,7 @@
                         const initRes = await apiClient.getCurrentUser();
                         if (initRes.success) {
                             user.value = initRes.user;
-                            userForm.displayName = formUtils.normalizeSingleLineText(initRes.user.displayName || '');
+                            userForm.displayName = formUtils.normalizeDisplayName(initRes.user.displayName || '');
                         } else {
                             nav.redirectToLoginRequired({
                                 from: 'profile',
@@ -434,7 +461,7 @@
                 const updateProfile = async () => {
                     try {
                         isUpdatingProfile.value = true;
-                        userForm.displayName = formUtils.normalizeSingleLineText(userForm.displayName);
+                        userForm.displayName = formUtils.normalizeDisplayName(userForm.displayName);
                         let avatarUrl = user.value.avatarUrl;
 
                         // 1. 上传新头像（已由 onAvatarSelected 预先压缩）
@@ -635,6 +662,7 @@
                         });
                         if (res.success) {
                             showToast('验证邮件已发送到您的邮箱，请查收并点击链接完成验证。');
+                            startVerificationEmailCooldown(res.retryAfterSeconds || 60);
                         }
                     } catch (e) {
                         showToast('发送失败: ' + e.message, 'error');
@@ -672,9 +700,11 @@
                 window.addEventListener('auth:expired', handleProfileAuthExpired);
 
                 onMounted(init);
+                onUnmounted(stopVerificationEmailCooldown);
 
                 return {
                     user, activeTab, userForm, passForm, emailForm, isUpdatingProfile, isUpdatingPass, isChangingEmail, isSendingVerificationEmail,
+                    verificationEmailCooldownSeconds, isVerificationEmailSendDisabled,
                     isLoggingOut, showLogoutConfirm, securityStatus, securityErrors, toast, isPasswordFormValid, isNewEmailValid,
                     onAvatarSelected, updateProfile, updatePassword, changeEmail, sendVerificationEmail, confirmLogout, goBack, imgUrl,
                     validateCurrentPassword, validateNewPassword, validateConfirmPassword, validateNewEmail,

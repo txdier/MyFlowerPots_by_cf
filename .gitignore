@@ -27,6 +27,7 @@ frontend/js/config.js
 Temp/
 output/
 backups/
+Memory/
 
 # Project Specific (Built & Redundant)
 frontend/css/tailwind-built.css

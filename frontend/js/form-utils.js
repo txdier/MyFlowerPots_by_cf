@@ -1,7 +1,30 @@
 (function attachMyFlowerPotsFormUtils(global) {
+    const DISPLAY_NAME_MAX_LENGTH = 12;
+
     const normalizeSingleLineText = (value) => String(value || '')
         .replace(/\s+/g, ' ')
         .trim();
+
+    const limitTextLength = (value, maxLength) => Array.from(String(value || ''))
+        .slice(0, maxLength)
+        .join('');
+
+    const getDisplayWidth = (char) => /^[\x00-\x7F]$/.test(char) ? 0.5 : 1;
+
+    const limitTextDisplayWidth = (value, maxWidth) => {
+        let width = 0;
+        let output = '';
+        for (const char of Array.from(String(value || ''))) {
+            const charWidth = getDisplayWidth(char);
+            if (width + charWidth > maxWidth) break;
+            width += charWidth;
+            output += char;
+        }
+        return output;
+    };
+
+    const normalizeDisplayName = (value, maxLength = DISPLAY_NAME_MAX_LENGTH) =>
+        limitTextLength(normalizeSingleLineText(value), maxLength);
 
     const normalizeEmail = (value) => normalizeSingleLineText(value).toLowerCase();
 
@@ -43,6 +66,10 @@
 
     global.MyFlowerPotsFormUtils = {
         normalizeSingleLineText,
+        normalizeDisplayName,
+        limitTextLength,
+        limitTextDisplayWidth,
+        DISPLAY_NAME_MAX_LENGTH,
         normalizeEmail,
         isValidEmail,
         isValidPassword,
