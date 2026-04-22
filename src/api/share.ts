@@ -1,4 +1,5 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
+import { findAccessiblePot } from '../utils/pot-access-utils';
 
 /**
  * 处理分享相关的请求
@@ -41,7 +42,7 @@ export async function handleShareRequest(
 
 async function handleEnableShare(potId: string, userId: string, env: any): Promise<Response> {
   // 校验所有权 (仅主人可开启/重置分享)
-  const pot = await env.DB.prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?').bind(potId, userId).first();
+  const pot = await findAccessiblePot(env, potId, userId, 'owner', { select: 'p.id' });
   if (!pot) return errorResponse('Pot not found or access denied', 404);
 
   // 生成新的随机 Token
@@ -54,7 +55,7 @@ async function handleEnableShare(potId: string, userId: string, env: any): Promi
 
 async function handleDisableShare(potId: string, userId: string, env: any): Promise<Response> {
   // 校验所有权
-  const pot = await env.DB.prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?').bind(potId, userId).first();
+  const pot = await findAccessiblePot(env, potId, userId, 'owner', { select: 'p.id' });
   if (!pot) return errorResponse('Pot not found or access denied', 404);
 
   await env.DB.prepare('UPDATE pots SET is_shared = 0, share_token = NULL WHERE id = ?').bind(potId).run();
@@ -63,11 +64,9 @@ async function handleDisableShare(potId: string, userId: string, env: any): Prom
 }
 
 async function handleSetCommentDanmaku(potId: string, userId: string, env: any, request: Request): Promise<Response> {
-  const pot = await env.DB.prepare(`
-    SELECT id, COALESCE(status, 'active') as status
-    FROM pots
-    WHERE id = ? AND user_id = ?
-  `).bind(potId, userId).first();
+  const pot = await findAccessiblePot(env, potId, userId, 'owner', {
+    select: "p.id, COALESCE(p.status, 'active') as status"
+  });
   if (!pot) return errorResponse('Pot not found or access denied', 404);
   if (String(pot.status || 'active').toLowerCase() === 'archived') {
     return errorResponse('Archived pot is read-only', 403);

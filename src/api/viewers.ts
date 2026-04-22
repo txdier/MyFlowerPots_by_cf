@@ -1,4 +1,5 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
+import { findAccessiblePot } from '../utils/pot-access-utils';
 
 export async function handleViewersRequest(
   request: Request,
@@ -46,7 +47,7 @@ export async function handleViewersRequest(
 }
 
 async function handleGetViewers(potId: string, userId: string, env: any): Promise<Response> {
-  const pot = await env.DB.prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?').bind(potId, userId).first();
+  const pot = await findAccessiblePot(env, potId, userId, 'owner', { select: 'p.id' });
   if (!pot) return errorResponse('Pot not found or access denied', 404);
 
   const { results } = await env.DB.prepare(`
@@ -60,7 +61,7 @@ async function handleGetViewers(potId: string, userId: string, env: any): Promis
 }
 
 async function handleCreateInviteLink(potId: string, userId: string, env: any): Promise<Response> {
-  const pot = await env.DB.prepare('SELECT id, name FROM pots WHERE id = ? AND user_id = ?').bind(potId, userId).first();
+  const pot = await findAccessiblePot(env, potId, userId, 'owner', { select: 'p.id, p.name' });
   if (!pot) return errorResponse('Pot not found or access denied', 404);
 
   const inviteId = crypto.randomUUID();
@@ -115,7 +116,7 @@ async function handleOpenInviteLink(request: Request, token: string, env: any): 
 }
 
 async function handleAddViewer(request: Request, potId: string, userId: string, env: any): Promise<Response> {
-  const pot = await env.DB.prepare('SELECT id, name FROM pots WHERE id = ? AND user_id = ?').bind(potId, userId).first();
+  const pot = await findAccessiblePot(env, potId, userId, 'owner', { select: 'p.id, p.name' });
   if (!pot) return errorResponse('Pot not found or access denied', 404);
 
   const body = await request.json() as { email?: string };
@@ -225,7 +226,7 @@ async function handleAcceptInviteLink(request: Request, token: string, userId: s
 }
 
 async function handleRemoveViewer(potId: string, targetUserId: string, userId: string, env: any): Promise<Response> {
-  const pot = await env.DB.prepare('SELECT id, name FROM pots WHERE id = ? AND user_id = ?').bind(potId, userId).first();
+  const pot = await findAccessiblePot(env, potId, userId, 'owner', { select: 'p.id, p.name' });
   if (!pot) return errorResponse('Pot not found or access denied', 404);
 
   try {

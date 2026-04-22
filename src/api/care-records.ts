@@ -1,9 +1,10 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
 import {
-  isDefaultImage,
-  extractObjectKeyFromUrl,
-  deleteFileFromR2
+  deleteImagesFromR2,
+  getRemovedImageUrls,
+  normalizeImageUrls
 } from '../utils/storage-utils';
+import { findAccessiblePot } from '../utils/pot-access-utils';
 
 export async function handleCareRecordsRequest(
   request: Request,
@@ -96,17 +97,7 @@ async function handleGetCareRecords(request: Request, env: any, potId: string, t
       return errorResponse('Missing potId', 400);
     }
 
-    // 安全加固：校验花盆归属权或协作权
-    const pot = await env.DB
-      .prepare(`
-        SELECT id FROM pots WHERE id = ? AND user_id = ?
-        UNION
-        SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?
-        UNION
-        SELECT pot_id FROM pot_viewers WHERE pot_id = ? AND user_id = ?
-      `)
-      .bind(potId, token, potId, token, potId, token)
-      .first();
+    const pot = await findAccessiblePot(env, potId, token, 'view');
 
     if (!pot) {
       return errorResponse('Pot not found or access denied', 403);
@@ -161,17 +152,7 @@ async function handleCreateCareRecord(request: Request, env: any, token: string 
       return errorResponse('missing fields', 400);
     }
 
-    // 安全加固：校验目标花盆归属权或协作权
-    const pot = await env.DB
-      .prepare(`
-        SELECT p.id FROM pots p
-        LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
-        WHERE p.id = ?
-          AND COALESCE(p.status, 'active') = 'active'
-          AND (p.user_id = ? OR pc.user_id = ?)
-      `)
-      .bind(potId, token, token)
-      .first();
+    const pot = await findAccessiblePot(env, potId, token, 'manage', { allowArchived: false });
 
     if (!pot) {
       return errorResponse('Pot not found or access denied', 403);
@@ -187,7 +168,7 @@ async function handleCreateCareRecord(request: Request, env: any, token: string 
 
     // 统一图片为 JSON 字符串
     // 前端现在发送 imageUrls 数组。如果旧前端发送 imageUrl，兼容处理。
-    const finalImageUrls = imageUrls || (imageUrl ? [imageUrl] : []);
+    const finalImageUrls = normalizeImageUrls(imageUrls ?? imageUrl);
     const storedImageValue = finalImageUrls.length > 0 ? JSON.stringify(finalImageUrls) : null;
 
     // 使用事务（Batch）执行多条记录插入
@@ -234,14 +215,16 @@ async function handleCreateCareRecord(request: Request, env: any, token: string 
             date,
             description,
             images,
-            created_at
-          ) VALUES (?, ?, ?, ?, ?)
+            created_at,
+            user_id
+          ) VALUES (?, ?, ?, ?, ?, ?)
         `).bind(
           potId,
           careDate,
           timelineDesc,
           timelineImagesJson,
-          new Date().toISOString()
+          new Date().toISOString(),
+          token
         )
       );
     }
@@ -338,20 +321,17 @@ async function handleUpdateCareRecord(request: Request, env: any, id: string, to
     const body: any = await request.json();
     const { type, action, careDate, description, imageUrl, imageUrls } = body;
 
-    // 安全加固：检查记录是否存在且属于该用户或协作者
     const existing: any = await env.DB
-      .prepare(`
-        SELECT r.id, r.image_url, r.pot_id FROM care_records r
-        JOIN pots p ON r.pot_id = p.id
-        LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
-        WHERE r.id = ?
-          AND COALESCE(p.status, 'active') = 'active'
-          AND (p.user_id = ? OR pc.user_id = ?)
-      `)
-      .bind(id, token, token)
+      .prepare('SELECT id, image_url, pot_id FROM care_records WHERE id = ?')
+      .bind(id)
       .first();
 
     if (!existing) {
+      return errorResponse('Record not found', 404);
+    }
+
+    const pot = await findAccessiblePot(env, existing.pot_id, token, 'manage', { allowArchived: false });
+    if (!pot) {
       return errorResponse('Record not found', 404);
     }
 
@@ -379,18 +359,12 @@ async function handleUpdateCareRecord(request: Request, env: any, id: string, to
     // 图片更新逻辑
     if (imageUrl !== undefined || imageUrls !== undefined) {
       // 计算新的存储值
-      let newStorageValue = null;
-
-      if (imageUrls && Array.isArray(imageUrls)) {
-        newStorageValue = imageUrls.length > 0 ? JSON.stringify(imageUrls) : null;
-      } else if (imageUrl) {
-        newStorageValue = JSON.stringify([imageUrl]);
+      const nextImageUrls = normalizeImageUrls(imageUrls ?? imageUrl);
+      const newStorageValue = nextImageUrls.length > 0 ? JSON.stringify(nextImageUrls) : null;
+      const removedImageUrls = getRemovedImageUrls(existing.image_url, newStorageValue);
+      if (removedImageUrls.length > 0) {
+        await deleteImagesFromR2(env, removedImageUrls);
       }
-
-      // 简单的清理逻辑（仅当完全被覆盖时尝试清理旧图，这里暂不处理复杂的多图清理，避免误删）
-      // 如果现有的是单图URL且不在新列表中，可以清理？
-      // 由于逻辑变复杂，这里暂先跳过自动清理旧图，防止删除错误。
-      // 实际生产中应解析旧 JSON，找出不再使用的 URL 进行删除。
 
       updates.push('image_url = ?');
       values.push(newStorageValue);
@@ -418,30 +392,21 @@ async function handleUpdateCareRecord(request: Request, env: any, id: string, to
 
 async function handleDeleteCareRecord(request: Request, env: any, id: string, token: string | null): Promise<Response> {
   try {
-    // 安全加固：检查记录是否存在且属于该用户或其协作者
     const existing: any = await env.DB
-      .prepare(`
-        SELECT r.id, r.image_url, r.pot_id FROM care_records r
-        JOIN pots p ON r.pot_id = p.id
-        LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
-        WHERE r.id = ?
-          AND COALESCE(p.status, 'active') = 'active'
-          AND (p.user_id = ? OR pc.user_id = ?)
-      `)
-      .bind(id, token, token)
+      .prepare('SELECT id, image_url, pot_id FROM care_records WHERE id = ?')
+      .bind(id)
       .first();
 
     if (!existing) {
       return errorResponse('Record not found or access denied', 404);
     }
 
-    // 如果有图片，执行清理逻辑
-    if (existing.image_url && !isDefaultImage(existing.image_url)) {
-      const objectKey = extractObjectKeyFromUrl(existing.image_url);
-      if (objectKey) {
-        await deleteFileFromR2(env, objectKey);
-      }
+    const pot = await findAccessiblePot(env, existing.pot_id, token, 'manage', { allowArchived: false });
+    if (!pot) {
+      return errorResponse('Record not found or access denied', 404);
     }
+
+    await deleteImagesFromR2(env, existing.image_url);
 
     await env.DB
       .prepare('DELETE FROM care_records WHERE id = ?')

@@ -1,5 +1,6 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
 import { sendEmail, generateTransferEmail } from '../utils/email-service';
+import { findAccessiblePot } from '../utils/pot-access-utils';
 
 async function ensureTransferTargetMatches(
   env: any,
@@ -73,7 +74,7 @@ export async function handleTransferRequest(
 
 async function handleInitTransfer(request: Request, potId: string, userId: string, env: any): Promise<Response> {
   // 校验所有权
-  const pot = await env.DB.prepare('SELECT id, name FROM pots WHERE id = ? AND user_id = ?').bind(potId, userId).first();
+  const pot = await findAccessiblePot(env, potId, userId, 'owner', { select: 'p.id, p.name' });
   if (!pot) return errorResponse('Pot not found or access denied', 404);
 
   // 解析目标邮箱
@@ -129,7 +130,9 @@ async function handleInitTransfer(request: Request, potId: string, userId: strin
 
 async function handleCancelTransfer(potId: string, userId: string, env: any): Promise<Response> {
   // 校验所有权
-  const pot = await env.DB.prepare('SELECT id, name, transfer_target_email FROM pots WHERE id = ? AND user_id = ?').bind(potId, userId).first();
+  const pot = await findAccessiblePot(env, potId, userId, 'owner', {
+    select: 'p.id, p.name, p.transfer_target_email'
+  });
   if (!pot) return errorResponse('Pot not found or access denied', 404);
 
   // 更新花盆状态

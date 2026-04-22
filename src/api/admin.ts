@@ -1,5 +1,5 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
-import { extractObjectKeysFromUrls, deleteFilesFromR2 } from '../utils/storage-utils';
+import { collectUserImageUrls, deleteImagesFromR2 } from '../utils/storage-utils';
 import { clearMemoryCache, deleteMemoryCachePrefix, getMemoryCacheStats } from '../utils/cache-utils';
 import { getAnalytics, getDailyTrend, getAnalyticsDateString } from './analytics';
 import { invalidatePlantCache } from './plants';
@@ -647,68 +647,13 @@ async function handleDeleteUser(env: any, id: string): Promise<Response> {
         await ensureDeletedUserPlaceholder(env);
 
         // 2. 收集所有需要删除的图片资源
-        const imageUrls: string[] = [];
-
-        // 2.1 花盆图片
-        console.log(`Querying pots for user ${id}`);
-        const pots = await env.DB.prepare('SELECT id, image_url FROM pots WHERE user_id = ?').bind(id).all();
-        if (pots.results) {
-            pots.results.forEach((p: any) => {
-                if (p.image_url) imageUrls.push(p.image_url);
-            });
-        }
-
-        // 2.2 养护记录图片
-        if (pots.results && pots.results.length > 0) {
-            const potIds = pots.results.map((p: any) => p.id);
-            const placeholders = potIds.map(() => '?').join(',');
-
-            console.log(`Querying care records for pots: ${potIds.join(',')}`);
-            try {
-                const careRecords = await env.DB.prepare(`
-                    SELECT image_url FROM care_records WHERE pot_id IN (${placeholders})
-                `).bind(...potIds).all();
-                if (careRecords.results) {
-                    careRecords.results.forEach((r: any) => {
-                        if (r.image_url) imageUrls.push(r.image_url);
-                    });
-                }
-            } catch (e) {
-                console.warn('Error querying care records, proceeding anyway:', e);
-            }
-
-            // 2.3 时间轴图片
-            console.log(`Querying timelines for pots: ${potIds.join(',')}`);
-            try {
-                const timelines = await env.DB.prepare(`
-                    SELECT images FROM timelines WHERE pot_id IN (${placeholders})
-                `).bind(...potIds).all();
-                if (timelines.results) {
-                    timelines.results.forEach((t: any) => {
-                        if (t.images) {
-                            try {
-                                const imgs = JSON.parse(t.images);
-                                if (Array.isArray(imgs)) imageUrls.push(...imgs);
-                            } catch (e) {
-                                console.warn('解析时间轴图片 JSON 失败:', e);
-                            }
-                        }
-                    });
-                }
-            } catch (e) {
-                console.warn('Error querying timelines, proceeding anyway:', e);
-            }
-        }
+        const imageUrls = await collectUserImageUrls(env, id);
 
         // 3. 执行 R2 物理删除
         console.log(`Collecting R2 objects to delete. Collection size: ${imageUrls.length}`);
         if (imageUrls.length > 0) {
             try {
-                const objectKeys = extractObjectKeysFromUrls(imageUrls);
-                if (objectKeys.length > 0) {
-                    console.log(`Deleting ${objectKeys.length} objects from R2`);
-                    await deleteFilesFromR2(env, objectKeys);
-                }
+                await deleteImagesFromR2(env, imageUrls);
             } catch (e) {
                 console.warn('Error during R2 deletion, proceeding with DB cleanup:', e);
             }

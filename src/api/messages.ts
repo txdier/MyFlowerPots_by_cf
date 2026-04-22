@@ -23,6 +23,20 @@ function trimCommentText(content: string, maxLength: number): string {
   return `${normalized.slice(0, maxLength)}...`;
 }
 
+async function markUserMessageRead(env: any, messageId: string, userId: string) {
+  return env.DB.prepare(`
+    UPDATE messages SET status = 'read'
+    WHERE id = ? AND user_id = ? AND status = 'unread'
+  `).bind(messageId, userId).run();
+}
+
+async function deleteUserMessage(env: any, messageId: string, userId: string) {
+  return env.DB.prepare(`
+    DELETE FROM messages
+    WHERE id = ? AND user_id = ?
+  `).bind(messageId, userId).run();
+}
+
 async function getPotWithAccess(
   env: any,
   potId: string,
@@ -480,17 +494,14 @@ export async function handleMessagesRequest(
   }
 
   // POST /api/messages/:id/read - 标记已读
-  if (request.method === 'POST' && path.match(/^\/api\/messages\/[^/]+\/read$/)) {
-    if (!userId) return errorResponse('Authentication required', 401);
-    try {
-      const id = path.split('/')[3];
-      await env.DB.prepare(`
-        UPDATE messages SET status = 'read' 
-        WHERE id = ? AND user_id = ? AND status = 'unread'
-      `).bind(id, userId).run();
-      return jsonResponse({ success: true });
-    } catch (error: any) {
-      return errorResponse(error.message, 500);
+	  if (request.method === 'POST' && path.match(/^\/api\/messages\/[^/]+\/read$/)) {
+	    if (!userId) return errorResponse('Authentication required', 401);
+	    try {
+	      const id = path.split('/')[3];
+	      await markUserMessageRead(env, id, userId);
+	      return jsonResponse({ success: true });
+	    } catch (error: any) {
+	      return errorResponse(error.message, 500);
     }
   }
 
@@ -510,17 +521,14 @@ export async function handleMessagesRequest(
 
   // DELETE /api/messages/:id - 删除单条消息
   const deleteMatch = path.match(/^\/api\/messages\/([^/]+)$/);
-  if (request.method === 'DELETE' && deleteMatch) {
-    if (!userId) return errorResponse('Authentication required', 401);
-    try {
-      const id = deleteMatch[1];
-      await env.DB.prepare(`
-        DELETE FROM messages 
-        WHERE id = ? AND user_id = ?
-      `).bind(id, userId).run();
-      return jsonResponse({ success: true });
-    } catch (error: any) {
-      return errorResponse(error.message, 500);
+	  if (request.method === 'DELETE' && deleteMatch) {
+	    if (!userId) return errorResponse('Authentication required', 401);
+	    try {
+	      const id = deleteMatch[1];
+	      await deleteUserMessage(env, id, userId);
+	      return jsonResponse({ success: true });
+	    } catch (error: any) {
+	      return errorResponse(error.message, 500);
     }
   }
 

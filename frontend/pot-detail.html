@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
@@ -698,11 +698,12 @@
                                                     <span class="text-[10px] text-gray-400">每</span>
                                                     <input v-if="!isReadOnly" type="number"
                                                         v-model.lazy.number="schedule.intervalDays"
-                                                        class="w-8 h-5 text-center text-[10px] font-bold bg-white border border-gray-200 rounded px-0 py-0 focus:ring-1 focus:ring-purple-200"
+                                                        class="w-14 min-w-[3.5rem] h-5 shrink-0 text-center text-[10px] font-bold bg-white border border-gray-200 rounded px-1 py-0 focus:ring-1 focus:ring-purple-200"
                                                         @change="updateScheduleInterval(schedule)">
-                                                    <span v-else class="text-[10px] font-bold text-gray-600">{{
+                                                    <span v-else
+                                                        class="inline-block min-w-[1.75rem] shrink-0 text-right text-[10px] font-bold text-gray-600">{{
                                                         schedule.intervalDays }}</span>
-                                                    <span class="text-[10px] text-gray-400">天提醒</span>
+                                                    <span class="shrink-0 text-[10px] text-gray-400">天提醒</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -1166,7 +1167,7 @@
                                 <div class="flex items-center gap-4 bg-gray-50 rounded-2xl p-4">
                                     <span class="text-sm font-bold text-gray-500">每隔</span>
                                     <input type="number" v-model.number="newSchedule.intervalDays"
-                                        class="w-20 bg-white border border-gray-100 rounded-xl py-2 px-3 text-center font-black text-purple-600">
+                                        class="w-24 min-w-[6rem] shrink-0 bg-white border border-gray-100 rounded-xl py-2 px-3 text-center font-black text-purple-600">
                                     <span class="text-sm font-bold text-gray-500">天提醒我</span>
                                 </div>
                             </div>
@@ -1926,8 +1927,16 @@
     <script src="js/vue.global.prod.js"></script>
     <script src="js/config.js?v=20260227"></script>
     <script src="js/api-client.js?v=20260418-d1session"></script>
-    <script src="js/form-utils.js?v=20260413"></script>
+    <script src="js/media-utils.js?v=20260421-refactor"></script>
+    <script src="js/pot-permissions.js?v=20260421-refactor"></script>
+    <script src="js/care-utils.js?v=20260421-refactor"></script>
+    <script src="js/gallery-utils.js?v=20260421-refactor"></script>
+    <script src="js/timeline-utils.js?v=20260421-refactor"></script>
+    <script src="js/archive-utils.js?v=20260421-refactor"></script>
+    <script src="js/date-utils.js?v=20260422-date"></script>
+    <script src="js/form-utils.js?v=20260421-auth"></script>
     <script src="js/clipboard.js?v=20260407-2"></script>
+    <script src="js/dialog-utils.js?v=20260421-refactor"></script>
 
     <script>
         const { createApp, ref, reactive, onMounted, onUnmounted, computed, watch, nextTick } = Vue;
@@ -1935,6 +1944,8 @@
         createApp({
             setup() {
                 const formUtils = window.MyFlowerPotsFormUtils;
+                const showAlert = window.MyFlowerPotsDialog.alert;
+                const showConfirm = window.MyFlowerPotsDialog.confirm;
                 const isLoading = ref(true);
                 const potId = ref(null);
                 const shareToken = ref(null);
@@ -1996,7 +2007,7 @@
 	                const commentForm = reactive({
 	                    content: ''
 	                });
-	                const archiveReasons = ['枯萎', '烂根', '干死', '病虫害', '环境不适', '送人/不再养护', '其他'];
+	                const archiveReasons = ['枯萎', '烂根', '病虫害', '环境不适', '送人/不再养护', '其他'];
 		                const archiveForm = reactive({
 		                    reason: '枯萎',
 		                    note: '',
@@ -2023,49 +2034,67 @@
                 const showRegisterModal = ref(false);
                 const showForgotPasswordModal = ref(false);
                 const isAuthLoading = ref(false);
-                const loginForm = reactive({ email: '', password: '' });
-                const registerForm = reactive({
-                    email: '',
-                    password: '',
-                    confirmPassword: '',
-                    displayName: ''
+                const authForms = formUtils.createAuthFormController({
+                    reactive,
+                    computed,
+                    nextTick,
+                    ids: {
+                        loginEmail: 'detailLoginEmail',
+                        loginPassword: 'detailLoginPassword',
+                        registerEmail: 'detailRegisterEmail',
+                        registerDisplayName: 'detailRegisterNickname',
+                        registerPassword: 'detailRegisterPassword',
+                        registerConfirmPassword: 'detailRegisterConfirmPassword'
+                    }
                 });
-                const loginErrors = reactive({ email: '', password: '' });
-                const registerErrors = reactive({ email: '', password: '', confirmPassword: '' });
-                const forgotPasswordErrors = reactive({ email: '' });
-                const loginStatus = reactive({ type: '', message: '' });
-                const registerStatus = reactive({ type: '', message: '' });
-                const forgotPasswordStatus = reactive({ type: '', message: '' });
+                const {
+                    loginForm,
+                    registerForm,
+                    loginErrors,
+                    registerErrors,
+                    forgotPasswordErrors,
+                    loginStatus,
+                    registerStatus,
+                    forgotPasswordStatus,
+                    passwordsMatch,
+                    isForgotPasswordEmailValid,
+                    isLoginValid,
+                    isRegisterValid,
+                    clearStatus,
+                    clearAuthFeedback,
+                    syncLoginFormFromDom,
+                    syncRegisterFormFromDom,
+                    stopLoginAutofillWatcher,
+                    scheduleLoginAutofillSync,
+                    scheduleRegisterAutofillSync,
+                    focusFieldById,
+                    validateLoginEmail,
+                    validateLoginPassword,
+                    validateForgotPasswordEmail,
+                    validateRegisterEmail,
+                    validateRegisterPassword,
+                    validateRegisterConfirmPassword,
+                    normalizeRegisterDisplayName,
+                    handleLoginEmailInput,
+                    handleLoginPasswordInput,
+                    handleForgotPasswordEmailInput,
+                    handleRegisterEmailInput,
+                    handleRegisterDisplayNameInput,
+                    handleRegisterPasswordInput,
+                    handleRegisterConfirmPasswordInput,
+                    validateLoginForm,
+                    validateRegisterForm
+                } = authForms;
 
-                const passwordsMatch = computed(() =>
-                    !!registerForm.password &&
-                    !!registerForm.confirmPassword &&
-                    registerForm.password === registerForm.confirmPassword
-                );
-
-                const isForgotPasswordEmailValid = computed(() =>
-                    formUtils.isValidEmail(loginForm.email)
-                );
                 const isCollaboratorInviteEmailValid = computed(() => formUtils.isValidEmail(newCollaboratorEmail.value));
                 const isViewerInviteEmailValid = computed(() => formUtils.isValidEmail(newViewerEmail.value));
                 const isTransferEmailValid = computed(() => !transferEmail.value.trim() || formUtils.isValidEmail(transferEmail.value));
 
-                const isLoginValid = computed(() =>
-                    formUtils.isValidEmail(loginForm.email) &&
-                    loginForm.password.length > 0
-                );
                 const hasEmailAuthSession = () => {
                     const tokenType = apiClient.parseTokenPayload?.()?.type;
                     return currentUser.value?.userType === 'email' || tokenType === 'email';
                 };
                 const fallbackPotImage = 'assets/images/icons/icons-default-pot.png';
-
-                const isRegisterValid = computed(() =>
-                    formUtils.isValidEmail(registerForm.email) &&
-                    formUtils.isValidPassword(registerForm.password) &&
-                    !!registerForm.confirmPassword &&
-                    passwordsMatch.value
-                );
 
                 const newTimeline = reactive({
                     date: new Date().toISOString().split('T')[0],
@@ -2111,10 +2140,19 @@
                         currentUser.value && currentUser.value.id &&
                         pot.value.user_id === currentUser.value.id;
                 });
-                const isArchived = computed(() => String(pot.value?.status || 'active').toLowerCase() === 'archived');
+                const isArchived = computed(() => MyFlowerPotsPotPermissions.isArchivedPot(pot.value));
 	                const isReadOnly = computed(() => !!(isArchived.value || (!!shareToken.value && !isOwner.value && !viewerIsCollaborator.value) || pot.value?.is_viewer || viewerIsViewer.value));
 	                const isPublicVisitor = computed(() => !!shareToken.value && !currentUser.value);
-	                const canShowCareSchedules = computed(() => !isPublicVisitor.value && !isArchived.value);
+		                const canShowCareSchedules = computed(() => !!(
+		                    pot.value &&
+		                    !isPublicVisitor.value &&
+		                    !isArchived.value &&
+		                    (
+		                        isOwner.value ||
+		                        pot.value.is_collaborator ||
+		                        viewerIsCollaborator.value
+		                    )
+		                ));
                     watch(canShowCareSchedules, (canShow) => {
                         if (!canShow && carePanelActiveTab.value === 'schedules') {
                             carePanelActiveTab.value = 'records';
@@ -2327,226 +2365,6 @@
                     return sessionId;
                 };
 
-                const clearStatus = (status) => {
-                    status.type = '';
-                    status.message = '';
-                };
-
-                const clearAuthFeedback = () => {
-                    loginErrors.email = '';
-                    loginErrors.password = '';
-                    registerErrors.email = '';
-                    registerErrors.password = '';
-                    registerErrors.confirmPassword = '';
-                    forgotPasswordErrors.email = '';
-                    clearStatus(loginStatus);
-                    clearStatus(registerStatus);
-                    clearStatus(forgotPasswordStatus);
-                };
-
-                const syncLoginFormFromDom = () => {
-                    formUtils.syncFormFieldsFromDom([
-                        { elementId: 'detailLoginEmail', form: loginForm, key: 'email', transform: formUtils.normalizeEmail },
-                        { elementId: 'detailLoginPassword', form: loginForm, key: 'password' }
-                    ]);
-                };
-
-                const syncRegisterFormFromDom = () => {
-                    formUtils.syncFormFieldsFromDom([
-                        { elementId: 'detailRegisterEmail', form: registerForm, key: 'email', transform: formUtils.normalizeEmail },
-                        { elementId: 'detailRegisterNickname', form: registerForm, key: 'displayName', transform: formUtils.normalizeDisplayName },
-                        { elementId: 'detailRegisterPassword', form: registerForm, key: 'password' },
-                        { elementId: 'detailRegisterConfirmPassword', form: registerForm, key: 'confirmPassword' }
-                    ]);
-                };
-
-                let loginAutofillSyncInterval = null;
-                let loginAutofillSyncStopTimer = null;
-
-                const stopLoginAutofillWatcher = () => {
-                    if (loginAutofillSyncInterval) {
-                        window.clearInterval(loginAutofillSyncInterval);
-                        loginAutofillSyncInterval = null;
-                    }
-                    if (loginAutofillSyncStopTimer) {
-                        window.clearTimeout(loginAutofillSyncStopTimer);
-                        loginAutofillSyncStopTimer = null;
-                    }
-                };
-
-                const startLoginAutofillWatcher = (durationMs = 12000) => {
-                    stopLoginAutofillWatcher();
-                    syncLoginFormFromDom();
-                    loginAutofillSyncInterval = window.setInterval(syncLoginFormFromDom, 250);
-                    loginAutofillSyncStopTimer = window.setTimeout(() => {
-                        stopLoginAutofillWatcher();
-                    }, durationMs);
-                };
-
-                const scheduleLoginAutofillSync = async () => {
-                    await nextTick();
-                    startLoginAutofillWatcher();
-                    [80, 250, 800, 1600].forEach(delay => window.setTimeout(syncLoginFormFromDom, delay));
-                };
-
-                const focusFieldById = async (elementId) => {
-                    await nextTick();
-                    const input = document.getElementById(elementId);
-                    if (typeof input?.focus === 'function') {
-                        input.focus();
-                    }
-                };
-
-                const validateLoginEmail = (showRequired = false) => {
-                    loginForm.email = formUtils.normalizeEmail(loginForm.email);
-                    loginErrors.email = formUtils.getEmailError(loginForm.email, { required: showRequired });
-                    return !loginErrors.email;
-                };
-
-                const validateLoginPassword = (showRequired = false) => {
-                    loginErrors.password = loginForm.password
-                        ? ''
-                        : (showRequired ? '请输入密码' : '');
-                    return !loginErrors.password;
-                };
-
-                const validateForgotPasswordEmail = (showRequired = false) => {
-                    loginForm.email = formUtils.normalizeEmail(loginForm.email);
-                    forgotPasswordErrors.email = formUtils.getEmailError(loginForm.email, { required: showRequired });
-                    return !forgotPasswordErrors.email;
-                };
-
-                const validateRegisterEmail = (showRequired = false) => {
-                    registerForm.email = formUtils.normalizeEmail(registerForm.email);
-                    registerErrors.email = formUtils.getEmailError(registerForm.email, { required: showRequired });
-                    return !registerErrors.email;
-                };
-
-                const validateRegisterPassword = (showRequired = false) => {
-                    registerErrors.password = formUtils.getPasswordError(registerForm.password, {
-                        required: showRequired,
-                        requiredMessage: '请输入密码',
-                        tooShortMessage: '密码至少 8 位'
-                    });
-                    return !registerErrors.password;
-                };
-
-                const validateRegisterConfirmPassword = (showRequired = false) => {
-                    if (!registerForm.confirmPassword) {
-                        registerErrors.confirmPassword = showRequired ? '请再次输入密码' : '';
-                        return !registerErrors.confirmPassword;
-                    }
-                    registerErrors.confirmPassword = passwordsMatch.value ? '' : '两次输入的密码不一致';
-                    return !registerErrors.confirmPassword;
-                };
-
-                const normalizeRegisterDisplayName = () => {
-                    registerForm.displayName = formUtils.normalizeDisplayName(registerForm.displayName);
-                };
-
-                const handleLoginEmailInput = () => {
-                    clearStatus(loginStatus);
-                    if (!loginForm.email) {
-                        loginErrors.email = '';
-                        return;
-                    }
-                    validateLoginEmail(false);
-                };
-
-                const handleLoginPasswordInput = () => {
-                    clearStatus(loginStatus);
-                    if (!loginForm.password) {
-                        loginErrors.password = '';
-                        return;
-                    }
-                    validateLoginPassword(false);
-                };
-
-                const handleForgotPasswordEmailInput = () => {
-                    clearStatus(forgotPasswordStatus);
-                    if (!loginForm.email) {
-                        forgotPasswordErrors.email = '';
-                        return;
-                    }
-                    validateForgotPasswordEmail(false);
-                };
-
-                const handleRegisterEmailInput = () => {
-                    clearStatus(registerStatus);
-                    if (!registerForm.email) {
-                        registerErrors.email = '';
-                        return;
-                    }
-                    validateRegisterEmail(false);
-                };
-
-                const handleRegisterDisplayNameInput = () => {
-                    clearStatus(registerStatus);
-                    registerForm.displayName = formUtils.normalizeDisplayName(registerForm.displayName);
-                };
-
-                const handleRegisterPasswordInput = () => {
-                    clearStatus(registerStatus);
-                    validateRegisterPassword(false);
-                    if (registerForm.confirmPassword) {
-                        validateRegisterConfirmPassword(false);
-                    } else {
-                        registerErrors.confirmPassword = '';
-                    }
-                };
-
-                const handleRegisterConfirmPasswordInput = () => {
-                    clearStatus(registerStatus);
-                    validateRegisterConfirmPassword(false);
-                };
-
-                const validateLoginForm = async () => {
-                    syncLoginFormFromDom();
-                    clearStatus(loginStatus);
-
-                    const emailValid = validateLoginEmail(true);
-                    const passwordValid = validateLoginPassword(true);
-
-                    if (!emailValid) {
-                        await focusFieldById('detailLoginEmail');
-                        return false;
-                    }
-
-                    if (!passwordValid) {
-                        await focusFieldById('detailLoginPassword');
-                        return false;
-                    }
-
-                    return true;
-                };
-
-                const validateRegisterForm = async () => {
-                    syncRegisterFormFromDom();
-                    normalizeRegisterDisplayName();
-                    clearStatus(registerStatus);
-
-                    const emailValid = validateRegisterEmail(true);
-                    const passwordValid = validateRegisterPassword(true);
-                    const confirmPasswordValid = validateRegisterConfirmPassword(true);
-
-                    if (!emailValid) {
-                        await focusFieldById('detailRegisterEmail');
-                        return false;
-                    }
-
-                    if (!passwordValid) {
-                        await focusFieldById('detailRegisterPassword');
-                        return false;
-                    }
-
-                    if (!confirmPasswordValid) {
-                        await focusFieldById('detailRegisterConfirmPassword');
-                        return false;
-                    }
-
-                    return true;
-                };
-
                 watch([showLoginModal, showForgotPasswordModal, showRegisterModal], ([loginVisible, forgotVisible, registerVisible]) => {
                     if (loginVisible || forgotVisible) {
                         scheduleLoginAutofillSync();
@@ -2555,9 +2373,7 @@
                     }
 
                     if (registerVisible) {
-                        nextTick(() => {
-                            [80, 250, 800, 1600].forEach(delay => window.setTimeout(syncRegisterFormFromDom, delay));
-                        });
+                        scheduleRegisterAutofillSync();
                     }
                 });
 
@@ -2663,7 +2479,7 @@
                         window.MyFlowerPotsClipboard.showCopyPrompt(text, message);
                         return;
                     }
-                    alert(`${message}\n${text}`);
+                    showAlert(`${message}\n${text}`);
                 };
 
                 const goHome = () => {
@@ -2954,7 +2770,7 @@
                 const acceptTransfer = async (token = null) => {
                     const tToken = token || transferToken.value;
                     if (!currentUser.value) {
-                        alert('请先登录后再接收转让');
+                        showAlert('请先登录后再接收转让');
                         showLoginModal.value = true;
                         return;
                     }
@@ -2962,11 +2778,11 @@
                         isAcceptingTransfer.value = true;
                         const res = await apiClient.acceptTransfer(tToken);
                         if (res.success) {
-                            alert('接收成功！您现在是该花盆的主人了。');
+                            showAlert('接收成功！您现在是该花盆的主人了。');
                             window.location.href = `pot-detail?id=${pot.value.id}`;
                         }
                     } catch (e) {
-                        alert('接收失败: ' + e.message);
+                        showAlert('接收失败: ' + e.message);
                     } finally {
                         isAcceptingTransfer.value = false;
                     }
@@ -2974,25 +2790,25 @@
 
                 const rejectTransfer = async (token = null) => {
                     const tToken = token || transferToken.value;
-                    if (!confirm('确定要拒绝本次移交吗？')) return;
+                    if (!showConfirm('确定要拒绝本次移交吗？')) return;
                     try {
                         const res = await apiClient.rejectTransfer(tToken);
                         if (res.success) {
-                            alert('已拒绝移交');
+                            showAlert('已拒绝移交');
                             window.location.href = '/';
                         }
-                    } catch (e) { alert('操作失败: ' + e.message); }
+                    } catch (e) { showAlert('操作失败: ' + e.message); }
                 };
 
                 const cancelTransfer = async () => {
-                    if (!confirm('确定要撤销本次移交申请吗？')) return;
+                    if (!showConfirm('确定要撤销本次移交申请吗？')) return;
                     try {
                         const res = await apiClient.cancelTransfer(potId.value);
                         if (res.success) {
-                            alert('移交已撤销');
+                            showAlert('移交已撤销');
                             loadPotDetail();
                         }
-                    } catch (e) { alert('撤销失败: ' + e.message); }
+                    } catch (e) { showAlert('撤销失败: ' + e.message); }
                 };
 
                 const handleLogin = async () => {
@@ -3058,7 +2874,7 @@
                         }
 
                         if (res.success || res.token) {
-                            alert(isAnonymous ? '注册成功，您的匿名数据已合并！' : '注册成功！');
+                            showAlert(isAnonymous ? '注册成功，您的匿名数据已合并！' : '注册成功！');
                             location.reload();
                         }
                     } catch (e) {
@@ -3201,51 +3017,12 @@
                 };
 
                 // --- 辅助函数 ---
-                const isBuiltInCareType = (type) => ['water', 'fertilize', 'prune', 'trim', 'repot', 'pest'].includes(String(type || '').trim().toLowerCase());
-
-                const normalizeCareType = (type, action = '') => {
-                    const raw = String(type || '').trim().toLowerCase();
-                    if (['water', 'watering', 'change_water', 'water_change', 'changewater', '换水', '浇水'].includes(raw)) return 'water';
-                    if (['fertilize', 'fertilizer', 'feed', '施肥'].includes(raw)) return 'fertilize';
-                    if (['trim', 'prune', 'pruning', '修剪'].includes(raw)) return 'prune';
-                    if (['repot', 're-pot', '换盆'].includes(raw)) return 'repot';
-                    if (['pest', 'pests', '除虫', '病虫害'].includes(raw)) return 'pest';
-
-                    const normalizedAction = String(action || '').trim();
-                    if (/换水|浇水|补水/.test(normalizedAction)) return 'water';
-                    if (/施肥|追肥/.test(normalizedAction)) return 'fertilize';
-                    if (/修剪|打顶|摘心/.test(normalizedAction)) return 'prune';
-                    if (/换盆|翻盆/.test(normalizedAction)) return 'repot';
-                    if (/除虫|病虫害|杀虫/.test(normalizedAction)) return 'pest';
-                    return raw || 'custom';
-                };
-
-                const getCareTypeIcon = (type, action = '') => {
-                    const icons = { water: 'fa fa-tint', fertilize: 'fa fa-seedling', prune: 'fa fa-cut', repot: 'fa fa-exchange-alt', pest: 'fa fa-bug' };
-                    return icons[normalizeCareType(type, action)] || 'fa fa-clipboard-check';
-                };
-
-                const getCareTypeColor = (type, action = '') => {
-                    const colors = { water: 'bg-blue-50 text-blue-500', fertilize: 'bg-green-50 text-green-500', prune: 'bg-orange-50 text-orange-500', repot: 'bg-purple-50 text-purple-500', pest: 'bg-red-50 text-red-500' };
-                    return colors[normalizeCareType(type, action)] || 'bg-gray-50 text-gray-500';
-                };
-
-                const getCareTypeLabel = (type, action = '') => {
-                    const labels = { water: '浇水', fertilize: '施肥', prune: '修剪', repot: '换盆', pest: '病虫害' };
-                    const normalizedType = normalizeCareType(type, action);
-                    const actionLabel = String(action || '').trim();
-                    const defaultLabel = labels[normalizedType];
-                    if (actionLabel && (!isBuiltInCareType(type) || actionLabel !== defaultLabel)) {
-                        return actionLabel;
-                    }
-                    return defaultLabel || actionLabel || String(type || '').trim() || '日常';
-                };
-
-                const getImages = (images) => {
-                    if (!images) return [];
-                    if (Array.isArray(images)) return images;
-                    try { return JSON.parse(images); } catch (e) { return []; }
-                };
+                const normalizeCareType = MyFlowerPotsCare.normalizeCareType;
+                const getCareTypeIcon = MyFlowerPotsCare.getCareTypeIcon;
+                const getCareTypeColor = MyFlowerPotsCare.getCareTypeColor;
+                const getCareTypeLabel = (type, action = '') =>
+                    MyFlowerPotsCare.getCareTypeLabel(type, action, { fallback: '日常' });
+                const getImages = MyFlowerPotsMedia.parseImageList;
 
                 const groupedCareRecords = computed(() => {
                     if (!careRecords.value || !careRecords.value.length) return [];
@@ -3299,67 +3076,19 @@
 
                 const toggleTimelineSort = () => isTimelineDesc.value = !isTimelineDesc.value;
 
-                const buildGalleryItem = (src, previewSrc = '') => {
-                    const fullSrc = String(src || '');
-                    const thumbSrc = previewSrc || imgUrl(fullSrc, 100, 100) || fullSrc;
-                    return {
-                        fullSrc,
-                        previewSrc: thumbSrc,
-                        displaySrc: thumbSrc,
-                        isFullLoaded: !fullSrc || thumbSrc === fullSrc,
-                        isFullLoading: false,
-                        isFullLoadFailed: false
-                    };
-                };
-
-                const preloadGalleryImage = (index) => {
-                    const item = previewImages.value[index];
-                    if (!item || item.isFullLoaded || item.isFullLoading || !item.fullSrc) return;
-
-                    item.isFullLoading = true;
-                    item.isFullLoadFailed = false;
-                    const token = galleryImageLoadToken.value;
-                    const image = new Image();
-                    image.onload = () => {
-                        if (token !== galleryImageLoadToken.value) return;
-                        item.displaySrc = item.fullSrc;
-                        item.isFullLoaded = true;
-                        item.isFullLoading = false;
-                        item.isFullLoadFailed = false;
-                    };
-                    image.onerror = () => {
-                        if (token !== galleryImageLoadToken.value) return;
-                        item.isFullLoading = false;
-                        item.isFullLoadFailed = true;
-                    };
-                    image.src = item.fullSrc;
-                };
-
-                const preloadNearbyGalleryImages = () => {
-                    [previewIndex.value, previewIndex.value - 1, previewIndex.value + 1].forEach(preloadGalleryImage);
-                };
-
-                const openGallery = (img, allImages, previewSrc = '') => {
-                    galleryImageLoadToken.value += 1;
-                    const images = Array.isArray(allImages) ? allImages : [];
-                    previewImages.value = images.map(src => buildGalleryItem(src, src === img ? previewSrc : ''));
-                    const idx = images.indexOf(img);
-                    previewIndex.value = idx >= 0 ? idx : 0;
-                    galleryDragOffset.value = 0;
-                    galleryIsDragging.value = false;
-                    preloadNearbyGalleryImages();
-                };
-
-                const closeGallery = () => {
-                    galleryImageLoadToken.value += 1;
-                    previewImages.value = [];
-                    previewIndex.value = 0;
-                    galleryDragOffset.value = 0;
-                    galleryIsDragging.value = false;
-                };
-
-                const prevImg = () => { if (previewIndex.value > 0) previewIndex.value--; };
-                const nextImg = () => { if (previewIndex.value < previewImages.value.length - 1) previewIndex.value++; };
+                const {
+                    preloadNearbyGalleryImages,
+                    openGallery,
+                    closeGallery,
+                    prevImg,
+                    nextImg
+                } = MyFlowerPotsGallery.createGallery({
+                    previewImages,
+                    previewIndex,
+                    loadToken: galleryImageLoadToken,
+                    dragOffset: galleryDragOffset,
+                    isDragging: galleryIsDragging
+                });
 
                 watch(previewIndex, preloadNearbyGalleryImages);
 
@@ -3420,33 +3149,7 @@
                 // 注意：在普通 HTML 环境中使用 Vue.createApp().mount() 时，
                 // 如果没有显式处理卸载，可能需要小心内存泄漏，但在这里通常刷新页面即重置。
 
-                const triggerFileInput = () => fileInput.value?.click();
-
-                // 图片压缩：最长边 1920px，JPEG quality 0.85，GIF 不压缩
-                const compressImage = (file, maxSide = 1920, quality = 0.85) => {
-                    if (file.type === 'image/gif') return Promise.resolve(file);
-                    return new Promise((resolve) => {
-                        const img = new Image();
-                        const url = URL.createObjectURL(file);
-                        img.onload = () => {
-                            URL.revokeObjectURL(url);
-                            let { width, height } = img;
-                            if (width > maxSide || height > maxSide) {
-                                if (width >= height) { height = Math.round(height * maxSide / width); width = maxSide; }
-                                else { width = Math.round(width * maxSide / height); height = maxSide; }
-                            }
-                            const canvas = document.createElement('canvas');
-                            canvas.width = width;
-                            canvas.height = height;
-                            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                            canvas.toBlob((blob) => {
-                                resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
-                            }, 'image/jpeg', quality);
-                        };
-                        img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
-                        img.src = url;
-                    });
-                };
+	                const triggerFileInput = () => fileInput.value?.click();
 
                 const getTodayString = () => new Date().toISOString().split('T')[0];
 
@@ -3482,107 +3185,73 @@
                     showAddTimelineModal.value = true;
                 };
 
-                const onFilesSelected = async (e) => {
-                    const files = Array.from(e.target.files);
-                    const remaining = 9 - timelineImageCount();
-                    for (const file of files.slice(0, remaining)) {
-                        const compressed = await compressImage(file);
-                        const reader = new FileReader();
-                        reader.onload = (ev) => {
-                            newTimeline.tempImages.push({ file: compressed, preview: ev.target.result });
-                        };
-                        reader.readAsDataURL(compressed);
-                    }
-                    e.target.value = '';
-                };
+	                const onFilesSelected = async (e) => {
+	                    const remaining = 9 - timelineImageCount();
+	                    const items = await MyFlowerPotsMedia.selectImages(e, { limit: remaining });
+	                    newTimeline.tempImages.push(...items);
+	                };
 
 	                const removeExistingTimelineImage = (idx) => newTimeline.existingImages.splice(idx, 1);
 	                const removeNewImage = (idx) => newTimeline.tempImages.splice(idx, 1);
 
-                    const archiveImageCount = () => archiveForm.tempImages.length;
+                    const archiveImageCount = () => MyFlowerPotsArchive.archiveImageCount(archiveForm);
 
                     const resetArchiveForm = () => {
-                        archiveForm.reason = '枯萎';
-                        archiveForm.note = '';
-                        archiveForm.tempImages = [];
-                        if (archiveFileInput.value) archiveFileInput.value.value = '';
+                        MyFlowerPotsArchive.resetArchiveForm(archiveForm, archiveFileInput);
                     };
 
                     const triggerArchiveFileInput = () => {
                         archiveFileInput.value?.click();
                     };
 
-                    const onArchiveFilesSelected = async (e) => {
-                        const files = Array.from(e.target.files || []);
-                        const remaining = 3 - archiveImageCount();
-                        for (const file of files.slice(0, remaining)) {
-                            const compressed = await compressImage(file);
-                            const reader = new FileReader();
-                            reader.onload = (ev) => {
-                                archiveForm.tempImages.push({ file: compressed, preview: ev.target.result });
-                            };
-                            reader.readAsDataURL(compressed);
-                        }
-                        e.target.value = '';
-                    };
+	                    const onArchiveFilesSelected = async (e) => {
+	                        await MyFlowerPotsArchive.selectArchiveImages(e, archiveForm);
+	                    };
 
                     const removeArchiveImage = (idx) => {
                         archiveForm.tempImages.splice(idx, 1);
                     };
 
-                    const uploadArchiveImagesForPot = async (targetPotId) => {
-                        const uploadedUrls = [];
-                        for (const item of archiveForm.tempImages) {
-                            const res = await apiClient.uploadImage(item.file, {
-                                potId: targetPotId,
-                                uploadType: 'timeline'
-                            });
-                            if (res.success && res.data?.url) uploadedUrls.push(res.data.url);
-                        }
-                        return uploadedUrls;
-                    };
+	                    const uploadArchiveImagesForPot = async (targetPotId) => {
+	                        return MyFlowerPotsArchive.uploadArchiveImagesForPot(apiClient, archiveForm, targetPotId);
+	                    };
 	
 	                const saveTimelineRecord = async () => {
                     if (isReadOnly.value) return;
                     if (!newTimeline.date) {
-                        alert('请选择记录日期');
+                        showAlert('请选择记录日期');
                         return;
                     }
                     if (timelineImageCount() === 0 && !newTimeline.description?.trim()) {
-                        alert('请至少上传一张照片或写点描述');
+                        showAlert('请至少上传一张照片或写点描述');
                         return;
                     }
-                    try {
-                        isSavingTimeline.value = true;
-                        let uploadedUrls = [];
-                        for (const item of newTimeline.tempImages) {
-                            const res = await apiClient.uploadImage(item.file, { potId: potId.value, uploadType: 'timeline' });
-                            if (res.success && res.data?.url) uploadedUrls.push(res.data.url);
-                        }
-                        const timelinePayload = {
-                            date: newTimeline.date,
-                            description: newTimeline.description?.trim() || '',
-                            images: [...newTimeline.existingImages, ...uploadedUrls]
-                        };
-                        const saveRes = isEditingTimeline.value
-                            ? await apiClient.updateTimeline(editingTimelineId.value, timelinePayload)
-                            : await apiClient.createTimeline({ potId: potId.value, ...timelinePayload });
-                        if (saveRes.success) {
+	                    try {
+	                        isSavingTimeline.value = true;
+	                        const saveRes = await MyFlowerPotsTimeline.saveTimelineForm(apiClient, {
+	                            potId: potId.value,
+	                            timelineId: isEditingTimeline.value ? editingTimelineId.value : null,
+	                            date: newTimeline.date,
+	                            description: newTimeline.description,
+	                            existingImages: newTimeline.existingImages,
+	                            tempImages: newTimeline.tempImages
+	                        });
+	                        if (saveRes.success) {
                             showAddTimelineModal.value = false;
                             resetTimelineForm();
                             await loadTimelineRecords();
                         }
-                    } catch (e) { alert('保存失败，请检查网络后重试'); }
+                    } catch (e) { showAlert('保存失败，请检查网络后重试'); }
                     finally { isSavingTimeline.value = false; }
                 };
 
                 const confirmDeleteTimeline = async (id) => {
                     if (isReadOnly.value) return;
-                    if (confirm('确认删除这条生长记录？照片也将一并清理。')) {
+                    if (showConfirm('确认删除这条生长记录？照片也将一并清理。')) {
                         try {
                             const res = await apiClient.deleteTimeline(id);
                             if (res.success) await loadTimelineRecords();
-                        } catch (e) { alert('删除操作失败'); }
+                        } catch (e) { showAlert('删除操作失败'); }
                     }
                 };
 
@@ -3590,17 +3259,17 @@
                     const message = isArchived.value
                         ? '确定要永久删除这盆已归档植物吗？所有养护记录和成长轨迹都将被永久删除。'
                         : '确定要删除这盆花吗？所有养护记录和成长轨迹都将被永久删除。';
-                    if (confirm(message)) {
+                    if (showConfirm(message)) {
                         try {
                             const res = await apiClient.deletePot(potId.value);
                             if (res.success) window.location.href = '/';
-                        } catch (err) { alert('删除失败: ' + err.message); }
+                        } catch (err) { showAlert('删除失败: ' + err.message); }
                     }
                 };
 
                 const restoreArchivedPot = async () => {
                     if (!isOwner.value || !isArchived.value) return;
-                    if (!confirm(`确定将 ${pot.value?.name || '这盆植物'} 恢复到养护中吗？`)) return;
+                    if (!showConfirm(`确定将 ${pot.value?.name || '这盆植物'} 恢复到养护中吗？`)) return;
                     try {
                         const res = await apiClient.restorePot(potId.value);
                         if (res.success) {
@@ -3612,10 +3281,10 @@
                                 loadTimelineRecords(),
                                 loadPotStats()
                             ]);
-                            alert('已恢复到养护中。');
+                            showAlert('已恢复到养护中。');
                         }
                     } catch (err) {
-                        alert('恢复失败: ' + (err?.message || '请稍后重试'));
+                        showAlert('恢复失败: ' + (err?.message || '请稍后重试'));
                     }
                 };
 
@@ -3651,10 +3320,10 @@
                                 loadTimelineRecords(),
                                 loadPotStats()
                             ]);
-                            alert('已归档。');
+                            showAlert('已归档。');
                         }
 	                    } catch (err) {
-	                        alert('归档失败: ' + (err?.message || '请稍后重试'));
+	                        showAlert('归档失败: ' + (err?.message || '请稍后重试'));
 	                    } finally {
 	                        isArchiveLoading.value = false;
 	                    }
@@ -3681,7 +3350,7 @@
 
                     try {
                         confirmingDeleteId.value = null; // 立即清除状态
-                        const res = await apiClient.request(`/api/care-records/${record.id}`, { method: 'DELETE' });
+	                        const res = await apiClient.deleteCareRecord(record.id);
                         if (res.success) {
                             await loadCareRecords();
                             if (currentSheetGroup.value?.records) {
@@ -3690,11 +3359,11 @@
                                 if (currentSheetGroup.value.records.length === 0) closeCareDetails();
                             }
                         } else {
-                            alert(res.error || '删除失败');
+                            showAlert(res.error || '删除失败');
                         }
                     } catch (e) {
                         console.error('Delete record error:', e);
-                        alert(e.message || '操作失败');
+                        showAlert(e.message || '操作失败');
                     }
                 };
 
@@ -3720,7 +3389,7 @@
                     if (isReadOnly.value) return;
                     const customAction = String(newSchedule.customAction || '').trim();
                     if (newSchedule.careType === 'custom' && !customAction) {
-                        alert('请输入自定义名称');
+                        showAlert('请输入自定义名称');
                         return;
                     }
                     try {
@@ -3735,7 +3404,7 @@
                             newSchedule.customAction = '';
                             await loadCareSchedules();
                         }
-                    } catch (e) { alert(e?.message || '添加失败'); }
+                    } catch (e) { showAlert(e?.message || '添加失败'); }
                 };
 
                 const toggleScheduleEnabled = async (schedule) => {
@@ -3746,16 +3415,16 @@
                             enabled: nextState ? 1 : 0
                         });
                         if (res.success) schedule.enabled = nextState;
-                    } catch (e) { alert('操作失败'); }
+                    } catch (e) { showAlert('操作失败'); }
                 };
 
                 const deleteSchedule = async (schedule) => {
                     if (isReadOnly.value) return;
-                    if (!confirm('确定要删除这个提醒吗？')) return;
+                    if (!showConfirm('确定要删除这个提醒吗？')) return;
                     try {
                         const res = await apiClient.deleteCareSchedule(schedule.id);
                         if (res.success) await loadCareSchedules();
-                    } catch (e) { alert('删除失败'); }
+                    } catch (e) { showAlert('删除失败'); }
                 };
 
                 const updateScheduleInterval = async (schedule) => {
@@ -3765,7 +3434,7 @@
                         await apiClient.updateCareSchedule(schedule.id, {
                             intervalDays: schedule.intervalDays
                         });
-                    } catch (e) { alert('更新失败'); }
+                    } catch (e) { showAlert('更新失败'); }
                 };
 
                 // 查看全部记录/轨迹
@@ -3777,27 +3446,8 @@
 	                const statsFertilizeCount = computed(() => potStats.value?.byType?.find(t => t.type === 'fertilize')?.total_count || 0);
                     const statsCareCount = computed(() => Number(potStats.value?.total?.total_records || 0));
 	
-	                const formatDate = (dateStr) => {
-	                    if (!dateStr) return '';
-	                    const date = new Date(dateStr);
-	                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-	                };
-
-                    const parseCalendarDay = (value) => {
-                        if (!value) return null;
-                        if (value instanceof Date) {
-                            if (Number.isNaN(value.getTime())) return null;
-                            return new Date(value.getFullYear(), value.getMonth(), value.getDate());
-                        }
-                        const text = String(value);
-                        const match = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
-                        if (match) {
-                            return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-                        }
-                        const date = new Date(text);
-                        if (Number.isNaN(date.getTime())) return null;
-                        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-                    };
+		                const formatDate = MyFlowerPotsDate.formatIsoDate;
+                    const parseCalendarDay = MyFlowerPotsDate.parseCalendarDay;
 
                     const careElapsedDays = computed(() => {
                         const start = parseCalendarDay(pot.value?.plant_date);
@@ -3813,12 +3463,7 @@
                         careElapsedDays.value ? `${careElapsedDays.value} 天` : '无'
                     );
 
-                const formatCommentTime = (dateStr) => {
-                    if (!dateStr) return '';
-                    const date = new Date(dateStr);
-                    if (Number.isNaN(date.getTime())) return '';
-                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-                };
+                const formatCommentTime = (dateStr) => MyFlowerPotsDate.formatDate(dateStr, 'datetime');
 
                 const handleHeroImageLoad = () => {
                     heroImageLoaded.value = true;
@@ -3834,7 +3479,7 @@
                     heroImageLoaded.value = true;
                 };
 
-                const handleImageError = (e) => e.target.src = fallbackPotImage;
+                const handleImageError = (e) => MyFlowerPotsMedia.setImageFallback(e, fallbackPotImage);
 
                 const goBack = () => window.location.href = '/';
                 const goEditPage = () => {
@@ -3981,7 +3626,7 @@
                             }
                         }
                     } catch (e) {
-                        alert('操作失败: ' + e.message);
+                        showAlert('操作失败: ' + e.message);
                     } finally {
                         syncUrlWithShareStatus();
                     }
@@ -4041,13 +3686,13 @@
                 const copyShareLink = async () => {
                     const shareUrl = getPublicShareUrl();
                     if (!shareUrl) {
-                        alert('分享链接生成失败，请稍后重试');
+                        showAlert('分享链接生成失败，请稍后重试');
                         return;
                     }
                     const isWeChat = /MicroMessenger/i.test(navigator.userAgent || '');
                     const copied = await copyTextSafely(shareUrl);
                     if (copied) {
-                        alert(
+                        showAlert(
                             isWeChat
                                 ? '链接已复制！请点击微信右上角“...”选择“发送给朋友”进行分享。'
                                 : '分享链接已复制到剪贴板，快发送给好友吧！'
@@ -4065,7 +3710,7 @@
                 const sharePublicLink = async () => {
                     const shareUrl = getPublicShareUrl();
                     if (!shareUrl) {
-                        alert('分享链接生成失败，请稍后重试');
+                        showAlert('分享链接生成失败，请稍后重试');
                         return;
                     }
 
@@ -4092,7 +3737,7 @@
                         const res = await apiClient.createCollaboratorInvite(potId.value);
                         const inviteUrl = res.data?.inviteUrl;
                         if (!res.success || !inviteUrl) {
-                            alert('没有生成可用的共同养护邀请链接。');
+                            showAlert('没有生成可用的共同养护邀请链接。');
                             return;
                         }
 
@@ -4109,12 +3754,12 @@
 
                         const copied = await copyTextSafely(inviteUrl);
                         if (copied) {
-                            alert('共同养护邀请链接已复制，可直接发给好友。该链接仅用于邀请协作者，不等同于公开分享。');
+                            showAlert('共同养护邀请链接已复制，可直接发给好友。该链接仅用于邀请协作者，不等同于公开分享。');
                         } else {
                             showCopyFallback(inviteUrl, '共同养护邀请链接已生成。系统已切到增强复制模式；如果还没成功，可点“再次复制”：');
                         }
                     } catch (e) {
-                        alert('生成邀请链接失败: ' + e.message);
+                        showAlert('生成邀请链接失败: ' + e.message);
                     }
                 };
 
@@ -4123,7 +3768,7 @@
                         const res = await apiClient.createViewerInvite(potId.value);
                         const inviteUrl = res.data?.inviteUrl;
                         if (!res.success || !inviteUrl) {
-                            alert('没有生成可用的查看邀请链接。');
+                            showAlert('没有生成可用的查看邀请链接。');
                             return;
                         }
 
@@ -4140,14 +3785,14 @@
 
                         const copied = await copyTextSafely(inviteUrl);
                         if (copied) {
-                            alert(isArchived.value
+                            showAlert(isArchived.value
                                 ? '归档查看链接已复制，可直接发给好友。对方接受后只能查看历史记录，无法编辑。'
                                 : '查看邀请链接已复制，可直接发给好友。对方接受后会出现在“好友分享”中，但无法编辑。');
                         } else {
                             showCopyFallback(inviteUrl, '查看邀请链接已生成。系统已切到增强复制模式；如果还没成功，可点“再次复制”：');
                         }
                     } catch (e) {
-                        alert('生成邀请链接失败: ' + e.message);
+                        showAlert('生成邀请链接失败: ' + e.message);
                     }
                 };
 
@@ -4223,7 +3868,7 @@
                     const confirmText = isReply
                         ? '确定删除这条回复吗？'
                         : '确定删除这条留言吗？删除主留言时，会一并删除它下面的回复。';
-                    if (!confirm(confirmText)) return;
+                    if (!showConfirm(confirmText)) return;
                     try {
                         const res = await apiClient.deletePotComment(comment.id);
                         if (res.success) {
@@ -4233,7 +3878,7 @@
                             await loadPotComments();
                         }
                     } catch (e) {
-                        alert('删除失败: ' + e.message);
+                        showAlert('删除失败: ' + e.message);
                     }
                 };
 
@@ -4252,7 +3897,7 @@
                     } catch (e) {
                         showCommentDanmaku.value = previous;
                         pot.value.show_comment_danmaku = previous ? 1 : 0;
-                        alert('更新弹幕开关失败: ' + e.message);
+                        showAlert('更新弹幕开关失败: ' + e.message);
                     }
                 };
 
@@ -4272,10 +3917,10 @@
                             const count = Number(res.data?.recipientCount || 0);
                             await loadPotComments();
                             const actionText = target ? '回复已发送' : '留言已发送';
-                            alert(count > 0 ? `${actionText}，已同步给 ${count} 位相关成员。` : `${actionText}，但当前没有其他成员可接收。`);
+                            showAlert(count > 0 ? `${actionText}，已同步给 ${count} 位相关成员。` : `${actionText}，但当前没有其他成员可接收。`);
                         }
                     } catch (e) {
-                        alert('发送失败: ' + e.message);
+                        showAlert('发送失败: ' + e.message);
                     } finally {
                         isSubmittingComment.value = false;
                     }
@@ -4302,7 +3947,7 @@
                     if (isArchived.value) return;
                     if (!newCollaboratorEmail.value.trim()) return;
                     if (!isCollaboratorInviteEmailValid.value) {
-                        alert('请输入正确的邮箱地址');
+                        showAlert('请输入正确的邮箱地址');
                         return;
                     }
                     try {
@@ -4311,17 +3956,17 @@
                         if (res.success) {
                             newCollaboratorEmail.value = '';
                             await loadCollaborators();
-                            alert('邀请已发送，对方会在消息中心看到。');
+                            showAlert('邀请已发送，对方会在消息中心看到。');
                         }
                     } catch (e) {
-                        alert('邀请失败: ' + e.message);
+                        showAlert('邀请失败: ' + e.message);
                     }
                 };
 
                 const addViewer = async () => {
                     if (!newViewerEmail.value.trim()) return;
                     if (!isViewerInviteEmailValid.value) {
-                        alert('请输入正确的邮箱地址');
+                        showAlert('请输入正确的邮箱地址');
                         return;
                     }
                     try {
@@ -4330,35 +3975,35 @@
                         if (res.success) {
                             newViewerEmail.value = '';
                             await loadViewers();
-                            alert('好友查看邀请已发送，对方会在消息中心看到。');
+                            showAlert('好友查看邀请已发送，对方会在消息中心看到。');
                         }
                     } catch (e) {
-                        alert('邀请失败: ' + e.message);
+                        showAlert('邀请失败: ' + e.message);
                     }
                 };
 
                 const removeCollaborator = async (collab) => {
                     if (isArchived.value) return;
-                    if (!confirm(`确定移除共同照料成员 ${collab.display_name || collab.email} 吗？`)) return;
+                    if (!showConfirm(`确定移除共同照料成员 ${collab.display_name || collab.email} 吗？`)) return;
                     try {
                         const res = await apiClient.removeCollaborator(potId.value, collab.id);
                         if (res.success) {
                             await loadCollaborators();
                         }
                     } catch (e) {
-                        alert('移除失败: ' + e.message);
+                        showAlert('移除失败: ' + e.message);
                     }
                 };
 
                 const removeViewer = async (viewer) => {
-                    if (!confirm(`确定取消 ${viewer.display_name || viewer.email} 的查看权限吗？`)) return;
+                    if (!showConfirm(`确定取消 ${viewer.display_name || viewer.email} 的查看权限吗？`)) return;
                     try {
                         const res = await apiClient.removeViewer(potId.value, viewer.id);
                         if (res.success) {
                             await loadViewers();
                         }
                     } catch (e) {
-                        alert('移除失败: ' + e.message);
+                        showAlert('移除失败: ' + e.message);
                     }
                 };
 
@@ -4372,25 +4017,25 @@
                 const initTransfer = async () => {
                     if (isArchived.value) return;
                     if (!transferEmail.value) {
-                        alert('请输入接收者的电子邮箱');
+                        showAlert('请输入接收者的电子邮箱');
                         return;
                     }
                     if (!formUtils.isValidEmail(transferEmail.value)) {
-                        alert('请输入正确的邮箱地址');
+                        showAlert('请输入正确的邮箱地址');
                         return;
                     }
-                    if (!confirm(`确定要将花盆移交给 ${transferEmail.value} 吗？\n系统将向该邮箱发送通知邮件，对方通过邮件或消息中心确认后完成移交。`)) return;
+                    if (!showConfirm(`确定要将花盆移交给 ${transferEmail.value} 吗？\n系统将向该邮箱发送通知邮件，对方通过邮件或消息中心确认后完成移交。`)) return;
 
                     try {
                         transferEmail.value = formUtils.normalizeEmail(transferEmail.value);
                         const res = await apiClient.initTransfer(potId.value, transferEmail.value);
                         if (res.success) {
-                            alert('移交申请已发起！\n系统已向对方发送邮件通知。您可以在页面顶部查看进度或撤销移交。');
+                            showAlert('移交申请已发起！\n系统已向对方发送邮件通知。您可以在页面顶部查看进度或撤销移交。');
                             showTransferModal.value = false;
                             loadPotDetail();
                         }
                     } catch (e) {
-                        alert('发起移交失败: ' + e.message);
+                        showAlert('发起移交失败: ' + e.message);
                     }
                 };
 
@@ -4415,15 +4060,7 @@
                 // onMounted(init);
                 // 已经移动到上方的 onMounted 中了
 
-                const imgUrl = (src, w, h) => {
-                    if (!src) return src;
-                    const normalizedSrc = String(src)
-                        .replace(/^\/?assets\/deom\//i, '/assets/demo/')
-                        .replace(/^assets\//i, '/assets/');
-                    if (normalizedSrc.startsWith('/assets/')) return normalizedSrc;
-                    if (!normalizedSrc.includes('img.kaside365.com')) return normalizedSrc;
-                    return `/cdn-cgi/image/width=${w},height=${h},dpr=2,fit=cover,format=auto/${normalizedSrc}`;
-                };
+                const imgUrl = MyFlowerPotsMedia.imgUrl;
                 const heroImageSrc = computed(() => imgUrl(pot.value?.image_url, 800, 512) || fallbackPotImage);
 
                 watch(heroImageSrc, () => {

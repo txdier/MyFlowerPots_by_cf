@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
     <title>Support收件箱 - My Flower Pots</title>
     <meta name="theme-color" content="#ffffff">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="description" content="管理员Support收件箱，接收并回复用户Support请求。">
@@ -548,7 +549,9 @@
         </div>
     </div>
 
-    <script src="js/api-client.js?v=20260418-d1session"></script>
+    <script src="js/api-client.js?v=20260422-methods"></script>
+    <script src="js/ui-utils.js?v=20260421-refactor"></script>
+    <script src="js/date-utils.js?v=20260421-refactor"></script>
     <script>
         const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
 
@@ -575,12 +578,10 @@
 
                 const getToken = () => window.authStorage?.getToken() || null;
 
-                const showToast = (msg, type = 'info') => {
-                    const icon = type === 'error' ? 'fa fa-exclamation-circle' :
-                        type === 'success' ? 'fa fa-check-circle' : 'fa fa-info-circle';
-                    toast.value = { show: true, message: msg, icon, type };
-                    setTimeout(() => toast.value.show = false, 3500);
-                };
+                const showToast = MyFlowerPotsUi.createToast(toast, {
+                    duration: 3500,
+                    defaultType: 'info'
+                });
 
                 const handleAdminInboxError = (err, message) => {
                     const kind = nav.classifyApiError(err);
@@ -625,12 +626,7 @@
                 const loadEmails = async (page = 1) => {
                     loading.value = true;
                     try {
-                        const token = getToken();
-                        const res = await fetch(`/api/admin/support/emails?page=${page}`, {
-                            headers: { 'Authorization': `Bearer ${token}` }
-                        });
-                        if (!res.ok) throw new APIError(res.status, `HTTP ${res.status}`);
-                        const data = await res.json();
+                        const data = await apiClient.adminGetSupportEmails(page);
                         emails.value = data.emails || [];
                         meta.value = data.meta || { total: 0, unread: 0 };
                         currentPage.value = page;
@@ -662,12 +658,7 @@
                     }
 
                     try {
-                        const token = getToken();
-                        const res = await fetch(`/api/admin/support/emails/${emailSummary.id}`, {
-                            headers: { 'Authorization': `Bearer ${token}` }
-                        });
-                        if (!res.ok) throw new APIError(res.status, `HTTP ${res.status}`);
-                        const data = await res.json();
+                        const data = await apiClient.adminGetSupportEmail(emailSummary.id);
                         selectedEmail.value = data;
                     } catch (err) {
                         if (handleAdminInboxError(err, '加载邮件详情失败。')) return;
@@ -684,17 +675,7 @@
                     if (!replyBody.value.trim() || !selectedEmail.value) return;
                     sending.value = true;
                     try {
-                        const token = getToken();
-                        const res = await fetch(`/api/admin/support/emails/${selectedEmail.value.id}/reply`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            },
-                            body: JSON.stringify({ body: replyBody.value.trim() })
-                        });
-                        const data = await res.json();
-                        if (!res.ok) throw new APIError(res.status, data.error || `HTTP ${res.status}`);
+                        const data = await apiClient.adminReplySupportEmail(selectedEmail.value.id, replyBody.value.trim());
 
                         // Append reply locally
                         selectedEmail.value.replies = [
@@ -727,12 +708,7 @@
                     const id = confirmTarget.value.id;
                     showConfirm.value = false;
                     try {
-                        const token = getToken();
-                        const res = await fetch(`/api/admin/support/emails/${id}`, {
-                            method: 'DELETE',
-                            headers: { 'Authorization': `Bearer ${token}` }
-                        });
-                        if (!res.ok) throw new APIError(res.status, 'Delete failed');
+                        await apiClient.adminDeleteSupportEmail(id);
                         showToast('邮件删除成功', 'success');
                         closeEmailDetail();
                         await loadEmails(currentPage.value);
@@ -742,71 +718,21 @@
                     }
                 };
 
-                // ── Formatting helpers ─────────────────────────────────────────
-                const formatFrom = (addr) => {
-                    const match = addr.match(/^(.+?)\s*<.+>$/);
-                    return match ? match[1].trim() : addr.split('@')[0];
-                };
-
-                const formatDate = (iso) => {
-                    if (!iso) return '';
-                    const d = new Date(iso.endsWith('Z') ? iso : iso + 'Z');
-                    const now = new Date();
-                    const diff = now - d;
-                    if (diff < 60000) return '刚刚';
-                    if (diff < 3600000) return Math.floor(diff / 60000) + ' 分钟前';
-                    if (diff < 86400000) return Math.floor(diff / 3600000) + ' 小时前';
-                    if (diff < 604800000) return Math.floor(diff / 86400000) + ' 天前';
-                    return d.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
-                };
-
-                const formatDateFull = (iso) => {
-                    if (!iso) return '';
-                    const d = new Date(iso.endsWith('Z') ? iso : iso + 'Z');
-                    return d.toLocaleString('zh-CN', {
-                        year: 'numeric', month: '2-digit', day: '2-digit',
-                        hour: '2-digit', minute: '2-digit'
-                    });
-                };
-
-                const sanitizeHtml = (html) => {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(String(html || ''), 'text/html');
-
-                    doc.querySelectorAll('script, iframe, object, embed, base, form, meta, link').forEach(node => node.remove());
-
-                    doc.querySelectorAll('*').forEach(node => {
-                        Array.from(node.attributes).forEach(attr => {
-                            const name = attr.name.toLowerCase();
-                            const value = String(attr.value || '').trim();
-
-                            if (name.startsWith('on') || name === 'srcdoc' || name === 'formaction') {
-                                node.removeAttribute(attr.name);
-                                return;
-                            }
-
-                            if (
-                                ['href', 'src', 'xlink:href'].includes(name) &&
-                                /^(javascript:|vbscript:|data:text\/html)/i.test(value)
-                            ) {
-                                node.removeAttribute(attr.name);
-                            }
-                        });
-                    });
-
-                    return doc.body.innerHTML;
-                };
+                const formatFrom = MyFlowerPotsUi.formatEmailSender;
+                const formatDate = (iso) => MyFlowerPotsDate.formatRelativeTime(iso, {
+                    assumeUtc: true,
+                    locale: 'zh-CN'
+                });
+                const formatDateFull = (iso) => MyFlowerPotsDate.formatDateTime(iso, {
+                    assumeUtc: true,
+                    locale: 'zh-CN'
+                });
+                const sanitizeHtml = MyFlowerPotsUi.sanitizeHtml;
 
                 const downloadAttachment = async (emailId, filename) => {
                     try {
-                        const token = getToken();
                         showToast('正在准备下载...', 'info');
-                        const res = await fetch(`/api/admin/support/emails/${emailId}/attachments/${encodeURIComponent(filename)}`, {
-                            headers: { 'Authorization': `Bearer ${token}` }
-                        });
-                        if (!res.ok) throw new APIError(res.status, `HTTP ${res.status}`);
-                        
-                        const blob = await res.blob();
+                        const blob = await apiClient.adminDownloadSupportAttachment(emailId, filename);
                         const url = window.URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;

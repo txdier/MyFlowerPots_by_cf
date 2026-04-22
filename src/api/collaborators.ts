@@ -1,4 +1,5 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
+import { findAccessiblePot } from '../utils/pot-access-utils';
 
 function isArchivedPot(pot: any): boolean {
   return String(pot?.status || 'active').toLowerCase() === 'archived';
@@ -51,7 +52,7 @@ export async function handleCollaboratorsRequest(
 }
 
 async function handleGetCollaborators(potId: string, userId: string, env: any): Promise<Response> {
-  const pot = await env.DB.prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?').bind(potId, userId).first();
+  const pot = await findAccessiblePot(env, potId, userId, 'owner', { select: 'p.id' });
   if (!pot) return errorResponse('Pot not found or access denied', 404);
 
   const { results } = await env.DB.prepare(`
@@ -65,11 +66,9 @@ async function handleGetCollaborators(potId: string, userId: string, env: any): 
 }
 
 async function handleCreateInviteLink(potId: string, userId: string, env: any): Promise<Response> {
-  const pot = await env.DB.prepare(`
-    SELECT id, name, COALESCE(status, 'active') as status
-    FROM pots
-    WHERE id = ? AND user_id = ?
-  `).bind(potId, userId).first();
+  const pot = await findAccessiblePot(env, potId, userId, 'owner', {
+    select: "p.id, p.name, COALESCE(p.status, 'active') as status"
+  });
   if (!pot) return errorResponse('Pot not found or access denied', 404);
   if (isArchivedPot(pot)) return errorResponse('Archived pots do not support collaborator invites', 400);
 
@@ -149,11 +148,9 @@ async function handleOpenInviteLink(request: Request, token: string, env: any): 
 }
 
 async function handleAddCollaborator(request: Request, potId: string, userId: string, env: any): Promise<Response> {
-  const pot = await env.DB.prepare(`
-    SELECT id, COALESCE(status, 'active') as status
-    FROM pots
-    WHERE id = ? AND user_id = ?
-  `).bind(potId, userId).first();
+  const pot = await findAccessiblePot(env, potId, userId, 'owner', {
+    select: "p.id, COALESCE(p.status, 'active') as status"
+  });
   if (!pot) return errorResponse('Pot not found or access denied', 404);
   if (isArchivedPot(pot)) return errorResponse('Archived pots do not support collaborators', 400);
 
@@ -274,7 +271,9 @@ async function handleAcceptInviteLink(request: Request, token: string, userId: s
 }
 
 async function handleRemoveCollaborator(potId: string, targetUserId: string, userId: string, env: any): Promise<Response> {
-  const pot = await env.DB.prepare('SELECT id, name FROM pots WHERE id = ? AND user_id = ?').bind(potId, userId).first();
+  const pot = await findAccessiblePot(env, potId, userId, 'owner', {
+    select: 'p.id, p.name'
+  });
   if (!pot) return errorResponse('Pot not found or access denied', 404);
 
   try {

@@ -93,6 +93,85 @@ export function extractObjectKeysFromUrls(urls: string[]): string[] {
 }
 
 /**
+ * 将单图 URL、JSON 字符串、多图数组统一为 URL 数组。
+ */
+export function normalizeImageUrls(value: unknown): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.map(item => String(item || '').trim()).filter(Boolean);
+  }
+
+  const text = String(value || '').trim();
+  if (!text) return [];
+
+  try {
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed)
+      ? parsed.map(item => String(item || '').trim()).filter(Boolean)
+      : [text];
+  } catch {
+    return [text];
+  }
+}
+
+export function getRemovedImageUrls(oldValue: unknown, newValue: unknown): string[] {
+  const oldUrls = normalizeImageUrls(oldValue);
+  const newUrlSet = new Set(normalizeImageUrls(newValue));
+  return oldUrls.filter(url => !newUrlSet.has(url));
+}
+
+export async function deleteImagesFromR2(env: any, value: unknown): Promise<{ success: number; failed: number }> {
+  const objectKeys = extractObjectKeysFromUrls(normalizeImageUrls(value));
+  return deleteFilesFromR2(env, objectKeys);
+}
+
+export async function collectUserImageUrls(env: any, userId: string): Promise<string[]> {
+  const imageUrls: string[] = [];
+  const addImages = (value: unknown) => {
+    imageUrls.push(...normalizeImageUrls(value));
+  };
+
+  const user = await env.DB
+    .prepare('SELECT avatar_url FROM users WHERE id = ?')
+    .bind(userId)
+    .first();
+  addImages(user?.avatar_url);
+
+  const pots = await env.DB
+    .prepare('SELECT id, image_url FROM pots WHERE user_id = ?')
+    .bind(userId)
+    .all();
+
+  const potRows = pots.results || [];
+  potRows.forEach((pot: any) => addImages(pot.image_url));
+
+  if (potRows.length > 0) {
+    const potIds = potRows.map((pot: any) => pot.id);
+    const placeholders = potIds.map(() => '?').join(',');
+
+    try {
+      const careRecords = await env.DB.prepare(`
+        SELECT image_url FROM care_records WHERE pot_id IN (${placeholders})
+      `).bind(...potIds).all();
+      (careRecords.results || []).forEach((record: any) => addImages(record.image_url));
+    } catch (error) {
+      console.warn('Error querying care record images, proceeding anyway:', error);
+    }
+
+    try {
+      const timelines = await env.DB.prepare(`
+        SELECT images FROM timelines WHERE pot_id IN (${placeholders})
+      `).bind(...potIds).all();
+      (timelines.results || []).forEach((timeline: any) => addImages(timeline.images));
+    } catch (error) {
+      console.warn('Error querying timeline images, proceeding anyway:', error);
+    }
+  }
+
+  return Array.from(new Set(imageUrls.filter(Boolean)));
+}
+
+/**
  * 生成存储路径
  * @param uploadType 上传类型: 'pot' | 'timeline' | 'care'
  * @param userId 用户ID

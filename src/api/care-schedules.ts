@@ -1,4 +1,5 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
+import { findAccessiblePot } from '../utils/pot-access-utils';
 
 interface CareSchedule {
     id: number;
@@ -76,14 +77,7 @@ async function handleGetAllSchedules(env: any, userId: string): Promise<Response
 
 // 获取某个花盆的养护计划
 async function handleGetSchedulesByPot(env: any, userId: string, potId: string): Promise<Response> {
-    // 验证花盆归属
-    const pot = await env.DB.prepare(`
-      SELECT id FROM pots WHERE id = ? AND user_id = ?
-      UNION
-      SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?
-      UNION
-      SELECT pot_id FROM pot_viewers WHERE pot_id = ? AND user_id = ?
-    `).bind(potId, userId, potId, userId, potId, userId).first();
+    const pot = await findAccessiblePot(env, potId, userId, 'manage', { allowArchived: false });
 
     if (!pot) {
         return errorResponse('Pot not found or access denied', 404);
@@ -190,13 +184,10 @@ async function handleCreateSchedule(request: Request, env: any, userId: string):
         }
 
         // 验证花盆归属或协作权限
-        const pot = await env.DB.prepare(`
-          SELECT p.id FROM pots p
-          LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
-          WHERE p.id = ?
-            AND COALESCE(p.status, 'active') = 'active'
-            AND (p.user_id = ? OR pc.user_id = ?)
-        `).bind(potId, userId, userId).first();
+        const pot = await findAccessiblePot(env, potId, userId, 'manage', {
+            allowArchived: false,
+            select: 'p.id'
+        });
 
         if (!pot) {
             return errorResponse('Pot not found or access denied', 404);
@@ -253,15 +244,19 @@ async function handleUpdateSchedule(
         };
 
         const schedule = await env.DB.prepare(`
-      SELECT cs.id FROM care_schedules cs
-      JOIN pots p ON cs.pot_id = p.id
-      LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
-      WHERE cs.id = ?
-        AND COALESCE(p.status, 'active') = 'active'
-        AND (p.user_id = ? OR pc.user_id = ?)
-    `).bind(scheduleId, userId, userId).first();
+      SELECT id, pot_id FROM care_schedules WHERE id = ?
+    `).bind(scheduleId).first();
 
         if (!schedule) {
+            return errorResponse('Schedule not found or access denied', 404);
+        }
+
+        const pot = await findAccessiblePot(env, schedule.pot_id, userId, 'manage', {
+            allowArchived: false,
+            select: 'p.id'
+        });
+
+        if (!pot) {
             return errorResponse('Schedule not found or access denied', 404);
         }
 
@@ -308,15 +303,19 @@ async function handleUpdateSchedule(
 async function handleDeleteSchedule(env: any, userId: string, scheduleId: number): Promise<Response> {
     try {
         const schedule = await env.DB.prepare(`
-      SELECT cs.id FROM care_schedules cs
-      JOIN pots p ON cs.pot_id = p.id
-      LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
-      WHERE cs.id = ?
-        AND COALESCE(p.status, 'active') = 'active'
-        AND (p.user_id = ? OR pc.user_id = ?)
-    `).bind(scheduleId, userId, userId).first();
+      SELECT id, pot_id FROM care_schedules WHERE id = ?
+    `).bind(scheduleId).first();
 
         if (!schedule) {
+            return errorResponse('Schedule not found or access denied', 404);
+        }
+
+        const pot = await findAccessiblePot(env, schedule.pot_id, userId, 'manage', {
+            allowArchived: false,
+            select: 'p.id'
+        });
+
+        if (!pot) {
             return errorResponse('Schedule not found or access denied', 404);
         }
 

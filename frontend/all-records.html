@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
     <title>所有记录 - My Flower Pots</title>
     <meta name="theme-color" content="#ffffff">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
@@ -28,6 +29,11 @@
     <!-- 配置脚本 -->
     <script src="js/config.js?v=20260111"></script>
     <script src="js/api-client.js?v=20260418-d1session"></script>
+    <script src="js/media-utils.js?v=20260421-refactor"></script>
+    <script src="js/pot-permissions.js?v=20260421-refactor"></script>
+    <script src="js/care-utils.js?v=20260421-refactor"></script>
+    <script src="js/date-utils.js?v=20260422-date"></script>
+    <script src="js/dialog-utils.js?v=20260421-refactor"></script>
 </head>
 
 <body class="bg-gray-50">
@@ -144,6 +150,8 @@
         createApp({
             setup() {
                 const nav = window.MyFlowerPotsNavigation;
+                const showAlert = window.MyFlowerPotsDialog.alert;
+                const showConfirm = window.MyFlowerPotsDialog.confirm;
                 const isLoading = ref(true);
                 const potId = ref(null);
                 const pot = ref(null);
@@ -205,24 +213,7 @@
                     if (res.success) records.value = res.data || [];
                 };
 
-                const normalizeCareType = (type, action = '') => {
-                    const raw = String(type || '').trim().toLowerCase();
-                    if (['water', 'watering', 'change_water', 'water_change', 'changewater', '换水', '浇水'].includes(raw)) return 'water';
-                    if (['fertilize', 'fertilizer', 'feed', '施肥'].includes(raw)) return 'fertilize';
-                    if (['trim', 'prune', 'pruning', '修剪'].includes(raw)) return 'prune';
-                    if (['repot', 're-pot', '换盆'].includes(raw)) return 'repot';
-                    if (['pest', 'pests', '除虫', '病虫害'].includes(raw)) return 'pest';
-
-                    const normalizedAction = String(action || '').trim();
-                    if (/换水|浇水|补水/.test(normalizedAction)) return 'water';
-                    if (/施肥|追肥/.test(normalizedAction)) return 'fertilize';
-                    if (/修剪|打顶|摘心/.test(normalizedAction)) return 'prune';
-                    if (/换盆|翻盆/.test(normalizedAction)) return 'repot';
-                    if (/除虫|病虫害|杀虫/.test(normalizedAction)) return 'pest';
-                    return 'custom';
-                };
-
-                const isBuiltInCareType = (type) => ['water', 'fertilize', 'prune', 'trim', 'repot', 'pest'].includes(String(type || '').trim().toLowerCase());
+                const normalizeCareType = MyFlowerPotsCare.normalizeCareType;
 
                 const filteredRecords = computed(() => {
                     if (filterType.value === 'all') return records.value;
@@ -231,12 +222,10 @@
                     }
                     return records.value.filter(record => normalizeCareType(record.type, record.action) === filterType.value);
                 });
-                const isArchived = computed(() => String(pot.value?.status || 'active').toLowerCase() === 'archived');
-                const canManageRecords = computed(() => !!(
-                    pot.value &&
-                    !isArchived.value &&
-                    (pot.value.user_id === apiClient.userId || pot.value.is_collaborator)
-                ));
+                const isArchived = computed(() => MyFlowerPotsPotPermissions.isArchivedPot(pot.value));
+                const canManageRecords = computed(() =>
+                    MyFlowerPotsPotPermissions.canManageRecords(pot.value, apiClient.userId)
+                );
 
                 const editRecord = (record) => {
                     if (!canManageRecords.value) return;
@@ -245,23 +234,14 @@
 
                 const deleteRecord = async (record) => {
                     if (!canManageRecords.value) return;
-                    if (!confirm('永久删除这条记录？')) return;
+                    if (!showConfirm('永久删除这条记录？')) return;
                     try {
-                        const res = await apiClient.request(`/api/care-records/${record.id}`, { method: 'DELETE' });
+                        const res = await apiClient.deleteCareRecord(record.id);
                         if (res.success) await loadRecords();
-                    } catch (e) { alert('删除失败'); }
+                    } catch (e) { showAlert('删除失败'); }
                 };
 
-                // 图片优化：Cloudflare cdn-cgi/image 按需缩放
-                const imgUrl = (src, w, h) => {
-                    if (!src) return src;
-                    const normalizedSrc = String(src)
-                        .replace(/^\/?assets\/deom\//i, '/assets/demo/')
-                        .replace(/^assets\//i, '/assets/');
-                    if (normalizedSrc.startsWith('/assets/')) return normalizedSrc;
-                    if (!normalizedSrc.includes('img.kaside365.com')) return normalizedSrc;
-                    return `/cdn-cgi/image/width=${w},height=${h},dpr=2,fit=cover,format=auto/${normalizedSrc}`;
-                };
+                const imgUrl = MyFlowerPotsMedia.imgUrl;
 
                 const previewImage = (url) => previewUrl.value = url;
 
@@ -282,32 +262,11 @@
                     }, { replace: true });
                 });
 
-                const formatDate = (d) => {
-                    if (!d) return '';
-                    const date = new Date(d);
-                    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
-                };
+                const formatDate = MyFlowerPotsDate.formatZhDate;
 
-                const getCareTypeIcon = (type, action = '') => {
-                    const icons = { water: 'fa fa-tint', fertilize: 'fa fa-seedling', prune: 'fa fa-cut', repot: 'fa fa-exchange-alt', pest: 'fa fa-bug' };
-                    return icons[normalizeCareType(type, action)] || 'fa fa-clipboard-check';
-                };
-
-                const getCareTypeColor = (type, action = '') => {
-                    const colors = { water: 'bg-blue-50 text-blue-500', fertilize: 'bg-green-50 text-green-500', prune: 'bg-orange-50 text-orange-500', repot: 'bg-purple-50 text-purple-500', pest: 'bg-red-50 text-red-500' };
-                    return colors[normalizeCareType(type, action)] || 'bg-gray-50 text-gray-500';
-                };
-
-                const getCareTypeLabel = (type, action = '') => {
-                    const labels = { water: '浇水', fertilize: '施肥', prune: '修剪', repot: '换盆', pest: '病虫害' };
-                    const normalizedType = normalizeCareType(type, action);
-                    const actionLabel = String(action || '').trim();
-                    const defaultLabel = labels[normalizedType];
-                    if (actionLabel && (!isBuiltInCareType(type) || actionLabel !== defaultLabel)) {
-                        return actionLabel;
-                    }
-                    return defaultLabel || actionLabel || String(type || '').trim() || '其他记录';
-                };
+                const getCareTypeIcon = MyFlowerPotsCare.getCareTypeIcon;
+                const getCareTypeColor = MyFlowerPotsCare.getCareTypeColor;
+                const getCareTypeLabel = MyFlowerPotsCare.getCareTypeLabel;
 
                 onMounted(init);
 

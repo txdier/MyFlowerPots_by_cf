@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
     <title>个人中心 - My Flower Pots</title>
     <meta name="theme-color" content="#ffffff">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <script src="js/vue.global.js"></script>
 
@@ -24,8 +25,10 @@
 
     <!-- 配置脚本 -->
     <script src="js/config.js?v=20260111"></script>
-    <script src="js/api-client.js?v=20260418-d1session"></script>
-    <script src="js/form-utils.js?v=20260413"></script>
+    <script src="js/api-client.js?v=20260421-methods"></script>
+    <script src="js/media-utils.js?v=20260421-refactor"></script>
+    <script src="js/ui-utils.js?v=20260421-refactor"></script>
+    <script src="js/form-utils.js?v=20260421-auth"></script>
 </head>
 
 <body class="bg-gray-50">
@@ -312,7 +315,6 @@
                 const showLogoutConfirm = ref(false);
                 const securityStatus = reactive({ message: '', type: 'error' });
                 const toast = ref({ show: false, message: '', type: 'success' });
-                let toastTimer = null;
 
                 const userForm = reactive({
                     displayName: '',
@@ -378,13 +380,7 @@
                     }, 1000);
                 };
 
-                const showToast = (message, type = 'success') => {
-                    toast.value = { show: true, message, type };
-                    if (toastTimer) clearTimeout(toastTimer);
-                    toastTimer = setTimeout(() => {
-                        toast.value.show = false;
-                    }, 2200);
-                };
+                const showToast = MyFlowerPotsUi.createToast(toast);
 
                 const redirectToProfileGuide = (error, options = {}) => {
                     nav.redirectForApiError(error, {
@@ -427,35 +423,14 @@
 
                 // 头像场景：压缩到最长边 400px，quality 0.72（仅做小圆图展示，无需高清）
                 const onAvatarSelected = async (e) => {
-                    const file = e.target.files[0];
-                    if (!file) return;
-                    const compress = (f) => {
-                        if (f.type === 'image/gif') return Promise.resolve(f);
-                        return new Promise((resolve) => {
-                            const img = new Image();
-                            const blobUrl = URL.createObjectURL(f);
-                            img.onload = () => {
-                                URL.revokeObjectURL(blobUrl);
-                                const maxSide = 400;
-                                let { width, height } = img;
-                                if (width > maxSide || height > maxSide) {
-                                    if (width >= height) { height = Math.round(height * maxSide / width); width = maxSide; }
-                                    else { width = Math.round(width * maxSide / height); height = maxSide; }
-                                }
-                                const canvas = document.createElement('canvas');
-                                canvas.width = width; canvas.height = height;
-                                canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                                canvas.toBlob((blob) => {
-                                    resolve(new File([blob], f.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
-                                }, 'image/jpeg', 0.72);
-                            };
-                            img.onerror = () => { URL.revokeObjectURL(blobUrl); resolve(f); };
-                            img.src = blobUrl;
-                        });
-                    };
-                    const compressed = await compress(file);
-                    userForm.avatarFile = compressed;
-                    userForm.avatarPreview = URL.createObjectURL(compressed);
+                    const [item] = await MyFlowerPotsMedia.selectImages(e, {
+                        limit: 1,
+                        maxSide: 400,
+                        quality: 0.72
+                    });
+                    if (!item) return;
+                    userForm.avatarFile = item.file;
+                    userForm.avatarPreview = item.preview;
                 };
 
                 const updateProfile = async () => {
@@ -464,23 +439,18 @@
                         userForm.displayName = formUtils.normalizeDisplayName(userForm.displayName);
                         let avatarUrl = user.value.avatarUrl;
 
-                        // 1. 上传新头像（已由 onAvatarSelected 预先压缩）
-                        if (userForm.avatarFile) {
-                            const uploadRes = await apiClient.uploadImage(userForm.avatarFile, {
-                                uploadType: 'avatar'
-                            });
-                            if (uploadRes.success) {
-                                avatarUrl = uploadRes.data.url;
-                            }
-                        }
+	                        // 1. 上传新头像（已由 onAvatarSelected 预先压缩）
+	                        if (userForm.avatarFile) {
+	                            const [uploadedUrl] = await MyFlowerPotsMedia.uploadImages(apiClient, [{ file: userForm.avatarFile }], {
+	                                uploadType: 'avatar'
+	                            });
+	                            if (uploadedUrl) avatarUrl = uploadedUrl;
+	                        }
 
                         // 2. 更新资料
-                        const profileRes = await apiClient.request('/api/auth/profile', {
-                            method: 'PUT',
-                            body: {
-                                displayName: userForm.displayName,
-                                avatarUrl: avatarUrl
-                            }
+                        const profileRes = await apiClient.updateProfile({
+                            displayName: userForm.displayName,
+                            avatarUrl
                         });
 
                         if (profileRes.success) {
@@ -574,12 +544,7 @@
                     validateNewEmail(false);
                 };
 
-                const focusFieldById = (elementId) => {
-                    const input = document.getElementById(elementId);
-                    if (typeof input?.focus === 'function') {
-                        input.focus();
-                    }
-                };
+                const focusFieldById = (elementId) => formUtils.focusFieldById(elementId);
 
                 const updatePassword = async () => {
                     resetSecurityStatus();
@@ -597,13 +562,7 @@
                     }
                     try {
                         isUpdatingPass.value = true;
-                        const res = await apiClient.request('/api/auth/password', {
-                            method: 'PUT',
-                            body: {
-                                currentPassword: passForm.currentPassword,
-                                newPassword: passForm.newPassword
-                            }
-                        });
+                        const res = await apiClient.updatePassword(passForm.currentPassword, passForm.newPassword);
                         if (res.success) {
                             securityStatus.message = '密码修改成功，即将退出并返回首页。';
                             securityStatus.type = 'success';
@@ -636,12 +595,7 @@
                     try {
                         isChangingEmail.value = true;
                         emailForm.newEmail = formUtils.normalizeEmail(emailForm.newEmail);
-                        const res = await apiClient.request('/api/auth/change-email', {
-                            method: 'POST',
-                            body: {
-                                newEmail: emailForm.newEmail
-                            }
-                        });
+                        const res = await apiClient.changeEmail(emailForm.newEmail);
                         if (res.success) {
                             showToast('验证邮件已发送到新邮箱，请查收并点击链接完成验证。');
                             emailForm.newEmail = '';
@@ -657,9 +611,7 @@
                 const sendVerificationEmail = async () => {
                     try {
                         isSendingVerificationEmail.value = true;
-                        const res = await apiClient.request('/api/auth/send-verification-email', {
-                            method: 'POST'
-                        });
+                        const res = await apiClient.sendVerificationEmail();
                         if (res.success) {
                             showToast('验证邮件已发送到您的邮箱，请查收并点击链接完成验证。');
                             startVerificationEmailCooldown(res.retryAfterSeconds || 60);
@@ -687,13 +639,7 @@
                     }
                 };
 
-                // 图片优化：Cloudflare cdn-cgi/image 按需缩放
-                const imgUrl = (src, w, h) => {
-                    if (!src) return src;
-                    if (src.startsWith('assets/')) return `/${src}`;
-                    if (!src.includes('img.kaside365.com')) return src;
-                    return `/cdn-cgi/image/width=${w},height=${h},dpr=2,fit=cover,format=auto/${src}`;
-                };
+                const imgUrl = MyFlowerPotsMedia.imgUrl;
 
                 const goBack = () => window.location.href = '/';
 

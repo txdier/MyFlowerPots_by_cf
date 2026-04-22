@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
     <title>成长轨迹 - My Flower Pots</title>
     <meta name="theme-color" content="#ffffff">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
@@ -277,6 +278,12 @@
     <script src="js/vue.global.js"></script>
     <script src="js/config.js?v=20260111"></script>
     <script src="js/api-client.js?v=20260418-d1session"></script>
+    <script src="js/media-utils.js?v=20260421-refactor"></script>
+    <script src="js/pot-permissions.js?v=20260421-refactor"></script>
+    <script src="js/gallery-utils.js?v=20260421-refactor"></script>
+    <script src="js/timeline-utils.js?v=20260421-refactor"></script>
+    <script src="js/date-utils.js?v=20260422-date"></script>
+    <script src="js/dialog-utils.js?v=20260421-refactor"></script>
 
     <script>
         const { createApp, ref, reactive, onMounted, computed, watch } = Vue;
@@ -284,6 +291,8 @@
         createApp({
             setup() {
                 const nav = window.MyFlowerPotsNavigation;
+                const showAlert = window.MyFlowerPotsDialog.alert;
+                const showConfirm = window.MyFlowerPotsDialog.confirm;
                 const isLoading = ref(true);
                 const potId = ref(null);
                 const pot = ref(null);
@@ -303,11 +312,9 @@
                 const previewImages = ref([]);
                 const previewIndex = ref(0);
                 const galleryImageLoadToken = ref(0);
-                const canManageTimelines = computed(() => !!(
-                    pot.value &&
-                    String(pot.value.status || 'active').toLowerCase() !== 'archived' &&
-                    (pot.value.user_id === apiClient.userId || pot.value.is_collaborator)
-                ));
+                const canManageTimelines = computed(() =>
+                    MyFlowerPotsPotPermissions.canManageRecords(pot.value, apiClient.userId)
+                );
 
                 const init = async () => {
                     const params = new URLSearchParams(window.location.search);
@@ -365,11 +372,11 @@
 
                 const confirmDeleteTimeline = async (id) => {
                     if (!canManageTimelines.value) return;
-                    if (confirm('确认删除这条生长记录？照片也将一并清理。')) {
+                    if (showConfirm('确认删除这条生长记录？照片也将一并清理。')) {
                         try {
                             const res = await apiClient.deleteTimeline(id);
                             if (res.success) await loadTimelineRecords();
-                        } catch (e) { alert('删除操作失败'); }
+                        } catch (e) { showAlert('删除操作失败'); }
                     }
                 };
 
@@ -401,51 +408,10 @@
 
                 const triggerFileInput = () => fileInput.value?.click();
 
-                const compressImage = (file, maxSide = 1920, quality = 0.85) => {
-                    if (file.type === 'image/gif') return Promise.resolve(file);
-                    return new Promise((resolve) => {
-                        const img = new Image();
-                        const url = URL.createObjectURL(file);
-                        img.onload = () => {
-                            URL.revokeObjectURL(url);
-                            let { width, height } = img;
-                            if (width > maxSide || height > maxSide) {
-                                if (width >= height) {
-                                    height = Math.round(height * maxSide / width);
-                                    width = maxSide;
-                                } else {
-                                    width = Math.round(width * maxSide / height);
-                                    height = maxSide;
-                                }
-                            }
-                            const canvas = document.createElement('canvas');
-                            canvas.width = width;
-                            canvas.height = height;
-                            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                            canvas.toBlob((blob) => {
-                                resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
-                            }, 'image/jpeg', quality);
-                        };
-                        img.onerror = () => {
-                            URL.revokeObjectURL(url);
-                            resolve(file);
-                        };
-                        img.src = url;
-                    });
-                };
-
                 const onFilesSelected = async (e) => {
-                    const files = Array.from(e.target.files || []);
                     const remaining = 9 - editTimelineImageCount();
-                    for (const file of files.slice(0, remaining)) {
-                        const compressed = await compressImage(file);
-                        const reader = new FileReader();
-                        reader.onload = (ev) => {
-                            editTimelineForm.tempImages.push({ file: compressed, preview: ev.target.result });
-                        };
-                        reader.readAsDataURL(compressed);
-                    }
-                    e.target.value = '';
+                    const items = await MyFlowerPotsMedia.selectImages(e, { limit: remaining });
+                    editTimelineForm.tempImages.push(...items);
                 };
 
                 const removeExistingTimelineImage = (idx) => editTimelineForm.existingImages.splice(idx, 1);
@@ -455,24 +421,22 @@
                     if (!canManageTimelines.value) return;
                     if (!editTimelineForm.id) return;
                     if (!editTimelineForm.date) {
-                        alert('请选择记录日期');
+                        showAlert('请选择记录日期');
                         return;
                     }
                     if (editTimelineImageCount() === 0 && !editTimelineForm.description?.trim()) {
-                        alert('请至少保留一张照片或写点描述');
+                        showAlert('请至少保留一张照片或写点描述');
                         return;
                     }
                     try {
                         isSavingTimeline.value = true;
-                        const uploadedUrls = [];
-                        for (const item of editTimelineForm.tempImages) {
-                            const res = await apiClient.uploadImage(item.file, { potId: potId.value, uploadType: 'timeline' });
-                            if (res.success && res.data?.url) uploadedUrls.push(res.data.url);
-                        }
-                        const saveRes = await apiClient.updateTimeline(editTimelineForm.id, {
+                        const saveRes = await MyFlowerPotsTimeline.saveTimelineForm(apiClient, {
+                            potId: potId.value,
+                            timelineId: editTimelineForm.id,
                             date: editTimelineForm.date,
-                            description: editTimelineForm.description?.trim() || '',
-                            images: [...editTimelineForm.existingImages, ...uploadedUrls]
+                            description: editTimelineForm.description,
+                            existingImages: editTimelineForm.existingImages,
+                            tempImages: editTimelineForm.tempImages
                         });
                         if (saveRes.success) {
                             showEditTimelineModal.value = false;
@@ -480,106 +444,37 @@
                             await loadTimelineRecords();
                         }
                     } catch (e) {
-                        alert('保存失败，请检查网络后重试');
+                        showAlert('保存失败，请检查网络后重试');
                     } finally {
                         isSavingTimeline.value = false;
                     }
                 };
 
-                const buildGalleryItem = (src, previewSrc = '') => {
-                    const fullSrc = String(src || '');
-                    const thumbSrc = previewSrc || imgUrl(fullSrc, 100, 100) || fullSrc;
-                    return {
-                        fullSrc,
-                        previewSrc: thumbSrc,
-                        displaySrc: thumbSrc,
-                        isFullLoaded: !fullSrc || thumbSrc === fullSrc,
-                        isFullLoading: false,
-                        isFullLoadFailed: false
-                    };
-                };
-
-                const preloadGalleryImage = (index) => {
-                    const item = previewImages.value[index];
-                    if (!item || item.isFullLoaded || item.isFullLoading || !item.fullSrc) return;
-
-                    item.isFullLoading = true;
-                    item.isFullLoadFailed = false;
-                    const token = galleryImageLoadToken.value;
-                    const image = new Image();
-                    image.onload = () => {
-                        if (token !== galleryImageLoadToken.value) return;
-                        item.displaySrc = item.fullSrc;
-                        item.isFullLoaded = true;
-                        item.isFullLoading = false;
-                        item.isFullLoadFailed = false;
-                    };
-                    image.onerror = () => {
-                        if (token !== galleryImageLoadToken.value) return;
-                        item.isFullLoading = false;
-                        item.isFullLoadFailed = true;
-                    };
-                    image.src = item.fullSrc;
-                };
-
-                const preloadNearbyGalleryImages = () => {
-                    [previewIndex.value, previewIndex.value - 1, previewIndex.value + 1].forEach(preloadGalleryImage);
-                };
-
-                const openGallery = (img, allImages, previewSrc = '') => {
-                    galleryImageLoadToken.value += 1;
-                    const images = Array.isArray(allImages) ? allImages : [];
-                    previewImages.value = images.map(src => buildGalleryItem(src, src === img ? previewSrc : ''));
-                    const idx = images.indexOf(img);
-                    previewIndex.value = idx >= 0 ? idx : 0;
-                    preloadNearbyGalleryImages();
-                };
-
-                const closeGallery = () => {
-                    galleryImageLoadToken.value += 1;
-                    previewImages.value = [];
-                    previewIndex.value = 0;
-                };
-
-                const prevImg = () => {
-                    if (previewIndex.value > 0) previewIndex.value--;
-                };
-
-                const nextImg = () => {
-                    if (previewIndex.value < previewImages.value.length - 1) previewIndex.value++;
-                };
+                const {
+                    preloadNearbyGalleryImages,
+                    openGallery,
+                    closeGallery,
+                    prevImg,
+                    nextImg
+                } = MyFlowerPotsGallery.createGallery({
+                    previewImages,
+                    previewIndex,
+                    loadToken: galleryImageLoadToken
+                });
 
                 watch(previewIndex, preloadNearbyGalleryImages);
 
-                const getImages = (images) => {
-                    if (!images) return [];
-                    if (Array.isArray(images)) return images;
-                    try { return JSON.parse(images); } catch (e) { return []; }
-                };
+                const getImages = MyFlowerPotsMedia.parseImageList;
 
-                const imgUrl = (src, w, h) => {
-                    if (!src) return src;
-                    const normalizedSrc = String(src)
-                        .replace(/^\/?assets\/deom\//i, '/assets/demo/')
-                        .replace(/^assets\//i, '/assets/');
-                    if (normalizedSrc.startsWith('/assets/')) return normalizedSrc;
-                    if (!normalizedSrc.includes('img.kaside365.com')) return normalizedSrc;
-                    return `/cdn-cgi/image/width=${w},height=${h},dpr=2,fit=cover,format=auto/${normalizedSrc}`;
-                };
+                const imgUrl = MyFlowerPotsMedia.imgUrl;
 
                 const goBack = () => {
                     window.location.href = `pot-detail?id=${potId.value}`;
                 };
 
-                const formatDate = (dateStr) => {
-                    if (!dateStr) return '';
-                    const date = new Date(dateStr);
-                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                };
+                const formatDate = MyFlowerPotsDate.formatIsoDate;
 
-                const handleImageError = (e) => {
-                    e.target.src = 'assets/images/icons/icons-default-pot.png';
-                };
+                const handleImageError = (e) => MyFlowerPotsMedia.setImageFallback(e);
 
                 window.addEventListener('auth:expired', (event) => {
                     nav.redirectToSessionExpired(event.detail?.message, {

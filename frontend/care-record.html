@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
     <title>养护记录 - My Flower Pots</title>
     <meta name="theme-color" content="#ffffff">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <!-- Vue 3 CDN -->
     <script src="js/vue.global.js"></script>
@@ -26,6 +27,11 @@
     <!-- 配置脚本 -->
     <script src="js/config.js?v=20260111"></script>
     <script src="js/api-client.js?v=20260418-d1session"></script>
+    <script src="js/media-utils.js?v=20260421-refactor"></script>
+    <script src="js/ui-utils.js?v=20260421-refactor"></script>
+    <script src="js/pot-permissions.js?v=20260421-refactor"></script>
+    <script src="js/care-utils.js?v=20260421-refactor"></script>
+    <script src="js/date-utils.js?v=20260422-date"></script>
 </head>
 
 <body class="bg-gray-50">
@@ -181,28 +187,21 @@
                 const isSaving = ref(false);
                 const error = ref(null);
                 const pot = ref(null);
-                const isArchived = computed(() => String(pot.value?.status || 'active').toLowerCase() === 'archived');
-                const canManageCareRecord = computed(() => !!(
-                    pot.value &&
-                    !isArchived.value &&
-                    (pot.value.user_id === apiClient.userId || pot.value.is_collaborator)
-                ));
+                const isArchived = computed(() => MyFlowerPotsPotPermissions.isArchivedPot(pot.value));
+                const canManageCareRecord = computed(() =>
+                    MyFlowerPotsPotPermissions.canManageRecords(pot.value, apiClient.userId)
+                );
                 const isEditMode = ref(false);
                 const recordId = ref(null);
                 const potId = ref(null);
                 const toast = ref({ show: false, message: '', type: 'success' });
-                let toastTimer = null;
 
                 const baseCareTypes = [
-                    { value: 'water', label: '浇水', icon: 'fa fa-tint' },
-                    { value: 'fertilize', label: '施肥', icon: 'fa fa-seedling' },
-                    { value: 'prune', label: '修剪', icon: 'fa fa-cut' },
-                    { value: 'repot', label: '换盆', icon: 'fa fa-exchange-alt' },
-                    { value: 'pest', label: '病虫害', icon: 'fa fa-bug' },
+                    ...MyFlowerPotsCare.builtInCareTypes.map(({ value, label, icon }) => ({ value, label, icon })),
                     { value: 'other', label: '其他', icon: 'fa fa-ellipsis-h' }
                 ];
-                const builtInCareTypeValues = new Set(baseCareTypes.map(item => item.value));
-                const builtInCareTypeLabels = new Set(baseCareTypes.map(item => item.label));
+                const builtInCareTypeValues = new Set(MyFlowerPotsCare.builtInCareTypes.map(item => item.value));
+                const builtInCareTypeLabels = new Set(MyFlowerPotsCare.builtInCareTypes.map(item => item.label));
                 const dynamicCareTypes = ref([]);
                 const careTypes = computed(() => [...baseCareTypes, ...dynamicCareTypes.value]);
 
@@ -219,8 +218,7 @@
 
                 const canonicalCareType = (value) => {
                     const raw = String(value || '').trim().toLowerCase();
-                    if (raw === 'trim') return 'prune';
-                    return raw;
+                    return MyFlowerPotsCare.normalizeCareType(raw, '', { keepUnknown: true });
                 };
 
                 const isBuiltInCareType = (value) => builtInCareTypeValues.has(canonicalCareType(value));
@@ -301,13 +299,7 @@
 
                 const getCareTypeOption = (value) => careTypes.value.find(item => item.value === value);
 
-                const showToast = (message, type = 'success') => {
-                    toast.value = { show: true, message, type };
-                    if (toastTimer) clearTimeout(toastTimer);
-                    toastTimer = setTimeout(() => {
-                        toast.value.show = false;
-                    }, 2200);
-                };
+                const showToast = MyFlowerPotsUi.createToast(toast);
 
                 const init = async () => {
                     const params = new URLSearchParams(window.location.search);
@@ -352,7 +344,7 @@
                 };
 
                 const loadRecordDetail = async () => {
-                    const res = await apiClient.request(`/api/care-records/detail/${recordId.value}`);
+                    const res = await apiClient.getCareRecordDetail(recordId.value);
                     if (res.success) {
                         const data = res.data;
                         form.types = [isBuiltInCareType(data.type) ? canonicalCareType(data.type) : data.type];
@@ -360,21 +352,7 @@
                         form.description = data.description || '';
                         form.customAction = data.type === 'other' ? (data.action || data.description || '') : '';
 
-                        // 解析图片
-                        form.images = [];
-                        if (data.imageUrl) {
-                            try {
-                                const parsed = JSON.parse(data.imageUrl);
-                                if (Array.isArray(parsed)) {
-                                    form.images = parsed.map(url => ({ url }));
-                                } else {
-                                    form.images = [{ url: data.imageUrl }];
-                                }
-                            } catch (e) {
-                                // 兼容旧数据（单字符串）
-                                form.images = [{ url: data.imageUrl }];
-                            }
-                        }
+                        form.images = MyFlowerPotsMedia.parseImageList(data.imageUrl).map(url => ({ url }));
 
                         potId.value = data.potId;
                         await loadPotInfo(data.potId);
@@ -414,21 +392,10 @@
 
                 const triggerFileInput = () => fileInput.value.click();
 
-                const onFilesSelected = (e) => {
-                    const files = Array.from(e.target.files);
+                const onFilesSelected = async (e) => {
                     const remaining = 9 - form.images.length;
-
-                    files.slice(0, remaining).forEach(file => {
-                        const reader = new FileReader();
-                        reader.onload = (ev) => {
-                            form.images.push({
-                                file,
-                                preview: ev.target.result
-                            });
-                        };
-                        reader.readAsDataURL(file);
-                    });
-                    e.target.value = '';
+                    const items = await MyFlowerPotsMedia.selectImages(e, { limit: remaining });
+                    form.images.push(...items);
                 };
 
                 const removeImage = (idx) => {
@@ -460,15 +427,10 @@
 
                         // 上传新文件
                         const newImages = form.images.filter(img => img.file);
-                        for (const img of newImages) {
-                            const uploadRes = await apiClient.uploadImage(img.file, {
-                                potId: potId.value,
-                                uploadType: 'care'
-                            });
-                            if (uploadRes.success) {
-                                uploadedUrls.push(uploadRes.data.url);
-                            }
-                        }
+                        uploadedUrls.push(...await MyFlowerPotsMedia.uploadImages(apiClient, newImages, {
+                            potId: potId.value,
+                            uploadType: 'care'
+                        }));
 
                         const selectedCareTypes = form.types.map((typeValue) => {
                             if (typeValue === 'other') {
@@ -510,10 +472,7 @@
                                 type: selectedCareTypes[0].type,
                                 action: selectedCareTypes[0].action
                             };
-                            result = await apiClient.request(`/api/care-records/${recordId.value}`, {
-                                method: 'PUT',
-                                body: editPayload
-                            });
+                            result = await apiClient.updateCareRecord(recordId.value, editPayload);
                         } else {
                             result = await apiClient.createCareRecord(payload);
                         }
@@ -550,22 +509,9 @@
                     window.location.href = `pot-detail?id=${potId.value}`;
                 };
 
-                // 图片优化：Cloudflare cdn-cgi/image 按需缩放
-                const imgUrl = (src, w, h) => {
-                    if (!src) return src;
-                    const normalizedSrc = String(src)
-                        .replace(/^\/?assets\/deom\//i, '/assets/demo/')
-                        .replace(/^assets\//i, '/assets/');
-                    if (normalizedSrc.startsWith('/assets/')) return normalizedSrc;
-                    if (!normalizedSrc.includes('img.kaside365.com')) return normalizedSrc;
-                    return `/cdn-cgi/image/width=${w},height=${h},dpr=2,fit=cover,format=auto/${normalizedSrc}`;
-                };
+                const imgUrl = MyFlowerPotsMedia.imgUrl;
 
-                const formatDate = (d) => {
-                    if (!d) return '';
-                    const date = new Date(d);
-                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                };
+                const formatDate = MyFlowerPotsDate.formatIsoDate;
 
                 window.addEventListener('auth:expired', (event) => {
                     const redirect = recordId.value

@@ -75,7 +75,90 @@ async function recordVerificationEmailSend(
       WHERE id = ?
     `)
     .bind(nowIso, nextWindowStartIso, nextCount, userId)
+	    .run();
+}
+
+type VerificationEmailRateUser = {
+  id: string;
+  verification_email_sent_at?: string | null;
+  verification_email_send_window_start?: string | null;
+  verification_email_send_count?: number | string | null;
+};
+
+type VerificationEmailReservation = {
+  nowMs: number;
+  nowIso: string;
+  nextWindowStartIso: string;
+  nextWindowCount: number;
+  cooldownCutoffIso: string;
+};
+
+function prepareVerificationEmailReservation(
+  user: VerificationEmailRateUser,
+  nowMs = Date.now()
+): { reservation?: VerificationEmailReservation; response?: Response } {
+  const lastSentMs = parseDateMs(user.verification_email_sent_at);
+  if (lastSentMs !== null) {
+    const retryAfterMs = VERIFICATION_EMAIL_COOLDOWN_MS - (nowMs - lastSentMs);
+    if (retryAfterMs > 0) {
+      const retryAfterSeconds = Math.ceil(retryAfterMs / 1000);
+      return { response: errorResponse(`发送太频繁，请 ${retryAfterSeconds} 秒后再试`, 429) };
+    }
+  }
+
+  const windowStartMs = parseDateMs(user.verification_email_send_window_start);
+  const isExistingWindow = windowStartMs !== null && nowMs - windowStartMs < VERIFICATION_EMAIL_WINDOW_MS;
+  const currentWindowCount = isExistingWindow ? Number(user.verification_email_send_count || 0) : 0;
+  if (currentWindowCount >= VERIFICATION_EMAIL_WINDOW_LIMIT) {
+    return { response: errorResponse(`验证邮件 24 小时内最多发送 ${VERIFICATION_EMAIL_WINDOW_LIMIT} 次，请稍后再试`, 429) };
+  }
+
+  const nowIso = new Date(nowMs).toISOString();
+  return {
+    reservation: {
+      nowMs,
+      nowIso,
+      nextWindowStartIso: isExistingWindow && windowStartMs !== null
+        ? new Date(windowStartMs).toISOString()
+        : nowIso,
+      nextWindowCount: isExistingWindow ? currentWindowCount + 1 : 1,
+      cooldownCutoffIso: new Date(nowMs - VERIFICATION_EMAIL_COOLDOWN_MS).toISOString()
+    }
+  };
+}
+
+async function reserveVerificationEmailSend(
+  env: any,
+  userId: string,
+  reservation: VerificationEmailReservation,
+  extraSetClause: string,
+  extraValues: unknown[]
+): Promise<boolean> {
+  const reserveResult = await env.DB
+    .prepare(`
+      UPDATE users
+      SET ${extraSetClause}
+          verification_email_sent_at = ?,
+          verification_email_send_window_start = ?,
+          verification_email_send_count = ?
+      WHERE id = ?
+        AND (verification_email_sent_at IS NULL OR verification_email_sent_at <= ?)
+    `)
+    .bind(
+      ...extraValues,
+      reservation.nowIso,
+      reservation.nextWindowStartIso,
+      reservation.nextWindowCount,
+      userId,
+      reservation.cooldownCutoffIso
+    )
     .run();
+
+  return !!reserveResult.meta && reserveResult.meta.changes > 0;
+}
+
+function buildVerificationEmailCooldownResponse(): Response {
+  return errorResponse(`发送太频繁，请 ${Math.ceil(VERIFICATION_EMAIL_COOLDOWN_MS / 1000)} 秒后再试`, 429);
 }
 
 function isUniqueConstraintError(error: unknown, tableOrColumn?: string): boolean {
@@ -902,7 +985,7 @@ async function handleChangeEmail(request: Request, env: any, userId: string | nu
     const body = (await request.json()) as {
       newEmail?: string;
     };
-    const { newEmail } = body;
+    const newEmail = String(body.newEmail || '').trim().toLowerCase();
 
     if (!newEmail) {
       return errorResponse('New email is required', 400);
@@ -914,7 +997,12 @@ async function handleChangeEmail(request: Request, env: any, userId: string | nu
 
     // 检查当前用户
     const user = await env.DB
-      .prepare('SELECT id, email, email_verified FROM users WHERE id = ?')
+      .prepare(`
+        SELECT id, email, email_verified,
+               verification_email_sent_at, verification_email_send_window_start, verification_email_send_count
+        FROM users
+        WHERE id = ?
+      `)
       .bind(userId)
       .first();
 
@@ -937,19 +1025,34 @@ async function handleChangeEmail(request: Request, env: any, userId: string | nu
       return errorResponse('Email already registered by another user', 409);
     }
 
+    const rateLimit = prepareVerificationEmailReservation(user);
+    if (rateLimit.response) {
+      return rateLimit.response;
+    }
+    const reservation = rateLimit.reservation!;
+
     // 生成验证令牌
     const verificationToken = generateToken();
+    const verificationTokenExpires = new Date(reservation.nowMs + EMAIL_VERIFICATION_TTL_MS).toISOString();
 
-    // 更新用户记录，设置新邮箱和验证令牌，标记为未验证
-    await env.DB
-      .prepare('UPDATE users SET new_email = ?, new_email_verification_token = ?, new_email_verification_expires = ? WHERE id = ?')
-      .bind(
+    // 更新用户记录，设置新邮箱和验证令牌，并预占一次验证邮件发送额度。
+    const reserved = await reserveVerificationEmailSend(
+      env,
+      userId,
+      reservation,
+      `new_email = ?,
+          new_email_verification_token = ?,
+          new_email_verification_expires = ?,`,
+      [
         newEmail,
         verificationToken,
-        new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24小时有效
-        userId
-      )
-      .run();
+        verificationTokenExpires
+      ]
+    );
+
+    if (!reserved) {
+      return buildVerificationEmailCooldownResponse();
+    }
 
     // 发送验证邮件到新邮箱
     const verificationEmail = generateNewEmailVerificationEmail(
@@ -959,16 +1062,21 @@ async function handleChangeEmail(request: Request, env: any, userId: string | nu
       env.APP_BASE_URL || 'https://my-flower-pots-api.example.com'
     );
 
-    await sendEmail(verificationEmail, env);
+    const emailSent = await sendEmail(verificationEmail, env);
+
+    if (!emailSent) {
+      return errorResponse('Failed to send verification email', 500);
+    }
 
     return jsonResponse({
       success: true,
-      message: 'Verification email sent to new email address'
+      message: 'Verification email sent to new email address',
+      retryAfterSeconds: Math.ceil(VERIFICATION_EMAIL_COOLDOWN_MS / 1000)
     });
 
   } catch (error) {
     console.error('Change email error:', error);
-    return errorResponse('Failed to process email change request', 500);
+    return errorResponse(getClientSafeAuthErrorMessage(error, 'Failed to process email change request'), 500);
   }
 }
 
@@ -1050,22 +1158,11 @@ async function handleSendVerificationEmail(request: Request, env: any, userId: s
       return errorResponse('Email is required', 400);
     }
 
-    const nowMs = Date.now();
-    const lastSentMs = parseDateMs(user.verification_email_sent_at);
-    if (lastSentMs !== null) {
-      const retryAfterMs = VERIFICATION_EMAIL_COOLDOWN_MS - (nowMs - lastSentMs);
-      if (retryAfterMs > 0) {
-        const retryAfterSeconds = Math.ceil(retryAfterMs / 1000);
-        return errorResponse(`发送太频繁，请 ${retryAfterSeconds} 秒后再试`, 429);
-      }
+    const rateLimit = prepareVerificationEmailReservation(user);
+    if (rateLimit.response) {
+      return rateLimit.response;
     }
-
-    const windowStartMs = parseDateMs(user.verification_email_send_window_start);
-    const isExistingWindow = windowStartMs !== null && nowMs - windowStartMs < VERIFICATION_EMAIL_WINDOW_MS;
-    const currentWindowCount = isExistingWindow ? Number(user.verification_email_send_count || 0) : 0;
-    if (currentWindowCount >= VERIFICATION_EMAIL_WINDOW_LIMIT) {
-      return errorResponse(`验证邮件 24 小时内最多发送 ${VERIFICATION_EMAIL_WINDOW_LIMIT} 次，请稍后再试`, 429);
-    }
+    const reservation = rateLimit.reservation!;
 
     // 生成或使用现有的验证令牌
     let verificationToken = user.verification_token;
@@ -1073,39 +1170,23 @@ async function handleSendVerificationEmail(request: Request, env: any, userId: s
     const tokenExpired = !verificationTokenExpires || new Date(verificationTokenExpires) <= new Date();
     if (!verificationToken || tokenExpired) {
       verificationToken = generateToken();
-      verificationTokenExpires = new Date(nowMs + EMAIL_VERIFICATION_TTL_MS).toISOString();
+      verificationTokenExpires = new Date(reservation.nowMs + EMAIL_VERIFICATION_TTL_MS).toISOString();
     }
 
-    const nowIso = new Date(nowMs).toISOString();
-    const nextWindowStartIso = isExistingWindow && windowStartMs !== null
-      ? new Date(windowStartMs).toISOString()
-      : nowIso;
-    const nextWindowCount = isExistingWindow ? currentWindowCount + 1 : 1;
-    const cooldownCutoffIso = new Date(nowMs - VERIFICATION_EMAIL_COOLDOWN_MS).toISOString();
-    const reserveResult = await env.DB
-      .prepare(`
-        UPDATE users
-        SET verification_token = ?,
-            verification_token_expires = ?,
-            verification_email_sent_at = ?,
-            verification_email_send_window_start = ?,
-            verification_email_send_count = ?
-        WHERE id = ?
-          AND (verification_email_sent_at IS NULL OR verification_email_sent_at <= ?)
-      `)
-      .bind(
+    const reserved = await reserveVerificationEmailSend(
+      env,
+      user.id,
+      reservation,
+      `verification_token = ?,
+          verification_token_expires = ?,`,
+      [
         verificationToken,
-        verificationTokenExpires,
-        nowIso,
-        nextWindowStartIso,
-        nextWindowCount,
-        user.id,
-        cooldownCutoffIso
-      )
-      .run();
+        verificationTokenExpires
+      ]
+    );
 
-    if (!reserveResult.meta || reserveResult.meta.changes === 0) {
-      return errorResponse(`发送太频繁，请 ${Math.ceil(VERIFICATION_EMAIL_COOLDOWN_MS / 1000)} 秒后再试`, 429);
+    if (!reserved) {
+      return buildVerificationEmailCooldownResponse();
     }
 
     // 发送验证邮件

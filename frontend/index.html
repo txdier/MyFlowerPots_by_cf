@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
@@ -63,8 +63,14 @@
     <!-- 配置脚本 -->
     <script src="js/config.js?v=20260118"></script>
     <script src="js/api-client.js?v=20260418-d1session"></script>
-    <script src="js/form-utils.js?v=20260413"></script>
+    <script src="js/media-utils.js?v=20260421-refactor"></script>
+    <script src="js/pot-permissions.js?v=20260421-refactor"></script>
+    <script src="js/archive-utils.js?v=20260421-refactor"></script>
+    <script src="js/date-utils.js?v=20260422-date"></script>
+    <script src="js/form-utils.js?v=20260421-auth"></script>
     <script src="js/clipboard.js?v=20260407-2"></script>
+    <script src="js/dialog-utils.js?v=20260421-refactor"></script>
+    <script src="js/batch-actions-utils.js?v=20260421-refactor"></script>
     <meta name="google-site-verification" content="iL2IHNd1UqW26DnjsPSya3hIf5bOUM0Z0Miq0QIKY_U" />
 </head>
 
@@ -102,8 +108,8 @@
                     class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[48vw] min-w-[170px] max-w-[280px] pointer-events-none animate-fade-in">
                     <div
                         class="pointer-events-auto h-10 w-full flex items-center gap-2 rounded-full border border-green-100 bg-white px-3 shadow-sm shadow-green-50">
-                        <input ref="potSearchInput" v-model="potSearchQuery" @keydown.esc="closePotSearch"
-                            type="text" enterkeyhint="search" placeholder="搜索花盆"
+                        <input ref="potSearchInput" v-model="potSearchQuery" @keydown.esc="closePotSearch" type="text"
+                            enterkeyhint="search" placeholder="搜索花盆"
                             class="min-w-0 flex-1 bg-transparent text-sm font-semibold text-gray-700 placeholder:text-gray-300 outline-none">
                         <button v-if="hasPotSearchQuery" @click="clearPotSearch" type="button"
                             class="w-7 h-7 shrink-0 flex items-center justify-center rounded-full bg-green-50 text-green-500 transition active:scale-90 hover:bg-green-100"
@@ -132,17 +138,8 @@
                     </button>
                 </div>
 
-                <!-- 2. 右侧：天气 + 用户 -->
+                <!-- 2. 右侧： 用户 -->
                 <div class="flex items-center gap-2">
-                    <!-- 天气简报 -->
-                    <!-- <div v-if="weatherData" class="flex items-center bg-blue-50/50 px-3 py-1.5 rounded-2xl border border-blue-100 text-blue-600 gap-2">
-                        <i class="fa fa-cloud-sun text-sm"></i>
-                        <div class="flex flex-col">
-                            <span class="text-[9px] font-black leading-none mb-0.5">{{ weatherData.location?.name }}</span>
-                            <span class="text-[10px] font-black leading-none opacity-80">{{ weatherData.current?.condition }} {{ weatherData.current?.temp }}°</span>
-                        </div>
-                    </div> -->
-
                     <!-- 用户信息 -->
                     <div class="relative user-menu-container">
                         <button @click="showUserMenu = !showUserMenu"
@@ -424,15 +421,15 @@
                                     </div>
                                     <div class="flex justify-between items-end">
                                         <div class="text-xs text-gray-500 flex-1 min-w-0 space-y-1">
-	                                            <div class="flex items-center gap-2">
-	                                                <span class="text-gray-400 shrink-0">种植</span>
-	                                                <span class="font-medium">{{ formatDate(pot.plant_date) }}</span>
-	                                            </div>
-                                                <div class="flex items-center gap-2">
-                                                    <span class="text-gray-400 shrink-0">天数</span>
-                                                    <span class="font-medium">{{ formatCareElapsedDays(pot) }}</span>
-                                                </div>
-	                                            <div v-if="activePotStatus === 'active'" class="flex items-center gap-2">
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-gray-400 shrink-0">种植</span>
+                                                <span class="font-medium">{{ formatDate(pot.plant_date) }}</span>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-gray-400 shrink-0">天数</span>
+                                                <span class="font-medium">{{ formatCareElapsedDays(pot) }}</span>
+                                            </div>
+                                            <div v-if="activePotStatus === 'active'" class="flex items-center gap-2">
                                                 <span class="text-gray-400 shrink-0">养护</span>
                                                 <div
                                                     class="flex items-center min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
@@ -481,9 +478,9 @@
                         </button>
                     </div>
                 </section>
-                <div v-else-if="hasPotSearchQuery"
-                    class="flex flex-col items-center justify-center py-16 text-center">
-                    <div class="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center text-green-300 mb-5">
+                <div v-else-if="hasPotSearchQuery" class="flex flex-col items-center justify-center py-16 text-center">
+                    <div
+                        class="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center text-green-300 mb-5">
                         <i class="fa fa-search text-3xl"></i>
                     </div>
                     <h3 class="text-base font-bold text-gray-800">没有找到匹配的花盆</h3>
@@ -874,19 +871,19 @@
                 <!-- 内容区 -->
                 <div class="p-6 space-y-5">
                     <!-- 养护类型选择 -->
-	                    <div>
-	                        <label class="block text-sm font-bold text-gray-700 mb-3">养护类型</label>
-	                        <div class="grid grid-cols-3 gap-2">
-	                            <button v-for="option in batchCareTypeOptions" :key="option.type"
-                                    type="button" @click="toggleBatchCareType(option.type)"
-	                                class="py-3 rounded-2xl text-sm font-bold transition-all active:scale-95 border-2"
-	                                :class="isBatchCareTypeSelected(option.type) ? option.activeClass : option.inactiveClass">
-	                                <i class="fa block text-lg mb-1" :class="option.icon"></i>{{ option.label }}
-	                            </button>
-	                        </div>
-	                    </div>
-	                    <!-- 自定义动作名称（仅在自定义时显示） -->
-	                    <div v-if="isBatchCareTypeSelected('custom')" class="animate-fade-in">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-3">养护类型</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button v-for="option in batchCareTypeOptions" :key="option.type" type="button"
+                                @click="toggleBatchCareType(option.type)"
+                                class="py-3 rounded-2xl text-sm font-bold transition-all active:scale-95 border-2"
+                                :class="isBatchCareTypeSelected(option.type) ? option.activeClass : option.inactiveClass">
+                                <i class="fa block text-lg mb-1" :class="option.icon"></i>{{ option.label }}
+                            </button>
+                        </div>
+                    </div>
+                    <!-- 自定义动作名称（仅在自定义时显示） -->
+                    <div v-if="isBatchCareTypeSelected('custom')" class="animate-fade-in">
                         <label class="block text-sm font-bold text-gray-700 mb-2">动作名称</label>
                         <input v-model="batchCareForm.action" type="text" id="batchCareAction"
                             placeholder="例如：修剪、换土、除虫..."
@@ -908,10 +905,9 @@
                     </div>
                 </div>
                 <!-- 确认按钮 -->
-	                <div class="px-6 pb-6">
-	                    <button @click="submitBatchCare"
-	                        :disabled="isBatchCareSubmitDisabled"
-	                        class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+                <div class="px-6 pb-6">
+                    <button @click="submitBatchCare" :disabled="isBatchCareSubmitDisabled"
+                        class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                         {{ isBatchCareLoading ? '记录中...' : `确认养护 ${selectedOwnedCount} 个花盆` }}
                     </button>
                 </div>
@@ -922,9 +918,9 @@
             class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click.stop.prevent="closeBatchArchiveModal">
             </div>
-	            <div class="relative bg-white w-full max-w-[500px] rounded-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col max-h-[90vh]"
-	                @click.stop @mousedown.stop @touchstart.stop>
-	                <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 shrink-0">
+            <div class="relative bg-white w-full max-w-[500px] rounded-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col max-h-[90vh]"
+                @click.stop @mousedown.stop @touchstart.stop>
+                <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 shrink-0">
                     <div class="flex items-center gap-3 min-w-0">
                         <button type="button" @click.stop.prevent="returnToBatchActionSheetFromArchive"
                             class="shrink-0 inline-flex items-center justify-center text-gray-400 transition active:scale-95">
@@ -943,7 +939,7 @@
                         <i class="fa fa-times text-xl"></i>
                     </button>
                 </div>
-	                <div class="p-6 space-y-5 overflow-y-auto">
+                <div class="p-6 space-y-5 overflow-y-auto">
                     <div
                         class="rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 text-xs text-amber-700 leading-relaxed">
                         {{ archiveTargetPot ? '归档后这盆植物将不再出现在养护列表，也不会收到养护提醒。记录会保留，之后可以在已归档中查看和恢复。' :
@@ -964,37 +960,37 @@
                             </button>
                         </div>
                     </div>
-	                    <div>
-	                        <label class="block text-sm font-bold text-gray-700 mb-2">备注
-	                            <span class="text-gray-400 font-normal">（可选）</span>
-	                        </label>
-	                        <textarea v-model="batchArchiveForm.note" placeholder="这次失败可能和什么有关？" rows="3"
-	                            class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-green-300 resize-none transition"></textarea>
-	                    </div>
-                        <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-2">归档照片
-                                <span class="text-gray-400 font-normal">（可选，会加入成长轨迹）</span>
-                            </label>
-                            <div class="grid grid-cols-4 gap-2">
-                                <div v-for="(img, idx) in batchArchiveForm.tempImages" :key="`archive-${idx}`"
-                                    class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden">
-                                    <img :src="img.preview" decoding="async" class="w-full h-full object-cover">
-                                    <button type="button" @click="removeArchiveImage(idx)"
-                                        class="absolute top-1 right-1 bg-black/50 text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center">
-                                        <i class="fa fa-times"></i>
-                                    </button>
-                                </div>
-                                <button v-if="archiveImageCount() < 3" type="button" @click="triggerArchiveFileInput"
-                                    class="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-300 hover:border-green-500 hover:text-green-500 transition active:scale-95">
-                                    <i class="fa fa-camera text-xl mb-1"></i>
-                                    <span class="text-[8px] font-black uppercase tracking-tighter">添加</span>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">备注
+                            <span class="text-gray-400 font-normal">（可选）</span>
+                        </label>
+                        <textarea v-model="batchArchiveForm.note" placeholder="这次失败可能和什么有关？" rows="3"
+                            class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-green-300 resize-none transition"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">归档照片
+                            <span class="text-gray-400 font-normal">（可选，会加入成长轨迹）</span>
+                        </label>
+                        <div class="grid grid-cols-4 gap-2">
+                            <div v-for="(img, idx) in batchArchiveForm.tempImages" :key="`archive-${idx}`"
+                                class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden">
+                                <img :src="img.preview" decoding="async" class="w-full h-full object-cover">
+                                <button type="button" @click="removeArchiveImage(idx)"
+                                    class="absolute top-1 right-1 bg-black/50 text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center">
+                                    <i class="fa fa-times"></i>
                                 </button>
                             </div>
-                            <input type="file" ref="archiveFileInput" @change="onArchiveFilesSelected" multiple
-                                accept="image/*" class="hidden">
+                            <button v-if="archiveImageCount() < 3" type="button" @click="triggerArchiveFileInput"
+                                class="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-300 hover:border-green-500 hover:text-green-500 transition active:scale-95">
+                                <i class="fa fa-camera text-xl mb-1"></i>
+                                <span class="text-[8px] font-black uppercase tracking-tighter">添加</span>
+                            </button>
                         </div>
-	                </div>
-	                <div class="px-6 pb-6 shrink-0">
+                        <input type="file" ref="archiveFileInput" @change="onArchiveFilesSelected" multiple
+                            accept="image/*" class="hidden">
+                    </div>
+                </div>
+                <div class="px-6 pb-6 shrink-0">
                     <button @click="submitBatchArchive"
                         :disabled="isBatchArchiveLoading || (!archiveTargetPot && selectedOwnedCount === 0)"
                         class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
@@ -1387,6 +1383,9 @@
             setup() {
                 const formUtils = window.MyFlowerPotsFormUtils;
                 const nav = window.MyFlowerPotsNavigation;
+                const batchActions = window.MyFlowerPotsBatchActions;
+                const showAlert = window.MyFlowerPotsDialog.alert;
+                const showConfirm = window.MyFlowerPotsDialog.confirm;
                 const isLoading = ref(true);
                 const pots = ref([]);
                 const isPotSearchActive = ref(false);
@@ -1459,19 +1458,45 @@
                 const showRegisterModal = ref(false);
                 const showForgotPasswordModal = ref(false);
                 const isAuthLoading = ref(false);
-                const loginForm = reactive({ email: '', password: '' });
-                const registerForm = reactive({
-                    email: '',
-                    password: '',
-                    confirmPassword: '',
-                    displayName: ''
-                });
-                const loginErrors = reactive({ email: '', password: '' });
-                const registerErrors = reactive({ email: '', password: '', confirmPassword: '' });
-                const forgotPasswordErrors = reactive({ email: '' });
-                const loginStatus = reactive({ type: '', message: '' });
-                const registerStatus = reactive({ type: '', message: '' });
-                const forgotPasswordStatus = reactive({ type: '', message: '' });
+                const authForms = formUtils.createAuthFormController({ reactive, computed, nextTick });
+                const {
+                    loginForm,
+                    registerForm,
+                    loginErrors,
+                    registerErrors,
+                    forgotPasswordErrors,
+                    loginStatus,
+                    registerStatus,
+                    forgotPasswordStatus,
+                    passwordsMatch,
+                    isForgotPasswordEmailValid,
+                    isLoginValid,
+                    isRegisterValid,
+                    clearStatus,
+                    clearAuthFeedback,
+                    syncLoginFormFromDom,
+                    syncRegisterFormFromDom,
+                    stopLoginAutofillWatcher,
+                    scheduleLoginAutofillSync,
+                    scheduleRegisterAutofillSync,
+                    focusFieldById,
+                    validateLoginEmail,
+                    validateLoginPassword,
+                    validateForgotPasswordEmail,
+                    validateRegisterEmail,
+                    validateRegisterPassword,
+                    validateRegisterConfirmPassword,
+                    normalizeRegisterDisplayName,
+                    handleLoginEmailInput,
+                    handleLoginPasswordInput,
+                    handleForgotPasswordEmailInput,
+                    handleRegisterEmailInput,
+                    handleRegisterDisplayNameInput,
+                    handleRegisterPasswordInput,
+                    handleRegisterConfirmPasswordInput,
+                    validateLoginForm,
+                    validateRegisterForm
+                } = authForms;
                 const authIntent = reactive({
                     notice: '',
                     open: '',
@@ -1501,52 +1526,52 @@
                 const isBatchArchiveLoading = ref(false);
                 const showBatchInviteModal = ref(false);
                 const isBatchInviteLoading = ref(false);
-	                const showPotActionSheet = ref(false);
-	                const activePotAction = ref(null);
-	                const archiveTargetPot = ref(null);
-                    const archiveFileInput = ref(null);
+                const showPotActionSheet = ref(false);
+                const activePotAction = ref(null);
+                const archiveTargetPot = ref(null);
+                const archiveFileInput = ref(null);
                 const isOverlayClosing = ref(false);
                 const batchInviteToken = ref(null);
                 const batchInviteSessionId = ref('');
-	                const batchCareForm = reactive({
-	                    type: 'water',
-                        types: ['water'],
-	                    action: '',
-	                    careDate: new Date().toISOString().split('T')[0],
-	                    description: ''
-	                });
-                    const batchCareTypeOptions = [
-                        {
-                            type: 'water',
-                            action: '浇水',
-                            label: '浇水',
-                            icon: 'fa-tint',
-                            activeClass: 'bg-blue-500 text-white border-blue-500 shadow-md shadow-blue-100',
-                            inactiveClass: 'bg-white text-gray-600 border-gray-100 hover:border-blue-200'
-                        },
-                        {
-                            type: 'fertilize',
-                            action: '施肥',
-                            label: '施肥',
-                            icon: 'fa-seedling',
-                            activeClass: 'bg-green-500 text-white border-green-500 shadow-md shadow-green-100',
-                            inactiveClass: 'bg-white text-gray-600 border-gray-100 hover:border-green-200'
-                        },
-                        {
-                            type: 'custom',
-                            action: '',
-                            label: '自定义',
-                            icon: 'fa-pen',
-                            activeClass: 'bg-purple-500 text-white border-purple-500 shadow-md shadow-purple-100',
-                            inactiveClass: 'bg-white text-gray-600 border-gray-100 hover:border-purple-200'
-                        }
-                    ];
-	                const batchArchiveReasons = ['枯萎', '烂根', '干死', '病虫害', '环境不适', '送人/不再养护', '其他'];
-	                const batchArchiveForm = reactive({
-	                    reason: '枯萎',
-	                    note: '',
-                        tempImages: []
-	                });
+                const batchCareForm = reactive({
+                    type: 'water',
+                    types: ['water'],
+                    action: '',
+                    careDate: new Date().toISOString().split('T')[0],
+                    description: ''
+                });
+                const batchCareTypeOptions = [
+                    {
+                        type: 'water',
+                        action: '浇水',
+                        label: '浇水',
+                        icon: 'fa-tint',
+                        activeClass: 'bg-blue-500 text-white border-blue-500 shadow-md shadow-blue-100',
+                        inactiveClass: 'bg-white text-gray-600 border-gray-100 hover:border-blue-200'
+                    },
+                    {
+                        type: 'fertilize',
+                        action: '施肥',
+                        label: '施肥',
+                        icon: 'fa-seedling',
+                        activeClass: 'bg-green-500 text-white border-green-500 shadow-md shadow-green-100',
+                        inactiveClass: 'bg-white text-gray-600 border-gray-100 hover:border-green-200'
+                    },
+                    {
+                        type: 'custom',
+                        action: '',
+                        label: '自定义',
+                        icon: 'fa-pen',
+                        activeClass: 'bg-purple-500 text-white border-purple-500 shadow-md shadow-purple-100',
+                        inactiveClass: 'bg-white text-gray-600 border-gray-100 hover:border-purple-200'
+                    }
+                ];
+                const batchArchiveReasons = ['枯萎', '烂根', '病虫害', '环境不适', '送人/不再养护', '其他'];
+                const batchArchiveForm = reactive({
+                    reason: '枯萎',
+                    note: '',
+                    tempImages: []
+                });
                 const batchInviteForm = reactive({
                     permission: 'viewer',
                     method: 'email',
@@ -1600,27 +1625,6 @@
                 const selectedViewerCount = computed(() => selectedViewerPots.value.length);
                 const selectedExcludedCount = computed(() => Math.max(0, selectedCount.value - selectedOwnedCount.value));
 
-                const passwordsMatch = computed(() =>
-                    !!registerForm.password &&
-                    !!registerForm.confirmPassword &&
-                    registerForm.password === registerForm.confirmPassword
-                );
-
-                const isForgotPasswordEmailValid = computed(() =>
-                    formUtils.isValidEmail(loginForm.email)
-                );
-
-                const isLoginValid = computed(() =>
-                    formUtils.isValidEmail(loginForm.email) &&
-                    loginForm.password.length > 0
-                );
-
-                const isRegisterValid = computed(() =>
-                    formUtils.isValidEmail(registerForm.email) &&
-                    formUtils.isValidPassword(registerForm.password) &&
-                    !!registerForm.confirmPassword &&
-                    passwordsMatch.value
-                );
                 const hasEmailAccount = computed(() => !!(user.value && user.value.userType === 'email'));
                 const isBatchInviteEmailValid = computed(() => formUtils.isValidEmail(batchInviteForm.email));
                 const canUseNativeShare = computed(() => !!(
@@ -1823,7 +1827,7 @@
                         window.MyFlowerPotsClipboard.showCopyPrompt(text, message);
                         return;
                     }
-                    alert(`${message}\n${text}`);
+                    showAlert(`${message}\n${text}`);
                 };
 
                 const shareViaSystem = async ({ title, text, url }) => {
@@ -1849,226 +1853,6 @@
                     return status === 401 || /Authentication required/i.test(message);
                 };
 
-                const clearStatus = (status) => {
-                    status.type = '';
-                    status.message = '';
-                };
-
-                const clearAuthFeedback = () => {
-                    loginErrors.email = '';
-                    loginErrors.password = '';
-                    registerErrors.email = '';
-                    registerErrors.password = '';
-                    registerErrors.confirmPassword = '';
-                    forgotPasswordErrors.email = '';
-                    clearStatus(loginStatus);
-                    clearStatus(registerStatus);
-                    clearStatus(forgotPasswordStatus);
-                };
-
-                const syncLoginFormFromDom = () => {
-                    formUtils.syncFormFieldsFromDom([
-                        { elementId: 'loginEmail', form: loginForm, key: 'email', transform: formUtils.normalizeEmail },
-                        { elementId: 'loginPassword', form: loginForm, key: 'password' }
-                    ]);
-                };
-
-                const syncRegisterFormFromDom = () => {
-                    formUtils.syncFormFieldsFromDom([
-                        { elementId: 'registerEmail', form: registerForm, key: 'email', transform: formUtils.normalizeEmail },
-                        { elementId: 'registerNickname', form: registerForm, key: 'displayName', transform: formUtils.normalizeDisplayName },
-                        { elementId: 'registerPassword', form: registerForm, key: 'password' },
-                        { elementId: 'registerConfirmPassword', form: registerForm, key: 'confirmPassword' }
-                    ]);
-                };
-
-                let loginAutofillSyncInterval = null;
-                let loginAutofillSyncStopTimer = null;
-
-                const stopLoginAutofillWatcher = () => {
-                    if (loginAutofillSyncInterval) {
-                        window.clearInterval(loginAutofillSyncInterval);
-                        loginAutofillSyncInterval = null;
-                    }
-                    if (loginAutofillSyncStopTimer) {
-                        window.clearTimeout(loginAutofillSyncStopTimer);
-                        loginAutofillSyncStopTimer = null;
-                    }
-                };
-
-                const startLoginAutofillWatcher = (durationMs = 12000) => {
-                    stopLoginAutofillWatcher();
-                    syncLoginFormFromDom();
-                    loginAutofillSyncInterval = window.setInterval(syncLoginFormFromDom, 250);
-                    loginAutofillSyncStopTimer = window.setTimeout(() => {
-                        stopLoginAutofillWatcher();
-                    }, durationMs);
-                };
-
-                const scheduleLoginAutofillSync = async () => {
-                    await nextTick();
-                    startLoginAutofillWatcher();
-                    [80, 250, 800, 1600].forEach(delay => window.setTimeout(syncLoginFormFromDom, delay));
-                };
-
-                const focusFieldById = async (elementId) => {
-                    await nextTick();
-                    const input = document.getElementById(elementId);
-                    if (typeof input?.focus === 'function') {
-                        input.focus();
-                    }
-                };
-
-                const validateLoginEmail = (showRequired = false) => {
-                    loginForm.email = formUtils.normalizeEmail(loginForm.email);
-                    loginErrors.email = formUtils.getEmailError(loginForm.email, { required: showRequired });
-                    return !loginErrors.email;
-                };
-
-                const validateLoginPassword = (showRequired = false) => {
-                    loginErrors.password = loginForm.password
-                        ? ''
-                        : (showRequired ? '请输入密码' : '');
-                    return !loginErrors.password;
-                };
-
-                const validateForgotPasswordEmail = (showRequired = false) => {
-                    loginForm.email = formUtils.normalizeEmail(loginForm.email);
-                    forgotPasswordErrors.email = formUtils.getEmailError(loginForm.email, { required: showRequired });
-                    return !forgotPasswordErrors.email;
-                };
-
-                const validateRegisterEmail = (showRequired = false) => {
-                    registerForm.email = formUtils.normalizeEmail(registerForm.email);
-                    registerErrors.email = formUtils.getEmailError(registerForm.email, { required: showRequired });
-                    return !registerErrors.email;
-                };
-
-                const validateRegisterPassword = (showRequired = false) => {
-                    registerErrors.password = formUtils.getPasswordError(registerForm.password, {
-                        required: showRequired,
-                        requiredMessage: '请输入密码',
-                        tooShortMessage: '密码至少 8 位'
-                    });
-                    return !registerErrors.password;
-                };
-
-                const validateRegisterConfirmPassword = (showRequired = false) => {
-                    if (!registerForm.confirmPassword) {
-                        registerErrors.confirmPassword = showRequired ? '请再次输入密码' : '';
-                        return !registerErrors.confirmPassword;
-                    }
-                    registerErrors.confirmPassword = passwordsMatch.value ? '' : '两次输入的密码不一致';
-                    return !registerErrors.confirmPassword;
-                };
-
-                const normalizeRegisterDisplayName = () => {
-                    registerForm.displayName = formUtils.normalizeDisplayName(registerForm.displayName);
-                };
-
-                const handleLoginEmailInput = () => {
-                    clearStatus(loginStatus);
-                    if (!loginForm.email) {
-                        loginErrors.email = '';
-                        return;
-                    }
-                    validateLoginEmail(false);
-                };
-
-                const handleLoginPasswordInput = () => {
-                    clearStatus(loginStatus);
-                    if (!loginForm.password) {
-                        loginErrors.password = '';
-                        return;
-                    }
-                    validateLoginPassword(false);
-                };
-
-                const handleForgotPasswordEmailInput = () => {
-                    clearStatus(forgotPasswordStatus);
-                    if (!loginForm.email) {
-                        forgotPasswordErrors.email = '';
-                        return;
-                    }
-                    validateForgotPasswordEmail(false);
-                };
-
-                const handleRegisterEmailInput = () => {
-                    clearStatus(registerStatus);
-                    if (!registerForm.email) {
-                        registerErrors.email = '';
-                        return;
-                    }
-                    validateRegisterEmail(false);
-                };
-
-                const handleRegisterDisplayNameInput = () => {
-                    clearStatus(registerStatus);
-                    registerForm.displayName = formUtils.normalizeDisplayName(registerForm.displayName);
-                };
-
-                const handleRegisterPasswordInput = () => {
-                    clearStatus(registerStatus);
-                    validateRegisterPassword(false);
-                    if (registerForm.confirmPassword) {
-                        validateRegisterConfirmPassword(false);
-                    } else {
-                        registerErrors.confirmPassword = '';
-                    }
-                };
-
-                const handleRegisterConfirmPasswordInput = () => {
-                    clearStatus(registerStatus);
-                    validateRegisterConfirmPassword(false);
-                };
-
-                const validateLoginForm = async () => {
-                    syncLoginFormFromDom();
-                    clearStatus(loginStatus);
-
-                    const emailValid = validateLoginEmail(true);
-                    const passwordValid = validateLoginPassword(true);
-
-                    if (!emailValid) {
-                        await focusFieldById('loginEmail');
-                        return false;
-                    }
-
-                    if (!passwordValid) {
-                        await focusFieldById('loginPassword');
-                        return false;
-                    }
-
-                    return true;
-                };
-
-                const validateRegisterForm = async () => {
-                    syncRegisterFormFromDom();
-                    normalizeRegisterDisplayName();
-                    clearStatus(registerStatus);
-
-                    const emailValid = validateRegisterEmail(true);
-                    const passwordValid = validateRegisterPassword(true);
-                    const confirmPasswordValid = validateRegisterConfirmPassword(true);
-
-                    if (!emailValid) {
-                        await focusFieldById('registerEmail');
-                        return false;
-                    }
-
-                    if (!passwordValid) {
-                        await focusFieldById('registerPassword');
-                        return false;
-                    }
-
-                    if (!confirmPasswordValid) {
-                        await focusFieldById('registerConfirmPassword');
-                        return false;
-                    }
-
-                    return true;
-                };
-
                 watch([showLoginModal, showForgotPasswordModal, showRegisterModal], ([loginVisible, forgotVisible, registerVisible]) => {
                     if (loginVisible || forgotVisible) {
                         scheduleLoginAutofillSync();
@@ -2077,9 +1861,7 @@
                     }
 
                     if (registerVisible) {
-                        nextTick(() => {
-                            [80, 250, 800, 1600].forEach(delay => window.setTimeout(syncRegisterFormFromDom, delay));
-                        });
+                        scheduleRegisterAutofillSync();
                     }
                 });
 
@@ -2369,12 +2151,12 @@
                             if (action === 'accept') {
                                 res = await apiClient.acceptTransfer(token);
                                 if (res.success) {
-                                    alert('移交接受成功！');
+                                    showAlert('移交接受成功！');
                                     fetchPots();
                                 }
                             } else if (action === 'reject') {
                                 res = await apiClient.rejectTransfer(token);
-                                if (res.success) alert('已拒绝移交请求。');
+                                if (res.success) showAlert('已拒绝移交请求。');
                             }
                             // 邀请通知：点击后直接跳转到对应花盆并标记已读
                             await markMessageRead(msg);
@@ -2386,7 +2168,7 @@
                         fetchMessages();
                         fetchUnreadCount();
                     } catch (e) {
-                        alert('操作失败: ' + e.message);
+                        showAlert('操作失败: ' + e.message);
                     }
                 };
 
@@ -2412,7 +2194,7 @@
                 };
 
                 const deleteMessage = async (msgId) => {
-                    if (!confirm('确定删除这条消息吗？')) return;
+                    if (!showConfirm('确定删除这条消息吗？')) return;
                     try {
                         const res = await apiClient.deleteMessage(msgId);
                         if (res.success) {
@@ -2421,21 +2203,21 @@
                             fetchUnreadCount();
                         }
                     } catch (e) {
-                        alert('删除失败: ' + e.message);
+                        showAlert('删除失败: ' + e.message);
                     }
                 };
 
                 const clearReadMessages = async () => {
                     const readCount = messagesList.value.filter(m => m.status !== 'unread').length;
                     if (readCount === 0) return;
-                    if (!confirm(`确定清空这 ${readCount} 条已读或已处理的消息吗？`)) return;
+                    if (!showConfirm(`确定清空这 ${readCount} 条已读或已处理的消息吗？`)) return;
                     try {
                         const res = await apiClient.clearReadMessages();
                         if (res.success) {
                             fetchMessages();
                         }
                     } catch (e) {
-                        alert('清理失败: ' + e.message);
+                        showAlert('清理失败: ' + e.message);
                     }
                 };
 
@@ -2505,7 +2287,7 @@
                     }
 
                     sessionStorage.removeItem('pending_batch_invite_token');
-                    alert(buildBatchInviteAcceptMessage(res.data || {}));
+                    showAlert(buildBatchInviteAcceptMessage(res.data || {}));
                     window.location.replace('/');
                     return true;
                 };
@@ -2530,7 +2312,7 @@
                         }
 
                         sessionStorage.removeItem('pending_batch_invite_token');
-                        alert('批量邀请链接无效、已过期，或已在其他设备上使用。');
+                        showAlert('批量邀请链接无效、已过期，或已在其他设备上使用。');
                         if (window.location.search.includes('batchInviteToken=')) {
                             window.history.replaceState({}, '', '/');
                         }
@@ -2795,19 +2577,15 @@
                     }
                 };
 
-                    const setPotStatus = async (status) => {
-                        resetPotStatusSwipe();
-                        if (activePotStatus.value === status) return;
-                        closePotActionSheet();
+                const setPotStatus = async (status) => {
+                    resetPotStatusSwipe();
+                    if (activePotStatus.value === status) return;
+                    closePotActionSheet();
                     closeBatchActionSheet();
                     closeBatchCareModal();
                     closeBatchArchiveModal();
                     closeBatchInviteModal();
-                    if (isEditMode.value) {
-                        pots.value.forEach(p => p.selected = false);
-                        isEditMode.value = false;
-                        destroySortable();
-                    }
+                    clearBatchSelection();
                     activePotStatus.value = status;
                     if (status !== 'active') {
                         showRemindersExpanded.value = false;
@@ -2912,7 +2690,7 @@
                         }
 
                         if (res.success || res.token) {
-                            alert(isAnonymous ? '注册成功，您的匿名数据已合并！' : '注册成功！');
+                            showAlert(isAnonymous ? '注册成功，您的匿名数据已合并！' : '注册成功！');
                             await completeAuthSuccess(buildUserFromAuthResponse(res));
                         }
                     } catch (e) {
@@ -2940,8 +2718,7 @@
                             initSortable();
                         }
                     } else {
-                        pots.value.forEach(p => p.selected = false);
-                        destroySortable();
+                        clearBatchSelection();
                     }
                 };
 
@@ -2995,6 +2772,24 @@
                     }
                 };
 
+                const requireSelectedOwnedPots = (emptyMessage) => batchActions.requireSelected({
+                    items: selectedOwnedPots,
+                    showAlert,
+                    emptyMessage
+                });
+
+                const requireSelectedViewerPots = (emptyMessage) => batchActions.requireSelected({
+                    items: selectedViewerPots,
+                    showAlert,
+                    emptyMessage
+                });
+
+                const clearBatchSelection = () => batchActions.clearEditSelection({
+                    pots,
+                    isEditMode,
+                    destroySortable
+                });
+
                 // 移除原有的 isBatchMode 监听
 
                 const isOwnedPot = (pot) => !!pot && !pot.is_collaborator && !pot.is_viewer;
@@ -3010,24 +2805,24 @@
                     activePotAction.value = pot;
                     showPotActionSheet.value = true;
                 };
-                    const handleCardClick = (pot) => {
-                        if (Date.now() < potStatusSwipeSuppressClickUntil) return;
-                        if (!isEditMode.value) {
-                            window.location.href = `pot-detail?id=${pot.id}`;
-                        }
+                const handleCardClick = (pot) => {
+                    if (Date.now() < potStatusSwipeSuppressClickUntil) return;
+                    if (!isEditMode.value) {
+                        window.location.href = `pot-detail?id=${pot.id}`;
+                    }
                 };
                 const restoreArchivedPot = async (pot) => {
                     if (!pot?.id) return;
-                    if (!confirm(`确定将 ${pot.name} 恢复到养护中吗？`)) return;
+                    if (!showConfirm(`确定将 ${pot.name} 恢复到养护中吗？`)) return;
                     try {
                         const res = await apiClient.restorePot(pot.id);
                         if (res.success) {
                             await fetchPots({ status: 'archived', blocking: pots.value.length <= 1 });
                             await fetchPotStatusCounts();
-                            alert('已恢复到养护中。');
+                            showAlert('已恢复到养护中。');
                         }
                     } catch (e) {
-                        alert('恢复失败: ' + e.message);
+                        showAlert('恢复失败: ' + e.message);
                     }
                 };
                 const restorePotFromSheet = async (pot) => {
@@ -3060,25 +2855,25 @@
                 };
 
                 const confirmLeaveCollaboration = async (pot) => {
-                    if (confirm(`确定不再共同照料 ${pot.name} 吗？`)) {
+                    if (showConfirm(`确定不再共同照料 ${pot.name} 吗？`)) {
                         try {
                             const res = await apiClient.leaveCollaboration(pot.id);
                             if (res.success) {
                                 await fetchPots();
                             }
-                        } catch (e) { alert('操作失败: ' + e.message); }
+                        } catch (e) { showAlert('操作失败: ' + e.message); }
                     }
                 };
 
                 const confirmLeaveViewer = async (pot) => {
-                    if (confirm(`确定将 ${pot.name} 从好友分享列表中移除吗？`)) {
+                    if (showConfirm(`确定将 ${pot.name} 从好友分享列表中移除吗？`)) {
                         try {
                             const res = await apiClient.leaveViewer(pot.id);
                             if (res.success) {
                                 await fetchPots();
                                 await fetchPotStatusCounts();
                             }
-                        } catch (e) { alert('操作失败: ' + e.message); }
+                        } catch (e) { showAlert('操作失败: ' + e.message); }
                     }
                 };
 
@@ -3097,22 +2892,21 @@
                         msg += `\n(已自动排除 ${viewerSelected.length} 个仅查看的花盆)`;
                     }
 
-                    if (toDelete.length > 0 && confirm(msg)) {
+                    if (toDelete.length > 0 && showConfirm(msg)) {
                         try {
                             isLoading.value = true;
                             for (const p of toDelete) await apiClient.deletePot(p.id);
                             await fetchPots({ status: activePotStatus.value, blocking: true });
                             await fetchPotStatusCounts();
-                            isEditMode.value = false;
-                            destroySortable();
-                        } catch (e) { alert('删除失败'); } finally { isLoading.value = false; }
+                            clearBatchSelection();
+                        } catch (e) { showAlert('删除失败'); } finally { isLoading.value = false; }
                     } else if (toDelete.length === 0 && (collabSelected.length > 0 || viewerSelected.length > 0)) {
-                        alert('共同照料或仅查看的花盆不能批量删除，请从单盆菜单中选择“退出”或“移除”。');
+                        showAlert('共同照料或仅查看的花盆不能批量删除，请从单盆菜单中选择“退出”或“移除”。');
                     }
                 };
 
                 const confirmDeleteSingle = async (id) => {
-                    if (confirm('确定要删除吗？')) {
+                    if (showConfirm('确定要删除吗？')) {
                         await apiClient.deletePot(id);
                         await fetchPots({ status: activePotStatus.value });
                         await fetchPotStatusCounts();
@@ -3150,7 +2944,7 @@
                             if (navigator.vibrate) navigator.vibrate(50);
                         }
                     } catch (e) {
-                        alert('生成失败: ' + e.message);
+                        showAlert('生成失败: ' + e.message);
                     } finally {
                         isAuthLoading.value = false;
                     }
@@ -3211,51 +3005,22 @@
                         custom: '养护'
                     }[type] || '养护';
                 };
-	                const formatDate = (d) => {
-	                    if (!d) return '';
-	                    const date = new Date(d);
-	                    if (isNaN(date.getTime())) return ''; // 处理非法日期
-	                    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
-	                };
-                    const parseCalendarDay = (value) => {
-                        if (!value) return null;
-                        if (value instanceof Date) {
-                            if (Number.isNaN(value.getTime())) return null;
-                            return new Date(value.getFullYear(), value.getMonth(), value.getDate());
-                        }
-                        const text = String(value);
-                        const match = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
-                        if (match) {
-                            return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-                        }
-                        const date = new Date(text);
-                        if (Number.isNaN(date.getTime())) return null;
-                        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-                    };
-                    const formatCareElapsedDays = (pot) => {
-                        const start = parseCalendarDay(pot?.plant_date);
-                        if (!start) return '无';
-                        const isPotArchived = String(pot?.status || activePotStatus.value || 'active').toLowerCase() === 'archived';
-                        const end = isPotArchived && pot?.archived_at
-                            ? parseCalendarDay(pot.archived_at)
-                            : parseCalendarDay(new Date());
-                        if (!end) return '无';
-                        const days = Math.max(1, Math.floor((end.getTime() - start.getTime()) / 86400000) + 1);
-                        return `${days} 天`;
-                    };
-	                const handleImageError = (e) => e.target.src = 'assets/images/icons/icons-default-pot.png';
-
-                // 图片优化：通过 Cloudflare cdn-cgi/image 按需缩放
-                // 仅对 img.kaside365.com 域名的图片生效，本地/占位图原样返回
-                const imgUrl = (src, w, h) => {
-                    if (!src) return src;
-                    const normalizedSrc = String(src)
-                        .replace(/^\/?assets\/deom\//i, '/assets/demo/')
-                        .replace(/^assets\//i, '/assets/');
-                    if (normalizedSrc.startsWith('/assets/')) return normalizedSrc;
-                    if (!normalizedSrc.includes('img.kaside365.com')) return normalizedSrc;
-                    return `/cdn-cgi/image/width=${w},height=${h},dpr=2,fit=cover,format=auto/${normalizedSrc}`;
+                const formatDate = MyFlowerPotsDate.formatZhDate;
+                const parseCalendarDay = MyFlowerPotsDate.parseCalendarDay;
+                const formatCareElapsedDays = (pot) => {
+                    const start = parseCalendarDay(pot?.plant_date);
+                    if (!start) return '无';
+                    const isPotArchived = String(pot?.status || activePotStatus.value || 'active').toLowerCase() === 'archived';
+                    const end = isPotArchived && pot?.archived_at
+                        ? parseCalendarDay(pot.archived_at)
+                        : parseCalendarDay(new Date());
+                    if (!end) return '无';
+                    const days = Math.max(1, Math.floor((end.getTime() - start.getTime()) / 86400000) + 1);
+                    return `${days} 天`;
                 };
+                const handleImageError = (e) => MyFlowerPotsMedia.setImageFallback(e);
+
+                const imgUrl = MyFlowerPotsMedia.imgUrl;
 
                 // 季节性提醒缓存
                 const seasonalTipsMap = reactive({});
@@ -3521,38 +3286,38 @@
                     }
                 );
 
-                    const isBatchCareTypeSelected = (type) => batchCareForm.types.includes(type);
+                const isBatchCareTypeSelected = (type) => batchCareForm.types.includes(type);
 
-                    const toggleBatchCareType = (type) => {
-                        if (isBatchCareTypeSelected(type)) {
-                            batchCareForm.types = batchCareForm.types.filter(item => item !== type);
-                        } else {
-                            batchCareForm.types = [...batchCareForm.types, type];
-                        }
-                        batchCareForm.type = batchCareForm.types[0] || '';
-                    };
+                const toggleBatchCareType = (type) => {
+                    if (isBatchCareTypeSelected(type)) {
+                        batchCareForm.types = batchCareForm.types.filter(item => item !== type);
+                    } else {
+                        batchCareForm.types = [...batchCareForm.types, type];
+                    }
+                    batchCareForm.type = batchCareForm.types[0] || '';
+                };
 
-                    const selectedBatchCareActions = computed(() =>
-                        batchCareForm.types.map(type => {
-                            const option = batchCareTypeOptions.find(item => item.type === type);
-                            return type === 'custom' ? batchCareForm.action.trim() : (option?.action || type);
-                        })
-                    );
+                const selectedBatchCareActions = computed(() =>
+                    batchCareForm.types.map(type => {
+                        const option = batchCareTypeOptions.find(item => item.type === type);
+                        return type === 'custom' ? batchCareForm.action.trim() : (option?.action || type);
+                    })
+                );
 
-                    const isBatchCareSubmitDisabled = computed(() =>
-                        isBatchCareLoading.value ||
-                        batchCareForm.types.length === 0 ||
-                        (isBatchCareTypeSelected('custom') && !batchCareForm.action.trim())
-                    );
+                const isBatchCareSubmitDisabled = computed(() =>
+                    isBatchCareLoading.value ||
+                    batchCareForm.types.length === 0 ||
+                    (isBatchCareTypeSelected('custom') && !batchCareForm.action.trim())
+                );
 
-	                const openBatchCareModal = () => {
-	                    // 每次打开时重置日期为今天
-                        batchCareForm.type = 'water';
-                        batchCareForm.types = ['water'];
-                        batchCareForm.action = '';
-	                    batchCareForm.careDate = new Date().toISOString().split('T')[0];
-	                    showBatchCareModal.value = true;
-	                };
+                const openBatchCareModal = () => {
+                    // 每次打开时重置日期为今天
+                    batchCareForm.type = 'water';
+                    batchCareForm.types = ['water'];
+                    batchCareForm.action = '';
+                    batchCareForm.careDate = new Date().toISOString().split('T')[0];
+                    showBatchCareModal.value = true;
+                };
 
                 const closeBatchCareModal = () => {
                     if (showBatchCareModal.value) {
@@ -3561,17 +3326,17 @@
                     showBatchCareModal.value = false;
                 };
 
-	                const closeBatchArchiveModal = (options = {}) => {
-                        if (isBatchArchiveLoading.value) return;
-	                    if (showBatchArchiveModal.value) {
-	                        holdOverlayGuard();
-	                    }
-	                    showBatchArchiveModal.value = false;
-                        resetBatchArchiveForm();
-	                    if (!options.keepArchiveTarget) {
-	                        archiveTargetPot.value = null;
-	                    }
-	                };
+                const closeBatchArchiveModal = (options = {}) => {
+                    if (isBatchArchiveLoading.value) return;
+                    if (showBatchArchiveModal.value) {
+                        holdOverlayGuard();
+                    }
+                    showBatchArchiveModal.value = false;
+                    resetBatchArchiveForm();
+                    if (!options.keepArchiveTarget) {
+                        archiveTargetPot.value = null;
+                    }
+                };
 
                 const closeBatchInviteModal = () => {
                     if (showBatchInviteModal.value) {
@@ -3596,27 +3361,20 @@
                     closeBatchCareModal();
                     closeBatchArchiveModal();
                     closeBatchInviteModal();
-                    if (isEditMode.value) {
-                        pots.value.forEach(p => p.selected = false);
-                        isEditMode.value = false;
-                        destroySortable();
-                    }
+                    clearBatchSelection();
                 };
 
                 const openBatchCareFromSheet = () => {
-                    if (selectedOwnedCount.value === 0) {
-                        alert('请先选择自己拥有的花盆再批量养护。');
-                        return;
-                    }
+                    if (!requireSelectedOwnedPots('请先选择自己拥有的花盆再批量养护。')) return;
                     closeBatchActionSheet();
                     openBatchCareModal();
                 };
 
-	                const openArchiveModal = (targetPot = null) => {
-                        resetBatchArchiveForm();
-	                    archiveTargetPot.value = targetPot;
-	                    showBatchArchiveModal.value = true;
-	                };
+                const openArchiveModal = (targetPot = null) => {
+                    resetBatchArchiveForm();
+                    archiveTargetPot.value = targetPot;
+                    showBatchArchiveModal.value = true;
+                };
 
                 const openBatchArchiveModal = () => {
                     openArchiveModal(null);
@@ -3629,10 +3387,7 @@
                 };
 
                 const openBatchArchiveFromSheet = () => {
-                    if (selectedOwnedCount.value === 0) {
-                        alert('请先选择自己拥有的花盆再批量归档。');
-                        return;
-                    }
+                    if (!requireSelectedOwnedPots('请先选择自己拥有的花盆再批量归档。')) return;
                     closeBatchActionSheet();
                     openBatchArchiveModal();
                 };
@@ -3644,107 +3399,45 @@
                 };
 
                 const openBatchInviteFromSheet = () => {
-                    if (selectedOwnedCount.value === 0) {
-                        alert('请先选择自己拥有的花盆再批量邀请。');
-                        return;
-                    }
+                    if (!requireSelectedOwnedPots('请先选择自己拥有的花盆再批量邀请。')) return;
                     closeBatchActionSheet();
                     openBatchInviteModal();
                 };
 
-	                const returnToBatchActionSheetFromCare = () => {
-	                    closeBatchCareModal();
-	                    openBatchActionSheet();
-	                };
+                const returnToBatchActionSheetFromCare = () => {
+                    closeBatchCareModal();
+                    openBatchActionSheet();
+                };
 
-                    const compressArchiveImage = (file, maxSide = 1920, quality = 0.85) => {
-                        if (file.type === 'image/gif') return Promise.resolve(file);
-                        return new Promise((resolve) => {
-                            const img = new Image();
-                            const url = URL.createObjectURL(file);
-                            img.onload = () => {
-                                URL.revokeObjectURL(url);
-                                let { width, height } = img;
-                                if (width > maxSide || height > maxSide) {
-                                    if (width >= height) {
-                                        height = Math.round(height * maxSide / width);
-                                        width = maxSide;
-                                    } else {
-                                        width = Math.round(width * maxSide / height);
-                                        height = maxSide;
-                                    }
-                                }
-                                const canvas = document.createElement('canvas');
-                                canvas.width = width;
-                                canvas.height = height;
-                                canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                                canvas.toBlob((blob) => {
-                                    resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
-                                }, 'image/jpeg', quality);
-                            };
-                            img.onerror = () => {
-                                URL.revokeObjectURL(url);
-                                resolve(file);
-                            };
-                            img.src = url;
-                        });
-                    };
+                const archiveImageCount = () => MyFlowerPotsArchive.archiveImageCount(batchArchiveForm);
 
-                    const archiveImageCount = () => batchArchiveForm.tempImages.length;
+                const resetBatchArchiveForm = () => {
+                    MyFlowerPotsArchive.resetArchiveForm(batchArchiveForm, archiveFileInput);
+                };
 
-                    const resetBatchArchiveForm = () => {
-                        batchArchiveForm.reason = '枯萎';
-                        batchArchiveForm.note = '';
-                        batchArchiveForm.tempImages = [];
-                        if (archiveFileInput.value) archiveFileInput.value.value = '';
-                    };
+                const triggerArchiveFileInput = () => {
+                    archiveFileInput.value?.click();
+                };
 
-                    const triggerArchiveFileInput = () => {
-                        archiveFileInput.value?.click();
-                    };
+                const onArchiveFilesSelected = async (e) => {
+                    await MyFlowerPotsArchive.selectArchiveImages(e, batchArchiveForm);
+                };
 
-                    const onArchiveFilesSelected = async (e) => {
-                        const files = Array.from(e.target.files || []);
-                        const remaining = 3 - archiveImageCount();
-                        for (const file of files.slice(0, remaining)) {
-                            const compressed = await compressArchiveImage(file);
-                            const reader = new FileReader();
-                            reader.onload = (ev) => {
-                                batchArchiveForm.tempImages.push({ file: compressed, preview: ev.target.result });
-                            };
-                            reader.readAsDataURL(compressed);
-                        }
-                        e.target.value = '';
-                    };
+                const removeArchiveImage = (idx) => {
+                    batchArchiveForm.tempImages.splice(idx, 1);
+                };
 
-                    const removeArchiveImage = (idx) => {
-                        batchArchiveForm.tempImages.splice(idx, 1);
-                    };
+                const uploadArchiveImagesForPot = async (potId) => {
+                    return MyFlowerPotsArchive.uploadArchiveImagesForPot(apiClient, batchArchiveForm, potId);
+                };
 
-                    const uploadArchiveImagesForPot = async (potId) => {
-                        const uploadedUrls = [];
-                        for (const item of batchArchiveForm.tempImages) {
-                            const res = await apiClient.uploadImage(item.file, {
-                                potId,
-                                uploadType: 'timeline'
-                            });
-                            if (res.success && res.data?.url) uploadedUrls.push(res.data.url);
-                        }
-                        return uploadedUrls;
-                    };
+                const uploadArchiveImagesByPotId = async (targetPots) => {
+                    return MyFlowerPotsArchive.uploadArchiveImagesByPotId(apiClient, batchArchiveForm, targetPots);
+                };
 
-                    const uploadArchiveImagesByPotId = async (targetPots) => {
-                        const imagesByPotId = {};
-                        if (batchArchiveForm.tempImages.length === 0) return imagesByPotId;
-                        for (const pot of targetPots) {
-                            imagesByPotId[pot.id] = await uploadArchiveImagesForPot(pot.id);
-                        }
-                        return imagesByPotId;
-                    };
-
-	                const returnToBatchActionSheetFromArchive = () => {
-                        if (isBatchArchiveLoading.value) return;
-	                    if (archiveTargetPot.value) {
+                const returnToBatchActionSheetFromArchive = () => {
+                    if (isBatchArchiveLoading.value) return;
+                    if (archiveTargetPot.value) {
                         const pot = archiveTargetPot.value;
                         closeBatchArchiveModal({ keepArchiveTarget: true });
                         openPotActionSheet(pot);
@@ -3761,21 +3454,15 @@
                 };
 
                 const deleteSelectedFromSheet = async () => {
-                    if (selectedOwnedCount.value === 0) {
-                        alert('当前选中项中没有可删除的自有花盆。');
-                        return;
-                    }
+                    if (!requireSelectedOwnedPots('当前选中项中没有可删除的自有花盆。')) return;
                     closeBatchActionSheet();
                     await deleteSelectedPots();
                 };
 
                 const restoreSelectedFromSheet = async () => {
-                    const targetPots = selectedOwnedPots.value;
-                    if (targetPots.length === 0) {
-                        alert('当前选中项中没有可恢复的归档花盆。');
-                        return;
-                    }
-                    if (!confirm(`确定将选中的 ${targetPots.length} 个花盆恢复到养护中吗？`)) {
+                    const targetPots = requireSelectedOwnedPots('当前选中项中没有可恢复的归档花盆。');
+                    if (!targetPots) return;
+                    if (!showConfirm(`确定将选中的 ${targetPots.length} 个花盆恢复到养护中吗？`)) {
                         return;
                     }
 
@@ -3785,28 +3472,21 @@
                         for (const pot of targetPots) {
                             await apiClient.restorePot(pot.id);
                         }
-                        if (isEditMode.value) {
-                            pots.value.forEach(p => p.selected = false);
-                            isEditMode.value = false;
-                            destroySortable();
-                        }
+                        clearBatchSelection();
                         await fetchPots({ status: 'archived', blocking: true });
                         await fetchPotStatusCounts();
-                        alert(`已恢复 ${targetPots.length} 个花盆。`);
+                        showAlert(`已恢复 ${targetPots.length} 个花盆。`);
                     } catch (e) {
-                        alert('批量恢复失败: ' + e.message);
+                        showAlert('批量恢复失败: ' + e.message);
                     } finally {
                         isLoading.value = false;
                     }
                 };
 
                 const leaveSelectedViewersFromSheet = async () => {
-                    const targetPots = selectedViewerPots.value;
-                    if (targetPots.length === 0) {
-                        alert('当前选中项中没有可从列表移除的好友分享花盆。');
-                        return;
-                    }
-                    if (!confirm(`确定将选中的 ${targetPots.length} 个花盆从好友分享列表中移除吗？`)) {
+                    const targetPots = requireSelectedViewerPots('当前选中项中没有可从列表移除的好友分享花盆。');
+                    if (!targetPots) return;
+                    if (!showConfirm(`确定将选中的 ${targetPots.length} 个花盆从好友分享列表中移除吗？`)) {
                         return;
                     }
 
@@ -3816,16 +3496,12 @@
                         for (const pot of targetPots) {
                             await apiClient.leaveViewer(pot.id);
                         }
-                        if (isEditMode.value) {
-                            pots.value.forEach(p => p.selected = false);
-                            isEditMode.value = false;
-                            destroySortable();
-                        }
+                        clearBatchSelection();
                         await fetchPots({ status: activePotStatus.value, blocking: true });
                         await fetchPotStatusCounts();
-                        alert(`已从列表移除 ${targetPots.length} 个花盆。`);
+                        showAlert(`已从列表移除 ${targetPots.length} 个花盆。`);
                     } catch (e) {
-                        alert('批量移除失败: ' + e.message);
+                        showAlert('批量移除失败: ' + e.message);
                     } finally {
                         isLoading.value = false;
                     }
@@ -3833,79 +3509,69 @@
 
                 const submitBatchArchive = async () => {
                     const singleTarget = archiveTargetPot.value;
-	                    if (singleTarget) {
-	                        try {
-	                            isBatchArchiveLoading.value = true;
-                                const imageUrls = await uploadArchiveImagesForPot(singleTarget.id);
-	                            const res = await apiClient.archivePot(singleTarget.id, {
-	                                reason: batchArchiveForm.reason,
-	                                note: batchArchiveForm.note.trim() || null,
-                                    imageUrls
-	                            });
-	                            if (res.success) {
-	                                showBatchArchiveModal.value = false;
-	                                archiveTargetPot.value = null;
-                                    resetBatchArchiveForm();
-	                                await fetchPots({ status: 'active', blocking: pots.value.length <= 1 });
-	                                await fetchPotStatusCounts();
+                    if (singleTarget) {
+                        try {
+                            isBatchArchiveLoading.value = true;
+                            const imageUrls = await uploadArchiveImagesForPot(singleTarget.id);
+                            const res = await apiClient.archivePot(singleTarget.id, {
+                                reason: batchArchiveForm.reason,
+                                note: batchArchiveForm.note.trim() || null,
+                                imageUrls
+                            });
+                            if (res.success) {
+                                showBatchArchiveModal.value = false;
+                                archiveTargetPot.value = null;
+                                resetBatchArchiveForm();
+                                await fetchPots({ status: 'active', blocking: pots.value.length <= 1 });
+                                await fetchPotStatusCounts();
                                 await loadCareReminders();
-                                alert('已归档。');
+                                showAlert('已归档。');
                             }
                         } catch (e) {
-                            alert('归档失败: ' + e.message);
+                            showAlert('归档失败: ' + e.message);
                         } finally {
                             isBatchArchiveLoading.value = false;
                         }
                         return;
                     }
 
-                    const targetPots = selectedOwnedPots.value;
-                    if (targetPots.length === 0) {
-                        alert('请先选择自己拥有的花盆再批量归档。');
-                        return;
-                    }
+                    const targetPots = requireSelectedOwnedPots('请先选择自己拥有的花盆再批量归档。');
+                    if (!targetPots) return;
 
-	                    try {
-	                        isBatchArchiveLoading.value = true;
-                            const archiveImagesByPotId = await uploadArchiveImagesByPotId(targetPots);
-	                        const res = await apiClient.batchArchivePots({
-	                            potIds: pots.value.filter(p => p.selected).map(p => p.id),
-	                            reason: batchArchiveForm.reason,
-	                            note: batchArchiveForm.note.trim() || null,
-                                archiveImagesByPotId
-	                        });
+                    try {
+                        isBatchArchiveLoading.value = true;
+                        const archiveImagesByPotId = await uploadArchiveImagesByPotId(targetPots);
+                        const res = await apiClient.batchArchivePots({
+                            potIds: pots.value.filter(p => p.selected).map(p => p.id),
+                            reason: batchArchiveForm.reason,
+                            note: batchArchiveForm.note.trim() || null,
+                            archiveImagesByPotId
+                        });
 
                         if (res.success) {
                             const skipped = Number(res.skipped || 0);
                             const message = skipped > 0
                                 ? `已归档 ${res.count} 个花盆，自动排除 ${skipped} 个非本人拥有的花盆。`
                                 : `已归档 ${res.count} 个花盆。`;
-	                            alert(message);
-	                            showBatchArchiveModal.value = false;
-	                            showBatchActionSheet.value = false;
-                                resetBatchArchiveForm();
-                            if (isEditMode.value) {
-                                pots.value.forEach(p => p.selected = false);
-                                isEditMode.value = false;
-                                destroySortable();
-                            }
+                            showAlert(message);
+                            showBatchArchiveModal.value = false;
+                            showBatchActionSheet.value = false;
+                            resetBatchArchiveForm();
+                            clearBatchSelection();
                             await fetchPots({ status: 'active', blocking: true });
                             await fetchPotStatusCounts();
                             await loadCareReminders();
                         }
                     } catch (e) {
-                        alert('批量归档失败: ' + e.message);
+                        showAlert('批量归档失败: ' + e.message);
                     } finally {
                         isBatchArchiveLoading.value = false;
                     }
                 };
 
                 const submitBatchInvite = async () => {
-                    const targetPots = selectedOwnedPots.value;
-                    if (targetPots.length === 0) {
-                        alert('请先选择自己拥有的花盆再批量邀请。');
-                        return;
-                    }
+                    const targetPots = requireSelectedOwnedPots('请先选择自己拥有的花盆再批量邀请。');
+                    if (!targetPots) return;
 
                     const isViewerInvite = batchInviteForm.permission === 'viewer';
                     const inviteLabel = isViewerInvite ? '仅查看' : '共同照料';
@@ -3918,7 +3584,7 @@
                         if (batchInviteForm.method === 'email') {
                             const email = formUtils.normalizeEmail(batchInviteForm.email);
                             if (!isBatchInviteEmailValid.value) {
-                                alert('请输入正确的邮箱地址。');
+                                showAlert('请输入正确的邮箱地址。');
                                 return;
                             }
 
@@ -3949,7 +3615,7 @@
 
                             showBatchInviteModal.value = false;
                             const successLabel = isViewerInvite ? '新增' : '新增或升级';
-                            alert(`批量${inviteLabel}邀请已处理：${successLabel} ${successCount} 个，跳过 ${skippedCount} 个，失败 ${failedCount} 个。`);
+                            showAlert(`批量${inviteLabel}邀请已处理：${successLabel} ${successCount} 个，跳过 ${skippedCount} 个，失败 ${failedCount} 个。`);
                             return;
                         }
 
@@ -3959,7 +3625,7 @@
                         );
                         const inviteUrl = res.data?.inviteUrl;
                         if (!res.success || !inviteUrl) {
-                            alert('没有生成可复制的邀请链接。');
+                            showAlert('没有生成可复制的邀请链接。');
                             return;
                         }
 
@@ -3988,7 +3654,7 @@
                         const copied = await copyTextSafely(inviteText);
                         showBatchInviteModal.value = false;
                         if (copied) {
-                            alert(
+                            showAlert(
                                 isWeChat
                                     ? '批量邀请链接已复制！请点击微信右上角“...”选择“发送给朋友”进行分享。'
                                     : `已复制批量${inviteLabel}邀请链接，好友打开后会一次性处理这 ${potCount} 个花盆。`
@@ -4002,54 +3668,51 @@
                             );
                         }
                     } catch (e) {
-                        alert('批量邀请失败: ' + e.message);
+                        showAlert('批量邀请失败: ' + e.message);
                     } finally {
                         isBatchInviteLoading.value = false;
                     }
                 };
 
-	                const submitBatchCare = async () => {
-	                    const selectedPots = selectedOwnedPots.value;
-	                    if (selectedPots.length === 0) return;
-	
-                        const selectedTypes = [...batchCareForm.types];
-                        const selectedActions = selectedBatchCareActions.value;
-	                    if (selectedTypes.length === 0) {
-	                        alert('请至少选择一个养护类型');
-	                        return;
-	                    }
-	                    if (selectedTypes.includes('custom') && !batchCareForm.action.trim()) {
-	                        alert('请填写自定义养护动作名称');
-	                        return;
-	                    }
-	
-	                    try {
-	                        isBatchCareLoading.value = true;
-	                        const res = await apiClient.batchCreateCareRecord({
-	                            potIds: selectedPots.map(p => p.id),
-	                            type: selectedTypes[0],
-                                types: selectedTypes,
-	                            action: selectedActions[0],
-                                actions: selectedActions,
-	                            careDate: batchCareForm.careDate,
-	                            description: batchCareForm.description.trim() || null
-	                        });
-	
-	                        if (res.success) {
-	                            const msg = res.skipped > 0
-	                                ? `已为 ${res.count} 个花盆记录养护（已自动跳过 ${res.skipped} 个无权限的花盆）`
-	                                : `已为 ${res.count} 个花盆记录 ${selectedTypes.length} 项养护`;
-                            alert(msg);
+                const submitBatchCare = async () => {
+                    const selectedPots = requireSelectedOwnedPots('请先选择自己拥有的花盆再批量养护。');
+                    if (!selectedPots) return;
+
+                    const selectedTypes = [...batchCareForm.types];
+                    const selectedActions = selectedBatchCareActions.value;
+                    if (selectedTypes.length === 0) {
+                        showAlert('请至少选择一个养护类型');
+                        return;
+                    }
+                    if (selectedTypes.includes('custom') && !batchCareForm.action.trim()) {
+                        showAlert('请填写自定义养护动作名称');
+                        return;
+                    }
+
+                    try {
+                        isBatchCareLoading.value = true;
+                        const res = await apiClient.batchCreateCareRecord({
+                            potIds: selectedPots.map(p => p.id),
+                            type: selectedTypes[0],
+                            types: selectedTypes,
+                            action: selectedActions[0],
+                            actions: selectedActions,
+                            careDate: batchCareForm.careDate,
+                            description: batchCareForm.description.trim() || null
+                        });
+
+                        if (res.success) {
+                            const msg = res.skipped > 0
+                                ? `已为 ${res.count} 个花盆记录养护（已自动跳过 ${res.skipped} 个无权限的花盆）`
+                                : `已为 ${res.count} 个花盆记录 ${selectedTypes.length} 项养护`;
+                            showAlert(msg);
                             showBatchCareModal.value = false;
                             // 退出管理模式并刷新列表
-                            if (isEditMode.value) {
-                                isEditMode.value = false;
-                                destroySortable();
-                            }
+                            clearBatchSelection();
                             await fetchPots();
                         }
                     } catch (e) {
-                        alert('养护记录失败: ' + e.message);
+                        showAlert('养护记录失败: ' + e.message);
                     } finally {
                         isBatchCareLoading.value = false;
                     }
@@ -4067,10 +3730,10 @@
 
                 return {
                     isLoading, pots, displayedPots, isPotSearchActive, potSearchQuery, potSearchInput, hasPotSearchQuery, openPotSearch, closePotSearch, clearPotSearch,
-                        isLoadingMore, hasMorePots, loadMorePots, activePotStatus, potStatusTabs, potStatusCounts, showPotStatusSwitch, setPotStatus,
-                        getPotStatusTabButtonClass, getPotStatusTabFillStyle, getPotStatusTabTextClass,
-                        handlePotStatusSwipeStart, handlePotStatusSwipeMove, handlePotStatusSwipeEnd, handlePotStatusSwipeCancel,
-                        emptyStateTitle, emptyStateMessage,
+                    isLoadingMore, hasMorePots, loadMorePots, activePotStatus, potStatusTabs, potStatusCounts, showPotStatusSwitch, setPotStatus,
+                    getPotStatusTabButtonClass, getPotStatusTabFillStyle, getPotStatusTabTextClass,
+                    handlePotStatusSwipeStart, handlePotStatusSwipeMove, handlePotStatusSwipeEnd, handlePotStatusSwipeCancel,
+                    emptyStateTitle, emptyStateMessage,
                     user, isLoggedIn, userDisplayName, navUserDisplayName, careReminders, isCareRemindersLoading, hasTopReminderBlock, groupedReminders, navSeasonalReminder, showRemindersExpanded,
                     ownedPots, collaborativePots, viewerPots, batchManageablePots,
                     isEditMode, potsGrid, showUserMenu, showLoginModal, showRegisterModal, showForgotPasswordModal, isAuthLoading,
@@ -4090,7 +3753,7 @@
                     leaveCollaborationFromSheet, removeViewerPotFromSheet,
                     confirmLeaveCollaboration, confirmLeaveViewer,
                     logout, closeAuthModals, switchToRegister, switchToLogin, switchToForgotPassword,
-	                    formatDate, formatCareElapsedDays, handleImageError, imgUrl, seedDemoData, goToPotDetail,
+                    formatDate, formatCareElapsedDays, handleImageError, imgUrl, seedDemoData, goToPotDetail,
                     goEditPot: (id) => window.location.href = `edit-pot?id=${id}`,
                     goAddPot: () => window.location.href = 'add-pot',
                     goProfile: () => window.location.href = 'profile',
@@ -4124,13 +3787,13 @@
                     clearReadMessages,
                     messageTab,
                     filteredMessages,
-	                    // 批量养护
-	                    showBatchActionSheet, showBatchCareModal, isBatchCareLoading, batchCareForm,
-	                    openBatchActionSheet, closeBatchActionSheet, openBatchCareModal, closeBatchCareModal, openBatchCareFromSheet, returnToBatchActionSheetFromCare,
-                        batchCareTypeOptions, isBatchCareTypeSelected, toggleBatchCareType, isBatchCareSubmitDisabled, submitBatchCare, exitBatchMode,
-	                    showBatchArchiveModal, isBatchArchiveLoading, batchArchiveForm, batchArchiveReasons, archiveTargetPot, archiveFileInput,
-                        archiveImageCount, triggerArchiveFileInput, onArchiveFilesSelected, removeArchiveImage,
-	                    openBatchArchiveFromSheet, closeBatchArchiveModal, returnToBatchActionSheetFromArchive, submitBatchArchive,
+                    // 批量养护
+                    showBatchActionSheet, showBatchCareModal, isBatchCareLoading, batchCareForm,
+                    openBatchActionSheet, closeBatchActionSheet, openBatchCareModal, closeBatchCareModal, openBatchCareFromSheet, returnToBatchActionSheetFromCare,
+                    batchCareTypeOptions, isBatchCareTypeSelected, toggleBatchCareType, isBatchCareSubmitDisabled, submitBatchCare, exitBatchMode,
+                    showBatchArchiveModal, isBatchArchiveLoading, batchArchiveForm, batchArchiveReasons, archiveTargetPot, archiveFileInput,
+                    archiveImageCount, triggerArchiveFileInput, onArchiveFilesSelected, removeArchiveImage,
+                    openBatchArchiveFromSheet, closeBatchArchiveModal, returnToBatchActionSheetFromArchive, submitBatchArchive,
                     showBatchInviteModal, isBatchInviteLoading, batchInviteForm,
                     openBatchInviteModal, closeBatchInviteModal, openBatchInviteFromSheet, returnToBatchActionSheetFromInvite, deleteSelectedFromSheet, restoreSelectedFromSheet, leaveSelectedViewersFromSheet, submitBatchInvite,
                     apiClient

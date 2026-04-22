@@ -1,9 +1,8 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
 import {
-  isDefaultImage,
-  extractObjectKeyFromUrl,
-  deleteFileFromR2
+  deleteImagesFromR2
 } from '../utils/storage-utils';
+import { findAccessiblePot } from '../utils/pot-access-utils';
 
 export async function handlePotsRequest(
   request: Request,
@@ -590,11 +589,9 @@ async function handleArchivePot(
     const imageUrls = getArchiveImageUrlsForPot(body, potId);
     const archivedAt = new Date().toISOString();
 
-    const pot = await env.DB.prepare(`
-      SELECT id, name
-      FROM pots
-      WHERE id = ? AND user_id = ?
-    `).bind(potId, userId).first();
+    const pot = await findAccessiblePot(env, potId, userId, 'owner', {
+      select: 'p.id, p.name'
+    });
 
     if (!pot) {
       return errorResponse('Pot not found or access denied', 404);
@@ -602,12 +599,12 @@ async function handleArchivePot(
 
     const updateStatement = env.DB.prepare(`
       UPDATE pots
-      SET status = 'archived',
-          archived_at = ?,
-          archive_reason = ?,
-          archive_note = ?
-      WHERE id = ? AND user_id = ?
-    `).bind(archivedAt, reason, note || null, potId, userId);
+	      SET status = 'archived',
+	          archived_at = ?,
+	          archive_reason = ?,
+	          archive_note = ?
+	      WHERE id = ?
+	    `).bind(archivedAt, reason, note || null, potId);
 
     const statements = [updateStatement];
     const timelineStatement = buildArchiveTimelineStatement(env, potId, userId, archivedAt, note, imageUrls);
@@ -644,14 +641,19 @@ async function handleRestorePot(
       return errorResponse('Authentication required', 401);
     }
 
+    const pot = await findAccessiblePot(env, potId, userId, 'owner');
+    if (!pot) {
+      return errorResponse('Pot not found or access denied', 404);
+    }
+
     const result = await env.DB.prepare(`
       UPDATE pots
-      SET status = 'active',
-          archived_at = NULL,
-          archive_reason = NULL,
-          archive_note = NULL
-      WHERE id = ? AND user_id = ?
-    `).bind(potId, userId).run();
+	      SET status = 'active',
+	          archived_at = NULL,
+	          archive_reason = NULL,
+	          archive_note = NULL
+	      WHERE id = ?
+	    `).bind(potId).run();
 
     if (!result.meta || result.meta.changes === 0) {
       return errorResponse('Pot not found or access denied', 404);
@@ -769,11 +771,7 @@ async function handleUpdatePot(
       return errorResponse('Authentication required', 401);
     }
 
-    // 检查花盆是否存在且属于当前用户
-    const pot = await env.DB
-      .prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?')
-      .bind(potId, userId)
-      .first();
+    const pot = await findAccessiblePot(env, potId, userId, 'owner', { allowArchived: false });
 
     if (!pot) {
       return errorResponse('Pot not found or access denied', 404);
@@ -813,14 +811,14 @@ async function handleUpdatePot(
     }
 
     // 构建 SQL 语句（包含 WHERE 条件）
-    const sql = `
-      UPDATE pots 
-      SET ${updates.join(', ')}
-      WHERE id = ? AND user_id = ?
-    `;
-
-    // 添加 WHERE 条件参数到值数组
-    values.push(potId, userId);
+	    const sql = `
+	      UPDATE pots 
+	      SET ${updates.join(', ')}
+	      WHERE id = ?
+	    `;
+	
+	    // 添加 WHERE 条件参数到值数组
+	    values.push(potId);
 
     // 使用展开运算符绑定参数
     await env.DB.prepare(sql).bind(...values).run();
@@ -852,68 +850,50 @@ async function handleDeletePot(
       return errorResponse('Authentication required', 401);
     }
 
-    // 检查花盆是否存在且属于当前用户
-    const pot = await env.DB
-      .prepare('SELECT id, image_url FROM pots WHERE id = ? AND user_id = ?')
-      .bind(potId, userId)
-      .first();
+    const pot = await findAccessiblePot(env, potId, userId, 'owner', {
+      select: 'p.id, p.image_url'
+    });
 
     if (!pot) {
       return errorResponse('Pot not found or access denied', 404);
     }
 
-    // 1. 删除花盆图片（如果不是默认图片）
-    let imageDeleted = false;
-    if (pot.image_url && !isDefaultImage(pot.image_url)) {
-      const objectKey = extractObjectKeyFromUrl(pot.image_url);
-      if (objectKey) {
-        imageDeleted = await deleteFileFromR2(env, objectKey);
-      }
-    }
+    const imageDeleteResult = await deleteImagesFromR2(env, pot.image_url);
+    const imageDeleted = imageDeleteResult.success > 0;
 
-    // 2. 获取时间线图片（用于后续删除）
+    // 2. 获取记录图片（用于后续删除）
     const timelines = await env.DB
       .prepare('SELECT id, images FROM timelines WHERE pot_id = ?')
+      .bind(potId)
+      .all();
+    const careRecords = await env.DB
+      .prepare('SELECT id, image_url FROM care_records WHERE pot_id = ?')
       .bind(potId)
       .all();
 
     // 3. 使用事务删除数据库记录
     await env.DB.batch([
-      env.DB.prepare('DELETE FROM care_records WHERE pot_id = ?').bind(potId),
-      env.DB.prepare('DELETE FROM timelines WHERE pot_id = ?').bind(potId),
-      env.DB.prepare('DELETE FROM pots WHERE id = ? AND user_id = ?').bind(potId, userId)
-    ]);
+	      env.DB.prepare('DELETE FROM care_records WHERE pot_id = ?').bind(potId),
+	      env.DB.prepare('DELETE FROM timelines WHERE pot_id = ?').bind(potId),
+	      env.DB.prepare('DELETE FROM pots WHERE id = ?').bind(potId)
+	    ]);
 
-    // 4. 删除时间线图片（异步，不阻塞主流程）
-    if (timelines.results && timelines.results.length > 0) {
+    // 4. 删除记录图片（异步，不阻塞主流程）
+    if ((timelines.results && timelines.results.length > 0) || (careRecords.results && careRecords.results.length > 0)) {
       ctx.waitUntil((async () => {
         try {
-          let totalImages = 0;
-          let deletedImages = 0;
-
           for (const timeline of (timelines.results as any[])) {
             if (timeline.images) {
-              try {
-                const images = JSON.parse(timeline.images);
-                if (Array.isArray(images)) {
-                  totalImages += images.length;
-                  for (const imageUrl of images) {
-                    if (!isDefaultImage(imageUrl)) {
-                      const objectKey = extractObjectKeyFromUrl(imageUrl);
-                      if (objectKey) {
-                        const deleted = await deleteFileFromR2(env, objectKey);
-                        if (deleted) deletedImages++;
-                      }
-                    }
-                  }
-                }
-              } catch (parseError) {
-                console.error('解析时间线图片失败:', parseError, timeline.images);
-              }
+              await deleteImagesFromR2(env, timeline.images);
+            }
+          }
+          for (const record of (careRecords.results as any[])) {
+            if (record.image_url) {
+              await deleteImagesFromR2(env, record.image_url);
             }
           }
         } catch (asyncError) {
-          console.error('异步删除时间线图片失败:', asyncError);
+          console.error('异步删除记录图片失败:', asyncError);
         }
       })());
     }
@@ -922,10 +902,11 @@ async function handleDeletePot(
       success: true,
       message: 'Pot and related records deleted successfully',
       data: {
-        imageDeleted,
-        timelineCount: timelines.results?.length || 0
-      }
-    });
+	        imageDeleted,
+	        timelineCount: timelines.results?.length || 0,
+          careRecordCount: careRecords.results?.length || 0
+	      }
+	    });
 
   } catch (error) {
     console.error('Delete pot error:', error);
@@ -944,17 +925,7 @@ interface CareRecord {
 async function handleGetCareRecords(path: string, env: any, token: string | null): Promise<Response> {
   const potId = path.split('/')[3];
 
-  // 安全加固：校验该花盆是否属于该用户 (主或协作者)
-  const pot = await env.DB
-    .prepare(`
-      SELECT id FROM pots WHERE id = ? AND user_id = ?
-      UNION
-      SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?
-      UNION
-      SELECT pot_id FROM pot_viewers WHERE pot_id = ? AND user_id = ?
-    `)
-    .bind(potId, token, potId, token, potId, token)
-    .first();
+  const pot = await findAccessiblePot(env, potId, token, 'view');
 
   if (!pot) {
     return errorResponse('Pot not found or access denied', 404);
@@ -994,17 +965,7 @@ async function handleGetTimelines(path: string, env: any, url: URL, token: strin
   const limitParam = url.searchParams.get('limit');
   const limit = limitParam ? Math.min(100, Math.max(1, parseInt(limitParam, 10) || 20)) : null;
 
-  // 安全加固：校验该花盆是否属于该用户 (主或协作者)
-  const pot = await env.DB
-    .prepare(`
-      SELECT id FROM pots WHERE id = ? AND user_id = ?
-      UNION
-      SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?
-      UNION
-      SELECT pot_id FROM pot_viewers WHERE pot_id = ? AND user_id = ?
-    `)
-    .bind(potId, token, potId, token, potId, token)
-    .first();
+  const pot = await findAccessiblePot(env, potId, token, 'view');
 
   if (!pot) {
     return errorResponse('Pot not found or access denied', 404);
@@ -1078,17 +1039,7 @@ async function handleReorderPots(
 async function handleGetPotStats(path: string, env: any, token: string | null): Promise<Response> {
   const potId = path.split('/')[3];
 
-  // 安全加固：校验该花盆是否属于该用户 (主或协作者)
-  const pot = await env.DB
-    .prepare(`
-      SELECT id FROM pots WHERE id = ? AND user_id = ?
-      UNION
-      SELECT pot_id FROM pot_collaborators WHERE pot_id = ? AND user_id = ?
-      UNION
-      SELECT pot_id FROM pot_viewers WHERE pot_id = ? AND user_id = ?
-    `)
-    .bind(potId, token, potId, token, potId, token)
-    .first();
+  const pot = await findAccessiblePot(env, potId, token, 'view');
 
   if (!pot) {
     return errorResponse('Pot not found or access denied', 404);

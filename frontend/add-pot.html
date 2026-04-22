@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
     <title>添加花盆 - My Flower Pots</title>
     <meta name="theme-color" content="#ffffff">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
@@ -28,6 +29,8 @@
     <!-- 配置脚本 -->
     <script src="js/config.js?v=20260111"></script>
     <script src="js/api-client.js?v=20260418-d1session"></script>
+    <script src="js/media-utils.js?v=20260421-refactor"></script>
+    <script src="js/ui-utils.js?v=20260421-refactor"></script>
 </head>
 
 <body class="bg-gray-50">
@@ -147,7 +150,6 @@
                 const imagePreview = ref(null);
                 const suggestions = ref([]);
                 const toast = ref({ show: false, message: '', type: 'success' });
-                let toastTimer = null;
 
                 const form = reactive({
                     name: '',
@@ -156,40 +158,11 @@
                     create_initial_timeline: true
                 });
 
-                const compressImage = (file, maxSide = 1920, quality = 0.85) => {
-                    if (file.type === 'image/gif') return Promise.resolve(file);
-                    return new Promise((resolve) => {
-                        const img = new Image();
-                        const url = URL.createObjectURL(file);
-                        img.onload = () => {
-                            URL.revokeObjectURL(url);
-                            let { width, height } = img;
-                            if (width > maxSide || height > maxSide) {
-                                if (width >= height) { height = Math.round(height * maxSide / width); width = maxSide; }
-                                else { width = Math.round(width * maxSide / height); height = maxSide; }
-                            }
-                            const canvas = document.createElement('canvas');
-                            canvas.width = width;
-                            canvas.height = height;
-                            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                            canvas.toBlob((blob) => {
-                                resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
-                            }, 'image/jpeg', quality);
-                        };
-                        img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
-                        img.src = url;
-                    });
-                };
-
                 const onFileSelected = async (e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                        const compressed = await compressImage(file);
-                        imageFile.value = compressed;
-                        const reader = new FileReader();
-                        reader.onload = (ev) => imagePreview.value = ev.target.result;
-                        reader.readAsDataURL(compressed);
-                    }
+                    const [item] = await MyFlowerPotsMedia.selectImages(e, { limit: 1 });
+                    if (!item) return;
+                    imageFile.value = item.file;
+                    imagePreview.value = item.preview;
                 };
 
                 const onNameInput = async () => {
@@ -210,13 +183,7 @@
                     suggestions.value = [];
                 };
 
-                const showToast = (message, type = 'success') => {
-                    toast.value = { show: true, message, type };
-                    if (toastTimer) clearTimeout(toastTimer);
-                    toastTimer = setTimeout(() => {
-                        toast.value.show = false;
-                    }, 2200);
-                };
+                const showToast = MyFlowerPotsUi.createToast(toast);
 
                 const savePot = async () => {
                     try {
@@ -228,13 +195,11 @@
                         // 2. 如果有图片，上传图片
                         let imageUrl = null;
                         if (imageFile.value) {
-                            const uploadRes = await apiClient.uploadImage(imageFile.value, {
+                            const [uploadedUrl] = await MyFlowerPotsMedia.uploadImages(apiClient, [{ file: imageFile.value }], {
                                 potId: potId,
                                 uploadType: 'pot'
                             });
-                            if (uploadRes.success) {
-                                imageUrl = uploadRes.data.url;
-                            }
+                            imageUrl = uploadedUrl || null;
                         }
 
                         // 3. 创建花盆

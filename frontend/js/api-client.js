@@ -561,12 +561,19 @@ class APIClient {
                 throw new APIError(response.status, errorData.error || '请求失败');
             }
 
-            const contentType = response.headers.get('content-type') || '';
-            if (contentType.includes('text/html')) {
-                throw new APIError(response.status || 0, `接口返回了 HTML 页面: ${endpoint}`);
-            }
+	            const contentType = response.headers.get('content-type') || '';
+	            if (contentType.includes('text/html')) {
+	                throw new APIError(response.status || 0, `接口返回了 HTML 页面: ${endpoint}`);
+	            }
 
-            const data = await response.json();
+	            if (options.responseType === 'blob') {
+	                return response.blob();
+	            }
+	            if (options.responseType === 'text') {
+	                return response.text();
+	            }
+	
+	            const data = await response.json();
             if (method !== 'GET' && this.affectsPotList(endpoint)) {
                 this.potsCacheVersion = Date.now();
             }
@@ -648,6 +655,33 @@ class APIClient {
 
     async getUserProfile() {
         return this.getCurrentUser();
+    }
+
+    async updateProfile({ displayName, avatarUrl } = {}) {
+        return this.request('/api/auth/profile', {
+            method: 'PUT',
+            body: { displayName, avatarUrl }
+        });
+    }
+
+    async updatePassword(currentPassword, newPassword) {
+        return this.request('/api/auth/password', {
+            method: 'PUT',
+            body: { currentPassword, newPassword }
+        });
+    }
+
+    async changeEmail(newEmail) {
+        return this.request('/api/auth/change-email', {
+            method: 'POST',
+            body: { newEmail }
+        });
+    }
+
+    async sendVerificationEmail() {
+        return this.request('/api/auth/send-verification-email', {
+            method: 'POST'
+        });
     }
 
     async logout() {
@@ -872,6 +906,34 @@ class APIClient {
         return this.request('/api/admin/support/unread-count');
     }
 
+    async adminGetSupportEmails(page = 1) {
+        return this.request(`/api/admin/support/emails?page=${encodeURIComponent(page)}`);
+    }
+
+    async adminGetSupportEmail(emailId) {
+        return this.request(`/api/admin/support/emails/${encodeURIComponent(emailId)}`);
+    }
+
+    async adminReplySupportEmail(emailId, body) {
+        return this.request(`/api/admin/support/emails/${encodeURIComponent(emailId)}/reply`, {
+            method: 'POST',
+            body: { body }
+        });
+    }
+
+    async adminDeleteSupportEmail(emailId) {
+        return this.request(`/api/admin/support/emails/${encodeURIComponent(emailId)}`, {
+            method: 'DELETE'
+        });
+    }
+
+    async adminDownloadSupportAttachment(emailId, filename) {
+        return this.request(
+            `/api/admin/support/emails/${encodeURIComponent(emailId)}/attachments/${encodeURIComponent(filename)}`,
+            { responseType: 'blob' }
+        );
+    }
+
     async sendPotComment(potId, content, shareToken = null) {
         return this.request('/api/messages/pot-comment', {
             method: 'POST',
@@ -976,6 +1038,10 @@ class APIClient {
         return this.request(`/api/care-records/${potId}`);
     }
 
+    async getCareRecordDetail(recordId) {
+        return this.request(`/api/care-records/detail/${recordId}`);
+    }
+
     async createCareRecord(recordData) {
         return this.request('/api/care-records', {
             method: 'POST',
@@ -987,6 +1053,19 @@ class APIClient {
         return this.request('/api/care-records/batch', {
             method: 'POST',
             body: data
+        });
+    }
+
+    async updateCareRecord(recordId, recordData) {
+        return this.request(`/api/care-records/${recordId}`, {
+            method: 'PUT',
+            body: recordData
+        });
+    }
+
+    async deleteCareRecord(recordId) {
+        return this.request(`/api/care-records/${recordId}`, {
+            method: 'DELETE'
         });
     }
 
@@ -1141,6 +1220,16 @@ class APIClient {
     // 管理员API
     async adminCheck() {
         return this.request('/api/admin/check');
+    }
+
+    async adminGetAnalytics({ startDate = '', endDate = '' } = {}) {
+        const params = new URLSearchParams();
+        if (startDate && endDate) {
+            params.set('startDate', startDate);
+            params.set('endDate', endDate);
+        }
+        const query = params.toString() ? `?${params.toString()}` : '';
+        return this.request(`/api/admin/analytics${query}`);
     }
 
     async adminGetCacheStats() {

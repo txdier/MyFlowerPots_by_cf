@@ -1,9 +1,9 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
 import {
-  isDefaultImage,
-  extractObjectKeyFromUrl,
-  deleteFileFromR2
+  deleteImagesFromR2,
+  getRemovedImageUrls
 } from '../utils/storage-utils';
+import { findAccessiblePot } from '../utils/pot-access-utils';
 
 export async function handleTimelinesRequest(
   request: Request,
@@ -47,17 +47,7 @@ async function handleCreateTimeline(request: Request, env: any, token: string | 
       return errorResponse('missing fields', 400);
     }
 
-    // 安全加固：校验目标花盆归属权或协作权
-    const pot = await env.DB
-      .prepare(`
-        SELECT p.id FROM pots p
-        LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
-        WHERE p.id = ?
-          AND COALESCE(p.status, 'active') = 'active'
-          AND (p.user_id = ? OR pc.user_id = ?)
-      `)
-      .bind(potId, token, token)
-      .first();
+    const pot = await findAccessiblePot(env, potId, token, 'manage', { allowArchived: false });
 
     if (!pot) {
       return errorResponse('Pot not found or access denied', 403);
@@ -103,40 +93,27 @@ async function handleUpdateTimeline(request: Request, env: any, id: string, toke
     const { date, description, images, video } = body;
 
     // 安全加固：检查记录是否存在且属于该用户 (主或协作者)
-    const existing = await env.DB
+    const existing: any = await env.DB
       .prepare(`
-        SELECT t.id, t.images, t.video FROM timelines t
-        JOIN pots p ON t.pot_id = p.id
-        LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
-        WHERE t.id = ?
-          AND COALESCE(p.status, 'active') = 'active'
-          AND (p.user_id = ? OR pc.user_id = ?)
+        SELECT id, pot_id, images, video
+        FROM timelines
+        WHERE id = ?
       `)
-      .bind(id, token, token)
+      .bind(id)
       .first();
 
     if (!existing) {
       return errorResponse('Record not found', 404);
     }
 
+    const pot = await findAccessiblePot(env, existing.pot_id, token, 'manage', { allowArchived: false });
+    if (!pot) {
+      return errorResponse('Record not found', 404);
+    }
+
     // 处理图片更新时的 R2 清理逻辑（比较新旧列表）
     if (images !== undefined) {
-      const newImages = Array.isArray(images) ? images : (images ? JSON.parse(images) : []);
-      let oldImages: string[] = [];
-      try {
-        oldImages = existing.images ? JSON.parse(existing.images) : [];
-      } catch (e) {
-        console.warn('解析旧图片失败:', e);
-      }
-
-      // 找出被移除的图片
-      const removedImages = oldImages.filter(img => !newImages.includes(img));
-      for (const imgUrl of removedImages) {
-        if (!isDefaultImage(imgUrl)) {
-          const key = extractObjectKeyFromUrl(imgUrl);
-          if (key) await deleteFileFromR2(env, key);
-        }
-      }
+      await deleteImagesFromR2(env, getRemovedImageUrls(existing.images, images));
     }
 
     // 构建更新 SQL
@@ -181,38 +158,25 @@ async function handleUpdateTimeline(request: Request, env: any, id: string, toke
 async function handleDeleteTimeline(request: Request, env: any, id: string, token: string | null): Promise<Response> {
   try {
     // 安全加固：检查记录是否存在且属于该用户 (主或协作者)
-    const existing = await env.DB
+    const existing: any = await env.DB
       .prepare(`
-        SELECT t.id, t.images, t.video FROM timelines t
-        JOIN pots p ON t.pot_id = p.id
-        LEFT JOIN pot_collaborators pc ON p.id = pc.pot_id
-        WHERE t.id = ?
-          AND COALESCE(p.status, 'active') = 'active'
-          AND (p.user_id = ? OR pc.user_id = ?)
+        SELECT id, pot_id, images, video
+        FROM timelines
+        WHERE id = ?
       `)
-      .bind(id, token, token)
+      .bind(id)
       .first();
 
     if (!existing) {
       return errorResponse('Record not found', 404);
     }
 
-    // 清理所有关联图片
-    if (existing.images) {
-      try {
-        const images = JSON.parse(existing.images);
-        if (Array.isArray(images)) {
-          for (const imgUrl of images) {
-            if (!isDefaultImage(imgUrl)) {
-              const key = extractObjectKeyFromUrl(imgUrl);
-              if (key) await deleteFileFromR2(env, key);
-            }
-          }
-        }
-      } catch (e) {
-        console.error('解析时间线图片失败:', e);
-      }
+    const pot = await findAccessiblePot(env, existing.pot_id, token, 'manage', { allowArchived: false });
+    if (!pot) {
+      return errorResponse('Record not found', 404);
     }
+
+    await deleteImagesFromR2(env, existing.images);
 
     // TODO: 清理视频资源
 

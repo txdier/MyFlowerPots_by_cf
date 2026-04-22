@@ -1,9 +1,8 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
 import {
-  generateStoragePath,
-  getUserIdFromRequest,
-  isDefaultImage
+  generateStoragePath
 } from '../utils/storage-utils';
+import { findAccessiblePot } from '../utils/pot-access-utils';
 
 function getFallbackImageUrl(request: Request): string {
   const origin = new URL(request.url).origin.replace(/\/$/, '');
@@ -150,10 +149,9 @@ async function handleImageUpload(request: Request, env: any, token: string | nul
   try {
     if (uploadType === 'pot' && finalPotId) {
       // 安全加固：更新前校验归属权
-      const pot = await env.DB
-        .prepare('SELECT id FROM pots WHERE id = ? AND user_id = ?')
-        .bind(finalPotId, userId)
-        .first();
+      const pot = await findAccessiblePot(env, finalPotId, userId, 'owner', {
+        select: 'p.id'
+      });
 
       if (pot) {
         // 更新花盆图片URL

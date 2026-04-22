@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
     <title>访问统计 - My Flower Pots</title>
     <meta name="theme-color" content="#ffffff">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="stylesheet" href="css/tailwind-built.css">
@@ -362,7 +363,9 @@
         </div>
     </div>
 
-    <script src="js/api-client.js?v=20260418-d1session"></script>
+    <script src="js/api-client.js?v=20260421-methods"></script>
+    <script src="js/ui-utils.js?v=20260421-refactor"></script>
+    <script src="js/date-utils.js?v=20260421-refactor"></script>
     <script>
         const { createApp, ref, computed, onMounted } = Vue;
 
@@ -401,10 +404,10 @@
                     return Math.round(sum / trend.value.length);
                 });
 
-                const showToast = (msg, icon = 'fa fa-info-circle') => {
-                    toast.value = { show: true, message: msg, icon };
-                    setTimeout(() => toast.value.show = false, 3000);
-                };
+                const showToast = MyFlowerPotsUi.createToast(toast, {
+                    duration: 3000,
+                    defaultType: 'info'
+                });
 
                 const formatLocalDate = (date) => {
                     const year = date.getFullYear();
@@ -471,11 +474,10 @@
                 const loadStats = async () => {
                     loading.value = true;
                     try {
-                        let url = '/api/admin/analytics';
-                        if (startDate.value && endDate.value) {
-                            url += `?startDate=${startDate.value}&endDate=${endDate.value}`;
-                        }
-                        const data = await apiClient.request(url);
+                        const data = await apiClient.adminGetAnalytics({
+                            startDate: startDate.value,
+                            endDate: endDate.value
+                        });
                         if (data.success) {
                             stats.value = data.data || [];
                             trend.value = data.trend || [];
@@ -534,16 +536,12 @@
                     return ((count / totalVisits.value) * 100).toFixed(1);
                 };
 
-                const formatDateTime = (dateStr) => {
-                    if (!dateStr) return '-';
-                    if (dateStr.length === 10) return dateStr;
-                    // D1 的 datetime('now') 返回 UTC，需要加 'Z' 后缀让 JS 正确识别时区
-                    const utcStr = dateStr.endsWith('Z') ? dateStr : dateStr.replace(' ', 'T') + 'Z';
-                    return new Date(utcStr).toLocaleString('zh-CN', {
-                        year: 'numeric', month: '2-digit', day: '2-digit',
-                        hour: '2-digit', minute: '2-digit'
-                    });
-                };
+                const formatDateTime = (dateStr) => MyFlowerPotsDate.formatDateTime(dateStr, {
+                    assumeUtc: true,
+                    preserveDateOnly: true,
+                    locale: 'zh-CN',
+                    fallback: '-'
+                });
 
                 onMounted(() => {
                     checkAccess();

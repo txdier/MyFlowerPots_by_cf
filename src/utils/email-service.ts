@@ -57,15 +57,15 @@ function renderEmailLayout(options: EmailLayoutOptions): string {
     ? `
       <div style="background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px 18px; margin: 24px 0;">
         ${details
-          .map(
-            (item) => `
+      .map(
+        (item) => `
               <div style="margin: 0 0 10px;">
                 <div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">${escapeHtml(item.label)}</div>
                 <div style="color: #111827; font-size: 15px; font-weight: 600; word-break: break-word;">${escapeHtml(item.value)}</div>
               </div>
             `
-          )
-          .join('')}
+      )
+      .join('')}
       </div>
     `
     : '';
@@ -269,7 +269,7 @@ export function generateWelcomeEmail(
         '添加第一盆植物，建立自己的植物档案',
         '记录浇水、施肥和其他养护动作',
         '上传照片与备注，持续观察成长变化',
-        '根据天气获取更贴合当前环境的养护建议'
+        '跟好友分享你的植物'
       ],
       actionLabel: '进入我的花盆',
       actionUrl: appBaseUrl,
@@ -279,7 +279,7 @@ export function generateWelcomeEmail(
         '祝您把每一盆植物都养得更好。'
       ]
     }),
-    text: `${greeting}\n\n您的邮箱已经验证成功，现在可以开始记录植物成长了。\n\n您可以先从这些操作开始：\n- 添加第一盆植物\n- 记录浇水、施肥和其他养护动作\n- 上传照片与备注\n- 查看基于天气的养护建议\n\n立即开始：${appBaseUrl}\n\n如需帮助，直接回复此邮件即可。\n\n我的花盆\n记录每一寸生长`
+    text: `${greeting}\n\n您的邮箱已经验证成功，现在可以开始记录植物成长了。\n\n您可以先从这些操作开始：\n- 添加第一盆植物\n- 记录浇水、施肥和其他养护动作\n- 上传照片与备注\n- 跟好友分享你的植物\n\n立即开始：${appBaseUrl}\n\n如需帮助，直接回复此邮件即可。\n\n我的花盆\n记录每一寸生长`
   };
 }
 

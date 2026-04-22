@@ -5,7 +5,7 @@
 前端已经完成从微信小程序到 Web 多页面应用的迁移，当前形态是：
 
 - 多个独立 HTML 页面
-- 共享一套 `api-client.js` / `app.js` / `router.js`
+- 共享一套 `api-client.js` / `router.js` / 公共工具脚本
 - 本地引入 Vue 3 运行时
 - Tailwind CSS + 自定义样式
 - 通过 Worker 在本地开发和生产环境统一提供页面
@@ -52,8 +52,7 @@ frontend/
 │   └── tailwind-input.css
 └── js/
     ├── api-client.js
-    ├── app.js
-    ├── clipboard.js
+	    ├── clipboard.js
     ├── config.js.example
     ├── router.js
     ├── Sortable.min.js
@@ -98,9 +97,6 @@ frontend/
   - 统一封装 API 请求
   - 管理 JWT、401 重试、刷新令牌
   - 封装分享、协作、访客、消息、上传等接口
-- `frontend/js/app.js`
-  - 管理全局启动逻辑
-  - 处理登录状态恢复与令牌刷新
 - `frontend/js/router.js`
   - 提供页面跳转辅助函数
 - `frontend/js/clipboard.js`

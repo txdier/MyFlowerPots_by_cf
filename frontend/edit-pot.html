@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
     <title>编辑花盆 - My Flower Pots</title>
     <meta name="theme-color" content="#ffffff">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <!-- Vue 3 CDN -->
     <script src="js/vue.global.js"></script>
@@ -26,6 +27,9 @@
     <!-- 配置脚本 -->
     <script src="js/config.js?v=20260111"></script>
     <script src="js/api-client.js?v=20260418-d1session"></script>
+    <script src="js/media-utils.js?v=20260421-refactor"></script>
+    <script src="js/ui-utils.js?v=20260421-refactor"></script>
+    <script src="js/pot-permissions.js?v=20260421-refactor"></script>
 </head>
 
 <body class="bg-gray-50">
@@ -166,7 +170,6 @@
                 const originalImageUrl = ref(null);
                 const suggestions = ref([]);
                 const toast = ref({ show: false, message: '', type: 'success' });
-                let toastTimer = null;
 
                 const form = reactive({
                     name: '',
@@ -190,8 +193,8 @@
                         const res = await apiClient.getPotDetail(potId.value);
                         if (res.success) {
                             const p = res.data;
-                            const isArchivedPot = String(p.status || 'active').toLowerCase() === 'archived';
-                            canEditPot.value = p.user_id === apiClient.userId && !isArchivedPot;
+                            const isArchivedPot = MyFlowerPotsPotPermissions.isArchivedPot(p);
+                            canEditPot.value = MyFlowerPotsPotPermissions.canEditPot(p, apiClient.userId);
                             if (!canEditPot.value) {
                                 showToast(isArchivedPot
                                     ? '已归档植物为只读状态，不能编辑花盆资料。'
@@ -233,40 +236,11 @@
                     init();
                 };
 
-                const compressImage = (file, maxSide = 1920, quality = 0.85) => {
-                    if (file.type === 'image/gif') return Promise.resolve(file);
-                    return new Promise((resolve) => {
-                        const img = new Image();
-                        const url = URL.createObjectURL(file);
-                        img.onload = () => {
-                            URL.revokeObjectURL(url);
-                            let { width, height } = img;
-                            if (width > maxSide || height > maxSide) {
-                                if (width >= height) { height = Math.round(height * maxSide / width); width = maxSide; }
-                                else { width = Math.round(width * maxSide / height); height = maxSide; }
-                            }
-                            const canvas = document.createElement('canvas');
-                            canvas.width = width;
-                            canvas.height = height;
-                            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                            canvas.toBlob((blob) => {
-                                resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
-                            }, 'image/jpeg', quality);
-                        };
-                        img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
-                        img.src = url;
-                    });
-                };
-
                 const onFileSelected = async (e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                        const compressed = await compressImage(file);
-                        imageFile.value = compressed;
-                        const reader = new FileReader();
-                        reader.onload = (ev) => imagePreview.value = ev.target.result;
-                        reader.readAsDataURL(compressed);
-                    }
+                    const [item] = await MyFlowerPotsMedia.selectImages(e, { limit: 1 });
+                    if (!item) return;
+                    imageFile.value = item.file;
+                    imagePreview.value = item.preview;
                 };
 
                 const onNameInput = async () => {
@@ -287,13 +261,7 @@
                     suggestions.value = [];
                 };
 
-                const showToast = (message, type = 'success') => {
-                    toast.value = { show: true, message, type };
-                    if (toastTimer) clearTimeout(toastTimer);
-                    toastTimer = setTimeout(() => {
-                        toast.value.show = false;
-                    }, 2200);
-                };
+                const showToast = MyFlowerPotsUi.createToast(toast);
 
                 const updatePot = async () => {
                     if (!canEditPot.value) {
@@ -305,13 +273,11 @@
                         isSaving.value = true;
                         let imageUrl = originalImageUrl.value;
                         if (imageFile.value) {
-                            const uploadRes = await apiClient.uploadImage(imageFile.value, {
+                            const [uploadedUrl] = await MyFlowerPotsMedia.uploadImages(apiClient, [{ file: imageFile.value }], {
                                 potId: potId.value,
                                 uploadType: 'pot'
                             });
-                            if (uploadRes.success) {
-                                imageUrl = uploadRes.data.url;
-                            }
+                            if (uploadedUrl) imageUrl = uploadedUrl;
                         }
 
                         const payload = {
