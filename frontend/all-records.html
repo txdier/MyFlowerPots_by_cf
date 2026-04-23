@@ -28,7 +28,7 @@
 
     <!-- 配置脚本 -->
     <script src="js/config.js?v=20260111"></script>
-    <script src="js/api-client.js?v=20260418-d1session"></script>
+    <script src="js/api-client.js?v=20260422-share-access"></script>
     <script src="js/media-utils.js?v=20260421-refactor"></script>
     <script src="js/pot-permissions.js?v=20260421-refactor"></script>
     <script src="js/care-utils.js?v=20260421-refactor"></script>
@@ -152,9 +152,10 @@
                 const nav = window.MyFlowerPotsNavigation;
                 const showAlert = window.MyFlowerPotsDialog.alert;
                 const showConfirm = window.MyFlowerPotsDialog.confirm;
-                const isLoading = ref(true);
-                const potId = ref(null);
-                const pot = ref(null);
+                    const isLoading = ref(true);
+                    const potId = ref(null);
+                    const shareToken = ref(null);
+                    const pot = ref(null);
                 const records = ref([]);
                 const filterType = ref('all');
                 const previewUrl = ref(null);
@@ -169,13 +170,33 @@
                     { label: '其他', value: 'other' }
                 ];
 
-                const init = async () => {
-                    const params = new URLSearchParams(window.location.search);
-                    potId.value = params.get('potId');
+                    const buildCurrentPageUrl = () => {
+                        const params = new URLSearchParams();
+                        if (potId.value) params.set('potId', potId.value);
+                        if (shareToken.value) params.set('token', shareToken.value);
+                        const query = params.toString();
+                        return query ? `all-records?${query}` : 'all-records';
+                    };
 
-                    if (!potId.value) {
-                        nav.redirectToError({
-                            type: 'not_found',
+                    const buildDetailPageUrl = () => {
+                        const params = new URLSearchParams();
+                        if (shareToken.value) {
+                            params.set('token', shareToken.value);
+                        } else if (potId.value) {
+                            params.set('id', potId.value);
+                        }
+                        const query = params.toString();
+                        return query ? `pot-detail?${query}` : 'pot-detail';
+                    };
+
+                    const init = async () => {
+                        const params = new URLSearchParams(window.location.search);
+                        potId.value = params.get('potId');
+                        shareToken.value = params.get('token');
+
+                        if (!potId.value && !shareToken.value) {
+                            nav.redirectToError({
+                                type: 'not_found',
                             from: 'all-records',
                             redirect: '/',
                             message: '缺少花盆参数，无法加载养护记录。'
@@ -183,17 +204,21 @@
                         return;
                     }
 
-                    try {
-                        await Promise.all([
-                            loadPotInfo(),
-                            loadRecords()
-                        ]);
-                    } catch (e) {
-                        console.error(e);
-                        nav.redirectForApiError(e, {
-                            from: 'all-records',
-                            redirect: `all-records?potId=${encodeURIComponent(potId.value)}`,
-                            authType: 'login_required',
+                        try {
+                            if (shareToken.value) {
+                                await loadPublicRecordsPage();
+                            } else {
+                                await Promise.all([
+                                    loadPotInfo(),
+                                    loadRecords()
+                                ]);
+                            }
+                        } catch (e) {
+                            console.error(e);
+                            nav.redirectForApiError(e, {
+                                from: 'all-records',
+                                redirect: buildCurrentPageUrl(),
+                                authType: 'login_required',
                             forbiddenType: 'forbidden',
                             notFoundType: 'not_found',
                             message: e.message || '养护记录暂时无法加载。'
@@ -208,10 +233,27 @@
                     if (res.success) pot.value = res.data;
                 };
 
-                const loadRecords = async () => {
-                    const res = await apiClient.getCareRecords(potId.value);
-                    if (res.success) records.value = res.data || [];
-                };
+                    const loadRecords = async () => {
+                        const res = await apiClient.getCareRecords(potId.value);
+                        if (res.success) records.value = res.data || [];
+                    };
+
+                    const loadPublicRecordsPage = async () => {
+                        const res = await apiClient.getPublicPotDetail(shareToken.value, {
+                            careLimit: 'all',
+                            timelineLimit: 1
+                        });
+                        if (res.success) {
+                            const viewer = res.data.viewer || {};
+                            pot.value = {
+                                ...res.data.pot,
+                                is_collaborator: !!viewer.isCollaborator,
+                                is_viewer: !!viewer.isViewer
+                            };
+                            potId.value = pot.value?.id || potId.value;
+                            records.value = res.data.careRecords || [];
+                        }
+                    };
 
                 const normalizeCareType = MyFlowerPotsCare.normalizeCareType;
 
@@ -245,20 +287,20 @@
 
                 const previewImage = (url) => previewUrl.value = url;
 
-                const goBack = () => {
-                    window.location.href = `pot-detail?id=${potId.value}`;
-                };
+                    const goBack = () => {
+                        window.location.href = buildDetailPageUrl();
+                    };
 
                 const goAddCare = () => {
                     if (!canManageRecords.value) return;
                     window.location.href = `care-record?potId=${potId.value}`;
                 };
 
-                window.addEventListener('auth:expired', (event) => {
-                    nav.redirectToSessionExpired(event.detail?.message, {
-                        from: 'all-records',
-                        redirect: `all-records?potId=${encodeURIComponent(potId.value || '')}`,
-                        source: 'auth'
+                    window.addEventListener('auth:expired', (event) => {
+                        nav.redirectToSessionExpired(event.detail?.message, {
+                            from: 'all-records',
+                            redirect: buildCurrentPageUrl(),
+                            source: 'auth'
                     }, { replace: true });
                 });
 

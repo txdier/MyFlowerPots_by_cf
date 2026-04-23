@@ -110,7 +110,7 @@ async function handleOpenInviteLink(request: Request, token: string, env: any): 
   if (!invite) return errorResponse('Invite link invalid or expired', 400);
 
   const pot = await env.DB.prepare(`
-    SELECT id, COALESCE(status, 'active') as status
+    SELECT id, name, COALESCE(status, 'active') as status
     FROM pots
     WHERE id = ?
   `).bind(invite.pot_id).first();
@@ -142,7 +142,11 @@ async function handleOpenInviteLink(request: Request, token: string, env: any): 
     success: true,
     data: {
       expiresAt: invite.expires_at,
-      remainingViews: nextRemainingViews
+      remainingViews: nextRemainingViews,
+      pot: {
+        id: pot.id,
+        name: pot.name
+      }
     }
   });
 }

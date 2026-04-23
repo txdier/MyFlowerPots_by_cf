@@ -357,6 +357,26 @@
                 </div>
             </div>
 
+            <div v-else-if="pendingInvitePrompt" class="container py-6">
+                <section class="rounded-lg border border-gray-100 bg-white px-6 py-8 text-center shadow-sm">
+                    <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-green-50 text-xl text-green-600">
+                        <i class="fa" :class="pendingInvitePrompt.icon"></i>
+                    </div>
+                    <h2 class="mt-5 text-2xl font-black text-gray-900">{{ pendingInvitePrompt.title }}</h2>
+                    <p class="mx-auto mt-3 max-w-sm text-sm leading-7 text-gray-500">{{ pendingInvitePrompt.lead }}</p>
+                    <div class="mx-auto mt-6 grid max-w-sm gap-3 sm:grid-cols-2">
+                        <button @click="switchToLogin"
+                            class="inline-flex items-center justify-center rounded-md bg-green-500 px-4 py-3 text-sm font-bold text-white transition active:scale-95">
+                            去登录
+                        </button>
+                        <button @click="switchToRegister"
+                            class="inline-flex items-center justify-center rounded-md border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-700 transition active:scale-95">
+                            注册账号
+                        </button>
+                    </div>
+                </section>
+            </div>
+
             <!-- 内容区域 -->
             <div v-if="!isLoading && pot" class="container py-6 space-y-6">
                 <!-- 1. 花盆基本信息卡片 -->
@@ -1926,7 +1946,7 @@
 
     <script src="js/vue.global.prod.js"></script>
     <script src="js/config.js?v=20260227"></script>
-    <script src="js/api-client.js?v=20260418-d1session"></script>
+    <script src="js/api-client.js?v=20260422-share-access"></script>
     <script src="js/media-utils.js?v=20260421-refactor"></script>
     <script src="js/pot-permissions.js?v=20260421-refactor"></script>
     <script src="js/care-utils.js?v=20260421-refactor"></script>
@@ -1994,6 +2014,7 @@
 	                const showCommentDanmaku = ref(true);
                 const potComments = ref([]);
                 const replyTargetComment = ref(null);
+                const pendingInvitePrompt = ref(null);
                 const commentSortOrder = ref('asc');
                 const viewers = ref([]);
                 const isPlantInfoLoading = ref(false);
@@ -2291,7 +2312,7 @@
                             url.searchParams.delete('id');
                             window.history.replaceState({}, '', url.toString());
                         }
-                    } else {
+                    } else if (pot.value.is_shared === false || pot.value.is_shared === 0) {
                         // 关闭了分享：回退到私有 id 模式
                         if (!url.searchParams.has('id')) {
                             url.searchParams.set('id', pot.value.id);
@@ -2578,7 +2599,8 @@
                     careSchedules.value = [];
                     plantInfo.value = null;
                     matchedPlantName.value = null;
-                    potComments.value = [];
+	                    potComments.value = [];
+	                    pendingInvitePrompt.value = null;
                     viewerIsCollaborator.value = false;
                     viewerIsViewer.value = false;
                     showCommentDanmaku.value = true;
@@ -2606,17 +2628,17 @@
                                 return;
                             }
                             try {
-                                await openCollaboratorInviteLink();
+                                const inviteData = await openCollaboratorInviteLink();
+                                if (!hasEmailAuthSession()) {
+                                    isLoading.value = false;
+                                    prepareInviteLoginPrompt('collab', inviteData);
+                                    return;
+                                }
                             } catch (inviteOpenError) {
                                 if (hasEmailAuthSession() && await tryResumeCollaboratorInviteFromLink()) {
                                     return;
                                 }
                                 throw inviteOpenError;
-                            }
-                            if (!hasEmailAuthSession()) {
-                                isLoading.value = false;
-                                redirectToErrorPage('login_required', '请先登录或注册，再接受共同养护邀请。', { open: 'login' });
-                                return;
                             }
                             await acceptCollaboratorInviteFromLink();
                         } else if (viewerToken.value) {
@@ -2625,17 +2647,17 @@
                                 return;
                             }
                             try {
-                                await openViewerInviteLink();
+                                const inviteData = await openViewerInviteLink();
+                                if (!hasEmailAuthSession()) {
+                                    isLoading.value = false;
+                                    prepareInviteLoginPrompt('viewer', inviteData);
+                                    return;
+                                }
                             } catch (inviteOpenError) {
                                 if (hasEmailAuthSession() && await tryResumeViewerInviteFromLink()) {
                                     return;
                                 }
                                 throw inviteOpenError;
-                            }
-                            if (!hasEmailAuthSession()) {
-                                isLoading.value = false;
-                                redirectToErrorPage('login_required', '请先登录或注册，再接受查看邀请。', { open: 'login' });
-                                return;
                             }
                             await acceptViewerInviteFromLink();
                         } else if (shareToken.value) {
@@ -2644,12 +2666,12 @@
                                 loadPublicPotDetail()
                             ]);
                             applyCurrentUserProfile(userRes);
-                        } else if (potId.value) {
-                            const [userRes] = await Promise.all([
-                                userProfilePromise,
-                                loadPotDetail()
-                            ]);
-                            applyCurrentUserProfile(userRes);
+	                        } else if (potId.value) {
+	                            const [userRes] = await Promise.all([
+	                                userProfilePromise,
+	                                loadPotDetailWithPublicFallback()
+	                            ]);
+	                            applyCurrentUserProfile(userRes);
                         } else {
                             isLoading.value = false;
                             redirectToErrorPage('not_found', '当前链接缺少必要参数，请从首页或最新入口重新进入。');
@@ -2675,30 +2697,76 @@
                     }
                 };
 
-                const syncCommentDanmakuStateFromPot = () => {
-                    showCommentDanmaku.value = Number(pot.value?.show_comment_danmaku ?? 1) === 1;
-                };
+	                const syncCommentDanmakuStateFromPot = () => {
+	                    showCommentDanmaku.value = Number(pot.value?.show_comment_danmaku ?? 1) === 1;
+	                };
 
-                const loadPotDetail = async () => {
-                    const res = await apiClient.getPotDetail(potId.value);
-                    if (res.success) {
-                        pot.value = res.data;
-                        syncCommentDanmakuStateFromPot();
-                    }
-                };
+	                const syncShareMetadata = () => {
+	                    if (!pot.value?.name) return;
+	                    const title = `${pot.value.name} - 我的花盆`;
+	                    document.title = title;
+	                    document.querySelector('meta[property="og:title"]')?.setAttribute('content', title);
+	                    document.querySelector('meta[name="twitter:title"]')?.setAttribute('content', title);
+	                };
+
+		                const loadPotDetail = async () => {
+		                    const res = await apiClient.getPotDetail(potId.value);
+		                    if (res.success) {
+		                        pot.value = res.data;
+		                        syncCommentDanmakuStateFromPot();
+		                        syncShareMetadata();
+		                    }
+		                };
+
+		                const canTryPublicIdFallback = (err) => {
+		                    const status = Number(err?.status || 0);
+		                    const rawMessage = String(err?.message || '');
+		                    return !!potId.value && (
+		                        status === 401 ||
+		                        status === 403 ||
+		                        status === 404 ||
+		                        /Authentication required|access denied|not found/i.test(rawMessage)
+		                    );
+		                };
+
+		                const applyPublicPotDetail = (data) => {
+		                    pot.value = data.pot;
+		                    if (pot.value?.share_token) {
+		                        shareToken.value = pot.value.share_token;
+		                    }
+		                    syncCommentDanmakuStateFromPot();
+		                    syncShareMetadata();
+		                    potId.value = pot.value.id;
+		                    viewerIsCollaborator.value = !!data.viewer?.isCollaborator;
+		                    viewerIsViewer.value = !!data.viewer?.isViewer;
+		                    if (data.careRecords) careRecords.value = data.careRecords;
+		                    if (data.timelines) timelineRecords.value = data.timelines;
+		                };
+
+		                const loadPotDetailWithPublicFallback = async () => {
+		                    try {
+		                        await loadPotDetail();
+		                    } catch (err) {
+		                        if (!canTryPublicIdFallback(err)) throw err;
+		                        try {
+		                            const res = await apiClient.getPublicPotDetailById(potId.value);
+		                            if (res.success) {
+		                                applyPublicPotDetail(res.data);
+		                                return;
+		                            }
+		                        } catch {
+		                            // Keep the original private-detail error so the existing guide remains accurate.
+		                        }
+		                        throw err;
+		                    }
+		                };
 
                 const loadPublicPotDetail = async () => {
                     try {
                         const res = await apiClient.getPublicPotDetail(shareToken.value);
                         if (res.success) {
-                            pot.value = res.data.pot;
-                            syncCommentDanmakuStateFromPot();
-                            potId.value = pot.value.id;
-                            viewerIsCollaborator.value = !!res.data.viewer?.isCollaborator;
-                            viewerIsViewer.value = !!res.data.viewer?.isViewer;
                             // 公开分享接口已包含脱敏后的记录，直接使用
-                            if (res.data.careRecords) careRecords.value = res.data.careRecords;
-                            if (res.data.timelines) timelineRecords.value = res.data.timelines;
+                            applyPublicPotDetail(res.data);
                         }
                     } catch (err) {
                         throw err; // 继续向上抛出，让 init 的 catch 停止 isLoading
@@ -2727,9 +2795,10 @@
                     return false;
                 };
 
-                const openCollaboratorInviteLink = async () => {
-                    await apiClient.openCollaboratorInvite(collabToken.value, getInviteSessionId('collab_invite_session_id', collabInviteSessionId));
-                };
+	                const openCollaboratorInviteLink = async () => {
+	                    const res = await apiClient.openCollaboratorInvite(collabToken.value, getInviteSessionId('collab_invite_session_id', collabInviteSessionId));
+                        return res?.data || null;
+	                };
 
                 const tryResumeCollaboratorInviteFromLink = async () => {
                     try {
@@ -2754,9 +2823,10 @@
                     return false;
                 };
 
-                const openViewerInviteLink = async () => {
-                    await apiClient.openViewerInvite(viewerToken.value, getInviteSessionId('viewer_invite_session_id', viewerInviteSessionId));
-                };
+	                const openViewerInviteLink = async () => {
+	                    const res = await apiClient.openViewerInvite(viewerToken.value, getInviteSessionId('viewer_invite_session_id', viewerInviteSessionId));
+                        return res?.data || null;
+	                };
 
                 const tryResumeViewerInviteFromLink = async () => {
                     try {
@@ -3437,9 +3507,17 @@
                     } catch (e) { showAlert('更新失败'); }
                 };
 
-                // 查看全部记录/轨迹
-                const viewAllRecords = () => window.location.href = `all-records?potId=${potId.value}`;
-                const viewAllTimelines = () => window.location.href = `all-timelines?potId=${potId.value}`;
+	                const buildPotSubpageUrl = (page) => {
+	                    const params = new URLSearchParams();
+	                    if (potId.value) params.set('potId', potId.value);
+	                    if (shareToken.value) params.set('token', shareToken.value);
+	                    const query = params.toString();
+	                    return query ? `${page}?${query}` : page;
+	                };
+
+	                // 查看全部记录/轨迹
+	                const viewAllRecords = () => window.location.href = buildPotSubpageUrl('all-records');
+	                const viewAllTimelines = () => window.location.href = buildPotSubpageUrl('all-timelines');
 
 	                // 统计
 	                const statsWaterCount = computed(() => potStats.value?.byType?.find(t => t.type === 'water')?.total_count || 0);
@@ -3551,11 +3629,58 @@
                     return `${cleanBaseUrl}/pot-detail?token=${pot.value.share_token}`;
                 };
 
-                const shareViaSystem = async ({ title, text, url }) => {
+                const buildInviteShareTitle = (type, name = pot.value?.name, withBrand = false) => {
+                    const label = type === 'collab' ? '邀请共同照料' : '邀请查看';
+                    const subject = String(name || '这盆植物').trim();
+                    const title = `${label}：${subject}`;
+                    return withBrand ? `${title} - 我的花盆` : title;
+                };
+
+                const buildInviteShareText = (type) => {
+                    const title = buildInviteShareTitle(type, pot.value?.name, true);
+                    const name = String(pot.value?.name || '').trim();
+                    const actionText = type === 'collab'
+                        ? (name ? `登录后可以一起养护 ${name}。` : '登录后可以一起加入共同照料。')
+                        : (name ? `登录后可以查看 ${name} 的成长记录。` : '登录后可以查看这盆植物。');
+                    return `${title}\n${actionText}`;
+                };
+
+                const shouldPreserveInjectedInviteTitle = (title) => /^邀请(共同照料|查看)：.+ - 我的花盆$/.test(String(title || '').trim());
+
+                const syncInviteMetadata = (type, name = '') => {
+                    const currentTitle = String(document.title || '').trim();
+                    if (!name && shouldPreserveInjectedInviteTitle(currentTitle)) return;
+                    const title = buildInviteShareTitle(type, name, true);
+                    document.title = title;
+                    document.querySelector('meta[property="og:title"]')?.setAttribute('content', title);
+                    document.querySelector('meta[name="twitter:title"]')?.setAttribute('content', title);
+                };
+
+                const prepareInviteLoginPrompt = (type, inviteData = null) => {
+                    const name = String(inviteData?.pot?.name || '').trim();
+                    syncInviteMetadata(type, name);
+                    const isCollab = type === 'collab';
+                    pendingInvitePrompt.value = {
+                        icon: isCollab ? 'fa-users' : 'fa-book-open',
+                        title: name
+                            ? `${isCollab ? '登录后接受共同照料邀请' : '登录后接受查看邀请'}：${name}`
+                            : (isCollab ? '登录后接受共同照料邀请' : '登录后接受查看邀请'),
+                        lead: isCollab
+                            ? '登录或注册后即可加入这盆植物的共同照料。'
+                            : '登录或注册后即可查看这盆植物的成长记录。'
+                    };
+                    showLoginModal.value = true;
+                };
+
+                const shareViaSystem = async ({ title, text, url, documentTitle }) => {
                     if (!canUseNativeShare.value || !url) return { status: 'unsupported' };
+                    const previousTitle = document.title;
                     try {
                         if (typeof navigator.canShare === 'function' && !navigator.canShare({ url })) {
                             return { status: 'unsupported' };
+                        }
+                        if (documentTitle) {
+                            document.title = documentTitle;
                         }
                         await navigator.share({ title, text, url });
                         return { status: 'shared' };
@@ -3563,10 +3688,14 @@
                         if (error?.name === 'AbortError') {
                             return { status: 'cancelled' };
                         }
-                        console.warn('Native share failed, falling back:', error);
-                        return { status: 'failed', error };
-                    }
-                };
+	                        console.warn('Native share failed, falling back:', error);
+	                        return { status: 'failed', error };
+                    } finally {
+                        if (documentTitle && previousTitle) {
+                            document.title = previousTitle;
+                        }
+	                    }
+	                };
 
                 const generateQRCode = async () => {
                     if (!pot.value) return;
@@ -3741,13 +3870,13 @@
                             return;
                         }
 
+                        const inviteTitle = buildInviteShareTitle('collab', pot.value?.name, true);
                         const shareResult = await shareViaSystem({
-	                            title: pot.value?.name ? `邀请你共同养护：${pot.value.name}` : '共同养护邀请',
-	                            text: pot.value?.name
-	                                ? `打开链接并登录后，就可以一起养护 ${pot.value.name}。`
-	                                : '打开链接并登录后，就可以一起加入共同养护。',
-                            url: inviteUrl
-                        });
+		                            title: inviteTitle,
+		                            text: buildInviteShareText('collab'),
+                                    documentTitle: inviteTitle,
+	                            url: inviteUrl
+	                        });
                         if (shareResult.status === 'shared' || shareResult.status === 'cancelled') {
                             return;
                         }
@@ -3772,13 +3901,13 @@
                             return;
                         }
 
+                        const inviteTitle = buildInviteShareTitle('viewer', pot.value?.name, true);
                         const shareResult = await shareViaSystem({
-                            title: pot.value?.name ? `邀请你查看：${pot.value.name}` : '好友查看邀请',
-                            text: pot.value?.name
-                                ? `打开链接并登录后，就可以${isArchived.value ? '只读查看归档记录' : '长期查看'} ${pot.value.name}。`
-                                : `打开链接并登录后，就可以${isArchived.value ? '只读查看归档记录' : '查看这盆植物'}。`,
-                            url: inviteUrl
-                        });
+	                            title: inviteTitle,
+	                            text: buildInviteShareText('viewer'),
+                                documentTitle: inviteTitle,
+	                            url: inviteUrl
+	                        });
                         if (shareResult.status === 'shared' || shareResult.status === 'cancelled') {
                             return;
                         }
@@ -4111,6 +4240,7 @@
 
                 return {
                     isLoading, pot, potId, isOwner, isArchived, isReadOnly, isPublicVisitor, canShowCareSchedules, showOperatorName, matchedPlantName, plantInfo,
+                    pendingInvitePrompt,
                     isPlantInfoLoading, isCareRecordsLoading, isTimelineRecordsLoading, isPotStatsLoading, isCareSchedulesLoading, isCommentsLoading,
                     potStats, careRecords, timelineRecords, handleImageError, handleHeroImageLoad, handleHeroImageError, heroImageSrc, heroImageLoaded, showActionMenu,
                     showAddTimelineModal, showShareModal, isSavingTimeline, isEditingTimeline, fileInput, archiveFileInput,

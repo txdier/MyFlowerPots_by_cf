@@ -342,6 +342,11 @@ const PUBLIC_AUTH_ENDPOINTS = new Set([
     '/api/auth/reset-password',
 ]);
 
+const isPublicAuthEndpoint = (endpoint) => {
+    const path = String(endpoint || '').split('?')[0];
+    return PUBLIC_AUTH_ENDPOINTS.has(path) || path.startsWith('/api/public/');
+};
+
 // API客户端类
 class APIClient {
     constructor(config = {}) {
@@ -479,7 +484,7 @@ class APIClient {
 
     // 通用请求方法
     async request(endpoint, options = {}) {
-        const shouldSendAuth = !!(this.token && !PUBLIC_AUTH_ENDPOINTS.has(endpoint));
+        const shouldSendAuth = !!(this.token && !isPublicAuthEndpoint(endpoint));
 
         if (
             endpoint !== '/api/auth/refresh' &&
@@ -539,7 +544,7 @@ class APIClient {
                 // 处理 401 未授权：JWT 令牌过期或无效
                 if (response.status === 401) {
                     const canRefresh = endpoint !== '/api/auth/refresh' &&
-                        !PUBLIC_AUTH_ENDPOINTS.has(endpoint) &&
+                        !isPublicAuthEndpoint(endpoint) &&
                         !!(this.token && this.userId && !this.isTokenExpired());
                     if (canRefresh) {
                         console.warn('Token expired or invalid, attempting refresh...');
@@ -749,8 +754,20 @@ class APIClient {
         });
     }
 
-    async getPublicPotDetail(token) {
-        return this.request(`/api/public/pots/${token}`);
+    async getPublicPotDetail(token, options = {}) {
+        const params = new URLSearchParams();
+        if (options.careLimit) params.set('careLimit', String(options.careLimit));
+        if (options.timelineLimit) params.set('timelineLimit', String(options.timelineLimit));
+        const query = params.toString() ? `?${params.toString()}` : '';
+        return this.request(`/api/public/pots/${token}${query}`);
+    }
+
+    async getPublicPotDetailById(potId, options = {}) {
+        const params = new URLSearchParams();
+        if (options.careLimit) params.set('careLimit', String(options.careLimit));
+        if (options.timelineLimit) params.set('timelineLimit', String(options.timelineLimit));
+        const query = params.toString() ? `?${params.toString()}` : '';
+        return this.request(`/api/public/pots/by-id/${encodeURIComponent(potId)}${query}`);
     }
 
     // 协作者管理

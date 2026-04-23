@@ -93,6 +93,13 @@ async function handleOpenInviteLink(request: Request, token: string, env: any): 
 
   const invite = await getActiveInvite(token, env);
   if (!invite) return errorResponse('Invite link invalid or expired', 400);
+  const pot = await env.DB.prepare(`
+    SELECT id, name
+    FROM pots
+    WHERE id = ?
+  `).bind(invite.pot_id).first();
+  if (!pot) return errorResponse('Pot not found', 404);
+
   const hasSameSession = invite.claim_session_id === sessionId;
   if (!hasSameSession && invite.view_count >= invite.max_views) return errorResponse('Invite link view limit reached', 400);
 
@@ -112,7 +119,17 @@ async function handleOpenInviteLink(request: Request, token: string, env: any): 
       AND datetime(expires_at) > datetime('now')
   `).bind(sessionId, sessionId, token).run();
 
-  return jsonResponse({ success: true, data: { expiresAt: invite.expires_at, remainingViews: nextRemainingViews } });
+  return jsonResponse({
+    success: true,
+    data: {
+      expiresAt: invite.expires_at,
+      remainingViews: nextRemainingViews,
+      pot: {
+        id: pot.id,
+        name: pot.name
+      }
+    }
+  });
 }
 
 async function handleAddViewer(request: Request, potId: string, userId: string, env: any): Promise<Response> {

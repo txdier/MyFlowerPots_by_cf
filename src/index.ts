@@ -201,12 +201,23 @@ export default {
       const isPotDetail = normalizeStaticPagePath(path) === '/pot-detail';
       const shareToken = url.searchParams.get('token');
       const shareId = url.searchParams.get('id');
+      const collabToken = url.searchParams.get('collabToken');
+      const viewerToken = url.searchParams.get('viewerToken');
 
-      if (env.ASSETS && isPotDetail && (shareToken || shareId) && env.DB) {
+      if (env.ASSETS && isPotDetail && (shareToken || shareId || collabToken || viewerToken) && env.DB) {
         const d1SessionContext = createD1SessionContext(request, env, path);
-        const baseResponse = await env.ASSETS.fetch(request);
+        const assetUrl = new URL(request.url);
+        assetUrl.pathname = '/pot-detail';
+        assetUrl.search = '';
+        assetUrl.hash = '';
+        const baseResponse = await env.ASSETS.fetch(new Request(assetUrl.toString(), request));
         return appendD1Bookmark(
-          await servePotDetailWithMeta(baseResponse, d1SessionContext.env, shareToken, shareId),
+          await servePotDetailWithMeta(baseResponse, d1SessionContext.env, {
+            shareToken,
+            id: shareId,
+            collabToken,
+            viewerToken
+          }),
           d1SessionContext
         );
       }

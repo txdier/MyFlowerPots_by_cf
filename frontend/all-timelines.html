@@ -277,7 +277,7 @@
 
     <script src="js/vue.global.js"></script>
     <script src="js/config.js?v=20260111"></script>
-    <script src="js/api-client.js?v=20260418-d1session"></script>
+    <script src="js/api-client.js?v=20260422-share-access"></script>
     <script src="js/media-utils.js?v=20260421-refactor"></script>
     <script src="js/pot-permissions.js?v=20260421-refactor"></script>
     <script src="js/gallery-utils.js?v=20260421-refactor"></script>
@@ -293,9 +293,10 @@
                 const nav = window.MyFlowerPotsNavigation;
                 const showAlert = window.MyFlowerPotsDialog.alert;
                 const showConfirm = window.MyFlowerPotsDialog.confirm;
-                const isLoading = ref(true);
-                const potId = ref(null);
-                const pot = ref(null);
+                    const isLoading = ref(true);
+                    const potId = ref(null);
+                    const shareToken = ref(null);
+                    const pot = ref(null);
                 const timelineRecords = ref([]);
                 const isTimelineDesc = ref(true);
                 const showEditTimelineModal = ref(false);
@@ -316,31 +317,55 @@
                     MyFlowerPotsPotPermissions.canManageRecords(pot.value, apiClient.userId)
                 );
 
-                const init = async () => {
-                    const params = new URLSearchParams(window.location.search);
-                    potId.value = params.get('potId');
+                    const buildCurrentPageUrl = () => {
+                        const params = new URLSearchParams();
+                        if (potId.value) params.set('potId', potId.value);
+                        if (shareToken.value) params.set('token', shareToken.value);
+                        const query = params.toString();
+                        return query ? `all-timelines?${query}` : 'all-timelines';
+                    };
 
-                    if (!potId.value) {
-                        nav.redirectToError({
-                            type: 'not_found',
-                            from: 'all-timelines',
+                    const buildDetailPageUrl = () => {
+                        const params = new URLSearchParams();
+                        if (shareToken.value) {
+                            params.set('token', shareToken.value);
+                        } else if (potId.value) {
+                            params.set('id', potId.value);
+                        }
+                        const query = params.toString();
+                        return query ? `pot-detail?${query}` : 'pot-detail';
+                    };
+
+                    const init = async () => {
+                        const params = new URLSearchParams(window.location.search);
+                        potId.value = params.get('potId');
+                        shareToken.value = params.get('token');
+
+                        if (!potId.value && !shareToken.value) {
+                            nav.redirectToError({
+                                type: 'not_found',
+                                from: 'all-timelines',
                             redirect: '/',
                             message: '缺少花盆参数，无法加载成长轨迹。'
                         }, { replace: true });
                         return;
                     }
 
-                    try {
-                        await Promise.all([
-                            loadPotInfo(),
-                            loadTimelineRecords()
-                        ]);
-                    } catch (e) {
-                        console.error(e);
-                        nav.redirectForApiError(e, {
-                            from: 'all-timelines',
-                            redirect: `all-timelines?potId=${encodeURIComponent(potId.value)}`,
-                            authType: 'login_required',
+                        try {
+                            if (shareToken.value) {
+                                await loadPublicTimelinePage();
+                            } else {
+                                await Promise.all([
+                                    loadPotInfo(),
+                                    loadTimelineRecords()
+                                ]);
+                            }
+                        } catch (e) {
+                            console.error(e);
+                            nav.redirectForApiError(e, {
+                                from: 'all-timelines',
+                                redirect: buildCurrentPageUrl(),
+                                authType: 'login_required',
                             forbiddenType: 'forbidden',
                             notFoundType: 'not_found',
                             message: e.message || '成长轨迹暂时无法加载。'
@@ -350,15 +375,32 @@
                     }
                 };
 
-                const loadPotInfo = async () => {
-                    const res = await apiClient.getPotDetail(potId.value);
-                    if (res.success) pot.value = res.data;
-                };
+                    const loadPotInfo = async () => {
+                        const res = await apiClient.getPotDetail(potId.value);
+                        if (res.success) pot.value = res.data;
+                    };
 
-                const loadTimelineRecords = async () => {
-                    const res = await apiClient.getTimelines(potId.value);
-                    if (res.success) timelineRecords.value = res.data || [];
-                };
+                    const loadTimelineRecords = async () => {
+                        const res = await apiClient.getTimelines(potId.value);
+                        if (res.success) timelineRecords.value = res.data || [];
+                    };
+
+                    const loadPublicTimelinePage = async () => {
+                        const res = await apiClient.getPublicPotDetail(shareToken.value, {
+                            careLimit: 1,
+                            timelineLimit: 'all'
+                        });
+                        if (res.success) {
+                            const viewer = res.data.viewer || {};
+                            pot.value = {
+                                ...res.data.pot,
+                                is_collaborator: !!viewer.isCollaborator,
+                                is_viewer: !!viewer.isViewer
+                            };
+                            potId.value = pot.value?.id || potId.value;
+                            timelineRecords.value = res.data.timelines || [];
+                        }
+                    };
 
                 const sortedTimelineRecords = computed(() => {
                     return [...timelineRecords.value].sort((a, b) => {
@@ -468,19 +510,19 @@
 
                 const imgUrl = MyFlowerPotsMedia.imgUrl;
 
-                const goBack = () => {
-                    window.location.href = `pot-detail?id=${potId.value}`;
-                };
+                    const goBack = () => {
+                        window.location.href = buildDetailPageUrl();
+                    };
 
                 const formatDate = MyFlowerPotsDate.formatIsoDate;
 
                 const handleImageError = (e) => MyFlowerPotsMedia.setImageFallback(e);
 
-                window.addEventListener('auth:expired', (event) => {
-                    nav.redirectToSessionExpired(event.detail?.message, {
-                        from: 'all-timelines',
-                        redirect: `all-timelines?potId=${encodeURIComponent(potId.value || '')}`,
-                        source: 'auth'
+                    window.addEventListener('auth:expired', (event) => {
+                        nav.redirectToSessionExpired(event.detail?.message, {
+                            from: 'all-timelines',
+                            redirect: buildCurrentPageUrl(),
+                            source: 'auth'
                     }, { replace: true });
                 });
 

@@ -13,25 +13,49 @@
 export async function servePotDetailWithMeta(
   response: Response,
   env: any,
-  token: string | null,
-  id: string | null
+  options: {
+    shareToken?: string | null;
+    id?: string | null;
+    collabToken?: string | null;
+    viewerToken?: string | null;
+  }
 ): Promise<Response> {
   try {
     // 1. 从 D1 获取花盆基本信息
     // 支持按 token 查询（优先）或按 id 查询（需验证 is_shared）
     let pot: any = null;
-    if (token) {
+    if (options.shareToken) {
       pot = await env.DB.prepare(`
-        SELECT name, image_url, note
+        SELECT name, image_url, note, NULL as meta_prefix
         FROM pots
         WHERE share_token = ? AND is_shared = 1
-      `).bind(token).first();
-    } else if (id) {
+      `).bind(options.shareToken).first();
+    } else if (options.id) {
       pot = await env.DB.prepare(`
-        SELECT name, image_url, note
+        SELECT name, image_url, note, NULL as meta_prefix
         FROM pots
         WHERE id = ? AND is_shared = 1
-      `).bind(id).first();
+      `).bind(options.id).first();
+    } else if (options.collabToken) {
+      pot = await env.DB.prepare(`
+        SELECT p.name, p.image_url, p.note, '邀请共同照料' as meta_prefix
+        FROM pot_collab_invites i
+        JOIN pots p ON p.id = i.pot_id
+        WHERE i.token = ?
+          AND i.used_at IS NULL
+          AND i.revoked_at IS NULL
+          AND datetime(i.expires_at) > datetime('now')
+      `).bind(options.collabToken).first();
+    } else if (options.viewerToken) {
+      pot = await env.DB.prepare(`
+        SELECT p.name, p.image_url, p.note, '邀请查看' as meta_prefix
+        FROM pot_view_invites i
+        JOIN pots p ON p.id = i.pot_id
+        WHERE i.token = ?
+          AND i.used_at IS NULL
+          AND i.revoked_at IS NULL
+          AND datetime(i.expires_at) > datetime('now')
+      `).bind(options.viewerToken).first();
     }
 
     if (!pot) {
@@ -48,18 +72,22 @@ export async function servePotDetailWithMeta(
       fullImageUrl = cleanBase + cleanPath;
     }
 
-    console.log('servePotDetailWithMeta: 成功获取数据，准备注入:', pot.name, '图片:', fullImageUrl);
+    const title = pot.meta_prefix
+      ? `${pot.meta_prefix}：${pot.name} - 我的花盆`
+      : `${pot.name} - 我的花盆`;
+
+    console.log('servePotDetailWithMeta: 成功获取数据，准备注入:', title, '图片:', fullImageUrl);
 
     // 2. 使用 HTMLRewriter 动态修改 Meta 标签
     const rewriter = new (globalThis as any).HTMLRewriter()
       .on('title', {
         element(e: any) {
-          e.setInnerContent(`${pot.name} - 我的花盆`);
+          e.setInnerContent(title);
         }
       })
       .on('meta[property="og:title"]', {
         element(e: any) {
-          e.setAttribute('content', `${pot.name} - 我的花盆`);
+          e.setAttribute('content', title);
         }
       })
       .on('meta[property="og:description"]', {
@@ -83,7 +111,7 @@ export async function servePotDetailWithMeta(
       })
       .on('meta[name="twitter:title"]', {
         element(e: any) {
-          e.setAttribute('content', `${pot.name} - 我的花盆`);
+          e.setAttribute('content', title);
         }
       })
       .on('meta[name="twitter:image"]', {

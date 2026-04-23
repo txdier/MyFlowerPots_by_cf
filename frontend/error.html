@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-    <title>错误提示 - 我的花盆</title>
+    <title>我的花盆</title>
     <meta name="theme-color" content="#ffffff">
     <link rel="stylesheet" href="css/tailwind-built.css?v=20260227">
     <link rel="stylesheet" href="css/app.css?v=20260227">
@@ -125,6 +125,7 @@
             };
 
             const content = contentMap[type] || contentMap.server_error;
+            document.title = `${content.title} - 我的花盆`;
             const autoEnabled = intent.auto === '1' || (!intent.auto && content.auto);
             const buildIndexUrl = (params = {}) => {
                 if (nav?.buildIndexUrl) return nav.buildIndexUrl(params);

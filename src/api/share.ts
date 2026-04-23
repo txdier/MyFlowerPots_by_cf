@@ -10,11 +10,17 @@ export async function handleShareRequest(
   path: string,
   userId: string | null
 ): Promise<Response> {
+  if (request.method === 'GET' && path.match(/^\/api\/public\/pots\/by-id\/[^/]+$/)) {
+    const id = path.split('/').pop();
+    if (!id) return errorResponse('Pot ID required', 400);
+    return handleGetPublicPot(request, { id }, env, userId);
+  }
+
   // 1️⃣ 获取公共分享详情 (免登录)
   if (request.method === 'GET' && path.startsWith('/api/public/pots/')) {
     const token = path.split('/').pop();
     if (!token) return errorResponse('Token required', 400);
-    return handleGetPublicPot(token, env, userId);
+    return handleGetPublicPot(request, { token }, env, userId);
   }
 
   // 以下接口需要授权
@@ -79,8 +85,31 @@ async function handleSetCommentDanmaku(potId: string, userId: string, env: any, 
   return jsonResponse({ success: true, data: { enabled } });
 }
 
-async function handleGetPublicPot(token: string, env: any, userId: string | null): Promise<Response> {
+function parsePublicListLimit(url: URL, name: string, fallback: number): number | null {
+  const value = String(url.searchParams.get(name) || '').trim().toLowerCase();
+  if (!value) return fallback;
+  if (value === 'all') return null;
+
+  const parsed = parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.min(500, parsed);
+}
+
+async function handleGetPublicPot(
+  request: Request,
+  lookup: { token?: string; id?: string },
+  env: any,
+  userId: string | null
+): Promise<Response> {
+  const url = new URL(request.url);
+  const careLimit = parsePublicListLimit(url, 'careLimit', 50);
+  const timelineLimit = parsePublicListLimit(url, 'timelineLimit', 20);
+
   // 1. 获取花盆基本信息
+  const potWhere = lookup.id
+    ? 'id = ? AND is_shared = 1'
+    : 'share_token = ? AND is_shared = 1';
+  const potLookupValue = lookup.id || lookup.token || '';
   const pot = await env.DB.prepare(`
     SELECT
       id,
@@ -90,6 +119,8 @@ async function handleGetPublicPot(token: string, env: any, userId: string | null
       note,
       plant_date,
       image_url,
+      share_token,
+      is_shared,
       last_care,
       last_care_action,
       show_comment_danmaku,
@@ -98,8 +129,8 @@ async function handleGetPublicPot(token: string, env: any, userId: string | null
       archive_reason,
       archive_note
     FROM pots
-    WHERE share_token = ? AND is_shared = 1
-  `).bind(token).first();
+    WHERE ${potWhere}
+  `).bind(potLookupValue).first();
 
   if (!pot) return errorResponse('Share link invalid or expired', 404);
 
@@ -125,23 +156,23 @@ async function handleGetPublicPot(token: string, env: any, userId: string | null
 
   // 2. 获取养护记录 (脱敏，仅返回必要信息)
   const { results: careRecords } = await env.DB.prepare(`
-    SELECT cr.type, cr.action, cr.care_date, cr.description, cr.image_url, u.display_name as operator_name
+    SELECT cr.id, cr.pot_id, cr.type, cr.action, cr.care_date, cr.created_at, cr.description, cr.image_url, u.display_name as operator_name
     FROM care_records cr
     LEFT JOIN users u ON cr.user_id = u.id
     WHERE cr.pot_id = ?
     ORDER BY cr.care_date DESC, cr.id DESC
-    LIMIT 50
-  `).bind(pot.id).all();
+    ${careLimit ? 'LIMIT ?' : ''}
+  `).bind(...(careLimit ? [pot.id, careLimit] : [pot.id])).all();
 
   // 3. 获取时间轴 (脱敏)
   const { results: timelines } = await env.DB.prepare(`
-    SELECT t.date, t.description, t.images, u.display_name as operator_name
+    SELECT t.id, t.date, t.description, t.images, t.video, t.created_at, u.display_name as operator_name
     FROM timelines t
     LEFT JOIN users u ON t.user_id = u.id
     WHERE t.pot_id = ?
     ORDER BY t.date DESC, t.id DESC
-    LIMIT 20
-  `).bind(pot.id).all();
+    ${timelineLimit ? 'LIMIT ?' : ''}
+  `).bind(...(timelineLimit ? [pot.id, timelineLimit] : [pot.id])).all();
 
   return jsonResponse({
     success: true,
@@ -154,7 +185,9 @@ async function handleGetPublicPot(token: string, env: any, userId: string | null
       },
       careRecords: careRecords.map((r: any) => ({
         ...r,
+        potId: r.pot_id,
         date: r.care_date,
+        createdAt: r.created_at,
         imageUrl: r.image_url,
         operatorName: r.operator_name || '原主人'
       })),
