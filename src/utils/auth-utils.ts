@@ -39,6 +39,7 @@ async function derivePasswordHash(password: string, salt: Uint8Array, iterations
   }
 
   const encoder = new TextEncoder();
+  const saltBuffer = new Uint8Array(salt).buffer;
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
     encoder.encode(password),
@@ -50,7 +51,7 @@ async function derivePasswordHash(password: string, salt: Uint8Array, iterations
   const derivedBits = await crypto.subtle.deriveBits(
     {
       name: 'PBKDF2',
-      salt,
+      salt: saltBuffer,
       iterations,
       hash: 'SHA-256',
     },

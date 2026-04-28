@@ -251,7 +251,7 @@
                 <!-- Table -->
                 <div class="glass border border-white rounded-2xl overflow-hidden shadow-sm">
                     <div class="overflow-x-auto">
-                    <table class="w-full min-w-[980px] text-left">
+                    <table class="w-full min-w-[1080px] text-left">
                         <thead class="bg-slate-50 border-b border-slate-100">
                             <tr>
                                 <th class="px-6 py-4 font-semibold text-slate-600">用户信息</th>
@@ -306,6 +306,10 @@
                                             :class="user.is_disabled ? 'text-emerald-600 hover:bg-emerald-50' : 'text-blue-500 hover:bg-blue-50'"
                                             class="px-3 py-1 text-sm bg-white border border-slate-200 rounded-lg transition-all">
                                             {{ user.is_disabled ? '启用' : '禁用' }}
+                                        </button>
+                                        <button v-if="user.user_type === 'email' && user.email" @click="openPasswordResetModal(user)"
+                                            class="px-3 py-1 text-sm bg-white border border-slate-200 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-all">
+                                            重置密码
                                         </button>
                                         <button @click="confirmDeleteUser(user)"
                                             class="px-3 py-1 text-sm bg-white border border-slate-200 text-red-500 hover:bg-red-50 rounded-lg transition-all">
@@ -713,6 +717,65 @@
             </div>
         </div>
 
+        <!-- Password Reset Modal -->
+        <div v-if="showPasswordResetModal"
+            class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-sm">
+            <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md shadow-2xl overflow-hidden p-4 sm:p-6">
+                <div class="flex items-center justify-between gap-4 mb-6">
+                    <h3 class="text-lg sm:text-xl font-bold text-slate-800">重置用户密码</h3>
+                    <button @click="closePasswordResetModal" class="text-slate-400 hover:text-slate-600">
+                        <i class="fa fa-times text-xl"></i>
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-2">用户邮箱</label>
+                        <p class="text-slate-800 font-medium break-all">{{ activeUser?.email }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-2">新密码</label>
+                        <input type="password" v-model="passwordResetForm.password" autocomplete="new-password"
+                            @input="validatePasswordReset"
+                            class="w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-emerald-500"
+                            :class="passwordResetErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-slate-200'"
+                            placeholder="至少 8 位">
+                        <p v-if="passwordResetErrors.password" class="text-xs text-red-500 mt-2">
+                            {{ passwordResetErrors.password }}
+                        </p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-2">确认新密码</label>
+                        <input type="password" v-model="passwordResetForm.confirmPassword" autocomplete="new-password"
+                            @input="validatePasswordReset"
+                            class="w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-emerald-500"
+                            :class="passwordResetErrors.confirmPassword ? 'border-red-200 focus:ring-red-200' : 'border-slate-200'"
+                            placeholder="再次输入新密码">
+                        <p v-if="passwordResetErrors.confirmPassword" class="text-xs text-red-500 mt-2">
+                            {{ passwordResetErrors.confirmPassword }}
+                        </p>
+                    </div>
+                    <label class="flex items-start gap-3 p-3 rounded-xl bg-slate-50 cursor-pointer">
+                        <input type="checkbox" v-model="passwordResetForm.notifyUser"
+                            class="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-500 focus:ring-emerald-500">
+                        <span class="text-sm text-slate-700 leading-relaxed">
+                            发送邮件通知用户
+                        </span>
+                    </label>
+                    <p class="text-sm text-slate-500 leading-relaxed">
+                        确认后将立即覆盖该用户的登录密码。通知邮件只说明密码已由管理员重置，不包含新密码。
+                    </p>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-3 mt-8">
+                    <button @click="closePasswordResetModal"
+                        class="flex-1 py-3 text-slate-600 hover:bg-slate-50 rounded-xl transition-all">取消</button>
+                    <button @click="resetUserPassword" :disabled="!isPasswordResetFormValid || savingPasswordReset"
+                        class="flex-1 py-3 bg-indigo-500 text-white rounded-xl hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                        {{ savingPasswordReset ? '正在重置...' : '确认重置' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Toast -->
         <div v-if="toast.show"
             class="fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 bg-slate-800 text-white rounded-2xl shadow-xl flex items-center gap-3 transition-all animate-bounce">
@@ -722,7 +785,7 @@
     </div>
 
 	    <!-- Scripts -->
-	    <script src="js/api-client.js?v=20260418-admincache"></script>
+	    <script src="js/api-client.js?v=20260426-adminpass"></script>
 	    <script src="js/media-utils.js?v=20260421-refactor"></script>
 	    <script src="js/dialog-utils.js?v=20260421-refactor"></script>
 	    <script src="js/ui-utils.js?v=20260421-refactor"></script>
@@ -759,6 +822,10 @@
                 const activeUser = ref(null);
                 const newLimit = ref('');
                 const savingLimit = ref(false);
+                const showPasswordResetModal = ref(false);
+                const passwordResetForm = ref({ password: '', confirmPassword: '', notifyUser: false });
+                const passwordResetErrors = ref({ password: '', confirmPassword: '' });
+                const savingPasswordReset = ref(false);
 
                 const toast = ref({ show: false, message: '', icon: '' });
                 const isCheckingAccess = ref(true);
@@ -789,6 +856,12 @@
 
                 const totalPages = computed(() => Math.ceil(pagination.value.total / pagination.value.pageSize));
                 const totalUserPages = computed(() => Math.ceil(userPagination.value.total / userPagination.value.pageSize));
+                const isPasswordResetFormValid = computed(() =>
+                    passwordResetForm.value.password.length >= 8 &&
+                    passwordResetForm.value.password === passwordResetForm.value.confirmPassword &&
+                    !passwordResetErrors.value.password &&
+                    !passwordResetErrors.value.confirmPassword
+                );
                 const isAllSelected = computed(() => plants.value.length > 0 && selectedIds.value.length === plants.value.length);
                 const cachePrefixEntries = computed(() => {
                     const prefixes = cacheStats.value?.prefixes || {};
@@ -943,6 +1016,70 @@
                         showToast(err.message, 'fa fa-exclamation-circle');
                     } finally {
                         savingLimit.value = false;
+                    }
+                };
+
+                const validatePasswordReset = () => {
+                    passwordResetErrors.value.password = passwordResetForm.value.password.length >= 8
+                        ? ''
+                        : '密码至少需要 8 位';
+                    passwordResetErrors.value.confirmPassword =
+                        !passwordResetForm.value.confirmPassword || passwordResetForm.value.password === passwordResetForm.value.confirmPassword
+                            ? ''
+                            : '两次输入的密码不一致';
+                    return !passwordResetErrors.value.password && !passwordResetErrors.value.confirmPassword;
+                };
+
+                const openPasswordResetModal = (user) => {
+                    if (user.user_type !== 'email' || !user.email) {
+                        showToast('只能重置邮箱用户的密码', 'fa fa-exclamation-circle');
+                        return;
+                    }
+                    activeUser.value = user;
+                    passwordResetForm.value = { password: '', confirmPassword: '', notifyUser: false };
+                    passwordResetErrors.value = { password: '', confirmPassword: '' };
+                    showPasswordResetModal.value = true;
+                };
+
+                const closePasswordResetModal = () => {
+                    if (savingPasswordReset.value) return;
+                    showPasswordResetModal.value = false;
+                    passwordResetForm.value = { password: '', confirmPassword: '', notifyUser: false };
+                    passwordResetErrors.value = { password: '', confirmPassword: '' };
+                };
+
+                const resetUserPassword = async () => {
+                    if (!activeUser.value || !validatePasswordReset()) return;
+
+                    savingPasswordReset.value = true;
+                    try {
+                        const notifyUser = passwordResetForm.value.notifyUser === true;
+                        const res = await apiClient.adminResetUserPassword(
+                            activeUser.value.id,
+                            passwordResetForm.value.password,
+                            notifyUser
+                        );
+                        if (res.success) {
+                            const emailSubmitted = res.emailSubmitted ?? res.emailSent;
+                            let message = '密码已重置，未发送通知邮件';
+                            let icon = 'fa fa-check-circle';
+                            if (notifyUser) {
+                                if (emailSubmitted) {
+                                    message = '密码已重置，通知邮件已提交发送';
+                                } else {
+                                    message = '密码已重置，但通知邮件提交失败';
+                                    icon = 'fa fa-exclamation-circle';
+                                }
+                            }
+                            showToast(message, icon);
+                            showPasswordResetModal.value = false;
+                            passwordResetForm.value = { password: '', confirmPassword: '', notifyUser: false };
+                            passwordResetErrors.value = { password: '', confirmPassword: '' };
+                        }
+                    } catch (err) {
+                        showToast(err.message, 'fa fa-exclamation-circle');
+                    } finally {
+                        savingPasswordReset.value = false;
                     }
                 };
 
@@ -1199,9 +1336,11 @@
                     supportUnreadCount,
                     cacheStats, cachePrefixEntries, cacheLoading, cacheClearing, cacheClearScope, cachePrefix, cacheLastResult,
                     users, userPagination, userSearchQuery, showLimitModal, activeUser, newLimit, savingLimit, totalUserPages,
+                    showPasswordResetModal, passwordResetForm, passwordResetErrors, savingPasswordReset, isPasswordResetFormValid,
                     fetchPlants, fetchUsers, changePage, changeUserPage, toggleAll, difficultyClass, openCreateModal,
                     openEditModal, savePlant, deleteSingle, batchDelete, downloadTemplate, formatDateTime,
-                    doImport, triggerUpload, handleUpload, openLimitModal, saveLimit, toggleUserStatus, confirmDeleteUser,
+                    doImport, triggerUpload, handleUpload, openLimitModal, saveLimit, openPasswordResetModal,
+                    closePasswordResetModal, resetUserPassword, validatePasswordReset, toggleUserStatus, confirmDeleteUser,
                     fetchCacheStats, clearAdminCache
                 };
             }

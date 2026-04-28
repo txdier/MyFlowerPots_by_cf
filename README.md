@@ -91,3 +91,4 @@ npm run backup-db
 ## 更多文档
 
 - [部署指南](./DEPLOYMENT.md)
+- [消息中心与通知规则](./docs/message-center.md)

@@ -5,6 +5,24 @@ import {
 } from '../utils/storage-utils';
 import { findAccessiblePot } from '../utils/pot-access-utils';
 
+type TimelineImagePayload = string | string[] | null;
+
+type CreateTimelineRequest = {
+  potId?: string;
+  date?: string;
+  description?: string;
+  images?: TimelineImagePayload;
+  video?: string | null;
+  createdAt?: string;
+};
+
+type UpdateTimelineRequest = {
+  date?: string;
+  description?: string | null;
+  images?: TimelineImagePayload;
+  video?: string | null;
+};
+
 export async function handleTimelinesRequest(
   request: Request,
   env: any,
@@ -33,7 +51,7 @@ export async function handleTimelinesRequest(
 
 async function handleCreateTimeline(request: Request, env: any, token: string | null): Promise<Response> {
   try {
-    const body = await request.json();
+    const body = await request.json() as CreateTimelineRequest;
     const {
       potId,
       date,
@@ -89,7 +107,7 @@ async function handleCreateTimeline(request: Request, env: any, token: string | 
 
 async function handleUpdateTimeline(request: Request, env: any, id: string, token: string | null): Promise<Response> {
   try {
-    const body = await request.json();
+    const body = await request.json() as UpdateTimelineRequest;
     const { date, description, images, video } = body;
 
     // 安全加固：检查记录是否存在且属于该用户 (主或协作者)

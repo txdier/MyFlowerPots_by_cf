@@ -218,6 +218,14 @@
                 goHome(replace);
             };
 
+            const markButtonPending = (button) => {
+                if (!button) return;
+                button.disabled = true;
+                button.classList.add('opacity-70', 'cursor-wait');
+                const label = button.querySelector('span');
+                if (label) label.textContent = '正在打开...';
+            };
+
             setText('title', content.title);
             setText('lead', content.lead);
             setIcon('pageIcon', content.icon);
@@ -230,11 +238,15 @@
             }
 
             document.getElementById('primaryButton')?.addEventListener('click', () => {
-                const action = document.getElementById('primaryButton')?.dataset.action;
+                const button = document.getElementById('primaryButton');
+                const action = button?.dataset.action;
+                markButtonPending(button);
                 if (action) runAction(action);
             });
             document.getElementById('secondaryButton')?.addEventListener('click', () => {
-                const action = document.getElementById('secondaryButton')?.dataset.action;
+                const button = document.getElementById('secondaryButton');
+                const action = button?.dataset.action;
+                markButtonPending(button);
                 if (action) runAction(action);
             });
 

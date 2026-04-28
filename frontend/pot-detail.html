@@ -365,11 +365,11 @@
                     <h2 class="mt-5 text-2xl font-black text-gray-900">{{ pendingInvitePrompt.title }}</h2>
                     <p class="mx-auto mt-3 max-w-sm text-sm leading-7 text-gray-500">{{ pendingInvitePrompt.lead }}</p>
                     <div class="mx-auto mt-6 grid max-w-sm gap-3 sm:grid-cols-2">
-                        <button @click="switchToLogin"
+                        <button type="button" @click="openInviteLogin"
                             class="inline-flex items-center justify-center rounded-md bg-green-500 px-4 py-3 text-sm font-bold text-white transition active:scale-95">
                             去登录
                         </button>
-                        <button @click="switchToRegister"
+                        <button type="button" @click="openInviteRegister"
                             class="inline-flex items-center justify-center rounded-md border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-700 transition active:scale-95">
                             注册账号
                         </button>
@@ -1763,6 +1763,7 @@
                     </div>
                 </div>
             </div>
+            </div>
 
             <!-- 登录/注册 弹窗 (与首页保持一致) -->
             <div v-if="showLoginModal || showRegisterModal || showForgotPasswordModal"
@@ -2837,6 +2838,18 @@
                     }
                 };
 
+                const handleInviteAuthSuccess = async () => {
+                    if (collabToken.value) {
+                        await acceptCollaboratorInviteFromLink();
+                        return true;
+                    }
+                    if (viewerToken.value) {
+                        await acceptViewerInviteFromLink();
+                        return true;
+                    }
+                    return false;
+                };
+
                 const acceptTransfer = async (token = null) => {
                     const tToken = token || transferToken.value;
                     if (!currentUser.value) {
@@ -2890,7 +2903,15 @@
                         clearStatus(loginStatus);
                         loginForm.email = formUtils.normalizeEmail(loginForm.email);
                         const res = await apiClient.login(loginForm.email, loginForm.password);
-                        if (res.token) location.reload();
+                        if (res.token) {
+                            try {
+                                if (await handleInviteAuthSuccess()) return;
+                            } catch (inviteError) {
+                                handleInitError(inviteError);
+                                return;
+                            }
+                            location.reload();
+                        }
                     } catch (e) {
                         loginStatus.type = 'error';
                         loginStatus.message = '登录失败: ' + e.message;
@@ -2944,6 +2965,12 @@
                         }
 
                         if (res.success || res.token) {
+                            try {
+                                if (await handleInviteAuthSuccess()) return;
+                            } catch (inviteError) {
+                                handleInitError(inviteError);
+                                return;
+                            }
                             showAlert(isAnonymous ? '注册成功，您的匿名数据已合并！' : '注册成功！');
                             location.reload();
                         }
@@ -2973,6 +3000,36 @@
                     showRegisterModal.value = false;
                     showLoginModal.value = true;
                     showForgotPasswordModal.value = false;
+                };
+                const redirectInviteAuthFallback = (open) => {
+                    const nav = window.MyFlowerPotsNavigation;
+                    if (!nav?.redirectToIndex) return;
+                    nav.redirectToIndex({
+                        open,
+                        notice: 'login_required',
+                        redirect: nav.getCurrentAppPath?.() || 'pot-detail',
+                        source: 'invite'
+                    });
+                };
+                const openInviteLogin = async () => {
+                    clearAuthFeedback();
+                    showRegisterModal.value = false;
+                    showForgotPasswordModal.value = false;
+                    showLoginModal.value = true;
+                    await focusFieldById('detailLoginEmail');
+                    if (!document.getElementById('detailLoginEmail')) {
+                        redirectInviteAuthFallback('login');
+                    }
+                };
+                const openInviteRegister = async () => {
+                    clearAuthFeedback();
+                    showLoginModal.value = false;
+                    showForgotPasswordModal.value = false;
+                    showRegisterModal.value = true;
+                    await focusFieldById('detailRegisterEmail');
+                    if (!document.getElementById('detailRegisterEmail')) {
+                        redirectInviteAuthFallback('register');
+                    }
                 };
                 const switchToForgotPassword = () => {
                     clearAuthFeedback();
@@ -3669,7 +3726,7 @@
                             ? '登录或注册后即可加入这盆植物的共同照料。'
                             : '登录或注册后即可查看这盆植物的成长记录。'
                     };
-                    showLoginModal.value = true;
+                    openInviteLogin();
                 };
 
                 const shareViaSystem = async ({ title, text, url, documentTitle }) => {
@@ -4286,7 +4343,7 @@
                     handleRegisterEmailInput, handleRegisterDisplayNameInput, handleRegisterPasswordInput, handleRegisterConfirmPasswordInput,
                     normalizeRegisterDisplayName,
                     handleLogin, handleForgotPassword, handleRegister, logout, goHome,
-                    closeAuthModals, switchToRegister, switchToLogin, switchToForgotPassword,
+                    closeAuthModals, switchToRegister, switchToLogin, openInviteLogin, openInviteRegister, switchToForgotPassword,
                     userDisplayName, currentUser, commentInputRef, canUseNativeShare
                 };
             }

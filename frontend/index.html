@@ -109,7 +109,7 @@
                     <div
                         class="pointer-events-auto h-10 w-full flex items-center gap-2 rounded-full border border-green-100 bg-white px-3 shadow-sm shadow-green-50">
                         <input ref="potSearchInput" v-model="potSearchQuery" @keydown.esc="closePotSearch" type="text"
-                            enterkeyhint="search" placeholder="搜索花盆"
+                            enterkeyhint="search" placeholder="搜索花盆名称、备注"
                             class="min-w-0 flex-1 bg-transparent text-sm font-semibold text-gray-700 placeholder:text-gray-300 outline-none">
                         <button v-if="hasPotSearchQuery" @click="clearPotSearch" type="button"
                             class="w-7 h-7 shrink-0 flex items-center justify-center rounded-full bg-green-50 text-green-500 transition active:scale-90 hover:bg-green-100"
@@ -485,7 +485,7 @@
                     </div>
                     <h3 class="text-base font-bold text-gray-800">没有找到匹配的花盆</h3>
                     <p class="text-gray-400 text-xs mt-2 px-10">
-                        {{ isLoadingMore ? '正在加载更多花盆继续查找...' : '试试搜索名称、植物类型或备注' }}
+                        {{ isLoadingMore ? '正在加载更多花盆继续查找...' : '试试搜索花盆名称或备注' }}
                     </p>
                 </div>
             </div>
@@ -1607,10 +1607,7 @@
                         const searchableText = [
                             pot.name,
                             pot.plant_type,
-                            pot.note,
-                            pot.archive_reason,
-                            pot.archive_note,
-                            pot.last_care_action
+                            pot.note
                         ]
                             .filter(Boolean)
                             .join(' ')

@@ -245,6 +245,39 @@ export function generatePasswordResetEmail(
 }
 
 /**
+ * Generate admin password reset notification email
+ */
+export function generateAdminPasswordResetNoticeEmail(
+  email: string,
+  displayName: string | null,
+  appBaseUrl: string
+): EmailOptions {
+  const loginLink = `${appBaseUrl.replace(/\/$/, '/')}`;
+  const name = displayName?.trim() || '你好';
+
+  return {
+    to: email,
+    subject: '您的密码已重置 | 我的花盆',
+    html: renderEmailLayout({
+      preheader: '您的“我的花盆”账号密码已由管理员重置。',
+      title: '您的账号密码已重置',
+      intro: [
+        `${name}，您的“我的花盆”账号密码已由管理员重置。`,
+        '请使用管理员通过安全渠道告知的新密码登录。'
+      ],
+      actionLabel: '前往登录',
+      actionUrl: loginLink,
+      accentColor: '#2563eb',
+      footer: [
+        '本邮件不会包含您的新密码。',
+        '如果您没有联系管理员处理密码问题，请尽快回复支持邮件或联系管理员确认。'
+      ]
+    }),
+    text: `${name}，您的“我的花盆”账号密码已由管理员重置。\n\n请使用管理员通过安全渠道告知的新密码登录：\n${loginLink}\n\n本邮件不会包含您的新密码。\n如果您没有联系管理员处理密码问题，请尽快回复支持邮件或联系管理员确认。\n\n我的花盆\n记录每一寸生长`
+  };
+}
+
+/**
  * Generate welcome email for verified users
  */
 export function generateWelcomeEmail(

@@ -3,6 +3,8 @@ import { collectUserImageUrls, deleteImagesFromR2 } from '../utils/storage-utils
 import { clearMemoryCache, deleteMemoryCachePrefix, getMemoryCacheStats } from '../utils/cache-utils';
 import { getAnalytics, getDailyTrend, getAnalyticsDateString } from './analytics';
 import { invalidatePlantCache } from './plants';
+import { hashPassword, isPasswordValid } from '../utils/auth-utils';
+import { generateAdminPasswordResetNoticeEmail, sendEmail } from '../utils/email-service';
 
 const DELETED_USER_PLACEHOLDER_ID = '__deleted_user__';
 const DELETED_USER_PLACEHOLDER_NAME = '已删除用户';
@@ -220,6 +222,14 @@ export async function handleAdminRequest(
     // GET /api/admin/users - 获取用户列表
     if (path === '/api/admin/users' && request.method === 'GET') {
         return handleGetUsers(request, env, url);
+    }
+
+    // POST /api/admin/users/:id/password - 管理员直接重置邮箱用户密码
+    if (path.startsWith('/api/admin/users/') && path.endsWith('/password') && request.method === 'POST') {
+        const parts = path.split('/');
+        const id = parts[4];
+        if (!id) return errorResponse('Missing user ID', 400);
+        return handleResetUserPassword(request, env, id);
     }
 
     // PUT /api/admin/users/:id - 更新用户状态或限额
@@ -630,6 +640,65 @@ async function handleUpdateUser(request: Request, env: any, id: string): Promise
     }
 }
 
+async function handleResetUserPassword(request: Request, env: any, id: string): Promise<Response> {
+    try {
+        const data = await request.json() as { newPassword?: string; notifyUser?: boolean };
+        const newPassword = String(data.newPassword || '');
+        const notifyUser = data.notifyUser === true;
+
+        if (!newPassword) {
+            return errorResponse('New password is required', 400);
+        }
+
+        const passwordValidation = isPasswordValid(newPassword);
+        if (!passwordValidation.valid) {
+            return errorResponse(passwordValidation.message || 'Invalid password', 400);
+        }
+
+        const user: any = await env.DB
+            .prepare('SELECT id, email, display_name, user_type FROM users WHERE id = ?')
+            .bind(id)
+            .first();
+
+        if (!user) {
+            return errorResponse('User not found', 404);
+        }
+
+        if (user.user_type !== 'email' || !user.email) {
+            return errorResponse('Only email users can have a password reset by admin', 400);
+        }
+
+        const newPasswordHash = await hashPassword(newPassword, user.id);
+        await env.DB
+            .prepare('UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?')
+            .bind(newPasswordHash, user.id)
+            .run();
+
+        let emailSent = false;
+        if (notifyUser) {
+            const email = generateAdminPasswordResetNoticeEmail(
+                user.email,
+                user.display_name || null,
+                env.APP_BASE_URL || 'https://my-flower-pots-api.example.com'
+            );
+            emailSent = await sendEmail(email, env);
+        }
+
+        return jsonResponse({
+            success: true,
+            emailRequested: notifyUser,
+            emailSubmitted: emailSent,
+            emailSent,
+            message: emailSent
+                ? 'Password reset successfully and notification email submitted'
+                : 'Password reset successfully'
+        });
+    } catch (error) {
+        console.error('Admin reset user password error:', error);
+        return errorResponse('Failed to reset user password', 500);
+    }
+}
+
 async function handleDeleteUser(env: any, id: string): Promise<Response> {
     try {
         console.log(`Starting deletion for user: ${id}`);
@@ -661,6 +730,12 @@ async function handleDeleteUser(env: any, id: string): Promise<Response> {
 
         // 4. 执行数据库物理删除
         console.log(`Deleting all associated records and user ${id} from database`);
+        const ownedPots = await env.DB
+            .prepare('SELECT id FROM pots WHERE user_id = ?')
+            .bind(id)
+            .all();
+        const potIds = ownedPots.results?.map((p: any) => p.id) || [];
+
         const cleanupBatch = [
             env.DB.prepare('DELETE FROM pot_collaborators WHERE user_id = ?').bind(id),
             env.DB.prepare('DELETE FROM pot_viewers WHERE user_id = ?').bind(id),
@@ -698,8 +773,6 @@ async function handleDeleteUser(env: any, id: string): Promise<Response> {
                 )
             );
         }
-
-        const potIds = pots.results?.map((p: any) => p.id) || [];
 
         if (potIds.length > 0) {
             const placeholders = potIds.map(() => '?').join(',');

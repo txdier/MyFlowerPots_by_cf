@@ -1299,6 +1299,13 @@ class APIClient {
         });
     }
 
+    async adminResetUserPassword(userId, newPassword, notifyUser = false) {
+        return this.request(`/api/admin/users/${userId}/password`, {
+            method: 'POST',
+            body: { newPassword, notifyUser: notifyUser === true }
+        });
+    }
+
     // 删除用户及其所有关联数据
     async adminDeleteUser(userId) {
         return this.request(`/api/admin/users/${userId}`, {
