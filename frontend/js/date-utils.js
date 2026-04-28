@@ -95,7 +95,7 @@
         });
     };
 
-    const getCareElapsedDays = (pot, fallbackEnd = new Date()) => {
+    const getGrowthDurationDays = (pot, fallbackEnd = new Date()) => {
         const start = parseCalendarDay(pot?.plant_date);
         if (!start) return null;
         const isArchived = String(pot?.status || 'active').toLowerCase() === 'archived';
@@ -106,10 +106,35 @@
         return Math.max(1, Math.floor((end.getTime() - start.getTime()) / 86400000) + 1);
     };
 
-    const formatCareElapsedDays = (pot, fallback = '无') => {
-        const days = getCareElapsedDays(pot);
-        return days ? `${days} 天` : fallback;
+    const formatGrowthDurationDays = (days, fallback = '无', options = {}) => {
+        if (!days) return fallback;
+
+        let text = '';
+        if (days < 30) {
+            text = `第 ${days} 天`;
+        } else if (days < 365) {
+            const months = Math.min(11, Math.max(1, Math.round(days / 30)));
+            text = `约 ${months} 个月`;
+        } else {
+            const years = Math.floor(days / 365);
+            const months = Math.floor((days - years * 365) / 30);
+            text = months > 0 ? `${years} 年 ${months} 个月` : `${years} 年`;
+        }
+
+        if (options.includeExactDays && days >= 30) {
+            text += `（共 ${days} 天）`;
+        }
+
+        return text;
     };
+
+    const formatGrowthDuration = (pot, fallback = '无', options = {}) => {
+        const days = getGrowthDurationDays(pot, options.fallbackEnd || new Date());
+        return formatGrowthDurationDays(days, fallback, options);
+    };
+
+    const getCareElapsedDays = getGrowthDurationDays;
+    const formatCareElapsedDays = formatGrowthDuration;
 
     global.MyFlowerPotsDate = {
         parseDate,
@@ -120,6 +145,8 @@
         formatZhDate,
         formatDateTime,
         formatRelativeTime,
+        getGrowthDurationDays,
+        formatGrowthDuration,
         getCareElapsedDays,
         formatCareElapsedDays
     };

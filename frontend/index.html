@@ -66,7 +66,7 @@
     <script src="js/media-utils.js?v=20260421-refactor"></script>
     <script src="js/pot-permissions.js?v=20260421-refactor"></script>
     <script src="js/archive-utils.js?v=20260421-refactor"></script>
-    <script src="js/date-utils.js?v=20260422-date"></script>
+    <script src="js/date-utils.js?v=20260428-growth"></script>
     <script src="js/form-utils.js?v=20260421-auth"></script>
     <script src="js/clipboard.js?v=20260407-2"></script>
     <script src="js/dialog-utils.js?v=20260421-refactor"></script>
@@ -426,8 +426,8 @@
                                                 <span class="font-medium">{{ formatDate(pot.plant_date) }}</span>
                                             </div>
                                             <div class="flex items-center gap-2">
-                                                <span class="text-gray-400 shrink-0">天数</span>
-                                                <span class="font-medium">{{ formatCareElapsedDays(pot) }}</span>
+                                                <span class="text-gray-400 shrink-0">已养</span>
+                                                <span class="font-medium">{{ formatGrowthDuration(pot) }}</span>
                                             </div>
                                             <div v-if="activePotStatus === 'active'" class="flex items-center gap-2">
                                                 <span class="text-gray-400 shrink-0">养护</span>
@@ -3028,18 +3028,10 @@
                     }[type] || '养护';
                 };
                 const formatDate = MyFlowerPotsDate.formatZhDate;
-                const parseCalendarDay = MyFlowerPotsDate.parseCalendarDay;
-                const formatCareElapsedDays = (pot) => {
-                    const start = parseCalendarDay(pot?.plant_date);
-                    if (!start) return '无';
-                    const isPotArchived = String(pot?.status || activePotStatus.value || 'active').toLowerCase() === 'archived';
-                    const end = isPotArchived && pot?.archived_at
-                        ? parseCalendarDay(pot.archived_at)
-                        : parseCalendarDay(new Date());
-                    if (!end) return '无';
-                    const days = Math.max(1, Math.floor((end.getTime() - start.getTime()) / 86400000) + 1);
-                    return `${days} 天`;
-                };
+                const formatGrowthDuration = (pot) => MyFlowerPotsDate.formatGrowthDuration({
+                    ...pot,
+                    status: pot?.status || activePotStatus.value || 'active'
+                });
                 const handleImageError = (e) => MyFlowerPotsMedia.setImageFallback(e);
 
                 const imgUrl = MyFlowerPotsMedia.imgUrl;
@@ -3776,7 +3768,7 @@
                     leaveCollaborationFromSheet, removeViewerPotFromSheet,
                     confirmLeaveCollaboration, confirmLeaveViewer,
                     logout, closeAuthModals, switchToRegister, switchToLogin, switchToForgotPassword,
-                    formatDate, formatCareElapsedDays, handleImageError, imgUrl, seedDemoData, goToPotDetail,
+                    formatDate, formatGrowthDuration, handleImageError, imgUrl, seedDemoData, goToPotDetail,
                     goEditPot: (id) => window.location.href = `edit-pot?id=${id}`,
                     goAddPot: () => window.location.href = 'add-pot',
                     goProfile: () => window.location.href = 'profile',

@@ -427,8 +427,8 @@
                                 <span class="text-gray-600">{{ formatDate(pot.plant_date) }}</span>
                             </div>
                             <div class="flex items-baseline gap-2">
-                                <span class="text-gray-900 font-bold shrink-0 w-20">养护天数：</span>
-                                <span class="text-gray-600">{{ careElapsedDaysText }}</span>
+                                <span class="text-gray-900 font-bold shrink-0 w-20">生长时间：</span>
+                                <span class="text-gray-600">{{ growthDurationText }}</span>
                             </div>
                             <div class="flex items-baseline gap-2">
                                 <span class="text-gray-900 font-bold shrink-0 w-20">花盆备注：</span>
@@ -964,7 +964,7 @@
                                 class="w-16 h-16 rounded-xl object-cover">
                             <div class="min-w-0">
                                 <div class="font-bold text-gray-800 truncate">{{ transferPot.name }}</div>
-                                <div class="text-[10px] text-gray-400 mt-1">创建于 {{ formatDate(transferPot.plant_date) }}
+                                <div class="text-[10px] text-gray-400 mt-1">种植于 {{ formatDate(transferPot.plant_date) }}
                                 </div>
                             </div>
                         </div>
@@ -1997,7 +1997,7 @@
     <script src="js/gallery-utils.js?v=20260421-refactor"></script>
     <script src="js/timeline-utils.js?v=20260421-refactor"></script>
     <script src="js/archive-utils.js?v=20260421-refactor"></script>
-    <script src="js/date-utils.js?v=20260422-date"></script>
+    <script src="js/date-utils.js?v=20260428-growth"></script>
     <script src="js/form-utils.js?v=20260421-auth"></script>
     <script src="js/clipboard.js?v=20260407-2"></script>
     <script src="js/dialog-utils.js?v=20260421-refactor"></script>
@@ -3629,20 +3629,9 @@
                     const statsCareCount = computed(() => Number(potStats.value?.total?.total_records || 0));
 	
 		                const formatDate = MyFlowerPotsDate.formatIsoDate;
-                    const parseCalendarDay = MyFlowerPotsDate.parseCalendarDay;
-
-                    const careElapsedDays = computed(() => {
-                        const start = parseCalendarDay(pot.value?.plant_date);
-                        if (!start) return null;
-                        const end = isArchived.value && pot.value?.archived_at
-                            ? parseCalendarDay(pot.value.archived_at)
-                            : parseCalendarDay(new Date());
-                        if (!end) return null;
-                        return Math.max(1, Math.floor((end.getTime() - start.getTime()) / 86400000) + 1);
-                    });
-
-                    const careElapsedDaysText = computed(() =>
-                        careElapsedDays.value ? `${careElapsedDays.value} 天` : '无'
+                    const growthDurationDays = computed(() => MyFlowerPotsDate.getGrowthDurationDays(pot.value));
+                    const growthDurationText = computed(() =>
+                        MyFlowerPotsDate.formatGrowthDuration(pot.value, '无', { includeExactDays: true })
                     );
 
                 const formatCommentTime = (dateStr) => MyFlowerPotsDate.formatDate(dateStr, 'datetime');
@@ -4402,7 +4391,7 @@
                     imgUrl, groupedCareRecords, activeCareDate, currentSheetGroup,
                     showCareDetails, closeCareDetails, goAddCarePageWithDate,
                     plantInfoActiveTab, showFullPlantInfo, showFullCareTips, plantInfoGroups, careTipsGroups,
-	                    statsWaterCount, statsFertilizeCount, statsCareCount, careElapsedDaysText,
+	                    statsWaterCount, statsFertilizeCount, statsCareCount, growthDurationDays, growthDurationText,
 	                    careSchedules, carePanelActiveTab, showCarePanelAddButton, carePanelAddLabel, handleCarePanelAdd,
                         showScheduleExpanded, showAddScheduleModal, newSchedule,
                     scheduleTypeOptions,
