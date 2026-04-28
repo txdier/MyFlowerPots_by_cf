@@ -956,24 +956,3 @@ async function handleGetPlantInfo(request: Request, plantId: string | undefined,
     return errorResponse('获取植物信息失败', 500);
   }
 }
-
-// 初始化植物数据到KV（可选）
-export async function initPlantsData(env: any): Promise<void> {
-  if (!env.PLANTS_KV) {
-    console.log('PLANTS_KV未配置，跳过初始化');
-    return;
-  }
-
-  try {
-    console.log('开始初始化植物数据到KV...');
-
-    for (const plant of PLANT_DATABASE) {
-      await env.PLANTS_KV.put(plant.id, JSON.stringify(plant));
-      console.log(`已保存植物: ${plant.name} (ID: ${plant.id})`);
-    }
-
-    console.log('植物数据初始化完成');
-  } catch (error) {
-    console.error('初始化植物数据失败:', error);
-  }
-}
