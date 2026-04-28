@@ -114,7 +114,7 @@
                     <div class="flex justify-between items-center mb-2">
                         <div class="flex items-center gap-2">
                             <span class="text-xs font-black text-gray-400">{{ formatDate(record.date) }}</span>
-                            <span v-if="record.operatorName || record.operator_name" class="px-2 py-0.5 bg-gray-100 text-gray-400 text-[9px] font-bold rounded-md">
+                            <span v-if="!isPublicSharePage && (record.operatorName || record.operator_name)" class="px-2 py-0.5 bg-gray-100 text-gray-400 text-[9px] font-bold rounded-md">
                                 <i class="fa fa-user-edit mr-0.5"></i> {{ record.operatorName || record.operator_name }}
                             </span>
                         </div>
@@ -296,6 +296,7 @@
                     const isLoading = ref(true);
                     const potId = ref(null);
                     const shareToken = ref(null);
+                    const isPublicSharePage = computed(() => !!shareToken.value);
                     const pot = ref(null);
                 const timelineRecords = ref([]);
                 const isTimelineDesc = ref(true);
@@ -529,7 +530,7 @@
                 onMounted(init);
 
                 return {
-                    isLoading, pot, timelineRecords, sortedTimelineRecords, isTimelineDesc,
+                    isLoading, pot, isPublicSharePage, timelineRecords, sortedTimelineRecords, isTimelineDesc,
                     canManageTimelines, showEditTimelineModal, isSavingTimeline, editTimelineForm, fileInput,
                     previewImages, previewIndex,
                     toggleTimelineSort, confirmDeleteTimeline, openEditTimelineModal, closeEditTimelineModal,

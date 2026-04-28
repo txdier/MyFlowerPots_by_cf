@@ -860,7 +860,7 @@
                         </button>
                         <div class="min-w-0">
                             <h3 class="text-xl font-black text-gray-800">批量养护</h3>
-                            <p class="text-xs text-gray-400 mt-0.5">将对选中的 {{ selectedOwnedCount }} 个自有花盆记录同一养护动作</p>
+                            <p class="text-xs text-gray-400 mt-0.5">将对选中的 {{ selectedCareManageableCount }} 个自有/共同照料花盆记录同一养护动作</p>
                         </div>
                     </div>
                     <button type="button" @click.stop.prevent="closeBatchCareModal"
@@ -870,6 +870,10 @@
                 </div>
                 <!-- 内容区 -->
                 <div class="p-6 space-y-5">
+                    <div v-if="selectedCareExcludedCount > 0"
+                        class="rounded-2xl bg-gray-50 border border-gray-100 px-4 py-3 text-xs text-gray-500 leading-relaxed">
+                        已自动排除 {{ selectedCareExcludedCount }} 个仅查看花盆，批量养护只会作用于自有和共同照料花盆。
+                    </div>
                     <!-- 养护类型选择 -->
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-3">养护类型</label>
@@ -908,7 +912,7 @@
                 <div class="px-6 pb-6">
                     <button @click="submitBatchCare" :disabled="isBatchCareSubmitDisabled"
                         class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
-                        {{ isBatchCareLoading ? '记录中...' : `确认养护 ${selectedOwnedCount} 个花盆` }}
+                        {{ isBatchCareLoading ? '记录中...' : `确认养护 ${selectedCareManageableCount} 个花盆` }}
                     </button>
                 </div>
             </div>
@@ -1277,10 +1281,16 @@
                         <p class="text-xs text-gray-400 mt-1">已选 {{ selectedCount }} 个花盆</p>
                         <p class="text-[11px] text-gray-400 mt-2">
                             {{ activePotStatus === 'archived' ? '恢复和删除仅对自有花盆生效，好友分享花盆可从列表移除。' :
-                            '批量养护、归档、邀请和删除仅对你拥有的花盆生效，好友分享花盆可从列表移除。' }}
+                            '批量养护可作用于自有和共同照料花盆，归档、邀请和删除仅对自有花盆生效。' }}
+                        </p>
+                        <p v-if="activePotStatus === 'active' && selectedCareExcludedCount > 0"
+                            class="text-[11px] text-amber-600 mt-1.5 font-bold">
+                            当前有 {{ selectedCareExcludedCount }} 个仅查看花盆，批量养护会自动排除。
                         </p>
                         <p v-if="selectedExcludedCount > 0" class="text-[11px] text-amber-600 mt-1.5 font-bold">
-                            当前有 {{ selectedExcludedCount }} 个非本人拥有的花盆，部分操作会自动排除。
+                            {{ activePotStatus === 'archived'
+                            ? `当前有 ${selectedExcludedCount} 个非本人拥有的花盆，恢复和删除会自动排除。`
+                            : `归档、邀请和删除会自动排除 ${selectedExcludedCount} 个非本人拥有的花盆。` }}
                         </p>
                     </div>
                     <button type="button" @click.stop.prevent="exitBatchMode"
@@ -1293,7 +1303,7 @@
                     <div class="px-2 text-[11px] font-black text-gray-400 tracking-wide">常用操作</div>
                     <div class="mt-3 bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
                         <button v-if="activePotStatus === 'active'" @click="openBatchCareFromSheet"
-                            :disabled="selectedOwnedCount === 0"
+                            :disabled="selectedCareManageableCount === 0"
                             class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition border-b border-gray-50 disabled:opacity-40">
                             <div
                                 class="w-11 h-11 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
@@ -1585,12 +1595,18 @@
                     return messagesList.value;
                 });
                 const notificationBadgeCount = computed(() => unreadCount.value + supportUnreadCount.value);
-                const ownedPots = computed(() => pots.value.filter(p => !p.is_collaborator && !p.is_viewer));
+                const isOwnedPotData = (pot) => !!pot && !pot.is_collaborator && !pot.is_viewer;
+                const isViewerOnlyPot = (pot) => !!pot && pot.is_viewer && !pot.is_collaborator;
+                const isBatchCareManageablePot = (pot) => !!pot && (isOwnedPotData(pot) || pot.is_collaborator);
+                const ownedPots = computed(() => pots.value.filter(isOwnedPotData));
                 const collaborativePots = computed(() => pots.value.filter(p => p.is_collaborator));
-                const viewerPots = computed(() => pots.value.filter(p => p.is_viewer && !p.is_collaborator));
-                const batchManageablePots = computed(() =>
-                    pots.value.filter(p => (!p.is_collaborator && !p.is_viewer) || (p.is_viewer && !p.is_collaborator))
-                );
+                const viewerPots = computed(() => pots.value.filter(isViewerOnlyPot));
+                const batchManageablePots = computed(() => {
+                    if (activePotStatus.value === 'active') {
+                        return pots.value.filter(p => isBatchCareManageablePot(p) || isViewerOnlyPot(p));
+                    }
+                    return pots.value.filter(p => isOwnedPotData(p) || isViewerOnlyPot(p));
+                });
                 const potSearchTerms = computed(() => (
                     potSearchQuery.value
                         .trim()
@@ -1616,11 +1632,14 @@
                         return terms.every(term => searchableText.includes(term));
                     });
                 });
-                const selectedOwnedPots = computed(() => pots.value.filter(p => p.selected && !p.is_collaborator && !p.is_viewer));
-                const selectedViewerPots = computed(() => pots.value.filter(p => p.selected && p.is_viewer && !p.is_collaborator));
+                const selectedOwnedPots = computed(() => pots.value.filter(p => p.selected && isOwnedPotData(p)));
+                const selectedCareManageablePots = computed(() => pots.value.filter(p => p.selected && isBatchCareManageablePot(p)));
+                const selectedViewerPots = computed(() => pots.value.filter(p => p.selected && isViewerOnlyPot(p)));
                 const selectedOwnedCount = computed(() => selectedOwnedPots.value.length);
+                const selectedCareManageableCount = computed(() => selectedCareManageablePots.value.length);
                 const selectedViewerCount = computed(() => selectedViewerPots.value.length);
                 const selectedExcludedCount = computed(() => Math.max(0, selectedCount.value - selectedOwnedCount.value));
+                const selectedCareExcludedCount = computed(() => Math.max(0, selectedCount.value - selectedCareManageableCount.value));
 
                 const hasEmailAccount = computed(() => !!(user.value && user.value.userType === 'email'));
                 const isBatchInviteEmailValid = computed(() => formUtils.isValidEmail(batchInviteForm.email));
@@ -2775,6 +2794,12 @@
                     emptyMessage
                 });
 
+                const requireSelectedCareManageablePots = (emptyMessage) => batchActions.requireSelected({
+                    items: selectedCareManageablePots,
+                    showAlert,
+                    emptyMessage
+                });
+
                 const requireSelectedViewerPots = (emptyMessage) => batchActions.requireSelected({
                     items: selectedViewerPots,
                     showAlert,
@@ -2789,7 +2814,7 @@
 
                 // 移除原有的 isBatchMode 监听
 
-                const isOwnedPot = (pot) => !!pot && !pot.is_collaborator && !pot.is_viewer;
+                const isOwnedPot = isOwnedPotData;
                 const closePotActionSheet = () => {
                     if (showPotActionSheet.value) {
                         holdOverlayGuard();
@@ -3303,6 +3328,7 @@
 
                 const isBatchCareSubmitDisabled = computed(() =>
                     isBatchCareLoading.value ||
+                    selectedCareManageableCount.value === 0 ||
                     batchCareForm.types.length === 0 ||
                     (isBatchCareTypeSelected('custom') && !batchCareForm.action.trim())
                 );
@@ -3362,7 +3388,7 @@
                 };
 
                 const openBatchCareFromSheet = () => {
-                    if (!requireSelectedOwnedPots('请先选择自己拥有的花盆再批量养护。')) return;
+                    if (!requireSelectedCareManageablePots('请先选择自有或共同照料花盆再批量养护。')) return;
                     closeBatchActionSheet();
                     openBatchCareModal();
                 };
@@ -3672,7 +3698,7 @@
                 };
 
                 const submitBatchCare = async () => {
-                    const selectedPots = requireSelectedOwnedPots('请先选择自己拥有的花盆再批量养护。');
+                    const selectedPots = requireSelectedCareManageablePots('请先选择自有或共同照料花盆再批量养护。');
                     if (!selectedPots) return;
 
                     const selectedTypes = [...batchCareForm.types];
@@ -3737,7 +3763,7 @@
                     entryNotice, entryNoticeClass, dismissEntryNotice,
                     loginForm, registerForm, loginErrors, registerErrors, forgotPasswordErrors, loginStatus, registerStatus, forgotPasswordStatus,
                     passwordsMatch, isLoginValid, isRegisterValid, isForgotPasswordEmailValid, allSelected, selectedCount,
-                    selectedOwnedCount, selectedViewerCount, selectedExcludedCount, isBatchInviteEmailValid, hasOverlayModalOpen,
+                    selectedOwnedCount, selectedCareManageableCount, selectedViewerCount, selectedExcludedCount, selectedCareExcludedCount, isBatchInviteEmailValid, hasOverlayModalOpen,
                     syncLoginFormFromDom, syncRegisterFormFromDom, scheduleLoginAutofillSync,
                     validateLoginEmail, validateLoginPassword, validateForgotPasswordEmail,
                     validateRegisterEmail, validateRegisterPassword, validateRegisterConfirmPassword,

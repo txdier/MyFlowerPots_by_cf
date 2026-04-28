@@ -1002,52 +1002,12 @@
                     <!-- 可滚动内容区 -->
                     <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar">
 
-                        <!-- 分享开关 -->
-                        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl mb-6">
-                            <div>
-	                                <h4 class="text-sm font-black text-gray-800">生成公开链接 / 二维码</h4>
-	                                <p class="text-[10px] text-gray-400 mt-0.5">
-	                                    {{ isArchived ? '生成只读公开链接和二维码，接收方可查看归档记录。' : '生成公开查看链接和二维码，任何人获得后可查看详情。' }}
-	                                </p>
-                            </div>
-                            <button @click="toggleShare"
-                                class="w-12 h-7 rounded-full transition-all duration-300 relative"
-                                :class="pot.is_shared ? 'bg-green-500' : 'bg-gray-200'">
-                                <span
-                                    class="absolute w-5 h-5 bg-white rounded-full top-1 transition-all duration-300 shadow-sm"
-                                    :class="pot.is_shared ? 'right-1' : 'left-1'"></span>
+                        <div v-if="isOwner" class="flex flex-col gap-3">
+                            <button type="button" @click="openPublicShareModal"
+                                class="w-full py-4 rounded-2xl bg-green-50 text-green-600 text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition">
+                                <i class="fa fa-link"></i> 公开分享 · {{ pot.is_shared ? '已开启' : '已关闭' }}
                             </button>
-                        </div>
-                        <div v-if="isArchived"
-                            class="mb-6 rounded-2xl bg-gray-50 px-4 py-3 text-[11px] font-bold leading-relaxed text-gray-500">
-                            <i class="fa fa-archive mr-1"></i>
-                            已归档内容会以只读方式展示，不能共同照料或编辑。
-                        </div>
 
-                        <!-- 二维码展示区 -->
-                        <div v-show="pot.is_shared" class="flex flex-col items-center">
-                            <div id="qrcode-container"
-                                class="bg-white p-4 rounded-3xl shadow-inner border border-gray-50 mb-4 overflow-hidden">
-                                <!-- QR Code will be rendered here -->
-                            </div>
-                            <p class="text-xs text-gray-500 mb-6 text-center leading-relaxed">
-	                                {{ isArchived ? '保存上方二维码作为归档记录公开分享' : '保存上方二维码或复制链接进行公开分享' }}<br>
-                                <span class="font-bold text-blue-500">点击“分享链接”会优先拉起系统分享，失败时自动回退到复制链接</span>
-                            </p>
-                            <div class="grid grid-cols-2 gap-3 w-full">
-                                <button @click="downloadQRCode"
-                                    class="bg-blue-500 text-white py-4 rounded-2xl text-sm font-black active:scale-95 transition">
-                                    保存到相册
-                                </button>
-                                <button @click="sharePublicLink"
-                                    class="bg-green-500 text-white py-4 rounded-2xl text-sm font-black active:scale-95 transition">
-                                    分享链接
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- 协作管理入口 (仅限已开启且是主人) -->
-                        <div v-if="isOwner" class="mt-8 pt-6 border-t border-gray-50 flex flex-col gap-3">
                             <button @click="showViewerModal = true; showShareModal = false"
                                 class="w-full py-4 rounded-2xl bg-emerald-50 text-emerald-600 text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition">
 	                                <i class="fa fa-book-open"></i> 分享给站内好友
@@ -1061,6 +1021,89 @@
                                 <i class="fa fa-exchange-alt"></i> 永久移交所有权
                             </button>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="showPublicShareModal" class="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closePublicShareModal"></div>
+                <div
+                    class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
+                    <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
+                        <div class="flex items-start justify-between gap-4">
+                            <button type="button" @click="returnToShareModal"
+                                class="shrink-0 text-gray-400 transition active:scale-95">
+                                <i class="fa fa-arrow-left text-xl"></i>
+                            </button>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-xl font-black text-gray-800">公开分享</h3>
+                                <p class="text-xs text-gray-400 mt-1">公开链接和二维码</p>
+                            </div>
+                            <button type="button" @click="closePublicShareModal"
+                                class="text-gray-300 hover:text-gray-500 transition active:scale-95">
+                                <i class="fa fa-times text-xl"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar">
+                        <div class="rounded-3xl bg-gray-50 p-5 mb-5">
+                            <div class="flex items-center justify-between gap-4">
+                                <div class="min-w-0">
+                                    <h4 class="text-sm font-black text-gray-800">公开链接</h4>
+                                    <p class="text-xs text-gray-400 mt-1 leading-relaxed">
+                                        {{ pot.is_shared ? (isArchived ? '已生成只读公开链接。' : '已生成公开查看链接。') : '开启后会生成公开查看链接。' }}
+                                    </p>
+                                </div>
+                                <span class="shrink-0 text-[10px] font-black px-2.5 py-1 rounded-full"
+                                    :class="pot.is_shared ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'">
+                                    {{ pot.is_shared ? '已开启' : '未开启' }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div v-if="isArchived"
+                            class="mb-5 rounded-2xl bg-gray-50 px-4 py-3 text-[11px] font-bold leading-relaxed text-gray-500">
+                            <i class="fa fa-archive mr-1"></i>
+                            已归档内容会以只读方式展示，不能共同照料或编辑。
+                        </div>
+
+                        <button v-if="!pot.is_shared" @click="enablePublicShare" :disabled="isPublicShareLoading"
+                            class="w-full py-4 rounded-2xl bg-green-500 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-green-100 active:scale-95 transition disabled:opacity-50">
+                            <i class="fa fa-link"></i>
+                            {{ isPublicShareLoading ? '开启中...' : '开启公开分享' }}
+                        </button>
+
+                        <template v-else>
+                            <button @click="sharePublicLink"
+                                class="w-full py-4 rounded-2xl bg-green-500 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-green-100 active:scale-95 transition">
+                                <i class="fa fa-share-alt"></i>
+                                分享链接
+                            </button>
+
+                            <button type="button" @click="togglePublicQrCode"
+                                class="mt-3 w-full py-4 rounded-2xl bg-blue-50 text-blue-600 text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition">
+                                <i class="fa" :class="showPublicQrCode ? 'fa-eye-slash' : 'fa-eye'"></i>
+                                {{ showPublicQrCode ? '收起二维码' : '查看二维码' }}
+                            </button>
+
+                            <div v-if="showPublicQrCode" class="mt-5 flex flex-col items-center animate-fade-in">
+                                <div id="qrcode-container"
+                                    class="bg-white p-4 rounded-3xl shadow-inner border border-gray-50 mb-4 overflow-hidden">
+                                    <!-- QR Code will be rendered here -->
+                                </div>
+                                <button @click="downloadQRCode"
+                                    class="w-full py-4 rounded-2xl bg-blue-500 text-white text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition">
+                                    <i class="fa fa-download"></i>
+                                    保存到相册
+                                </button>
+                            </div>
+
+                            <button type="button" @click="disablePublicShare" :disabled="isPublicShareLoading"
+                                class="mt-3 w-full py-4 rounded-2xl bg-red-50 text-red-500 text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition disabled:opacity-50">
+                                <i class="fa fa-times"></i>
+                                {{ isPublicShareLoading ? '处理中...' : '关闭公开分享' }}
+                            </button>
+                        </template>
                     </div>
                 </div>
             </div>
@@ -1995,6 +2038,9 @@
                 const showPlantModal = ref(false);
                 const showAddTimelineModal = ref(false);
                 const showShareModal = ref(false);
+                const showPublicShareModal = ref(false);
+                const showPublicQrCode = ref(false);
+                const isPublicShareLoading = ref(false);
                 const showCollaboratorModal = ref(false);
                 const showViewerModal = ref(false);
 	                const showCommentModal = ref(false);
@@ -2180,7 +2226,7 @@
                             carePanelActiveTab.value = 'records';
                         }
                     });
-	                const showOperatorName = computed(() => pot.value && (pot.value.is_collaborator || pot.value.collaborator_count > 0));
+	                const showOperatorName = computed(() => !!(!shareToken.value && pot.value && (pot.value.is_collaborator || pot.value.collaborator_count > 0)));
                 const hasCollaborationAccess = computed(() => !!(isOwner.value || pot.value?.is_collaborator || viewerIsCollaborator.value));
                 const canCommentAsMember = computed(() => !!(
                     currentUser.value && pot.value && (
@@ -2215,6 +2261,7 @@
                     showPlantModal.value ||
                     showAddTimelineModal.value ||
                     showShareModal.value ||
+                    showPublicShareModal.value ||
                     showCollaboratorModal.value ||
 	                    showViewerModal.value ||
 	                    showCommentModal.value ||
@@ -3788,32 +3835,73 @@
                     }, 50);
                 };
 
-                // 监听分享弹窗开启
-                watch(showShareModal, (val) => {
-                    if (val && pot.value?.is_shared) {
-                        generateQRCode().catch(error => console.warn('QR code load error:', error));
-                    }
-                });
+                const openPublicShareModal = () => {
+                    showPublicQrCode.value = false;
+                    showShareModal.value = false;
+                    showPublicShareModal.value = true;
+                };
 
-	                const toggleShare = async () => {
-	                    try {
-                        if (pot.value.is_shared) {
-                            const res = await apiClient.disableShare(potId.value);
-                            if (res.success) {
-                                pot.value.is_shared = false;
-                                pot.value.share_token = null;
-                            }
-                        } else {
-                            const res = await apiClient.enableShare(potId.value);
-                            if (res.success) {
-                                pot.value.is_shared = true;
-                                pot.value.share_token = res.data.token;
-                                await generateQRCode();
-                            }
+                const closePublicShareModal = () => {
+                    showPublicShareModal.value = false;
+                    showPublicQrCode.value = false;
+                };
+
+                const returnToShareModal = () => {
+                    closePublicShareModal();
+                    showShareModal.value = true;
+                };
+
+                const togglePublicQrCode = async () => {
+                    if (!pot.value?.is_shared) return;
+                    showPublicQrCode.value = !showPublicQrCode.value;
+                    if (showPublicQrCode.value) {
+                        try {
+                            await nextTick();
+                            await generateQRCode();
+                        } catch (error) {
+                            console.warn('QR code load error:', error);
+                            showPublicQrCode.value = false;
+                            showAlert('二维码加载失败，请稍后重试');
+                        }
+                    }
+                };
+
+                const enablePublicShare = async () => {
+                    if (isPublicShareLoading.value) return;
+                    try {
+                        isPublicShareLoading.value = true;
+                        const res = await apiClient.enableShare(potId.value);
+                        if (res.success) {
+                            pot.value.is_shared = true;
+                            pot.value.share_token = res.data.token;
+                            showPublicQrCode.value = false;
                         }
                     } catch (e) {
                         showAlert('操作失败: ' + e.message);
                     } finally {
+                        isPublicShareLoading.value = false;
+                        syncUrlWithShareStatus();
+                    }
+                };
+
+                const disablePublicShare = async () => {
+                    if (isPublicShareLoading.value) return;
+                    if (!showConfirm('关闭后，当前公开链接和二维码将失效。确定关闭吗？')) return;
+                    try {
+                        isPublicShareLoading.value = true;
+                        const res = await apiClient.disableShare(potId.value);
+                        if (res.success) {
+                            pot.value.is_shared = false;
+                            pot.value.share_token = null;
+                            showPublicQrCode.value = false;
+                            qrCode = null;
+                            const container = document.getElementById('qrcode-container');
+                            if (container) container.innerHTML = '';
+                        }
+                    } catch (e) {
+                        showAlert('操作失败: ' + e.message);
+                    } finally {
+                        isPublicShareLoading.value = false;
                         syncUrlWithShareStatus();
                     }
                 };
@@ -4300,7 +4388,7 @@
                     pendingInvitePrompt,
                     isPlantInfoLoading, isCareRecordsLoading, isTimelineRecordsLoading, isPotStatsLoading, isCareSchedulesLoading, isCommentsLoading,
                     potStats, careRecords, timelineRecords, handleImageError, handleHeroImageLoad, handleHeroImageError, heroImageSrc, heroImageLoaded, showActionMenu,
-                    showAddTimelineModal, showShareModal, isSavingTimeline, isEditingTimeline, fileInput, archiveFileInput,
+                    showAddTimelineModal, showShareModal, showPublicShareModal, showPublicQrCode, isPublicShareLoading, isSavingTimeline, isEditingTimeline, fileInput, archiveFileInput,
                     previewImages, previewIndex, galleryDragOffset, galleryIsDragging,
                     newTimeline, sortedTimelineRecords, isTimelineDesc,
 	                    goBack, goEditPage, goAddCarePage, goCreatePot, confirmDeletePot, openArchiveModal, closeArchiveModal,
@@ -4323,7 +4411,8 @@
                     editRecord, deleteRecord, viewAllRecords, viewAllTimelines, confirmingDeleteId,
                     cancelTransfer, rejectTransfer, acceptTransfer,
                     // 分享与协作
-                    showShareModal, showCollaboratorModal, showViewerModal, showTransferModal, toggleShare,
+                    showShareModal, showCollaboratorModal, showViewerModal, showTransferModal,
+                    openPublicShareModal, closePublicShareModal, returnToShareModal, togglePublicQrCode, enablePublicShare, disablePublicShare,
                     downloadQRCode, copyShareLink, sharePublicLink, copyCollaboratorInvite, copyViewerInvite, collaborators, removeCollaborator, viewers, addViewer, removeViewer, newViewerEmail,
                     showCommentModal, canReplyComment, canLeaveComment, showCommentEntry, canViewCommentDanmaku, canManageCommentDanmaku, shouldHideFloatingChrome, shouldShowCommentDanmaku, toggleCommentDanmaku,
                     commentForm, submitComment, isSubmittingComment, openCommentModal, closeCommentModal, beginReply, cancelReply, toggleCommentSort, canDeleteComment, deleteComment,

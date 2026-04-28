@@ -154,21 +154,19 @@ async function handleGetPublicPot(
     }
   }
 
-  // 2. 获取养护记录 (脱敏，仅返回必要信息)
+  // 2. 获取养护记录 (公开分享脱敏，不返回添加人身份)
   const { results: careRecords } = await env.DB.prepare(`
-    SELECT cr.id, cr.pot_id, cr.type, cr.action, cr.care_date, cr.created_at, cr.description, cr.image_url, u.display_name as operator_name
+    SELECT cr.id, cr.pot_id, cr.type, cr.action, cr.care_date, cr.created_at, cr.description, cr.image_url
     FROM care_records cr
-    LEFT JOIN users u ON cr.user_id = u.id
     WHERE cr.pot_id = ?
     ORDER BY cr.care_date DESC, cr.id DESC
     ${careLimit ? 'LIMIT ?' : ''}
   `).bind(...(careLimit ? [pot.id, careLimit] : [pot.id])).all();
 
-  // 3. 获取时间轴 (脱敏)
+  // 3. 获取时间轴 (公开分享脱敏，不返回添加人身份)
   const { results: timelines } = await env.DB.prepare(`
-    SELECT t.id, t.date, t.description, t.images, t.video, t.created_at, u.display_name as operator_name
+    SELECT t.id, t.date, t.description, t.images, t.video, t.created_at
     FROM timelines t
-    LEFT JOIN users u ON t.user_id = u.id
     WHERE t.pot_id = ?
     ORDER BY t.date DESC, t.id DESC
     ${timelineLimit ? 'LIMIT ?' : ''}
@@ -184,16 +182,29 @@ async function handleGetPublicPot(
         isViewer
       },
       careRecords: careRecords.map((r: any) => ({
-        ...r,
+        id: r.id,
+        pot_id: r.pot_id,
+        type: r.type,
+        action: r.action,
+        care_date: r.care_date,
+        created_at: r.created_at,
+        description: r.description,
+        image_url: r.image_url,
         potId: r.pot_id,
         date: r.care_date,
         createdAt: r.created_at,
         imageUrl: r.image_url,
-        operatorName: r.operator_name || '原主人'
+        operatorName: null
       })),
       timelines: timelines.map((t: any) => ({
-        ...t,
-        operatorName: t.operator_name || '原主人'
+        id: t.id,
+        date: t.date,
+        description: t.description,
+        images: t.images,
+        video: t.video,
+        created_at: t.created_at,
+        createdAt: t.created_at,
+        operatorName: null
       }))
     }
   });

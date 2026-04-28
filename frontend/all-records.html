@@ -103,7 +103,7 @@
                             formatDate(record.date) }}</div>
                         <div class="flex flex-wrap items-center gap-2 mb-2">
                             <span class="text-sm font-black text-gray-800">{{ getCareTypeLabel(record.type, record.action) }}</span>
-                            <span v-if="record.operatorName"
+                            <span v-if="!isPublicSharePage && record.operatorName"
                                 class="px-2 py-0.5 bg-gray-100 text-gray-400 text-[9px] font-bold rounded-md">
                                 <i class="fa fa-user-edit mr-0.5"></i> {{ record.operatorName }}
                             </span>
@@ -155,6 +155,7 @@
                     const isLoading = ref(true);
                     const potId = ref(null);
                     const shareToken = ref(null);
+                    const isPublicSharePage = computed(() => !!shareToken.value);
                     const pot = ref(null);
                 const records = ref([]);
                 const filterType = ref('all');
@@ -313,7 +314,7 @@
                 onMounted(init);
 
                 return {
-                    isLoading, pot, isArchived, canManageRecords, filterType, filterOptions, filteredRecords, records, previewUrl,
+                    isLoading, pot, isArchived, isPublicSharePage, canManageRecords, filterType, filterOptions, filteredRecords, records, previewUrl,
                     editRecord, deleteRecord, previewImage, goBack, goAddCare, formatDate, imgUrl,
                     getCareTypeIcon, getCareTypeColor, getCareTypeLabel
                 };
