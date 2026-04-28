@@ -18,7 +18,27 @@ const TRACKED_PAGE_PATHS = new Set([
   '/reset-password',
 ]);
 
-export function queuePageVisit(ctx: WaitUntilContext | undefined, env: any, path: string): void {
+const PAGE_VISIT_THROTTLE_MS = 5 * 60 * 1000;
+const PAGE_VISIT_THROTTLE_MAX_ENTRIES = 1000;
+let lastPageVisitThrottleCleanup = 0;
+const recentPageVisitKeys = new Map<string, number>();
+
+export function queuePageVisit(
+  ctx: WaitUntilContext | undefined,
+  env: any,
+  path: string,
+  request?: Request
+): void {
+  path = normalizePagePath(path);
+
+  if (!TRACKED_PAGE_PATHS.has(path)) {
+    return;
+  }
+
+  if (request && shouldThrottlePageVisit(path, request)) {
+    return;
+  }
+
   if (ctx?.waitUntil) {
     ctx.waitUntil(recordPageVisit(env, path));
     return;
@@ -75,6 +95,65 @@ function normalizePagePath(path: string): string {
   const withoutTrailingSlash = withLeadingSlash.replace(/\/+$/, '') || '/';
   const withoutHtml = withoutTrailingSlash.replace(/\.html$/i, '');
   return withoutHtml === '/index' ? '/' : withoutHtml;
+}
+
+function shouldThrottlePageVisit(path: string, request: Request): boolean {
+  const now = Date.now();
+  cleanupRecentPageVisits(now);
+
+  const visitorKey = [
+    request.headers.get('authorization') || '',
+    request.headers.get('cookie') || '',
+    request.headers.get('cf-connecting-ip') || '',
+    request.headers.get('x-forwarded-for') || '',
+    request.headers.get('user-agent') || ''
+  ].join('|');
+  const key = `${path}:${hashThrottleKey(visitorKey || 'anonymous')}`;
+  const lastSeen = recentPageVisitKeys.get(key) || 0;
+
+  if (lastSeen && now - lastSeen < PAGE_VISIT_THROTTLE_MS) {
+    return true;
+  }
+
+  recentPageVisitKeys.set(key, now);
+  return false;
+}
+
+function cleanupRecentPageVisits(now: number): void {
+  if (
+    now - lastPageVisitThrottleCleanup < PAGE_VISIT_THROTTLE_MS
+    && recentPageVisitKeys.size <= PAGE_VISIT_THROTTLE_MAX_ENTRIES
+  ) {
+    return;
+  }
+
+  lastPageVisitThrottleCleanup = now;
+  for (const [key, timestamp] of recentPageVisitKeys) {
+    if (now - timestamp >= PAGE_VISIT_THROTTLE_MS) {
+      recentPageVisitKeys.delete(key);
+    }
+  }
+
+  if (recentPageVisitKeys.size <= PAGE_VISIT_THROTTLE_MAX_ENTRIES) {
+    return;
+  }
+
+  const overflow = recentPageVisitKeys.size - PAGE_VISIT_THROTTLE_MAX_ENTRIES;
+  let removed = 0;
+  for (const key of recentPageVisitKeys.keys()) {
+    recentPageVisitKeys.delete(key);
+    removed++;
+    if (removed >= overflow) break;
+  }
+}
+
+function hashThrottleKey(value: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
 }
 
 export function getAnalyticsDateString(env: any, offsetDays = 0): string {

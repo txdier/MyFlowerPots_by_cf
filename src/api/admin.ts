@@ -137,7 +137,7 @@ export async function isAdmin(
             return true;
         }
 
-        console.warn('isAdmin: access denied', {
+        console.debug('isAdmin: access denied', {
             userId,
             userEmail,
             isLocalDev,

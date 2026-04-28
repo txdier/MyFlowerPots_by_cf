@@ -17,6 +17,7 @@ import { handleBatchInvitesRequest } from './api/batch-invites';
 import { handleTransferRequest } from './api/transfer';
 import { handleMessagesRequest } from './api/messages';
 import { handleSupportRequest } from './api/support';
+import { handleBootstrapRequest } from './api/bootstrap';
 import { parseEmail } from './utils/email-parser';
 import { servePotDetailWithMeta } from './static/server';
 import { queuePageVisit } from './api/analytics';
@@ -48,6 +49,11 @@ function normalizeStaticPagePath(path: string): string {
 
 function isStaticPagePath(path: string): boolean {
   return STATIC_PAGE_PATHS.has(normalizeStaticPagePath(path));
+}
+
+function isSocialCrawlerRequest(request: Request): boolean {
+  const userAgent = request.headers.get('user-agent') || '';
+  return /bot|spider|crawler|facebookexternalhit|twitterbot|whatsapp|telegrambot|slackbot|discordbot|linkedinbot|pinterest|wechat|micromessenger/i.test(userAgent);
 }
 
 export default {
@@ -104,6 +110,11 @@ export default {
         // 认证相关API
         if (path.startsWith('/api/auth/')) {
           return respond(handleAuthRequest(request, requestEnv, path, url, userId));
+        }
+
+        // 首页启动聚合接口
+        if (path === '/api/bootstrap') {
+          return respond(handleBootstrapRequest(request, requestEnv, userId));
         }
 
         // 支持收件箱API（管理员专用，需在 handleAdminRequest 之前拦截）
@@ -192,19 +203,25 @@ export default {
       if (request.method === 'GET') {
         const isPageRequest = isStaticPagePath(path);
         if (isPageRequest) {
-          queuePageVisit(ctx, env, path);
+          queuePageVisit(ctx, env, path, request);
         }
       }
 
-      // ✨ 分享卡片 OG Meta 注入：对 pot-detail 带 token/id 的请求单独处理
+      // ✨ 分享卡片 OG Meta 注入：只对分享/邀请链接处理；普通站内 id 导航直接走静态资源。
       // 先从 ASSETS 获取静态 HTML，再用 HTMLRewriter 注入花盆元数据（用于微信等社交媒体预览）
       const isPotDetail = normalizeStaticPagePath(path) === '/pot-detail';
       const shareToken = url.searchParams.get('token');
       const shareId = url.searchParams.get('id');
       const collabToken = url.searchParams.get('collabToken');
       const viewerToken = url.searchParams.get('viewerToken');
+      const shouldInjectPotMeta = isPotDetail && (
+        shareToken
+        || collabToken
+        || viewerToken
+        || (shareId && isSocialCrawlerRequest(request))
+      );
 
-      if (env.ASSETS && isPotDetail && (shareToken || shareId || collabToken || viewerToken) && env.DB) {
+      if (env.ASSETS && shouldInjectPotMeta && env.DB) {
         const d1SessionContext = createD1SessionContext(request, env, path);
         const assetUrl = new URL(request.url);
         assetUrl.pathname = '/pot-detail';

@@ -22,6 +22,11 @@ export async function handlePotsRequest(
     return handleGetPotStatusCounts(env, token);
   }
 
+  // 2️⃣ 详情页二级数据聚合
+  if (request.method === 'GET' && path.match(/^\/api\/pots\/[^/]+\/detail-bundle$/)) {
+    return handleGetPotDetailBundle(path, env, token);
+  }
+
   // 2️⃣ 花盆详情
   if (request.method === 'GET' && path.match(/^\/api\/pots\/[^/]+$/)) {
     return handleGetPotDetail(path, env, url, token);
@@ -920,6 +925,278 @@ interface CareRecord {
   care_date: string;
   description: string | null;
   image_url: string | null;
+}
+
+function parseExtraData(raw: any): any {
+  if (!raw) return {};
+  try {
+    return JSON.parse(String(raw));
+  } catch {
+    return {};
+  }
+}
+
+function pickSenderName(row: any): string {
+  return row?.display_name || row?.sender_display_name || row?.email || row?.sender_email || '一位成员';
+}
+
+function mapCareRecord(row: any) {
+  return {
+    id: row.id,
+    potId: row.pot_id,
+    type: row.type,
+    action: row.action,
+    description: row.description,
+    date: row.care_date,
+    care_date: row.care_date,
+    imageUrl: row.image_url || null,
+    image_url: row.image_url || null,
+    createdAt: row.created_at,
+    operatorName: row.operator_name || null
+  };
+}
+
+async function getCareRecordsForBundle(env: any, potId: string): Promise<any[]> {
+  const { results } = await env.DB
+    .prepare(`
+      SELECT
+        cr.id,
+        cr.pot_id,
+        cr.type,
+        cr.action,
+        cr.description,
+        cr.care_date,
+        cr.image_url,
+        cr.created_at,
+        u.display_name as operator_name
+      FROM care_records cr
+      LEFT JOIN users u ON cr.user_id = u.id
+      WHERE cr.pot_id = ?
+      ORDER BY cr.care_date DESC, cr.id DESC
+      LIMIT 50
+    `)
+    .bind(potId)
+    .all();
+
+  return ((results || []) as any[]).map(mapCareRecord);
+}
+
+async function getTimelinesForBundle(env: any, potId: string): Promise<any[]> {
+  const { results } = await env.DB
+    .prepare(`
+      SELECT
+        t.id,
+        t.date,
+        t.description,
+        t.images,
+        t.video,
+        t.created_at,
+        u.display_name as operator_name
+      FROM timelines t
+      LEFT JOIN users u ON t.user_id = u.id
+      WHERE t.pot_id = ?
+      ORDER BY t.date DESC, t.id DESC
+      LIMIT 10
+    `)
+    .bind(potId)
+    .all();
+
+  return ((results || []) as any[]).map((row) => ({
+    ...row,
+    operatorName: row.operator_name || null
+  }));
+}
+
+async function getPotStatsForBundle(env: any, potId: string): Promise<any> {
+  const [totalStats, typeRows] = await Promise.all([
+    env.DB.prepare(`
+      SELECT
+        COUNT(*) as total_records,
+        MIN(care_date) as first_care,
+        MAX(care_date) as last_care,
+        COUNT(DISTINCT care_date) as care_days
+      FROM care_records
+      WHERE pot_id = ?
+    `).bind(potId).first(),
+    env.DB.prepare(`
+      SELECT
+        type,
+        COUNT(*) as total_count,
+        SUM(CASE WHEN care_date >= date('now', '-30 days') THEN 1 ELSE 0 END) as recent_count,
+        MAX(CASE WHEN care_date >= date('now', '-30 days') THEN care_date ELSE NULL END) as recent_last_date
+      FROM care_records
+      WHERE pot_id = ?
+      GROUP BY type
+    `).bind(potId).all()
+  ]);
+
+  const rows = ((typeRows.results || []) as any[]);
+
+  return {
+    recent: rows
+      .filter((row) => Number(row.recent_count || 0) > 0)
+      .map((row) => ({
+        type: row.type,
+        count: Number(row.recent_count || 0),
+        last_date: row.recent_last_date
+      })),
+    total: totalStats || { total_records: 0, care_days: 0 },
+    byType: rows.map((row) => ({
+      type: row.type,
+      total_count: Number(row.total_count || 0)
+    }))
+  };
+}
+
+async function getCareSchedulesForBundle(env: any, potId: string): Promise<any[]> {
+  const { results } = await env.DB.prepare(`
+    SELECT * FROM care_schedules WHERE pot_id = ? ORDER BY care_type ASC
+  `).bind(potId).all();
+
+  return (results || []) as any[];
+}
+
+async function getPotCommentsForBundle(env: any, potId: string): Promise<any[]> {
+  const { results } = await env.DB.prepare(`
+    SELECT
+      c.id,
+      c.pot_id,
+      c.sender_id,
+      c.parent_comment_id,
+      c.content,
+      c.created_at,
+      u.display_name,
+      u.email
+    FROM pot_comments c
+    LEFT JOIN users u ON u.id = c.sender_id
+    WHERE c.pot_id = ?
+    ORDER BY c.created_at ASC, c.id ASC
+    LIMIT 200
+  `).bind(potId).all();
+
+  const topLevelComments: any[] = [];
+  const commentMap = new Map<string, any>();
+  for (const row of (results || []) as any[]) {
+    const item = {
+      id: row.id,
+      senderId: row.sender_id,
+      senderName: pickSenderName(row),
+      comment: row.content || '',
+      createdAt: row.created_at,
+      replies: [],
+      latestReply: null,
+      isLegacy: false
+    };
+
+    if (!row.parent_comment_id) {
+      topLevelComments.push(item);
+      commentMap.set(row.id, item);
+      continue;
+    }
+
+    const parent = commentMap.get(row.parent_comment_id);
+    if (!parent) continue;
+
+    const reply = {
+      id: row.id,
+      senderId: row.sender_id,
+      senderName: pickSenderName(row),
+      comment: row.content || '',
+      createdAt: row.created_at
+    };
+
+    parent.replies.push(reply);
+    if (!parent.latestReply || `${reply.createdAt}|${reply.id}` > `${parent.latestReply.createdAt}|${parent.latestReply.id}`) {
+      parent.latestReply = reply;
+    }
+  }
+
+  const legacyRows = await env.DB.prepare(`
+    SELECT
+      id,
+      sender_id,
+      content,
+      extra_data,
+      created_at
+    FROM messages
+    WHERE related_id = ?
+      AND type = 'pot_comment'
+    ORDER BY created_at DESC, id DESC
+    LIMIT 60
+  `).bind(potId).all();
+
+  const seen = new Set<string>();
+  for (const row of (legacyRows.results || []) as any[]) {
+    const extra = parseExtraData(row.extra_data);
+    if (extra.commentId) continue;
+
+    const item = {
+      id: `legacy_${row.id}`,
+      senderId: row.sender_id,
+      senderName: extra.senderName || '一位成员',
+      comment: extra.comment || row.content || '',
+      createdAt: row.created_at,
+      replies: [],
+      latestReply: null,
+      isLegacy: true
+    };
+    const dedupeKey = `${item.senderId || ''}|${item.comment}|${item.createdAt}`;
+    if (seen.has(dedupeKey) || !item.comment) continue;
+    seen.add(dedupeKey);
+    topLevelComments.push(item);
+  }
+
+  topLevelComments.sort((a, b) => `${a.createdAt}|${a.id}`.localeCompare(`${b.createdAt}|${b.id}`));
+  return topLevelComments.slice(-60);
+}
+
+async function handleGetPotDetailBundle(path: string, env: any, token: string | null): Promise<Response> {
+  const potId = path.split('/')[3];
+  const userId = token;
+  if (!userId) {
+    return errorResponse('Authentication required', 401);
+  }
+
+  const pot = await findAccessiblePot(env, potId, userId, 'view', {
+    select: `
+      p.id,
+      p.user_id,
+      COALESCE(p.status, 'active') as status,
+      CASE WHEN pc.user_id IS NULL THEN 0 ELSE 1 END as is_collaborator,
+      CASE WHEN pv.user_id IS NULL THEN 0 ELSE 1 END as is_viewer
+    `
+  });
+
+  if (!pot) {
+    return errorResponse('Pot not found or access denied', 404);
+  }
+
+  try {
+    const canManage = pot.user_id === userId || pot.is_collaborator === 1;
+    const isActive = String(pot.status || 'active') === 'active';
+    const [careRecords, timelineRecords, potStats, potComments, careSchedules] = await Promise.all([
+      getCareRecordsForBundle(env, potId),
+      getTimelinesForBundle(env, potId),
+      getPotStatsForBundle(env, potId),
+      getPotCommentsForBundle(env, potId),
+      canManage && isActive ? getCareSchedulesForBundle(env, potId) : Promise.resolve([])
+    ]);
+
+    return jsonResponse({
+      success: true,
+      data: {
+        careRecords,
+        timelineRecords,
+        timelines: timelineRecords,
+        potStats,
+        careSchedules,
+        potComments
+      }
+    });
+  } catch (error) {
+    console.error('Get pot detail bundle error:', error);
+    return errorResponse('Failed to get pot detail bundle', 500);
+  }
 }
 
 async function handleGetCareRecords(path: string, env: any, token: string | null): Promise<Response> {

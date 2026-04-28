@@ -2583,42 +2583,19 @@
 
                     runWhenIdle(() => {
                         if (canLoadPrivateDetailData()) {
-                            loadCareRecords().catch(err => {
+                            loadDetailBundle().catch(err => {
                                 if (!isOwner.value && err.message?.includes('Authentication')) {
-                                    console.warn('Skipping private care records for non-owner');
+                                    console.warn('Skipping private detail bundle for non-owner');
                                 } else {
-                                    console.error('Care records load error:', err);
+                                    console.error('Detail bundle load error:', err);
                                 }
                             });
-                            loadTimelineRecords().catch(err => {
-                                if (!isOwner.value && err.message?.includes('Authentication')) {
-                                    console.warn('Skipping private timelines for non-owner');
-                                } else {
-                                    console.error('Timeline load error:', err);
-                                }
-                            });
-                            loadPotStats().catch(err => {
-                                if (!isOwner.value && err.message?.includes('Authentication')) {
-                                    console.warn('Skipping private stats for non-owner');
-                                } else {
-                                    console.error('Stats load error:', err);
-                                }
-                            });
-                            if (canShowCareSchedules.value) {
-                                loadCareSchedules().catch(err => {
-                                    if (!isOwner.value && err.message?.includes('Authentication')) {
-                                        console.warn('Skipping private schedules for non-owner');
-                                    } else {
-                                        console.error('Care schedules load error:', err);
-                                    }
-                                });
-                            } else {
-                                careSchedules.value = [];
-                            }
                         }
 
                         loadPlantInfo().catch(err => console.warn('Plant info load error:', err));
-                        loadPotComments().catch(err => console.warn('Comment load error:', err));
+                        if (!canLoadPrivateDetailData()) {
+                            loadPotComments().catch(err => console.warn('Comment load error:', err));
+                        }
                     });
                 };
 
@@ -3084,6 +3061,66 @@
                     showForgotPasswordModal.value = true;
                 };
 
+                const syncActiveCareDetails = () => {
+                    if (!activeCareDate.value) return;
+                    const group = groupedCareRecords.value.find(g => g.date === activeCareDate.value);
+                    if (group && group.records.length > 0) {
+                        currentSheetGroup.value = { ...group };
+                    } else {
+                        closeCareDetails();
+                    }
+                };
+
+                const normalizeCareSchedules = (items = []) => items.map(s => ({
+                    ...s,
+                    intervalDays: s.interval_days,
+                    enabled: s.enabled === 1 || s.enabled === true
+                }));
+
+                const applyDetailBundleData = (data = {}) => {
+                    if (data.careRecords) {
+                        careRecords.value = data.careRecords;
+                        syncActiveCareDetails();
+                    }
+                    if (data.timelineRecords || data.timelines) {
+                        timelineRecords.value = data.timelineRecords || data.timelines || [];
+                    }
+                    if (data.potStats) {
+                        potStats.value = data.potStats;
+                    }
+                    if (data.careSchedules) {
+                        careSchedules.value = canShowCareSchedules.value
+                            ? normalizeCareSchedules(data.careSchedules)
+                            : [];
+                    } else if (!canShowCareSchedules.value) {
+                        careSchedules.value = [];
+                    }
+                    if (data.potComments) {
+                        potComments.value = data.potComments;
+                    }
+                };
+
+                const loadDetailBundle = async () => {
+                    if (!potId.value) return;
+                    isCareRecordsLoading.value = true;
+                    isTimelineRecordsLoading.value = true;
+                    isPotStatsLoading.value = true;
+                    isCareSchedulesLoading.value = !!canShowCareSchedules.value;
+                    isCommentsLoading.value = true;
+                    try {
+                        const res = await apiClient.getPotDetailBundle(potId.value);
+                        if (res.success && res.data) {
+                            applyDetailBundleData(res.data);
+                        }
+                    } finally {
+                        isCareRecordsLoading.value = false;
+                        isTimelineRecordsLoading.value = false;
+                        isPotStatsLoading.value = false;
+                        isCareSchedulesLoading.value = false;
+                        isCommentsLoading.value = false;
+                    }
+                };
+
                 const loadCareRecords = async () => {
                     if (!potId.value) {
                         careRecords.value = [];
@@ -3094,15 +3131,7 @@
                         const res = await apiClient.getCareRecords(potId.value);
                         if (res.success) {
                             careRecords.value = res.data || [];
-                            // 同步更新当前弹出的详情列表
-                            if (activeCareDate.value) {
-                                const group = groupedCareRecords.value.find(g => g.date === activeCareDate.value);
-                                if (group && group.records.length > 0) {
-                                    currentSheetGroup.value = { ...group };
-                                } else {
-                                    closeCareDetails();
-                                }
-                            }
+                            syncActiveCareDetails();
                         }
                     } finally {
                         isCareRecordsLoading.value = false;
@@ -3146,11 +3175,7 @@
                     try {
                         const res = await apiClient.getCareSchedules(potId.value);
                         if (res.success && res.data) {
-                            careSchedules.value = res.data.map(s => ({
-                                ...s,
-                                intervalDays: s.interval_days,
-                                enabled: s.enabled === 1
-                            }));
+                            careSchedules.value = normalizeCareSchedules(res.data);
                         }
                     } finally {
                         isCareSchedulesLoading.value = false;
@@ -3165,7 +3190,9 @@
                     }
                     isPlantInfoLoading.value = true;
                     try {
-                        const matchRes = await apiClient.smartMatchPlant(pot.value.name, pot.value.note || '');
+                        const matchRes = await apiClient.smartMatchPlant(pot.value.name, pot.value.note || '', {
+                            potId: pot.value.id
+                        });
                         if (matchRes.success && matchRes.data) {
                             plantInfo.value = transformPlantData(matchRes.data);
                             if (matchRes.data.name !== pot.value.name) matchedPlantName.value = matchRes.data.name;

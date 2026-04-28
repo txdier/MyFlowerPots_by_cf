@@ -95,6 +95,16 @@ async function handleGetSchedulesByPot(env: any, userId: string, potId: string):
 
 // 获取今日待办提醒
 async function handleGetReminders(env: any, userId: string): Promise<Response> {
+    const reminders = await getCareRemindersData(env, userId);
+
+    return jsonResponse({
+        success: true,
+        data: reminders,
+        count: reminders.length
+    });
+}
+
+export async function getCareRemindersData(env: any, userId: string): Promise<any[]> {
     // 查询所有启用的养护计划，计算是否到期
     const { results } = await env.DB.prepare(`
     WITH schedule_base AS (
@@ -136,8 +146,7 @@ async function handleGetReminders(env: any, userId: string): Promise<Response> {
     ORDER BY days_since_care DESC
   `).bind(userId, userId).all();
 
-    // 格式化结果
-    const reminders = (results || []).map((r: any) => ({
+    return (results || []).map((r: any) => ({
         scheduleId: r.schedule_id,
         potId: r.pot_id,
         potName: r.pot_name,
@@ -150,12 +159,6 @@ async function handleGetReminders(env: any, userId: string): Promise<Response> {
         reminderStartDate: r.reminder_start_date,
         isOverdue: r.days_since_care >= r.interval_days
     }));
-
-    return jsonResponse({
-        success: true,
-        data: reminders,
-        count: reminders.length
-    });
 }
 
 // 创建养护计划

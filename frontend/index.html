@@ -1755,6 +1755,7 @@
                 );
                 let overlayCloseTimer = null;
                 let seasonalHeaderRotationTimer = null;
+                let bootstrapRefreshPromise = null;
 
                 const holdOverlayGuard = () => {
                     isOverlayClosing.value = true;
@@ -2022,11 +2023,9 @@
                     }
 
                     await fetchPots({ status: activePotStatus.value, blocking: true });
-                    const postLoginTasks = [fetchPotStatusCounts(), fetchUnreadCount(), loadCareReminders()];
-                    if (user.value?.isAdmin) {
-                        postLoginTasks.push(fetchSupportUnreadCount());
+                    if (careReminders.value.length > 0) {
+                        setTimeout(loadSeasonalTips, 100);
                     }
-                    Promise.allSettled(postLoginTasks).catch(() => { });
                 };
 
                 const init = async () => {
@@ -2067,20 +2066,18 @@
                     openAuthFromIntent();
 
                     await fetchPots();
-                    const startupTasks = [fetchPotStatusCounts()];
-                    if (isLoggedIn.value) {
-                        startupTasks.push(fetchUnreadCount());
-                        if (user.value?.isAdmin) startupTasks.push(fetchSupportUnreadCount());
-                        startupTasks.push(loadCareReminders());
+                    if (careReminders.value.length > 0) {
+                        setTimeout(loadSeasonalTips, 100);
                     }
-                    Promise.allSettled(startupTasks).catch(() => { });
 
                     // 监听登录状态变化，登录后立即刷新未读数
                     watch(isLoggedIn, (val) => {
                         if (val) {
-                            fetchUnreadCount();
-                            fetchSupportUnreadCount();
-                            loadCareReminders();
+                            refreshBootstrapData().then(() => {
+                                if (careReminders.value.length > 0) {
+                                    setTimeout(loadSeasonalTips, 100);
+                                }
+                            }).catch(() => { });
                             return;
                         }
                         unreadCount.value = 0;
@@ -2088,6 +2085,56 @@
                         careReminders.value = [];
                         isCareRemindersLoading.value = false;
                     });
+                };
+
+                const applyBootstrapData = (res) => {
+                    if (!res?.success) return false;
+
+                    user.value = res.user || null;
+                    isLoggedIn.value = !!res.user;
+
+                    if (res.potStatusCounts) {
+                        potStatusCounts.active = Number(res.potStatusCounts.active || 0);
+                        potStatusCounts.archived = Number(res.potStatusCounts.archived || 0);
+                    }
+
+                    unreadCount.value = Number(res.unreadCount || 0);
+                    supportUnreadCount.value = Number(res.supportUnreadCount || 0);
+                    careReminders.value = Array.isArray(res.careReminders) && activePotStatus.value === 'active'
+                        ? res.careReminders
+                        : [];
+                    isCareRemindersLoading.value = false;
+                    return true;
+                };
+
+                const refreshBootstrapData = async () => {
+                    const token = window.authStorage?.getToken() || null;
+                    const userId = window.authStorage?.getUserId() || null;
+
+                    if (!(token && userId)) {
+                        applyBootstrapData({
+                            success: true,
+                            user: null,
+                            potStatusCounts: { active: 0, archived: 0 },
+                            unreadCount: 0,
+                            supportUnreadCount: 0,
+                            careReminders: []
+                        });
+                        return null;
+                    }
+
+                    apiClient.setToken(token, userId);
+                    if (!bootstrapRefreshPromise) {
+                        bootstrapRefreshPromise = apiClient.getBootstrap()
+                            .then((res) => {
+                                applyBootstrapData(res);
+                                return res.user || null;
+                            })
+                            .finally(() => {
+                                bootstrapRefreshPromise = null;
+                            });
+                    }
+                    return bootstrapRefreshPromise;
                 };
 
                 const fetchUnreadCount = async () => {
@@ -2250,11 +2297,9 @@
                     apiClient.setToken(token, userId);
 
                     try {
-                        const res = await apiClient.getCurrentUser();
-                        if (res.success) {
-                            user.value = res.user;
-                            isLoggedIn.value = true;
-                            return res.user;
+                        const bootUser = await refreshBootstrapData();
+                        if (bootUser) {
+                            return bootUser;
                         }
                     } catch (error) {
                         if (error?.status === 401 || error?.status === 404) {
@@ -3047,34 +3092,58 @@
                     return 'Winter';
                 };
 
+                const applySeasonalMatchResult = (potId, res) => {
+                    const plant = res?.data;
+                    let guide = plant ? (plant.care_guide || plant.careGuide) : null;
+
+                    if (typeof guide === 'string') {
+                        try { guide = JSON.parse(guide); } catch (e) { console.warn('Parse guide failed', e); }
+                    }
+
+                    if (res?.success && guide) {
+                        seasonalTipsMap[potId] = {
+                            careGuide: guide,
+                            season: getCurrentSeason()
+                        };
+                    }
+                };
+
                 // 获取并解析特定植物的季节性建议
                 const fetchSeasonalTipForPot = async (potId, pName, pNote) => {
-                    // 使用 potId 作为唯一键，更稳健
-                    if (seasonalTipsMap[potId] !== undefined) return;
+                    if (seasonalTipsMap[potId] !== undefined) return seasonalTipsMap[potId];
 
-                    seasonalTipsMap[potId] = null; // 标记占位
-
+                    seasonalTipsMap[potId] = null;
                     try {
-                        const res = await apiClient.smartMatchPlant(pName, pNote);
-                        const plant = res.data;
-                        // 后端返回 snake_case (care_guide)，兼容驼峰
-                        let guide = plant ? (plant.care_guide || plant.careGuide) : null;
-
-                        // 健壮性：如果是 JSON 字符串，尝试解析
-                        if (typeof guide === 'string') {
-                            try { guide = JSON.parse(guide); } catch (e) { console.warn('Parse guide failed', e); }
-                        }
-
-                        if (res.success && guide) {
-                            seasonalTipsMap[potId] = {
-                                careGuide: guide,
-                                season: getCurrentSeason()
-                            };
-                        }
+                        const res = await apiClient.smartMatchPlant(pName, pNote, { potId });
+                        applySeasonalMatchResult(potId, res);
                     } catch (e) {
                         console.warn('Failed to fetch seasonal tip for', pName);
-                        // 失败时不缓存 null，允许重试? 或者缓存 null 防止反复请求?
-                        // 这里保持 null
+                    }
+                    return seasonalTipsMap[potId];
+                };
+
+                const fetchSeasonalTipsForPots = async (potItems = []) => {
+                    const items = potItems
+                        .filter(p => p?.id && seasonalTipsMap[p.id] === undefined)
+                        .map(p => ({
+                            key: p.id,
+                            potId: p.id,
+                            potName: p.name,
+                            potNote: p.note || ''
+                        }));
+
+                    if (items.length === 0) return;
+                    items.forEach(item => { seasonalTipsMap[item.potId] = null; });
+
+                    try {
+                        const res = await apiClient.smartMatchPlants(items);
+                        if (!res.success) return;
+                        (res.data || []).forEach(item => {
+                            const id = item.potId || item.key;
+                            if (id) applySeasonalMatchResult(id, item);
+                        });
+                    } catch (e) {
+                        console.warn('Failed to batch fetch seasonal tips:', e);
                     }
                 };
 
@@ -3095,14 +3164,12 @@
                         if (fullPot) {
                             // 收集需要请求的花盆
                             if (seasonalTipsMap[group.potId] === undefined) {
-                                uniquePots.set(group.potId, { name: fullPot.name, note: fullPot.note });
+                                uniquePots.set(group.potId, fullPot);
                             }
                         }
                     });
 
-                    for (const [id, data] of uniquePots) {
-                        fetchSeasonalTipForPot(id, data.name, data.note);
-                    }
+                    await fetchSeasonalTipsForPots(Array.from(uniquePots.values()));
                 };
 
                 // 从缓存中获取特定任务的建议文本
@@ -3179,11 +3246,10 @@
                     const reminders = [];
                     const seen = new Set();
 
-                    for (const pot of pots.value.slice(0, 8)) {
-                        if (seasonalTipsMap[pot.id] === undefined) {
-                            await fetchSeasonalTipForPot(pot.id, pot.name, pot.note);
-                        }
+                    const headerPots = pots.value.slice(0, 8);
+                    await fetchSeasonalTipsForPots(headerPots);
 
+                    for (const pot of headerPots) {
                         const data = seasonalTipsMap[pot.id];
                         const tip = data?.careGuide ? extractAnySeasonalText(data.careGuide, data.season) : null;
                         if (tip?.text) {
@@ -3724,7 +3790,10 @@
                             showBatchCareModal.value = false;
                             // 退出管理模式并刷新列表
                             clearBatchSelection();
-                            await fetchPots();
+                            await fetchPots({ status: activePotStatus.value, blocking: false });
+                            if (activePotStatus.value === 'active') {
+                                await loadCareReminders();
+                            }
                         }
                     } catch (e) {
                         showAlert('养护记录失败: ' + e.message);

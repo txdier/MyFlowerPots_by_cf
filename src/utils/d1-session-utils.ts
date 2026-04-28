@@ -8,6 +8,7 @@ type D1SessionContext = {
 
 const READ_ONLY_POST_PATHS = new Set([
   '/api/plants/smart-match',
+  '/api/plants/smart-match/batch',
   '/api/care-advice'
 ]);
 

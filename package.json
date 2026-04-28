@@ -5,6 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
+    "check": "npm run check:frontend && npm run check:types && npm run build-css && git diff --check && npm run check:worker",
+    "check:changed": "node scripts/check-changed.js",
+    "check:types": "node scripts/check-types.js",
+    "check:frontend": "node scripts/check-frontend.js",
+    "check:worker": "node scripts/check-worker.js",
+    "verify": "npm run check && npm run test:smoke",
+    "verify:full": "npm run check && npm run test && npm run test:smoke && npm run test:api",
+    "test": "npm run test:unit && npm run test:worker",
+    "test:unit": "vitest run --config vitest.unit.config.ts",
+    "test:worker": "vitest run --config vitest.worker.config.ts",
+    "test:smoke": "vitest run --config vitest.smoke.config.ts",
+    "test:api": "vitest run --config vitest.api.config.ts",
     "build-css": "npx tailwindcss -i ./frontend/css/tailwind-input.css -o ./frontend/css/tailwind-built.css --config tailwind.config.cjs --minify",
     "watch-css": "npx tailwindcss -i ./frontend/css/tailwind-input.css -o ./frontend/css/tailwind-built.css --config tailwind.config.cjs --watch",
     "deploy": "npm run build-css && wrangler deploy",
@@ -18,16 +30,18 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.15.0",
     "@cloudflare/workers-types": "^4.20250213.0",
     "@tailwindcss/cli": "^4.1.18",
     "autoprefixer": "^10.4.23",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.19",
     "typescript": "^5.7.3",
+    "vitest": "^4.1.5",
     "wrangler": "^4.83.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.19.0"
   },
   "keywords": [
     "flower-pots",

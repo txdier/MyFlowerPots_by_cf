@@ -367,6 +367,11 @@ export async function handlePlantsRequest(
   path: string,
   url: URL
 ): Promise<Response> {
+  // 批量智能植物匹配API
+  if (path === '/api/plants/smart-match/batch' && request.method === 'POST') {
+    return handleSmartMatchBatch(request, env);
+  }
+
   // 智能植物匹配API
   if (path === '/api/plants/smart-match' && request.method === 'POST') {
     return handleSmartMatch(request, env);
@@ -460,6 +465,20 @@ type PlantIndex = {
   idEntries: PlantSearchEntry[];
   synonymEntries: PlantSearchEntry[];
   loadedAt: number;
+};
+
+type SmartMatchInput = {
+  potName?: string;
+  potNote?: string;
+};
+
+type SmartMatchResult = {
+  success: true;
+  data: PlantRecord | Record<string, any> | null;
+  message: string;
+  keywords?: string[];
+  matchType?: string;
+  matchScore?: number;
 };
 
 const PLANT_CACHE_PREFIX = 'plants:';
@@ -668,35 +687,32 @@ function searchPlantIndex(index: PlantIndex, query: string, limit = 20): PlantRe
   return results;
 }
 
-// 智能植物匹配
-async function handleSmartMatch(request: Request, env: any): Promise<Response> {
-  const allowLocalFallback = isLocalDevelopmentRequest(request);
-  let potName: string | undefined;
-  let potNote: string | undefined;
-
+async function runSmartMatch(
+  env: any,
+  input: SmartMatchInput,
+  allowLocalFallback: boolean
+): Promise<SmartMatchResult> {
+  const potName = input.potName;
+  const potNote = input.potNote;
   try {
-    const body = await request.json() as { potName?: string; potNote?: string };
-    potName = body.potName;
-    potNote = body.potNote;
-
     if (!potName && !potNote) {
-      return jsonResponse({ success: true, data: null, message: '无输入内容' });
+      return { success: true, data: null, message: '无输入内容' };
     }
 
     if (!env.DB) {
       if (allowLocalFallback) {
         const fallbackMatch = findFallbackSmartMatch(potName, potNote);
-        return jsonResponse({
+        return {
           success: true,
           data: fallbackMatch?.data || null,
           message: fallbackMatch?.message || '本地样例中未找到匹配植物',
           matchType: fallbackMatch?.matchType || 'local-none',
           matchScore: fallbackMatch?.matchScore || 0,
           keywords: fallbackMatch?.keywords || []
-        });
+        };
       }
 
-      return errorResponse('数据库未配置', 500);
+      throw new Error('数据库未配置');
     }
 
     const plantIndex = await getPlantIndex(env);
@@ -708,15 +724,13 @@ async function handleSmartMatch(request: Request, env: any): Promise<Response> {
         || findPrefixPlantMatch(plantIndex, trimmedPotName);
 
       if (directMatch) {
-        console.log('直接匹配成功:', directMatch.name);
-
-        return jsonResponse({
+        return {
           success: true,
           message: `直接匹配成功: ${directMatch.name}`,
           data: clonePlantForResponse(directMatch),
           matchType: 'direct',
           matchScore: 10
-        });
+        };
       }
     }
 
@@ -724,10 +738,8 @@ async function handleSmartMatch(request: Request, env: any): Promise<Response> {
     const combinedText = `${potName || ''} ${potNote || ''}`;
     const keywords = extractSmartMatchKeywords(combinedText);
 
-    console.log('智能匹配 - 提取关键词:', keywords);
-
     if (keywords.length === 0) {
-      return jsonResponse({ success: true, data: null, message: '未提取到有效关键词' });
+      return { success: true, data: null, message: '未提取到有效关键词' };
     }
 
     // 构建多关键词查询
@@ -760,52 +772,105 @@ async function handleSmartMatch(request: Request, env: any): Promise<Response> {
     }
 
     if (bestMatch) {
-      return jsonResponse({
+      return {
         success: true,
         message: `匹配成功: ${bestMatch.name}`,
         data: clonePlantForResponse(bestMatch),
         keywords: keywords,
         matchScore: highestScore
-      });
+      };
     }
 
     if (allowLocalFallback) {
       const fallbackMatch = findFallbackSmartMatch(potName, potNote);
       if (fallbackMatch) {
-        return jsonResponse({
+        return {
           success: true,
           data: fallbackMatch.data,
           message: fallbackMatch.message,
           keywords: fallbackMatch.keywords || keywords,
           matchType: fallbackMatch.matchType,
           matchScore: fallbackMatch.matchScore
-        });
+        };
       }
     }
 
-    return jsonResponse({
+    return {
       success: true,
       data: null,
       message: '未找到匹配的植物',
       keywords: keywords
-    });
+    };
 
   } catch (error) {
-    console.error('智能匹配错误:', error);
-
     if (allowLocalFallback && isPlantsDatabaseUnavailable(error)) {
       const fallbackMatch = findFallbackSmartMatch(potName, potNote);
-      return jsonResponse({
+      return {
         success: true,
         data: fallbackMatch?.data || null,
         message: fallbackMatch?.message || '本地样例中未找到匹配植物',
         keywords: fallbackMatch?.keywords || [],
         matchType: fallbackMatch?.matchType || 'local-none',
         matchScore: fallbackMatch?.matchScore || 0
-      });
+      };
     }
 
+    throw error;
+  }
+}
+
+// 智能植物匹配
+async function handleSmartMatch(request: Request, env: any): Promise<Response> {
+  const allowLocalFallback = isLocalDevelopmentRequest(request);
+
+  try {
+    const body = await request.json() as SmartMatchInput;
+    const result = await runSmartMatch(env, body, allowLocalFallback);
+    return jsonResponse(result);
+  } catch (error) {
+    console.error('智能匹配错误:', error);
     return errorResponse('智能匹配失败', 500);
+  }
+}
+
+async function handleSmartMatchBatch(request: Request, env: any): Promise<Response> {
+  const allowLocalFallback = isLocalDevelopmentRequest(request);
+
+  try {
+    const body = await request.json() as any;
+    const rawItems = Array.isArray(body) ? body : body.items;
+    if (!Array.isArray(rawItems)) {
+      return errorResponse('Invalid items', 400);
+    }
+
+    const items = rawItems.slice(0, 40);
+    const data = [];
+    for (let index = 0; index < items.length; index++) {
+      const item = items[index] || {};
+      const key = String(item.key || item.potId || index);
+      try {
+        const result = await runSmartMatch(env, item, allowLocalFallback);
+        data.push({
+          key,
+          potId: item.potId || null,
+          ...result
+        });
+      } catch (error) {
+        console.warn('批量智能匹配单项失败:', { key, potId: item.potId || null, error: String((error as any)?.message || error) });
+        data.push({
+          key,
+          potId: item.potId || null,
+          success: false,
+          data: null,
+          message: '智能匹配失败'
+        });
+      }
+    }
+
+    return jsonResponse({ success: true, data });
+  } catch (error) {
+    console.error('批量智能匹配错误:', error);
+    return errorResponse('批量智能匹配失败', 500);
   }
 }
 

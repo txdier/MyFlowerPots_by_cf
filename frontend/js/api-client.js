@@ -25,6 +25,8 @@ const AUTH_KEYS = {
 
 const D1_BOOKMARK_HEADER = 'x-d1-bookmark';
 const D1_BOOKMARK_KEY_PREFIX = 'flowerpots_d1_bookmark';
+const SMART_MATCH_CACHE_PREFIX = 'flowerpots_smart_match';
+const SMART_MATCH_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 const AUTH_PERSISTENT_STORAGE = window.localStorage;
 const AUTH_LEGACY_STORAGE = window.sessionStorage;
@@ -347,6 +349,17 @@ const isPublicAuthEndpoint = (endpoint) => {
     return PUBLIC_AUTH_ENDPOINTS.has(path) || path.startsWith('/api/public/');
 };
 
+const normalizeSmartMatchText = (value) => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+const hashSmartMatchKey = (value) => {
+    let hash = 2166136261;
+    for (let i = 0; i < value.length; i++) {
+        hash ^= value.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(36);
+};
+
 // API客户端类
 class APIClient {
     constructor(config = {}) {
@@ -392,6 +405,50 @@ class APIClient {
         if (bookmark) {
             this.setD1Bookmark(bookmark);
         }
+    }
+
+    getSmartMatchCacheKey({ potId, potName, potNote } = {}) {
+        const id = String(potId || '').trim();
+        if (!id) return null;
+        const fingerprint = hashSmartMatchKey([
+            normalizeSmartMatchText(potName),
+            normalizeSmartMatchText(potNote)
+        ].join('|'));
+        return `${SMART_MATCH_CACHE_PREFIX}:${id}:${fingerprint}`;
+    }
+
+    readSmartMatchCache(input) {
+        const key = this.getSmartMatchCacheKey(input);
+        if (!key) return null;
+
+        const raw = safeStorageGet(AUTH_LEGACY_STORAGE, key) || safeStorageGet(AUTH_PERSISTENT_STORAGE, key);
+        if (!raw) return null;
+
+        try {
+            const cached = JSON.parse(raw);
+            if (!cached || Date.now() - Number(cached.cachedAt || 0) > SMART_MATCH_CACHE_TTL_MS) {
+                safeStorageRemove(AUTH_LEGACY_STORAGE, key);
+                safeStorageRemove(AUTH_PERSISTENT_STORAGE, key);
+                return null;
+            }
+            return cached.response || null;
+        } catch {
+            safeStorageRemove(AUTH_LEGACY_STORAGE, key);
+            safeStorageRemove(AUTH_PERSISTENT_STORAGE, key);
+            return null;
+        }
+    }
+
+    writeSmartMatchCache(input, response) {
+        const key = this.getSmartMatchCacheKey(input);
+        if (!key || !response?.success) return;
+
+        const payload = JSON.stringify({
+            cachedAt: Date.now(),
+            response
+        });
+        safeStorageSet(AUTH_LEGACY_STORAGE, key, payload);
+        safeStorageSet(AUTH_PERSISTENT_STORAGE, key, payload);
     }
 
     // 刷新 JWT 令牌（使用当前已认证会话续签）
@@ -658,6 +715,10 @@ class APIClient {
         return this.request('/api/auth/me');
     }
 
+    async getBootstrap() {
+        return this.request('/api/bootstrap');
+    }
+
     async getUserProfile() {
         return this.getCurrentUser();
     }
@@ -729,6 +790,10 @@ class APIClient {
 
     async getPotDetail(potId) {
         return this.request(`/api/pots/${potId}`);
+    }
+
+    async getPotDetailBundle(potId) {
+        return this.request(`/api/pots/${potId}/detail-bundle`);
     }
 
     async getPotStatusCounts() {
@@ -1175,11 +1240,61 @@ class APIClient {
     }
 
     // 智能植物匹配API
-    async smartMatchPlant(potName, potNote = '') {
-        return this.request('/api/plants/smart-match', {
+    async smartMatchPlant(potName, potNote = '', options = {}) {
+        const cacheInput = { potId: options.potId, potName, potNote };
+        const cached = this.readSmartMatchCache(cacheInput);
+        if (cached) return cached;
+
+        const result = await this.request('/api/plants/smart-match', {
             method: 'POST',
             body: { potName, potNote }
         });
+        this.writeSmartMatchCache(cacheInput, result);
+        return result;
+    }
+
+    async smartMatchPlants(items = []) {
+        const normalizedItems = (Array.isArray(items) ? items : [])
+            .map((item, index) => ({
+                key: String(item?.key || item?.potId || index),
+                potId: item?.potId || null,
+                potName: item?.potName ?? item?.name ?? '',
+                potNote: item?.potNote ?? item?.note ?? ''
+            }));
+
+        const responses = new Array(normalizedItems.length);
+        const misses = [];
+        normalizedItems.forEach((item, index) => {
+            const cached = this.readSmartMatchCache(item);
+            if (cached) {
+                responses[index] = { key: item.key, potId: item.potId, ...cached };
+            } else {
+                misses.push({ ...item, index });
+            }
+        });
+
+        if (misses.length > 0) {
+            const batch = await this.request('/api/plants/smart-match/batch', {
+                method: 'POST',
+                body: {
+                    items: misses.map(({ index, ...item }) => item)
+                }
+            });
+            const byKey = new Map((batch.data || []).map((item) => [String(item.key), item]));
+            for (const miss of misses) {
+                const itemResult = byKey.get(miss.key) || {
+                    key: miss.key,
+                    potId: miss.potId,
+                    success: false,
+                    data: null,
+                    message: '智能匹配失败'
+                };
+                responses[miss.index] = itemResult;
+                this.writeSmartMatchCache(miss, itemResult);
+            }
+        }
+
+        return { success: true, data: responses };
     }
 
     // 图片上传API
