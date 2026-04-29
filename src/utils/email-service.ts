@@ -142,7 +142,7 @@ function renderEmailLayout(options: EmailLayoutOptions): string {
 export async function sendEmail(options: EmailOptions, env: any): Promise<boolean> {
   const { to, subject, html, text } = options;
   const resendApiKey = env.RESEND_API_KEY;
-  const fromEmail = env.EMAIL_FROM || 'noreply@kaside365.com';
+  const fromEmail = env.EMAIL_FROM || 'support@kaside365.com';
 
   // If no Resend API key, just log and return success (for development)
   if (!resendApiKey) {
