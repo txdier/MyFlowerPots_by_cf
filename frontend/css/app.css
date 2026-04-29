@@ -1057,13 +1057,12 @@ body {
     z-index: 1999;
 }
 
-/* 表单验证样式 */
-input:invalid {
-    border-color: #f44336;
+.auth-turnstile-slot:empty {
+    display: none;
 }
 
-input:valid {
-    border-color: #4CAF50;
+.auth-turnstile-slot iframe {
+    max-width: 100%;
 }
 
 /* 禁用状态 */

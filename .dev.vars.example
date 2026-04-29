@@ -11,6 +11,7 @@ EMAIL_FROM="noreply@example.com"
 EMAIL_FROM_NAME="My Flower Pots Support"
 SUPPORT_EMAIL_FROM="support@example.com"
 SUPPORT_EMAIL_FROM_NAME="我的花盆客服"
+TURNSTILE_SECRET_KEY="1x0000000000000000000000000000000AA"
 
 # Local-only admin helpers
 DEV_ADMIN_ANY_EMAIL_USER="false"

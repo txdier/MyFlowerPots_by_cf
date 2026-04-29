@@ -55,19 +55,21 @@
 
     <!-- Tailwind CSS & Custom Styles (Optimized) -->
     <link rel="stylesheet" href="css/tailwind-built.css?v=20260421-search">
-    <link rel="stylesheet" href="css/app.css?v=20260416-home-gap-3">
+    <link rel="stylesheet" href="css/app.css?v=20260429-auth-validation">
 
     <!-- 图标库 -->
     <link rel="stylesheet" href="css/icons.css?v=20260421-search">
 
     <!-- 配置脚本 -->
-    <script src="js/config.js?v=20260118"></script>
-    <script src="js/api-client.js?v=20260418-d1session"></script>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+    <script src="js/config.js?v=20260429-turnstile"></script>
+    <script src="js/api-client.js?v=20260429-turnstile"></script>
     <script src="js/media-utils.js?v=20260421-refactor"></script>
     <script src="js/pot-permissions.js?v=20260421-refactor"></script>
     <script src="js/archive-utils.js?v=20260421-refactor"></script>
     <script src="js/date-utils.js?v=20260428-growth"></script>
-    <script src="js/form-utils.js?v=20260421-auth"></script>
+    <script src="js/form-utils.js?v=20260429-auth"></script>
+    <script src="js/turnstile-utils.js?v=20260429-turnstile"></script>
     <script src="js/clipboard.js?v=20260407-2"></script>
     <script src="js/dialog-utils.js?v=20260421-refactor"></script>
     <script src="js/batch-actions-utils.js?v=20260421-refactor"></script>
@@ -519,14 +521,14 @@
         </div>
 
         <!-- 登录/注册 弹窗 -->
-        <div v-if="showLoginModal || showRegisterModal || showForgotPasswordModal"
-            class="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <!-- 遮罩层也限制在 650px 范围内（可选，如果要完全模拟移动 App 在中心） -->
-            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeAuthModals"></div>
-            <div class="relative bg-white w-full max-w-[500px] rounded-3xl shadow-2xl overflow-hidden animate-slide-up"
-                @click.stop @mousedown.stop @touchstart.stop>
+        <template v-if="showLoginModal || showRegisterModal || showForgotPasswordModal">
+            <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                <!-- 遮罩层也限制在 650px 范围内（可选，如果要完全模拟移动 App 在中心） -->
+                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeAuthModals"></div>
+                <div class="relative bg-white w-full max-w-[500px] max-h-[calc(100vh-2rem)] overflow-y-auto rounded-3xl shadow-2xl animate-slide-up"
+                    @click.stop @mousedown.stop @touchstart.stop>
                 <!-- 登录弹窗 -->
-                <div v-if="showLoginModal" class="p-8">
+                <div v-if="showLoginModal" class="px-7 py-7 sm:p-8">
                     <!-- 关闭按钮 -->
                     <button @click="closeAuthModals"
                         class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
@@ -534,9 +536,9 @@
                     </button>
 
                     <h3 class="text-2xl font-black text-gray-800 mb-2">欢迎回来</h3>
-                    <p class="text-gray-400 text-sm mb-8">{{ loginModalLead }}</p>
+                    <p class="text-gray-400 text-sm mb-6">{{ loginModalLead }}</p>
                     <form @submit.prevent="handleLogin" @focusin="scheduleLoginAutofillSync"
-                        @click="scheduleLoginAutofillSync" autocomplete="on" class="space-y-4">
+                        @click="scheduleLoginAutofillSync" autocomplete="on" class="space-y-3.5" novalidate>
                         <div class="space-y-1.5">
                             <label for="loginEmail"
                                 class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
@@ -570,22 +572,22 @@
                             {{ loginStatus.message }}
                         </div>
                         <button type="submit" :disabled="isAuthLoading || !isLoginValid"
-                            class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+                            class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold mt-2 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                             {{ isAuthLoading ? '登录中...' : '立即登录' }}
                         </button>
                     </form>
                     <div class="mt-4 text-right">
-                        <button @click="switchToForgotPassword"
+                        <button @pointerdown.prevent @click="switchToForgotPassword"
                             class="text-xs text-gray-400 hover:text-green-500 transition">忘记密码？</button>
                     </div>
-                    <div class="mt-8 pt-6 border-t border-gray-50 text-center">
+                    <div class="mt-6 pt-5 border-t border-gray-50 text-center">
                         <span class="text-gray-400 text-sm">还没有账号？</span>
-                        <button @click="switchToRegister" class="text-green-500 text-sm font-bold ml-1">注册一个</button>
+                        <button @pointerdown.prevent @click="switchToRegister" class="text-green-500 text-sm font-bold ml-1">注册一个</button>
                     </div>
                 </div>
 
                 <!-- 注册弹窗 -->
-                <div v-if="showRegisterModal" class="p-8">
+                <div v-if="showRegisterModal" class="px-7 py-7 sm:p-8">
                     <!-- 关闭按钮 -->
                     <button @click="closeAuthModals"
                         class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
@@ -593,8 +595,8 @@
                     </button>
 
                     <h3 class="text-2xl font-black text-gray-800 mb-2">创建账号</h3>
-                    <p class="text-gray-400 text-sm mb-8">{{ registerModalLead }}</p>
-                    <form @submit.prevent="handleRegister" class="space-y-4">
+                    <p class="text-gray-400 text-sm mb-6">{{ registerModalLead }}</p>
+                    <form @submit.prevent="handleRegister" class="space-y-3.5" novalidate>
                         <div class="space-y-1.5">
                             <label for="registerEmail"
                                 class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
@@ -657,19 +659,20 @@
                                 :class="registerStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
                             {{ registerStatus.message }}
                         </div>
-                        <button type="submit" :disabled="isAuthLoading || !isRegisterValid"
-                            class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+                        <div v-if="isTurnstileEnabled" id="registerTurnstile" class="auth-turnstile-slot w-full"></div>
+                        <button type="submit" :disabled="isAuthLoading || !isRegisterValid || !isRegisterTurnstileReady"
+                            class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold mt-2 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                             {{ isAuthLoading ? '注册并合并数据' : '完成注册' }}
                         </button>
                     </form>
-                    <div class="mt-8 pt-6 border-t border-gray-50 text-center">
+                    <div class="mt-6 pt-5 border-t border-gray-50 text-center">
                         <span class="text-gray-400 text-sm">已有账号？</span>
-                        <button @click="switchToLogin" class="text-green-500 text-sm font-bold ml-1">去登录</button>
+                        <button @pointerdown.prevent @click="switchToLogin" class="text-green-500 text-sm font-bold ml-1">去登录</button>
                     </div>
                 </div>
 
                 <!-- 忘记密码弹窗 -->
-                <div v-if="showForgotPasswordModal" class="p-8">
+                <div v-if="showForgotPasswordModal" class="px-7 py-7 sm:p-8">
                     <!-- 关闭按钮 -->
                     <button @click="closeAuthModals"
                         class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
@@ -677,12 +680,12 @@
                     </button>
 
                     <h3 class="text-2xl font-black text-gray-800 mb-2">重置您的密码</h3>
-                    <p class="text-gray-400 text-sm mb-8">我们将向您的邮箱发送重置链接</p>
-                    <form @submit.prevent="handleForgotPassword" class="space-y-4">
+                    <p class="text-gray-400 text-sm mb-6">我们将向您的邮箱发送重置链接</p>
+                    <form @submit.prevent="handleForgotPassword" class="space-y-3.5" novalidate>
                         <div class="space-y-1.5">
                             <label
                                 class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
-                            <input type="email" id="loginEmail" name="email" autocomplete="email" inputmode="email"
+                            <input type="email" id="forgotPasswordEmail" name="email" autocomplete="email" inputmode="email"
                                 autocapitalize="none" spellcheck="false" maxlength="120" v-model="loginForm.email"
                                 @input="handleForgotPasswordEmailInput" @change="syncLoginFormFromDom"
                                 @animationstart="syncLoginFormFromDom" @blur="validateForgotPasswordEmail(true)"
@@ -700,17 +703,19 @@
                                 :class="forgotPasswordStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
                             {{ forgotPasswordStatus.message }}
                         </div>
-                        <button type="submit" :disabled="isAuthLoading || !isForgotPasswordEmailValid"
-                            class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+                        <div v-if="isTurnstileEnabled" id="forgotPasswordTurnstile" class="auth-turnstile-slot w-full"></div>
+                        <button type="submit" :disabled="isAuthLoading || !isForgotPasswordEmailValid || !isForgotPasswordTurnstileReady"
+                            class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold mt-2 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                             {{ isAuthLoading ? '发送中...' : '发送重置邮件' }}
                         </button>
                     </form>
-                    <div class="mt-8 pt-6 border-t border-gray-50 text-center">
-                        <button @click="switchToLogin" class="text-green-500 text-sm font-bold">返回登录</button>
+                    <div class="mt-6 pt-5 border-t border-gray-50 text-center">
+                        <button @pointerdown.prevent @click="switchToLogin" class="text-green-500 text-sm font-bold">返回登录</button>
                     </div>
                 </div>
+                </div>
             </div>
-        </div>
+        </template>
 
         <!-- 消息中心弹窗 -->
         <div v-if="showMessageCenter" class="fixed inset-0 z-[70] flex items-center justify-center p-4">
@@ -1468,7 +1473,14 @@
                 const showRegisterModal = ref(false);
                 const showForgotPasswordModal = ref(false);
                 const isAuthLoading = ref(false);
-                const authForms = formUtils.createAuthFormController({ reactive, computed, nextTick });
+                const authForms = formUtils.createAuthFormController({
+                    reactive,
+                    computed,
+                    nextTick,
+                    ids: {
+                        forgotPasswordEmail: 'forgotPasswordEmail'
+                    }
+                });
                 const {
                     loginForm,
                     registerForm,
@@ -1507,6 +1519,20 @@
                     validateLoginForm,
                     validateRegisterForm
                 } = authForms;
+                const turnstileForms = window.createTurnstileController({
+                    ref,
+                    computed,
+                    nextTick,
+                    contexts: {
+                        register: { containerId: 'registerTurnstile', action: 'register' },
+                        forgotPassword: { containerId: 'forgotPasswordTurnstile', action: 'forgot_password' }
+                    }
+                });
+                const isTurnstileEnabled = turnstileForms.isEnabled;
+                const registerTurnstileToken = turnstileForms.tokenFor('register');
+                const forgotPasswordTurnstileToken = turnstileForms.tokenFor('forgotPassword');
+                const isRegisterTurnstileReady = turnstileForms.isReady('register');
+                const isForgotPasswordTurnstileReady = turnstileForms.isReady('forgotPassword');
                 const authIntent = reactive({
                     notice: '',
                     open: '',
@@ -1879,6 +1905,15 @@
 
                     if (registerVisible) {
                         scheduleRegisterAutofillSync();
+                        turnstileForms.render('register');
+                    } else {
+                        turnstileForms.remove('register');
+                    }
+
+                    if (forgotVisible) {
+                        turnstileForms.render('forgotPassword');
+                    } else {
+                        turnstileForms.remove('forgotPassword');
                     }
                 });
 
@@ -1936,6 +1971,12 @@
                             icon: 'fa-exclamation-triangle',
                             title: '加载失败',
                             message: '请稍后重试。'
+                        },
+                        password_reset_success: {
+                            tone: 'success',
+                            icon: 'fa-check-circle',
+                            title: '密码已重置',
+                            message: '请使用新密码登录。'
                         }
                     };
 
@@ -2707,13 +2748,19 @@
                     syncLoginFormFromDom();
                     clearStatus(forgotPasswordStatus);
                     if (!validateForgotPasswordEmail(true)) {
-                        await focusFieldById('loginEmail');
+                        await focusFieldById('forgotPasswordEmail');
+                        return;
+                    }
+                    if (!forgotPasswordTurnstileToken.value) {
+                        forgotPasswordStatus.type = 'error';
+                        forgotPasswordStatus.message = '请先完成人机验证。';
+                        await turnstileForms.render('forgotPassword');
                         return;
                     }
                     try {
                         isAuthLoading.value = true;
                         loginForm.email = formUtils.normalizeEmail(loginForm.email);
-                        const res = await apiClient.forgotPassword(loginForm.email);
+                        const res = await apiClient.forgotPassword(loginForm.email, forgotPasswordTurnstileToken.value);
                         if (res.success) {
                             forgotPasswordStatus.type = 'success';
                             forgotPasswordStatus.message = '重置链接已发送到您的邮箱，请检查收件箱和垃圾箱。';
@@ -2726,12 +2773,19 @@
                         forgotPasswordStatus.type = 'error';
                         forgotPasswordStatus.message = '发送失败: ' + e.message;
                     } finally {
+                        turnstileForms.reset('forgotPassword');
                         isAuthLoading.value = false;
                     }
                 };
 
                 const handleRegister = async () => {
                     if (!await validateRegisterForm()) {
+                        return;
+                    }
+                    if (!registerTurnstileToken.value) {
+                        registerStatus.type = 'error';
+                        registerStatus.message = '请先完成人机验证。';
+                        await turnstileForms.render('register');
                         return;
                     }
 
@@ -2745,9 +2799,9 @@
 
                         let res;
                         if (isAnonymous && anonymousUserId) {
-                            res = await apiClient.upgrade(registerForm.email, registerForm.password, registerForm.displayName, anonymousUserId);
+                            res = await apiClient.upgrade(registerForm.email, registerForm.password, registerForm.displayName, anonymousUserId, registerTurnstileToken.value);
                         } else {
-                            res = await apiClient.register(registerForm.email, registerForm.password, registerForm.displayName);
+                            res = await apiClient.register(registerForm.email, registerForm.password, registerForm.displayName, registerTurnstileToken.value);
                         }
 
                         if (res.success || res.token) {
@@ -2758,6 +2812,7 @@
                         registerStatus.type = 'error';
                         registerStatus.message = '注册失败: ' + e.message;
                     } finally {
+                        turnstileForms.reset('register');
                         isAuthLoading.value = false;
                     }
                 };
@@ -3823,7 +3878,9 @@
                     isEditMode, potsGrid, showUserMenu, showLoginModal, showRegisterModal, showForgotPasswordModal, isAuthLoading,
                     entryNotice, entryNoticeClass, dismissEntryNotice,
                     loginForm, registerForm, loginErrors, registerErrors, forgotPasswordErrors, loginStatus, registerStatus, forgotPasswordStatus,
-                    passwordsMatch, isLoginValid, isRegisterValid, isForgotPasswordEmailValid, allSelected, selectedCount,
+                    passwordsMatch, isLoginValid, isRegisterValid, isForgotPasswordEmailValid,
+                    isTurnstileEnabled, isRegisterTurnstileReady, isForgotPasswordTurnstileReady,
+                    allSelected, selectedCount,
                     selectedOwnedCount, selectedCareManageableCount, selectedViewerCount, selectedExcludedCount, selectedCareExcludedCount, isBatchInviteEmailValid, hasOverlayModalOpen,
                     syncLoginFormFromDom, syncRegisterFormFromDom, scheduleLoginAutofillSync,
                     validateLoginEmail, validateLoginPassword, validateForgotPasswordEmail,

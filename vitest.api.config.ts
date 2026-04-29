@@ -16,6 +16,7 @@ export default defineConfig({
           RESEND_API_KEY: '',
           EMAIL_FROM: 'noreply@example.test',
           ADMIN_EMAILS: 'admin@example.test',
+          TURNSTILE_TEST_BYPASS: 'true',
         },
       },
     }),

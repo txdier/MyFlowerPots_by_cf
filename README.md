@@ -35,8 +35,8 @@ npm install
 3. 填写关键配置：
 
 - `wrangler.toml`：D1 数据库 ID、Workers Assets 绑定、R2 存储桶名称
-- `.dev.vars`：`JWT_SECRET`、`APP_BASE_URL`、管理员邮箱等
-- `frontend/js/config.js`：生产环境 `prodUrl`
+- `.dev.vars`：`JWT_SECRET`、`TURNSTILE_SECRET_KEY`、`APP_BASE_URL`、管理员邮箱等
+- `frontend/js/config.js`：生产环境 `prodUrl` 和 Turnstile Site Key
 
 ## 常用命令
 

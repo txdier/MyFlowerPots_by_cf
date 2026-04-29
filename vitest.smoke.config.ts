@@ -15,6 +15,7 @@ export default defineConfig({
           APP_BASE_URL: 'https://example.test',
           RESEND_API_KEY: '',
           EMAIL_FROM: 'noreply@example.test',
+          TURNSTILE_TEST_BYPASS: 'true',
         },
       },
     }),

@@ -37,6 +37,8 @@ export type TestUser = {
   userId: string;
 };
 
+export const TEST_TURNSTILE_TOKEN = 'test-turnstile-token';
+
 type RegisterUserOptions = {
   email?: string;
   password?: string;
@@ -163,6 +165,7 @@ export async function registerUser(label = 'user', options: RegisterUserOptions 
       email,
       password,
       displayName,
+      turnstileToken: TEST_TURNSTILE_TOKEN,
     },
   }));
 

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { env } from 'cloudflare:test';
 import {
   api,
   createPot,
@@ -8,6 +9,7 @@ import {
   loginUser,
   registerUser,
   resetWorkerTestDatabase,
+  TEST_TURNSTILE_TOKEN,
   testDb,
 } from '../helpers/worker-api';
 
@@ -25,6 +27,7 @@ describe('api regression: authentication and account rules', () => {
         email: user.email,
         password: user.password,
         displayName: 'duplicate',
+        turnstileToken: TEST_TURNSTILE_TOKEN,
       },
     }), 409);
 
@@ -134,6 +137,7 @@ describe('api regression: authentication and account rules', () => {
         email: `upgrade-${crypto.randomUUID()}@example.test`,
         password: 'Password123!',
         displayName: 'upgraded',
+        turnstileToken: TEST_TURNSTILE_TOKEN,
       },
     }));
 
@@ -154,5 +158,163 @@ describe('api regression: authentication and account rules', () => {
         name: 'custom limit',
       },
     }), 403);
+  });
+
+  it('requires Turnstile on public account creation and reset endpoints', async () => {
+    const anonymous = await identifyAnonymousUser();
+
+    expectStatus(await api('/api/auth/register', {
+      method: 'POST',
+      body: {
+        email: `missing-turnstile-${crypto.randomUUID()}@example.test`,
+        password: 'Password123!',
+        displayName: 'missing',
+      },
+    }), 403);
+
+    expectStatus(await api('/api/auth/register', {
+      method: 'POST',
+      body: {
+        email: `invalid-turnstile-${crypto.randomUUID()}@example.test`,
+        password: 'Password123!',
+        displayName: 'invalid',
+        turnstileToken: 'invalid-token',
+      },
+    }), 403);
+
+    expectStatus(await api('/api/auth/forgot-password', {
+      method: 'POST',
+      body: {
+        email: 'someone@example.test',
+      },
+    }), 403);
+
+    expectStatus(await api('/api/auth/forgot-password', {
+      method: 'POST',
+      body: {
+        email: 'someone@example.test',
+        turnstileToken: 'invalid-token',
+      },
+    }), 403);
+
+    expectStatus(await api('/api/auth/upgrade', {
+      method: 'POST',
+      body: {
+        anonymousUserId: anonymous.userId,
+        email: `upgrade-missing-turnstile-${crypto.randomUUID()}@example.test`,
+        password: 'Password123!',
+        displayName: 'blocked',
+      },
+    }), 403);
+  });
+
+  it('rejects arbitrary Turnstile tokens when using the local dummy pass secret', async () => {
+    const originalBypass = (env as any).TURNSTILE_TEST_BYPASS;
+    const originalSecret = (env as any).TURNSTILE_SECRET_KEY;
+
+    try {
+      (env as any).TURNSTILE_TEST_BYPASS = 'false';
+      (env as any).TURNSTILE_SECRET_KEY = '1x0000000000000000000000000000000AA';
+
+      expectStatus(await api('/api/auth/forgot-password', {
+        method: 'POST',
+        body: {
+          email: `dummy-invalid-${crypto.randomUUID()}@example.test`,
+          turnstileToken: 'invalid-token',
+        },
+      }), 403);
+
+      await expectOk(await api('/api/auth/forgot-password', {
+        method: 'POST',
+        body: {
+          email: `dummy-valid-${crypto.randomUUID()}@example.test`,
+          turnstileToken: 'XXXX.DUMMY.TOKEN.XXXX',
+        },
+      }));
+    } finally {
+      (env as any).TURNSTILE_TEST_BYPASS = originalBypass;
+      if (originalSecret === undefined) {
+        delete (env as any).TURNSTILE_SECRET_KEY;
+      } else {
+        (env as any).TURNSTILE_SECRET_KEY = originalSecret;
+      }
+    }
+  });
+
+  it('rate limits forgot-password emails without revealing account existence', async () => {
+    const user = await registerUser('reset-limit');
+
+    await expectOk(await api('/api/auth/forgot-password', {
+      method: 'POST',
+      body: {
+        email: user.email,
+        turnstileToken: TEST_TURNSTILE_TOKEN,
+      },
+    }));
+
+    const firstReset = await testDb()
+      .prepare(`
+        SELECT reset_token, reset_email_sent_at, reset_email_send_window_start, reset_email_send_count
+        FROM users
+        WHERE id = ?
+      `)
+      .bind(user.userId)
+      .first<any>();
+
+    expect(firstReset?.reset_token).toBeTruthy();
+    expect(Number(firstReset?.reset_email_send_count)).toBe(1);
+
+    await expectOk(await api('/api/auth/forgot-password', {
+      method: 'POST',
+      body: {
+        email: user.email,
+        turnstileToken: TEST_TURNSTILE_TOKEN,
+      },
+    }));
+
+    const cooldownReset = await testDb()
+      .prepare('SELECT reset_token, reset_email_send_count FROM users WHERE id = ?')
+      .bind(user.userId)
+      .first<any>();
+
+    expect(cooldownReset?.reset_token).toBe(firstReset.reset_token);
+    expect(Number(cooldownReset?.reset_email_send_count)).toBe(1);
+
+    const windowStart = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+    await testDb()
+      .prepare(`
+        UPDATE users
+        SET reset_token = ?,
+            reset_email_sent_at = ?,
+            reset_email_send_window_start = ?,
+            reset_email_send_count = 5
+        WHERE id = ?
+      `)
+      .bind('existing-reset-token', windowStart, windowStart, user.userId)
+      .run();
+
+    await expectOk(await api('/api/auth/forgot-password', {
+      method: 'POST',
+      body: {
+        email: user.email,
+        turnstileToken: TEST_TURNSTILE_TOKEN,
+      },
+    }));
+
+    const quotaReset = await testDb()
+      .prepare('SELECT reset_token, reset_email_send_count FROM users WHERE id = ?')
+      .bind(user.userId)
+      .first<any>();
+
+    expect(quotaReset?.reset_token).toBe('existing-reset-token');
+    expect(Number(quotaReset?.reset_email_send_count)).toBe(5);
+
+    await expectOk(await api('/api/auth/forgot-password', {
+      method: 'POST',
+      body: {
+        email: `not-registered-${crypto.randomUUID()}@example.test`,
+        turnstileToken: TEST_TURNSTILE_TOKEN,
+      },
+    }));
   });
 });

@@ -25,6 +25,14 @@ const DISPLAY_NAME_MAX_LENGTH = 12;
 const VERIFICATION_EMAIL_COOLDOWN_MS = 60 * 1000;
 const VERIFICATION_EMAIL_WINDOW_MS = 24 * 60 * 60 * 1000;
 const VERIFICATION_EMAIL_WINDOW_LIMIT = 5;
+const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+const TURNSTILE_TEST_BYPASS_TOKEN = 'test-turnstile-token';
+const TURNSTILE_DUMMY_PASS_SECRET = '1x0000000000000000000000000000000AA';
+const TURNSTILE_DUMMY_TOKEN = 'XXXX.DUMMY.TOKEN.XXXX';
+const TURNSTILE_DUMMY_FAIL_SECRETS = new Set([
+  '2x0000000000000000000000000000000AA',
+  '3x0000000000000000000000000000000AA',
+]);
 
 function normalizeOptionalDisplayName(value: unknown): { value: string | null; error?: string } {
   if (value === undefined || value === null) {
@@ -54,9 +62,43 @@ function parseDateMs(value: unknown): number | null {
   return Number.isFinite(timestamp) ? timestamp : null;
 }
 
-async function recordVerificationEmailSend(
+type EmailRateLimitFields = {
+  sentAt: string;
+  windowStart: string;
+  sendCount: string;
+};
+
+type EmailRateLimitUser = {
+  id: string;
+  sentAt?: string | null;
+  windowStart?: string | null;
+  sendCount?: number | string | null;
+};
+
+type EmailRateLimitReservation = {
+  nowMs: number;
+  nowIso: string;
+  nextWindowStartIso: string;
+  nextWindowCount: number;
+  cooldownCutoffIso: string;
+};
+
+const VERIFICATION_EMAIL_RATE_LIMIT_FIELDS: EmailRateLimitFields = {
+  sentAt: 'verification_email_sent_at',
+  windowStart: 'verification_email_send_window_start',
+  sendCount: 'verification_email_send_count',
+};
+
+const RESET_EMAIL_RATE_LIMIT_FIELDS: EmailRateLimitFields = {
+  sentAt: 'reset_email_sent_at',
+  windowStart: 'reset_email_send_window_start',
+  sendCount: 'reset_email_send_count',
+};
+
+async function recordEmailSend(
   env: any,
   userId: string,
+  fields: EmailRateLimitFields,
   nowMs = Date.now(),
   windowStartMs: number | null = null,
   previousWindowCount = 0
@@ -69,35 +111,38 @@ async function recordVerificationEmailSend(
   await env.DB
     .prepare(`
       UPDATE users
-      SET verification_email_sent_at = ?,
-          verification_email_send_window_start = ?,
-          verification_email_send_count = ?
+      SET ${fields.sentAt} = ?,
+          ${fields.windowStart} = ?,
+          ${fields.sendCount} = ?
       WHERE id = ?
     `)
     .bind(nowIso, nextWindowStartIso, nextCount, userId)
-	    .run();
+    .run();
 }
 
-type VerificationEmailRateUser = {
-  id: string;
-  verification_email_sent_at?: string | null;
-  verification_email_send_window_start?: string | null;
-  verification_email_send_count?: number | string | null;
-};
+async function recordVerificationEmailSend(
+  env: any,
+  userId: string,
+  nowMs = Date.now(),
+  windowStartMs: number | null = null,
+  previousWindowCount = 0
+): Promise<void> {
+  return recordEmailSend(
+    env,
+    userId,
+    VERIFICATION_EMAIL_RATE_LIMIT_FIELDS,
+    nowMs,
+    windowStartMs,
+    previousWindowCount
+  );
+}
 
-type VerificationEmailReservation = {
-  nowMs: number;
-  nowIso: string;
-  nextWindowStartIso: string;
-  nextWindowCount: number;
-  cooldownCutoffIso: string;
-};
-
-function prepareVerificationEmailReservation(
-  user: VerificationEmailRateUser,
+function prepareEmailSendReservation(
+  user: EmailRateLimitUser,
+  label = '验证邮件',
   nowMs = Date.now()
-): { reservation?: VerificationEmailReservation; response?: Response } {
-  const lastSentMs = parseDateMs(user.verification_email_sent_at);
+): { reservation?: EmailRateLimitReservation; response?: Response } {
+  const lastSentMs = parseDateMs(user.sentAt);
   if (lastSentMs !== null) {
     const retryAfterMs = VERIFICATION_EMAIL_COOLDOWN_MS - (nowMs - lastSentMs);
     if (retryAfterMs > 0) {
@@ -106,11 +151,11 @@ function prepareVerificationEmailReservation(
     }
   }
 
-  const windowStartMs = parseDateMs(user.verification_email_send_window_start);
+  const windowStartMs = parseDateMs(user.windowStart);
   const isExistingWindow = windowStartMs !== null && nowMs - windowStartMs < VERIFICATION_EMAIL_WINDOW_MS;
-  const currentWindowCount = isExistingWindow ? Number(user.verification_email_send_count || 0) : 0;
+  const currentWindowCount = isExistingWindow ? Number(user.sendCount || 0) : 0;
   if (currentWindowCount >= VERIFICATION_EMAIL_WINDOW_LIMIT) {
-    return { response: errorResponse(`验证邮件 24 小时内最多发送 ${VERIFICATION_EMAIL_WINDOW_LIMIT} 次，请稍后再试`, 429) };
+    return { response: errorResponse(`${label} 24 小时内最多发送 ${VERIFICATION_EMAIL_WINDOW_LIMIT} 次，请稍后再试`, 429) };
   }
 
   const nowIso = new Date(nowMs).toISOString();
@@ -127,10 +172,43 @@ function prepareVerificationEmailReservation(
   };
 }
 
-async function reserveVerificationEmailSend(
+function buildVerificationRateUser(user: any): EmailRateLimitUser {
+  return {
+    id: String(user.id),
+    sentAt: user.verification_email_sent_at,
+    windowStart: user.verification_email_send_window_start,
+    sendCount: user.verification_email_send_count,
+  };
+}
+
+function buildResetRateUser(user: any): EmailRateLimitUser {
+  return {
+    id: String(user.id),
+    sentAt: user.reset_email_sent_at,
+    windowStart: user.reset_email_send_window_start,
+    sendCount: user.reset_email_send_count,
+  };
+}
+
+function prepareVerificationEmailReservation(
+  user: any,
+  nowMs = Date.now()
+): { reservation?: EmailRateLimitReservation; response?: Response } {
+  return prepareEmailSendReservation(buildVerificationRateUser(user), '验证邮件', nowMs);
+}
+
+function prepareResetEmailReservation(
+  user: any,
+  nowMs = Date.now()
+): { reservation?: EmailRateLimitReservation; response?: Response } {
+  return prepareEmailSendReservation(buildResetRateUser(user), '重置邮件', nowMs);
+}
+
+async function reserveEmailSend(
   env: any,
   userId: string,
-  reservation: VerificationEmailReservation,
+  fields: EmailRateLimitFields,
+  reservation: EmailRateLimitReservation,
   extraSetClause: string,
   extraValues: unknown[]
 ): Promise<boolean> {
@@ -138,11 +216,11 @@ async function reserveVerificationEmailSend(
     .prepare(`
       UPDATE users
       SET ${extraSetClause}
-          verification_email_sent_at = ?,
-          verification_email_send_window_start = ?,
-          verification_email_send_count = ?
+          ${fields.sentAt} = ?,
+          ${fields.windowStart} = ?,
+          ${fields.sendCount} = ?
       WHERE id = ?
-        AND (verification_email_sent_at IS NULL OR verification_email_sent_at <= ?)
+        AND (${fields.sentAt} IS NULL OR ${fields.sentAt} <= ?)
     `)
     .bind(
       ...extraValues,
@@ -157,8 +235,139 @@ async function reserveVerificationEmailSend(
   return !!reserveResult.meta && reserveResult.meta.changes > 0;
 }
 
+function reserveVerificationEmailSend(
+  env: any,
+  userId: string,
+  reservation: EmailRateLimitReservation,
+  extraSetClause: string,
+  extraValues: unknown[]
+): Promise<boolean> {
+  return reserveEmailSend(
+    env,
+    userId,
+    VERIFICATION_EMAIL_RATE_LIMIT_FIELDS,
+    reservation,
+    extraSetClause,
+    extraValues
+  );
+}
+
+function reserveResetEmailSend(
+  env: any,
+  userId: string,
+  reservation: EmailRateLimitReservation,
+  extraSetClause: string,
+  extraValues: unknown[]
+): Promise<boolean> {
+  return reserveEmailSend(
+    env,
+    userId,
+    RESET_EMAIL_RATE_LIMIT_FIELDS,
+    reservation,
+    extraSetClause,
+    extraValues
+  );
+}
+
 function buildVerificationEmailCooldownResponse(): Response {
   return errorResponse(`发送太频繁，请 ${Math.ceil(VERIFICATION_EMAIL_COOLDOWN_MS / 1000)} 秒后再试`, 429);
+}
+
+function buildForgotPasswordSuccessResponse(): Response {
+  return jsonResponse({
+    success: true,
+    message: 'If the email exists, a reset link will be sent.'
+  });
+}
+
+function getRequestIp(request: Request): string | null {
+  const cfIp = request.headers.get('cf-connecting-ip');
+  if (cfIp) return cfIp;
+
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  return forwardedFor ? forwardedFor.split(',')[0].trim() || null : null;
+}
+
+async function verifyTurnstileToken(
+  token: unknown,
+  env: any,
+  request: Request,
+  expectedAction: string
+): Promise<boolean> {
+  const normalizedToken = typeof token === 'string' ? token.trim() : '';
+  if (!normalizedToken || normalizedToken.length > 2048) {
+    return false;
+  }
+
+  if (String(env?.TURNSTILE_TEST_BYPASS || '').toLowerCase() === 'true') {
+    return normalizedToken === TURNSTILE_TEST_BYPASS_TOKEN;
+  }
+
+  const secret = String(env?.TURNSTILE_SECRET_KEY || '').trim();
+  if (!secret) {
+    console.error('Turnstile verification failed: TURNSTILE_SECRET_KEY is not configured');
+    return false;
+  }
+
+  if (secret === TURNSTILE_DUMMY_PASS_SECRET) {
+    return normalizedToken === TURNSTILE_DUMMY_TOKEN;
+  }
+
+  if (TURNSTILE_DUMMY_FAIL_SECRETS.has(secret)) {
+    return false;
+  }
+
+  try {
+    const body: Record<string, string> = {
+      secret,
+      response: normalizedToken,
+    };
+    const remoteIp = getRequestIp(request);
+    if (remoteIp) {
+      body.remoteip = remoteIp;
+    }
+
+    const response = await fetch(TURNSTILE_VERIFY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      console.error('Turnstile verification request failed:', response.status, await response.text());
+      return false;
+    }
+
+    const result = await response.json() as {
+      success?: boolean;
+      action?: string;
+      hostname?: string;
+      'error-codes'?: string[];
+    };
+
+    if (result.success !== true) {
+      console.warn('Turnstile verification rejected:', result['error-codes'] || []);
+      return false;
+    }
+
+    if (result.action && result.action !== expectedAction) {
+      console.warn('Turnstile verification action mismatch:', {
+        expectedAction,
+        action: result.action,
+        hostname: result.hostname,
+      });
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Turnstile verification error:', error);
+    return false;
+  }
+}
+
+function turnstileFailedResponse(): Response {
+  return errorResponse('Human verification failed. Please try again.', 403);
 }
 
 function isUniqueConstraintError(error: unknown, tableOrColumn?: string): boolean {
@@ -183,7 +392,7 @@ function getClientSafeAuthErrorMessage(error: unknown, fallback: string): string
     return 'Server authentication is not configured securely. JWT_SECRET is missing or uses a known insecure placeholder value in the active deployment.';
   }
 
-  if (/no such column:\s*(is_disabled|max_pots|verification_token_expires|verification_email_sent_at|verification_email_send_count|verification_email_send_window_start)/i.test(message)) {
+  if (/no such column:\s*(is_disabled|max_pots|verification_token_expires|verification_email_sent_at|verification_email_send_count|verification_email_send_window_start|reset_email_sent_at|reset_email_send_count|reset_email_send_window_start)/i.test(message)) {
     return 'User schema is out of date. Please apply the latest database migrations and redeploy.';
   }
 
@@ -364,12 +573,13 @@ function renderVerificationSuccessPage(
 async function handleRegister(request: Request, env: any): Promise<Response> {
   let requestEmail: string | null = null;
   try {
-    const body = (await request.json()) as {
-      email?: string;
-      password?: string;
-      displayName?: string;
-    };
-    const { email, password, displayName } = body;
+	    const body = (await request.json()) as {
+	      email?: string;
+	      password?: string;
+	      displayName?: string;
+	      turnstileToken?: string;
+	    };
+	    const { email, password, displayName, turnstileToken } = body;
     requestEmail = typeof email === 'string' ? email : null;
 
     if (!email || !password) {
@@ -389,9 +599,13 @@ async function handleRegister(request: Request, env: any): Promise<Response> {
     if (displayNameResult.error) {
       return errorResponse(displayNameResult.error, 400);
     }
-    const normalizedDisplayName = displayNameResult.value;
+	    const normalizedDisplayName = displayNameResult.value;
 
-    // 检查邮箱是否已存在
+	    if (!await verifyTurnstileToken(turnstileToken, env, request, 'register')) {
+	      return turnstileFailedResponse();
+	    }
+
+	    // 检查邮箱是否已存在
     const existingUser = await env.DB
       .prepare('SELECT id FROM users WHERE email = ?')
       .bind(email)
@@ -544,35 +758,62 @@ async function handleForgotPassword(request: Request, env: any): Promise<Respons
   try {
     const body = (await request.json()) as {
       email?: string;
+      turnstileToken?: string;
     };
-    const { email } = body;
+    const { email, turnstileToken } = body;
 
     if (!email) {
       return errorResponse('Email is required', 400);
     }
 
+    if (!isValidEmail(email)) {
+      return errorResponse('Invalid email format', 400);
+    }
+
+    if (!await verifyTurnstileToken(turnstileToken, env, request, 'forgot_password')) {
+      return turnstileFailedResponse();
+    }
+
     // 查找用户
     const user = await env.DB
-      .prepare('SELECT id FROM users WHERE email = ? AND user_type = ?')
+      .prepare(`
+        SELECT id, reset_email_sent_at, reset_email_send_window_start, reset_email_send_count
+        FROM users
+        WHERE email = ? AND user_type = ?
+      `)
       .bind(email, 'email')
       .first();
 
     if (!user) {
       // 出于安全考虑，即使用户不存在也返回成功
-      return jsonResponse({
-        success: true,
-        message: 'If the email exists, a reset link will be sent.'
-      });
+      return buildForgotPasswordSuccessResponse();
     }
+
+    const rateLimit = prepareResetEmailReservation(user);
+    if (rateLimit.response) {
+      return buildForgotPasswordSuccessResponse();
+    }
+    const reservation = rateLimit.reservation!;
 
     // 生成重置令牌（24小时有效）
     const resetToken = generateToken();
-    const resetTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const resetTokenExpires = new Date(reservation.nowMs + 24 * 60 * 60 * 1000).toISOString();
 
-    await env.DB
-      .prepare('UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?')
-      .bind(resetToken, resetTokenExpires, user.id)
-      .run();
+    const reserved = await reserveResetEmailSend(
+      env,
+      user.id,
+      reservation,
+      `reset_token = ?,
+          reset_token_expires = ?,`,
+      [
+        resetToken,
+        resetTokenExpires
+      ]
+    );
+
+    if (!reserved) {
+      return buildForgotPasswordSuccessResponse();
+    }
 
     // 发送密码重置邮件
     const resetEmail = generatePasswordResetEmail(
@@ -580,12 +821,12 @@ async function handleForgotPassword(request: Request, env: any): Promise<Respons
       resetToken,
       env.APP_BASE_URL || 'https://my-flower-pots-api.example.com'
     );
-    await sendEmail(resetEmail, env);
+    const emailSent = await sendEmail(resetEmail, env);
+    if (!emailSent) {
+      console.warn('Password reset email was not sent:', email);
+    }
 
-    return jsonResponse({
-      success: true,
-      message: 'If the email exists, a reset link will be sent.'
-    });
+    return buildForgotPasswordSuccessResponse();
 
   } catch (error) {
     console.error('Forgot password error:', error);
@@ -643,13 +884,14 @@ async function handleUpgrade(request: Request, env: any): Promise<Response> {
   let requestEmail: string | null = null;
   let requestAnonymousUserId: string | null = null;
   try {
-    const body = (await request.json()) as {
-      anonymousUserId?: string;
-      email?: string;
-      password?: string;
-      displayName?: string;
-    };
-    const { anonymousUserId, email, password, displayName } = body;
+	    const body = (await request.json()) as {
+	      anonymousUserId?: string;
+	      email?: string;
+	      password?: string;
+	      displayName?: string;
+	      turnstileToken?: string;
+	    };
+	    const { anonymousUserId, email, password, displayName, turnstileToken } = body;
     requestEmail = typeof email === 'string' ? email : null;
     requestAnonymousUserId = typeof anonymousUserId === 'string' ? anonymousUserId : null;
 
@@ -670,9 +912,13 @@ async function handleUpgrade(request: Request, env: any): Promise<Response> {
     if (displayNameResult.error) {
       return errorResponse(displayNameResult.error, 400);
     }
-    const normalizedDisplayName = displayNameResult.value;
+	    const normalizedDisplayName = displayNameResult.value;
 
-    // 检查匿名用户是否存在（兼容 'device' 类型）
+	    if (!await verifyTurnstileToken(turnstileToken, env, request, 'upgrade')) {
+	      return turnstileFailedResponse();
+	    }
+
+	    // 检查匿名用户是否存在（兼容 'device' 类型）
     const anonymousUser = await env.DB
       .prepare('SELECT id FROM users WHERE id = ? AND (user_type = "anonymous" OR user_type = "device")')
       .bind(anonymousUserId)

@@ -98,6 +98,7 @@
             registerConfirmPassword: 'registerConfirmPassword',
             ...ids
         };
+        fieldIds.forgotPasswordEmail = fieldIds.forgotPasswordEmail || fieldIds.loginEmail;
 
         const loginForm = reactive({ email: '', password: '' });
         const registerForm = reactive({
@@ -152,8 +153,17 @@
         };
 
         const syncLoginFormFromDom = () => {
+            const emailFieldIds = Array.from(new Set([
+                fieldIds.loginEmail,
+                fieldIds.forgotPasswordEmail
+            ].filter(Boolean)));
             syncFormFieldsFromDom([
-                { elementId: fieldIds.loginEmail, form: loginForm, key: 'email', transform: normalizeEmail },
+                ...emailFieldIds.map(elementId => ({
+                    elementId,
+                    form: loginForm,
+                    key: 'email',
+                    transform: normalizeEmail
+                })),
                 { elementId: fieldIds.loginPassword, form: loginForm, key: 'password' }
             ]);
         };

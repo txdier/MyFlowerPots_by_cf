@@ -685,10 +685,10 @@ class APIClient {
         return result;
     }
 
-    async register(email, password, displayName) {
+    async register(email, password, displayName, turnstileToken) {
         const result = await this.request('/api/auth/register', {
             method: 'POST',
-            body: { email, password, displayName }
+            body: { email, password, displayName, turnstileToken }
         });
 
         if (result.token && result.userId) {
@@ -698,10 +698,10 @@ class APIClient {
         return result;
     }
 
-    async upgrade(email, password, displayName, anonymousUserId) {
+    async upgrade(email, password, displayName, anonymousUserId, turnstileToken) {
         const result = await this.request('/api/auth/upgrade', {
             method: 'POST',
-            body: { email, password, displayName, anonymousUserId }
+            body: { email, password, displayName, anonymousUserId, turnstileToken }
         });
 
         if (result.token && result.userId) {
@@ -755,10 +755,10 @@ class APIClient {
         return { success: true };
     }
 
-    async forgotPassword(email) {
+    async forgotPassword(email, turnstileToken) {
         return this.request('/api/auth/forgot-password', {
             method: 'POST',
-            body: { email }
+            body: { email, turnstileToken }
         });
     }
 

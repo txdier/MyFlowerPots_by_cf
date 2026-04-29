@@ -28,7 +28,7 @@
 
     <!-- Tailwind CSS & Custom Styles (Optimized) -->
     <link rel="stylesheet" href="css/tailwind-built.css?v=20260407-1">
-    <link rel="stylesheet" href="css/app.css?v=20260227">
+    <link rel="stylesheet" href="css/app.css?v=20260429-auth-validation">
 
     <!-- 图标库 -->
     <link rel="stylesheet" href="css/icons.css">
@@ -1809,20 +1809,20 @@
             </div>
 
             <!-- 登录/注册 弹窗 (与首页保持一致) -->
-            <div v-if="showLoginModal || showRegisterModal || showForgotPasswordModal"
-                class="fixed inset-0 z-[120] flex items-center justify-center p-4">
-                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeAuthModals"></div>
-                <div
-                    class="relative bg-white w-full max-w-[500px] rounded-3xl shadow-2xl overflow-hidden animate-slide-up">
+            <template v-if="showLoginModal || showRegisterModal || showForgotPasswordModal">
+                <div class="fixed inset-0 z-[120] flex items-center justify-center p-4">
+                    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeAuthModals"></div>
+                    <div
+                        class="relative bg-white w-full max-w-[500px] max-h-[calc(100vh-2rem)] overflow-y-auto rounded-3xl shadow-2xl animate-slide-up">
                     <!-- 登录弹窗 -->
-                    <div v-if="showLoginModal" class="p-8">
+                    <div v-if="showLoginModal" class="px-7 py-7 sm:p-8">
                         <button @click="closeAuthModals"
                             class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
                             <i class="fa fa-times text-xl"></i>
                         </button>
                         <h3 class="text-2xl font-black text-gray-800 mb-2">欢迎回来</h3>
-                        <p class="text-gray-400 text-sm mb-8">登录以同步您的花盆数据</p>
-                        <form @submit.prevent="handleLogin" @focusin="scheduleLoginAutofillSync" @click="scheduleLoginAutofillSync" autocomplete="on" class="space-y-4">
+                        <p class="text-gray-400 text-sm mb-6">登录以同步您的花盆数据</p>
+	                        <form @submit.prevent="handleLogin" @focusin="scheduleLoginAutofillSync" @click="scheduleLoginAutofillSync" autocomplete="on" class="space-y-3.5" novalidate>
                             <div class="space-y-1.5">
                                 <label for="detailLoginEmail"
                                     class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
@@ -1854,30 +1854,30 @@
                                 {{ loginStatus.message }}
                             </div>
                             <button type="submit" :disabled="isAuthLoading || !isLoginValid"
-                                class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+                                class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold mt-2 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                                 {{ isAuthLoading ? '登录中...' : '立即登录' }}
                             </button>
                         </form>
                         <div class="mt-4 text-right">
-                            <button @click="switchToForgotPassword"
+                            <button @pointerdown.prevent @click="switchToForgotPassword"
                                 class="text-xs text-gray-400 hover:text-green-500 transition">忘记密码？</button>
                         </div>
-                        <div class="mt-8 pt-6 border-t border-gray-50 text-center">
+                        <div class="mt-6 pt-5 border-t border-gray-50 text-center">
                             <span class="text-gray-400 text-sm">还没有账号？</span>
-                            <button @click="switchToRegister"
+                            <button @pointerdown.prevent @click="switchToRegister"
                                 class="text-green-500 text-sm font-bold ml-1">注册一个</button>
                         </div>
                     </div>
 
                     <!-- 注册弹窗 -->
-                    <div v-if="showRegisterModal" class="p-8">
+                    <div v-if="showRegisterModal" class="px-7 py-7 sm:p-8">
                         <button @click="closeAuthModals"
                             class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
                             <i class="fa fa-times text-xl"></i>
                         </button>
                         <h3 class="text-2xl font-black text-gray-800 mb-2">创建账号</h3>
-                        <p class="text-gray-400 text-sm mb-8">开始您的智能养花之旅</p>
-                        <form @submit.prevent="handleRegister" class="space-y-4">
+                        <p class="text-gray-400 text-sm mb-6">开始您的智能养花之旅</p>
+	                        <form @submit.prevent="handleRegister" class="space-y-3.5" novalidate>
                             <div class="space-y-1.5">
                                 <label for="detailRegisterEmail"
                                     class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
@@ -1928,35 +1928,37 @@
                             <p v-if="registerErrors.confirmPassword" class="text-xs text-red-500 px-1">
                                 {{ registerErrors.confirmPassword }}
                             </p>
-                            <div v-if="registerStatus.message" class="rounded-2xl px-4 py-3 text-xs"
-                                :class="registerStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
-                                <i class="fa mr-1"
-                                    :class="registerStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
-                                {{ registerStatus.message }}
-                            </div>
-                            <button type="submit" :disabled="isAuthLoading || !isRegisterValid"
-                                class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
-                                {{ isAuthLoading ? '注册中...' : '完成注册' }}
-                            </button>
+	                            <div v-if="registerStatus.message" class="rounded-2xl px-4 py-3 text-xs"
+	                                :class="registerStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
+	                                <i class="fa mr-1"
+	                                    :class="registerStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
+	                                {{ registerStatus.message }}
+	                            </div>
+	                            <div v-if="isTurnstileEnabled" id="detailRegisterTurnstile" class="auth-turnstile-slot w-full"></div>
+	                            <button type="submit" :disabled="isAuthLoading || !isRegisterValid || !isRegisterTurnstileReady"
+	                                class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold mt-2 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+	                                {{ isAuthLoading ? '注册中...' : '完成注册' }}
+	                            </button>
                         </form>
-                        <div class="mt-8 pt-6 border-t border-gray-50 text-center">
+                        <div class="mt-6 pt-5 border-t border-gray-50 text-center">
                             <span class="text-gray-400 text-sm">已有账号？</span>
-                            <button @click="switchToLogin" class="text-green-500 text-sm font-bold ml-1">去登录</button>
+                            <button @pointerdown.prevent @click="switchToLogin" class="text-green-500 text-sm font-bold ml-1">去登录</button>
                         </div>
                     </div>
 
                     <!-- 忘记密码弹窗 -->
-                    <div v-if="showForgotPasswordModal" class="p-8">
+                    <div v-if="showForgotPasswordModal" class="px-7 py-7 sm:p-8">
                         <button @click="closeAuthModals"
                             class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
                             <i class="fa fa-times text-xl"></i>
                         </button>
                         <h3 class="text-2xl font-black text-gray-800 mb-2">重置您的密码</h3>
-                        <p class="text-gray-400 text-sm mb-8">我们将向您的邮箱发送重置链接</p>
-                        <form @submit.prevent="handleForgotPassword" class="space-y-4">
+                        <p class="text-gray-400 text-sm mb-6">我们将向您的邮箱发送重置链接</p>
+	                        <form @submit.prevent="handleForgotPassword" class="space-y-3.5" novalidate>
                             <div class="space-y-1.5">
-                                <label class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
-                                <input type="email" id="detailLoginEmail" name="email" autocomplete="email" inputmode="email"
+                                <label for="detailForgotPasswordEmail"
+                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
+                                <input type="email" id="detailForgotPasswordEmail" name="email" autocomplete="email" inputmode="email"
                                     autocapitalize="none" spellcheck="false" maxlength="120" v-model="loginForm.email"
                                     @input="handleForgotPasswordEmailInput" @change="syncLoginFormFromDom"
                                     @animationstart="syncLoginFormFromDom"
@@ -1968,29 +1970,32 @@
                                     {{ forgotPasswordErrors.email }}
                                 </p>
                             </div>
-                            <div v-if="forgotPasswordStatus.message" class="rounded-2xl px-4 py-3 text-xs"
-                                :class="forgotPasswordStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
-                                <i class="fa mr-1"
-                                    :class="forgotPasswordStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
-                                {{ forgotPasswordStatus.message }}
-                            </div>
-                            <button type="submit" :disabled="isAuthLoading || !isForgotPasswordEmailValid"
-                                class="w-full bg-green-500 text-white py-4 rounded-2xl text-lg font-bold mt-4 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
-                                {{ isAuthLoading ? '发送中...' : '发送重置邮件' }}
+	                            <div v-if="forgotPasswordStatus.message" class="rounded-2xl px-4 py-3 text-xs"
+	                                :class="forgotPasswordStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
+	                                <i class="fa mr-1"
+	                                    :class="forgotPasswordStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
+	                                {{ forgotPasswordStatus.message }}
+	                            </div>
+	                            <div v-if="isTurnstileEnabled" id="detailForgotPasswordTurnstile" class="auth-turnstile-slot w-full"></div>
+	                            <button type="submit" :disabled="isAuthLoading || !isForgotPasswordEmailValid || !isForgotPasswordTurnstileReady"
+	                                class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold mt-2 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+	                                {{ isAuthLoading ? '发送中...' : '发送重置邮件' }}
                             </button>
                         </form>
-                        <div class="mt-8 pt-6 border-t border-gray-50 text-center">
-                            <button @click="switchToLogin" class="text-green-500 text-sm font-bold">返回登录</button>
+                        <div class="mt-6 pt-5 border-t border-gray-50 text-center">
+                            <button @pointerdown.prevent @click="switchToLogin" class="text-green-500 text-sm font-bold">返回登录</button>
                         </div>
                     </div>
                 </div>
-            </div>
+                </div>
+            </template>
         </main>
     </div>
 
     <script src="js/vue.global.prod.js"></script>
-    <script src="js/config.js?v=20260227"></script>
-    <script src="js/api-client.js?v=20260422-share-access"></script>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+    <script src="js/config.js?v=20260429-turnstile"></script>
+    <script src="js/api-client.js?v=20260429-turnstile"></script>
     <script src="js/media-utils.js?v=20260421-refactor"></script>
     <script src="js/pot-permissions.js?v=20260421-refactor"></script>
     <script src="js/care-utils.js?v=20260421-refactor"></script>
@@ -1998,7 +2003,8 @@
     <script src="js/timeline-utils.js?v=20260421-refactor"></script>
     <script src="js/archive-utils.js?v=20260421-refactor"></script>
     <script src="js/date-utils.js?v=20260428-growth"></script>
-    <script src="js/form-utils.js?v=20260421-auth"></script>
+    <script src="js/form-utils.js?v=20260429-auth"></script>
+    <script src="js/turnstile-utils.js?v=20260429-turnstile"></script>
     <script src="js/clipboard.js?v=20260407-2"></script>
     <script src="js/dialog-utils.js?v=20260421-refactor"></script>
 
@@ -2112,7 +2118,8 @@
                         registerEmail: 'detailRegisterEmail',
                         registerDisplayName: 'detailRegisterNickname',
                         registerPassword: 'detailRegisterPassword',
-                        registerConfirmPassword: 'detailRegisterConfirmPassword'
+                        registerConfirmPassword: 'detailRegisterConfirmPassword',
+                        forgotPasswordEmail: 'detailForgotPasswordEmail'
                     }
                 });
                 const {
@@ -2150,11 +2157,25 @@
                     handleRegisterDisplayNameInput,
                     handleRegisterPasswordInput,
                     handleRegisterConfirmPasswordInput,
-                    validateLoginForm,
-                    validateRegisterForm
-                } = authForms;
+	                    validateLoginForm,
+	                    validateRegisterForm
+	                } = authForms;
+	                const turnstileForms = window.createTurnstileController({
+	                    ref,
+	                    computed,
+	                    nextTick,
+	                    contexts: {
+	                        register: { containerId: 'detailRegisterTurnstile', action: 'register' },
+	                        forgotPassword: { containerId: 'detailForgotPasswordTurnstile', action: 'forgot_password' }
+	                    }
+	                });
+	                const isTurnstileEnabled = turnstileForms.isEnabled;
+	                const registerTurnstileToken = turnstileForms.tokenFor('register');
+	                const forgotPasswordTurnstileToken = turnstileForms.tokenFor('forgotPassword');
+	                const isRegisterTurnstileReady = turnstileForms.isReady('register');
+	                const isForgotPasswordTurnstileReady = turnstileForms.isReady('forgotPassword');
 
-                const isCollaboratorInviteEmailValid = computed(() => formUtils.isValidEmail(newCollaboratorEmail.value));
+	                const isCollaboratorInviteEmailValid = computed(() => formUtils.isValidEmail(newCollaboratorEmail.value));
                 const isViewerInviteEmailValid = computed(() => formUtils.isValidEmail(newViewerEmail.value));
                 const isTransferEmailValid = computed(() => !transferEmail.value.trim() || formUtils.isValidEmail(transferEmail.value));
 
@@ -2441,10 +2462,19 @@
                         stopLoginAutofillWatcher();
                     }
 
-                    if (registerVisible) {
-                        scheduleRegisterAutofillSync();
-                    }
-                });
+	                    if (registerVisible) {
+	                        scheduleRegisterAutofillSync();
+	                        turnstileForms.render('register');
+	                    } else {
+	                        turnstileForms.remove('register');
+	                    }
+
+	                    if (forgotVisible) {
+	                        turnstileForms.render('forgotPassword');
+	                    } else {
+	                        turnstileForms.remove('forgotPassword');
+	                    }
+	                });
 
                 const isAuthRequiredError = (err) => {
                     const status = Number(err?.status || 0);
@@ -2945,48 +2975,61 @@
                 const handleForgotPassword = async () => {
                     syncLoginFormFromDom();
                     clearStatus(forgotPasswordStatus);
-                    if (!validateForgotPasswordEmail(true)) {
-                        await focusFieldById('detailLoginEmail');
-                        return;
-                    }
-                    try {
-                        isAuthLoading.value = true;
-                        loginForm.email = formUtils.normalizeEmail(loginForm.email);
-                        const res = await apiClient.forgotPassword(loginForm.email);
-                        if (res.success) {
-                            forgotPasswordStatus.type = 'success';
-                            forgotPasswordStatus.message = '重置链接已发送到您的邮箱，请检查收件箱和垃圾箱。';
+	                    if (!validateForgotPasswordEmail(true)) {
+	                        await focusFieldById('detailForgotPasswordEmail');
+	                        return;
+	                    }
+	                    if (!forgotPasswordTurnstileToken.value) {
+	                        forgotPasswordStatus.type = 'error';
+	                        forgotPasswordStatus.message = '请先完成人机验证。';
+	                        await turnstileForms.render('forgotPassword');
+	                        return;
+	                    }
+	                    try {
+	                        isAuthLoading.value = true;
+	                        loginForm.email = formUtils.normalizeEmail(loginForm.email);
+	                        const res = await apiClient.forgotPassword(loginForm.email, forgotPasswordTurnstileToken.value);
+	                        if (res.success) {
+	                            forgotPasswordStatus.type = 'success';
+	                            forgotPasswordStatus.message = '重置链接已发送到您的邮箱，请检查收件箱和垃圾箱。';
                             loginStatus.type = 'success';
                             loginStatus.message = forgotPasswordStatus.message;
                             showForgotPasswordModal.value = false;
                             showLoginModal.value = true;
                         }
-                    } catch (e) {
-                        forgotPasswordStatus.type = 'error';
-                        forgotPasswordStatus.message = '发送失败: ' + e.message;
-                    } finally {
-                        isAuthLoading.value = false;
-                    }
-                };
+	                    } catch (e) {
+	                        forgotPasswordStatus.type = 'error';
+	                        forgotPasswordStatus.message = '发送失败: ' + e.message;
+	                    } finally {
+	                        turnstileForms.reset('forgotPassword');
+	                        isAuthLoading.value = false;
+	                    }
+	                };
 
-                const handleRegister = async () => {
-                    if (!await validateRegisterForm()) {
-                        return;
-                    }
-                    try {
-                        isAuthLoading.value = true;
-                        registerForm.email = formUtils.normalizeEmail(registerForm.email);
+	                const handleRegister = async () => {
+	                    if (!await validateRegisterForm()) {
+	                        return;
+	                    }
+	                    if (!registerTurnstileToken.value) {
+	                        registerStatus.type = 'error';
+	                        registerStatus.message = '请先完成人机验证。';
+	                        await turnstileForms.render('register');
+	                        return;
+	                    }
+	                    try {
+	                        isAuthLoading.value = true;
+	                        registerForm.email = formUtils.normalizeEmail(registerForm.email);
                         normalizeRegisterDisplayName();
                         clearStatus(registerStatus);
                         const anonymousUserId = window.authStorage?.getUserId() || null;
                         const isAnonymous = !currentUser.value || currentUser.value.userType === 'anonymous';
 
-                        let res;
-                        if (isAnonymous && anonymousUserId) {
-                            res = await apiClient.upgrade(registerForm.email, registerForm.password, registerForm.displayName, anonymousUserId);
-                        } else {
-                            res = await apiClient.register(registerForm.email, registerForm.password, registerForm.displayName);
-                        }
+	                        let res;
+	                        if (isAnonymous && anonymousUserId) {
+	                            res = await apiClient.upgrade(registerForm.email, registerForm.password, registerForm.displayName, anonymousUserId, registerTurnstileToken.value);
+	                        } else {
+	                            res = await apiClient.register(registerForm.email, registerForm.password, registerForm.displayName, registerTurnstileToken.value);
+	                        }
 
                         if (res.success || res.token) {
                             try {
@@ -2998,13 +3041,14 @@
                             showAlert(isAnonymous ? '注册成功，您的匿名数据已合并！' : '注册成功！');
                             location.reload();
                         }
-                    } catch (e) {
-                        registerStatus.type = 'error';
-                        registerStatus.message = '注册失败: ' + e.message;
-                    } finally {
-                        isAuthLoading.value = false;
-                    }
-                };
+	                    } catch (e) {
+	                        registerStatus.type = 'error';
+	                        registerStatus.message = '注册失败: ' + e.message;
+	                    } finally {
+	                        turnstileForms.reset('register');
+	                        isAuthLoading.value = false;
+	                    }
+	                };
 
                 const logout = async () => { await apiClient.logout(); location.reload(); };
                 const closeAuthModals = () => {
@@ -4440,7 +4484,9 @@
                     // Auth
                     showUserMenu, showLoginModal, showRegisterModal, showForgotPasswordModal,
                     isAuthLoading, loginForm, registerForm, loginErrors, registerErrors, forgotPasswordErrors, loginStatus, registerStatus, forgotPasswordStatus, passwordsMatch,
-                    isForgotPasswordEmailValid, isLoginValid, isRegisterValid, isCollaboratorInviteEmailValid, isViewerInviteEmailValid, isTransferEmailValid,
+	                    isForgotPasswordEmailValid, isLoginValid, isRegisterValid,
+	                    isTurnstileEnabled, isRegisterTurnstileReady, isForgotPasswordTurnstileReady,
+	                    isCollaboratorInviteEmailValid, isViewerInviteEmailValid, isTransferEmailValid,
                     syncLoginFormFromDom, syncRegisterFormFromDom, scheduleLoginAutofillSync,
                     validateLoginEmail, validateLoginPassword, validateForgotPasswordEmail,
                     validateRegisterEmail, validateRegisterPassword, validateRegisterConfirmPassword,

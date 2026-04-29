@@ -45,6 +45,15 @@ const APP_CONFIG = {
             'image/webp'
         ],
     },
+
+    // ==================== Turnstile 人机验证 ====================
+    turnstile: {
+        // 生产环境 Site Key（公开值，非敏感）
+        siteKey: 'your-turnstile-site-key',
+
+        // Cloudflare 官方测试 Key：localhost 始终通过
+        devSiteKey: '1x00000000000000000000AA',
+    },
 };
 
 // ==================== 环境检测 ====================
@@ -56,6 +65,7 @@ window.APP_CONFIG = {
     ...APP_CONFIG,
     isDevelopment,
     currentApiUrl: isDevelopment ? APP_CONFIG.api.devUrl : APP_CONFIG.api.prodUrl,
+    turnstileSiteKey: isDevelopment ? APP_CONFIG.turnstile.devSiteKey : APP_CONFIG.turnstile.siteKey,
     getApiEndpoint: (path) => {
         const baseUrl = isDevelopment ? APP_CONFIG.api.devUrl : APP_CONFIG.api.prodUrl;
         return `${baseUrl}${path.startsWith('/') ? path : '/' + path}`;

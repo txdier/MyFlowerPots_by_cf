@@ -67,7 +67,7 @@ wrangler r2 bucket create my-flower-pots
 
 生产环境建议通过 Cloudflare Dashboard 或 Wrangler Secrets 管理：
 
-- 必填：`JWT_SECRET`
+- 必填：`JWT_SECRET`、`TURNSTILE_SECRET_KEY`
 - 强烈建议：`APP_BASE_URL`、`ADMIN_EMAILS`、`ADMIN_USER_IDS`
 - 按需：`WEATHER_API_KEY`、`RESEND_API_KEY`、`EMAIL_FROM`、`SUPPORT_EMAIL_FROM`、`SUPPORT_EMAIL_FROM_NAME`
 
@@ -75,11 +75,13 @@ wrangler r2 bucket create my-flower-pots
 
 ```bash
 wrangler secret put JWT_SECRET
+wrangler secret put TURNSTILE_SECRET_KEY
 ```
 
 说明：
 
 - `JWT_SECRET` 为空或使用明显默认值时，认证相关接口会直接报错
+- `TURNSTILE_SECRET_KEY` 用于注册、匿名升级和找回密码的人机验证；生产缺失时这些入口会拒绝提交
 - `APP_BASE_URL` 用于邮箱验证、密码重置、分享链接和转移链接等回链地址
 - `DEV_ADMIN_*` 只建议本地开发使用
 - `RESEND_API_KEY` 用于真实发送注册、重置和客服回复邮件
@@ -130,7 +132,7 @@ npm run watch-css
 2. 配好 `wrangler.toml`
 3. 创建 D1 和 R2
 4. `wrangler d1 migrations apply my-flower-pots --remote`
-5. 配置生产环境 `JWT_SECRET`
+5. 配置生产环境 `JWT_SECRET` 和 `TURNSTILE_SECRET_KEY`
 6. 确认最终公开地址
 7. 更新 `frontend/js/config.js` 的 `prodUrl`
 8. 配置生产环境 `APP_BASE_URL`
