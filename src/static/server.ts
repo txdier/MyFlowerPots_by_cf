@@ -128,3 +128,46 @@ export async function servePotDetailWithMeta(
     return response; // 失败时退回到原始响应
   }
 }
+
+export function servePublicPageWithSeo(response: Response, canonicalUrl: string): Response {
+  try {
+    const HTMLRewriterCtor = (globalThis as any).HTMLRewriter;
+    if (!HTMLRewriterCtor) {
+      const headers = new Headers(response.headers);
+      headers.set('Link', `<${canonicalUrl}>; rel="canonical"`);
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers
+      });
+    }
+
+    const rewriter = new HTMLRewriterCtor()
+      .on('link[rel="canonical"]', {
+        element(e: any) {
+          e.setAttribute('href', canonicalUrl);
+        }
+      })
+      .on('meta[property="og:url"]', {
+        element(e: any) {
+          e.setAttribute('content', canonicalUrl);
+        }
+      })
+      .on('meta[name="twitter:url"]', {
+        element(e: any) {
+          e.setAttribute('content', canonicalUrl);
+        }
+      });
+
+    return rewriter.transform(response);
+  } catch (err) {
+    console.error('servePublicPageWithSeo error:', err);
+    const headers = new Headers(response.headers);
+    headers.set('Link', `<${canonicalUrl}>; rel="canonical"`);
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers
+    });
+  }
+}

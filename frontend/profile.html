@@ -61,11 +61,6 @@
                     class="flex-1 py-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all">
                     安全中心
                 </button>
-                <button @click="activeTab = 'about'"
-                    :class="activeTab === 'about' ? 'text-green-600 border-green-500' : 'text-gray-400 border-transparent'"
-                    class="flex-1 py-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all">
-                    关于项目
-                </button>
             </div>
         </div>
 
@@ -236,38 +231,6 @@
                         <p class="text-xs text-gray-400 text-center mt-2">
                             我们将向新邮箱发送验证邮件，点击邮件中的链接完成邮箱修改。
                         </p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 3. 关于项目 -->
-            <div v-show="activeTab === 'about'"
-                class="bg-white rounded-3xl shadow-sm p-8 border border-gray-50 animate-slide-up">
-                <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-6">关于项目</h3>
-
-                <div class="prose prose-sm text-gray-500 mb-8 leading-relaxed">
-                    <p class="mb-4">我的花盆是一款记录植物与花盆养护过程的小工具。你可以为每一盆植物建立自己的档案，记录浇水、换盆、生长变化等日常点滴，让植物的成长过程清晰可见、不再遗漏。</p>
-                    <p>它适合想认真养花、但又不想被复杂功能打扰的人，帮助你用简单、持续的方式，把养护变成一件轻松而有记录感的事情。</p>
-                </div>
-
-                <div class="space-y-4">
-                    <a href="mailto:support@kaside365.com?subject=My Flower Pots 反馈与支持"
-                        class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl active:bg-gray-100 transition border border-gray-50">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
-                                <i class="fa fa-envelope text-xl text-emerald-500"></i>
-                            </div>
-                            <div class="flex flex-col">
-                                <span class="text-xs font-black text-gray-800">技术支持与反馈</span>
-                                <span
-                                    class="text-[10px] text-gray-400 font-medium truncate max-w-[180px]">support@kaside365.com</span>
-                            </div>
-                        </div>
-                        <i class="fa fa-paper-plane text-[10px] text-gray-300"></i>
-                    </a>
-
-                    <div class="text-[10px] text-gray-300 text-center mt-4">
-                        My Flower Pots v2.0 • 2026
                     </div>
                 </div>
             </div>

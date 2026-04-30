@@ -11,6 +11,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <!-- PWA -->
+    <link rel="canonical" href="https://app.kaside365.com/">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" sizes="180x180" href="assets/images/icons/pots-180.png">
 
@@ -18,13 +19,15 @@
     <meta property="og:type" content="website">
     <meta property="og:title" content="我的花盆 - 智能植物管理">
     <meta property="og:description" content="每一片叶子都值得被记录。为您提供精准的养护提醒和成长轨迹记录。">
+    <meta property="og:url" content="https://app.kaside365.com/">
     <meta property="og:image" content="https://img.kaside365.com/assets/images/default-pot.png"> <!-- 微信分享建议使用绝对路径 -->
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="我的花盆 - 智能植物管理">
     <meta name="twitter:description" content="每一片叶子都值得被记录。">
-    <meta name="twitter:image" content="assets/images/default-pot.png">
+    <meta name="twitter:url" content="https://app.kaside365.com/">
+    <meta name="twitter:image" content="https://img.kaside365.com/assets/images/default-pot.png">
 
     <!-- v2.0.3 - Selection UI Optimization -->
 
@@ -76,7 +79,7 @@
     <meta name="google-site-verification" content="iL2IHNd1UqW26DnjsPSya3hIf5bOUM0Z0Miq0QIKY_U" />
 </head>
 
-<body class="bg-gray-50 pb-24">
+<body class="bg-gray-50">
     <div id="app" v-cloak>
         <!-- 顶部导航栏 (全宽分布) -->
         <header class="header bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-50 h-16 w-full"
@@ -212,6 +215,19 @@
                                     <i class="fa fa-user-plus w-4 text-center"></i> 注册
                                 </button>
                             </div>
+                            <div class="border-t border-gray-50 px-4 py-2.5">
+                                <nav class="flex items-center justify-between text-[11px] font-bold text-gray-400"
+                                    aria-label="页面链接">
+                                    <a href="/about" @click="showUserMenu = false"
+                                        class="inline-flex py-1 transition hover:text-green-600 active:scale-95">关于</a>
+                                    <span class="text-gray-200" aria-hidden="true">·</span>
+                                    <a href="/help" @click="showUserMenu = false"
+                                        class="inline-flex py-1 transition hover:text-green-600 active:scale-95">帮助</a>
+                                    <span class="text-gray-200" aria-hidden="true">·</span>
+                                    <a href="/privacy" @click="showUserMenu = false"
+                                        class="inline-flex py-1 transition hover:text-green-600 active:scale-95">隐私</a>
+                                </nav>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -329,7 +345,8 @@
         </div>
 
         <main class="container home-pots-main" :class="{
-            'home-pots-main--expanded-reminders': activePotStatus === 'active' && careReminders.length > 0 && showRemindersExpanded
+            'home-pots-main--expanded-reminders': activePotStatus === 'active' && careReminders.length > 0 && showRemindersExpanded,
+            'home-pots-main--with-bottom-action': pots.length > 0 && (activePotStatus === 'active' || isEditMode)
         }" @touchstart="handlePotStatusSwipeStart" @touchmove="handlePotStatusSwipeMove"
             @touchend="handlePotStatusSwipeEnd" @touchcancel="handlePotStatusSwipeCancel">
             <div v-if="isLoading" class="flex flex-col items-center justify-center py-20">
@@ -337,22 +354,32 @@
                 <p class="text-gray-400 text-sm">正在搬运您的花盆...</p>
             </div>
 
-            <div v-else-if="pots.length === 0" class="flex flex-col items-center justify-center py-20 text-center">
-                <div class="w-32 h-32 bg-gray-100 rounded-full flex items-center justify-center mb-6 text-gray-300">
-                    <i class="fa fa-seedling text-5xl"></i>
+            <div v-else-if="pots.length === 0" class="home-empty-state">
+                <div class="home-empty-state__content">
+                    <div class="home-empty-state__icon bg-gray-100 rounded-full flex items-center justify-center text-gray-300">
+                        <i class="fa fa-seedling"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-800">{{ emptyStateTitle }}</h3>
+                    <p class="text-gray-400 text-sm mt-2 px-10">{{ emptyStateMessage }}</p>
+                    <div v-if="activePotStatus === 'active'" class="home-empty-state__actions flex flex-col sm:flex-row gap-3">
+                        <button @click="goAddPot"
+                            class="bg-green-500 text-white px-8 py-3 rounded-2xl shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95">
+                            添加我的花盆
+                        </button>
+                        <button @click="seedDemoData" :disabled="isAuthLoading"
+                            class="bg-white text-green-600 border border-green-200 px-8 py-3 rounded-2xl shadow-sm hover:bg-green-50 transition active:scale-95 disabled:opacity-50">
+                            {{ isAuthLoading ? '正在生成...' : '体验示例数据' }}
+                        </button>
+                    </div>
                 </div>
-                <h3 class="text-lg font-bold text-gray-800">{{ emptyStateTitle }}</h3>
-                <p class="text-gray-400 text-sm mt-2 px-10">{{ emptyStateMessage }}</p>
-                <div v-if="activePotStatus === 'active'" class="flex flex-col sm:flex-row gap-3 mt-8">
-                    <button @click="goAddPot"
-                        class="bg-green-500 text-white px-8 py-3 rounded-2xl shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95">
-                        添加我的花盆
-                    </button>
-                    <button @click="seedDemoData" :disabled="isAuthLoading"
-                        class="bg-white text-green-600 border border-green-200 px-8 py-3 rounded-2xl shadow-sm hover:bg-green-50 transition active:scale-95 disabled:opacity-50">
-                        {{ isAuthLoading ? '正在生成...' : '体验示例数据' }}
-                    </button>
-                </div>
+                <footer class="home-empty-footer">
+                    <nav class="home-empty-footer__links">
+                        <a href="/about">关于</a>
+                        <a href="/help">帮助</a>
+                        <a href="/privacy">隐私</a>
+                    </nav>
+                    <p class="home-empty-footer__copy">© 2026 My Flower Pots</p>
+                </footer>
             </div>
 
             <!-- 花盆列表 -->

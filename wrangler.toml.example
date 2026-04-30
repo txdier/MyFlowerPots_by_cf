@@ -25,6 +25,8 @@ run_worker_first = [
   "/",
   "/index",
   "/index.html",
+  "/about",
+  "/about.html",
   "/add-pot",
   "/add-pot.html",
   "/admin-inbox",
@@ -43,12 +45,18 @@ run_worker_first = [
   "/edit-pot.html",
   "/error",
   "/error.html",
+  "/help",
+  "/help.html",
   "/pot-detail",
   "/pot-detail.html",
+  "/privacy",
+  "/privacy.html",
   "/profile",
   "/profile.html",
+  "/robots.txt",
   "/reset-password",
   "/reset-password.html",
+  "/sitemap.xml",
 ]
 
 [[d1_databases]]

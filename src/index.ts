@@ -19,13 +19,14 @@ import { handleMessagesRequest } from './api/messages';
 import { handleSupportRequest } from './api/support';
 import { handleBootstrapRequest } from './api/bootstrap';
 import { parseEmail } from './utils/email-parser';
-import { servePotDetailWithMeta } from './static/server';
+import { servePotDetailWithMeta, servePublicPageWithSeo } from './static/server';
 import { queuePageVisit } from './api/analytics';
 import { appendD1Bookmark, createD1SessionContext } from './utils/d1-session-utils';
 
 const STATIC_PAGE_PATHS = new Set([
   '/',
   '/index',
+  '/about',
   '/add-pot',
   '/admin-inbox',
   '/admin-plants',
@@ -35,10 +36,16 @@ const STATIC_PAGE_PATHS = new Set([
   '/care-record',
   '/edit-pot',
   '/error',
+  '/help',
   '/pot-detail',
+  '/privacy',
   '/profile',
   '/reset-password',
 ]);
+
+const DEFAULT_APP_BASE_URL = 'https://app.kaside365.com';
+const SEO_PUBLIC_PAGE_PATHS = new Set(['/', '/index', '/about', '/help', '/privacy']);
+const SITEMAP_PATHS = ['/', '/about', '/help', '/privacy'];
 
 function normalizeStaticPagePath(path: string): string {
   const cleanPath = (path || '/').split('?')[0].split('#')[0].trim();
@@ -49,6 +56,90 @@ function normalizeStaticPagePath(path: string): string {
 
 function isStaticPagePath(path: string): boolean {
   return STATIC_PAGE_PATHS.has(normalizeStaticPagePath(path));
+}
+
+function getSiteBaseUrl(request: Request, env: any): string {
+  const configured = String(env?.APP_BASE_URL || DEFAULT_APP_BASE_URL).trim();
+  try {
+    return new URL(configured).origin;
+  } catch {
+    try {
+      return new URL(request.url).origin;
+    } catch {
+      return DEFAULT_APP_BASE_URL;
+    }
+  }
+}
+
+function buildAbsoluteUrl(request: Request, env: any, path: string): string {
+  const base = getSiteBaseUrl(request, env).replace(/\/+$/, '');
+  const cleanPath = path === '/' ? '/' : `/${path.replace(/^\/+|\/+$/g, '')}`;
+  return `${base}${cleanPath}`;
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function getPublicCanonicalPath(path: string): string | null {
+  const normalized = normalizeStaticPagePath(path);
+  if (!SEO_PUBLIC_PAGE_PATHS.has(normalized)) return null;
+  return normalized === '/index' ? '/' : normalized;
+}
+
+function shouldNoindexStaticPage(path: string): boolean {
+  const normalized = normalizeStaticPagePath(path);
+  return STATIC_PAGE_PATHS.has(normalized) && !getPublicCanonicalPath(normalized);
+}
+
+function withRobotsHeader(response: Response, value: string): Response {
+  const headers = new Headers(response.headers);
+  headers.set('X-Robots-Tag', value);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
+}
+
+function textResponse(body: string, contentType: string): Response {
+  return new Response(body, {
+    status: 200,
+    headers: {
+      'Content-Type': contentType,
+      'Cache-Control': 'public, max-age=3600'
+    }
+  });
+}
+
+function serveRobotsTxt(request: Request, env: any): Response {
+  const sitemapUrl = buildAbsoluteUrl(request, env, '/sitemap.xml');
+  return textResponse([
+    'User-agent: *',
+    'Disallow: /api/',
+    'Disallow: /cdn-cgi/',
+    '',
+    `Sitemap: ${sitemapUrl}`,
+    ''
+  ].join('\n'), 'text/plain; charset=UTF-8');
+}
+
+function serveSitemapXml(request: Request, env: any): Response {
+  const urls = SITEMAP_PATHS
+    .map((path) => `  <url><loc>${escapeXml(buildAbsoluteUrl(request, env, path))}</loc></url>`)
+    .join('\n');
+  return textResponse([
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    urls,
+    '</urlset>',
+    ''
+  ].join('\n'), 'application/xml; charset=UTF-8');
 }
 
 function isSocialCrawlerRequest(request: Request): boolean {
@@ -199,6 +290,15 @@ export default {
       // 2️⃣ 静态资源服务 — 统一使用 Workers Assets（开发/生产均通过 env.ASSETS）
       // 注意：用户上传的媒体文件（花盆图片等）仍存储在 R2，通过 img.kaside365.com 访问，不受影响。
 
+      if (request.method === 'GET' || request.method === 'HEAD') {
+        if (path === '/robots.txt') {
+          return serveRobotsTxt(request, env);
+        }
+        if (path === '/sitemap.xml') {
+          return serveSitemapXml(request, env);
+        }
+      }
+
       // 📊 统计页面访问 (异步执行，不阻塞响应)
       if (request.method === 'GET') {
         const isPageRequest = isStaticPagePath(path);
@@ -228,20 +328,35 @@ export default {
         assetUrl.search = '';
         assetUrl.hash = '';
         const baseResponse = await env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+        const metaResponse = await servePotDetailWithMeta(baseResponse, d1SessionContext.env, {
+          shareToken,
+          id: shareId,
+          collabToken,
+          viewerToken
+        });
         return appendD1Bookmark(
-          await servePotDetailWithMeta(baseResponse, d1SessionContext.env, {
-            shareToken,
-            id: shareId,
-            collabToken,
-            viewerToken
-          }),
+          withRobotsHeader(metaResponse, 'noindex, follow'),
           d1SessionContext
         );
       }
 
       // 所有其他非 API 请求直接交给 Workers Assets 处理
       if (env.ASSETS) {
-        return env.ASSETS.fetch(request);
+        const assetResponse = await env.ASSETS.fetch(request);
+        const canonicalPath = getPublicCanonicalPath(path);
+
+        if (canonicalPath) {
+          return servePublicPageWithSeo(
+            assetResponse,
+            buildAbsoluteUrl(request, env, canonicalPath)
+          );
+        }
+
+        if (shouldNoindexStaticPage(path)) {
+          return withRobotsHeader(assetResponse, 'noindex, follow');
+        }
+
+        return assetResponse;
       }
 
       return errorResponse('Not Found', 404);
