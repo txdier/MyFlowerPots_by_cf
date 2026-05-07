@@ -2708,6 +2708,13 @@
                     showAlert(`${message}\n${text}`);
                 };
 
+                const markCurrentPotActivityRead = () => {
+                    if (!potId.value || shareToken.value || !apiClient.token || !apiClient.userId) return;
+                    apiClient.markPotActivityRead(potId.value).catch(error => {
+                        console.debug('标记花盆动态已读失败:', error);
+                    });
+                };
+
                 const goHome = () => {
                     window.location.href = '/';
                 };
@@ -2897,6 +2904,7 @@
 		                        pot.value = res.data;
 		                        syncCommentDanmakuStateFromPot();
 		                        syncShareMetadata();
+		                        markCurrentPotActivityRead();
 		                    }
 		                };
 

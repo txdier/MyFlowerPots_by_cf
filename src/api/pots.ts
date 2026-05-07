@@ -3,6 +3,12 @@ import {
   deleteImagesFromR2
 } from '../utils/storage-utils';
 import { findAccessiblePot } from '../utils/pot-access-utils';
+import {
+  getEmptyPotActivityState,
+  loadPotActivityStates,
+  markPotActivityRead,
+  recordPotActivity
+} from '../utils/pot-activity-utils';
 
 export async function handlePotsRequest(
   request: Request,
@@ -30,6 +36,11 @@ export async function handlePotsRequest(
   // 2️⃣ 成员权限调整
   if (request.method === 'PATCH' && path.match(/^\/api\/pots\/[^/]+\/members\/[^/]+\/role$/)) {
     return handleUpdatePotMemberRole(request, env, path, token);
+  }
+
+  // 2️⃣ 花盆动态标记已读
+  if (request.method === 'POST' && path.match(/^\/api\/pots\/[^/]+\/activity\/read$/)) {
+    return handleMarkPotActivityRead(env, path, token);
   }
 
   // 2️⃣ 花盆详情
@@ -114,12 +125,25 @@ async function handleGetPots(
     'Vary': 'Authorization'
   };
 
-  const buildListResponse = (rows: any[]) => {
+  const buildListResponse = async (rows: any[]) => {
     const data = rows.slice(0, limit);
     const hasMore = rows.length > limit;
+    const activityStates = await loadPotActivityStates(env, userId, data.map((pot: any) => pot.id));
+    const enrichedData = data.map((pot: any) => {
+      const state = activityStates.get(String(pot.id)) || getEmptyPotActivityState();
+      return {
+        ...pot,
+        has_new_activity: state.hasNewActivity ? 1 : 0,
+        new_activity_count: state.newActivityCount,
+        latest_activity_type: state.latestActivityType,
+        latest_activity_summary: state.latestActivitySummary,
+        latest_activity_at: state.latestActivityAt
+      };
+    });
+
     return jsonResponse({
       success: true,
-      data,
+      data: enrichedData,
       page,
       limit,
       hasMore,
@@ -203,6 +227,32 @@ async function handleGetPots(
     .all();
 
   return buildListResponse(results as any[]);
+}
+
+async function handleMarkPotActivityRead(
+  env: any,
+  path: string,
+  token: string | null
+): Promise<Response> {
+  const potId = decodeURIComponent(path.split('/')[3] || '');
+  const userId = token;
+  if (!userId) {
+    return errorResponse('Authentication required', 401);
+  }
+
+  const pot = await findAccessiblePot(env, potId, userId, 'view');
+  if (!pot) {
+    return errorResponse('Pot not found or access denied', 404);
+  }
+
+  const latestEventId = await markPotActivityRead(env, potId, userId);
+  return jsonResponse({
+    success: true,
+    data: {
+      potId,
+      latestEventId
+    }
+  });
 }
 
 async function handleGetPotStatusCounts(env: any, token: string | null): Promise<Response> {
@@ -565,7 +615,9 @@ async function sealArchivedPotAccess(env: any, potId: string, ownerId: string, p
 
   if (formerCollaborators.length === 0) return;
 
-  const content = `花盆「${potName || '未命名'}」已由主人归档，您的共同照料权限已调整为只读查看。历史记录仍可查看，但不能继续编辑或新增养护记录。`;
+  const owner = await env.DB.prepare('SELECT display_name, email FROM users WHERE id = ?').bind(ownerId).first();
+  const ownerName = owner?.display_name || owner?.email || '有人';
+  const content = `${ownerName} 已归档花盆「${potName || '未命名'}」，您的共同照料权限已调整为只读查看。历史记录仍可查看，但不能继续编辑或新增养护记录。`;
   const notifications = formerCollaborators.map(targetUserId =>
     env.DB.prepare(`
       INSERT INTO messages (user_id, sender_id, type, title, content, related_id)
@@ -650,9 +702,11 @@ async function handleUpdatePotMemberRole(
       }
 
       const permissionLabel = role === 'collaborator' ? '共同照料' : '仅查看';
+      const operator = await env.DB.prepare('SELECT display_name, email FROM users WHERE id = ?').bind(userId).first();
+      const operatorName = operator?.display_name || operator?.email || '有人';
       const content = role === 'collaborator'
-        ? `花盆「${pot.name || '未命名'}」的主人已将您的权限调整为共同照料。您现在可以新增和编辑养护、时间线、提醒。`
-        : `花盆「${pot.name || '未命名'}」的主人已将您的权限调整为仅查看。您仍可查看记录，但不能新增或编辑养护、时间线、提醒。`;
+        ? `${operatorName} 已将您在花盆「${pot.name || '未命名'}」中的权限调整为共同照料。您现在可以新增和编辑养护、时间线、提醒。`
+        : `${operatorName} 已将您在花盆「${pot.name || '未命名'}」中的权限调整为仅查看。您仍可查看记录，但不能新增或编辑养护、时间线、提醒。`;
       try {
         await env.DB.prepare(`
           INSERT INTO messages (user_id, sender_id, type, title, content, related_id)
@@ -725,6 +779,9 @@ async function handleArchivePot(
     }
 
     await sealArchivedPotAccess(env, potId, userId, pot.name || '未命名');
+    if (timelineStatement) {
+      await recordPotActivity(env, potId, userId, 'archive_timeline_created', '归档时留下新轨迹', archivedAt);
+    }
 
     return jsonResponse({
       success: true,
@@ -813,6 +870,7 @@ async function handleBatchArchivePots(
     const archivedAt = new Date().toISOString();
 
     const statements: any[] = [];
+    const activityPotIds: string[] = [];
     for (const potId of ownedPotIds) {
       statements.push(env.DB.prepare(`
         UPDATE pots
@@ -826,12 +884,18 @@ async function handleBatchArchivePots(
 
       const imageUrls = getArchiveImageUrlsForPot(body, potId);
       const timelineStatement = buildArchiveTimelineStatement(env, potId, userId, archivedAt, note, imageUrls);
-      if (timelineStatement) statements.push(timelineStatement);
+      if (timelineStatement) {
+        statements.push(timelineStatement);
+        activityPotIds.push(potId);
+      }
     }
 
     await env.DB.batch(statements);
     for (const pot of ownedPotRows) {
       await sealArchivedPotAccess(env, pot.id, userId, pot.name || '未命名');
+    }
+    for (const potId of activityPotIds) {
+      await recordPotActivity(env, potId, userId, 'archive_timeline_created', '归档时留下新轨迹', archivedAt);
     }
 
     return jsonResponse({
@@ -878,7 +942,18 @@ async function handleUpdatePot(
       return errorResponse('Authentication required', 401);
     }
 
-    const pot = await findAccessiblePot(env, potId, userId, 'owner', { allowArchived: false });
+    const pot = await findAccessiblePot(env, potId, userId, 'owner', {
+      allowArchived: false,
+      select: `
+        p.id,
+        p.name,
+        p.plant_type,
+        p.note,
+        p.plant_date,
+        p.image_url,
+        COALESCE(p.status, 'active') as status
+      `
+    });
 
     if (!pot) {
       return errorResponse('Pot not found or access denied', 404);
@@ -929,6 +1004,19 @@ async function handleUpdatePot(
 
     // 使用展开运算符绑定参数
     await env.DB.prepare(sql).bind(...values).run();
+    const contentFieldsChanged = [
+      [name, pot.name],
+      [plantType, pot.plant_type],
+      [note, pot.note],
+      [plantDate, pot.plant_date],
+      [imageUrl, pot.image_url]
+    ].some(([nextValue, oldValue]) => (
+      nextValue !== undefined && String(nextValue ?? '').trim() !== String(oldValue ?? '').trim()
+    ));
+
+    if (contentFieldsChanged) {
+      await recordPotActivity(env, potId, userId, 'pot_updated', '更新植物信息');
+    }
 
     return jsonResponse({
       success: true,

@@ -52,6 +52,8 @@ const tablesToDrop = [
   'support_replies',
   'support_emails',
   'pot_comments',
+  'pot_activity_reads',
+  'pot_activity_events',
   'messages',
   'page_visits_daily',
   'page_visits',

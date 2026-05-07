@@ -4,6 +4,7 @@ import {
   getRemovedImageUrls
 } from '../utils/storage-utils';
 import { findAccessiblePot } from '../utils/pot-access-utils';
+import { recordPotActivity } from '../utils/pot-activity-utils';
 
 type TimelineImagePayload = string | string[] | null;
 
@@ -96,6 +97,7 @@ async function handleCreateTimeline(request: Request, env: any, token: string | 
         token
       )
       .run();
+    await recordPotActivity(env, potId, token, 'timeline_created', '新增成长轨迹', createdAt || null);
 
     return jsonResponse({ success: true });
 
@@ -164,6 +166,7 @@ async function handleUpdateTimeline(request: Request, env: any, id: string, toke
       .prepare(`UPDATE timelines SET ${updates.join(', ')} WHERE id = ?`)
       .bind(...values)
       .run();
+    await recordPotActivity(env, existing.pot_id, token, 'timeline_updated', '更新成长轨迹');
 
     return jsonResponse({ success: true });
 

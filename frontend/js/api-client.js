@@ -366,10 +366,15 @@ class APIClient {
         this.config = { ...API_CONFIG, ...config };
         this.token = AUTH_STORAGE.getToken();
         this.userId = AUTH_STORAGE.getUserId();
-        this.potsCacheVersion = 0;
+        this.potsCacheVersion = Number(sessionStorage.getItem('pots_cache_version') || 0);
         if (this.token && !this.userId) {
             this.clearAuth();
         }
+    }
+
+    bumpPotsCacheVersion() {
+        this.potsCacheVersion = Date.now();
+        sessionStorage.setItem('pots_cache_version', String(this.potsCacheVersion));
     }
 
     // 设置认证令牌
@@ -637,7 +642,7 @@ class APIClient {
 	
 	            const data = await response.json();
             if (method !== 'GET' && this.affectsPotList(endpoint)) {
-                this.potsCacheVersion = Date.now();
+                this.bumpPotsCacheVersion();
             }
             return data;
 
@@ -794,6 +799,10 @@ class APIClient {
 
     async getPotDetailBundle(potId) {
         return this.request(`/api/pots/${potId}/detail-bundle`);
+    }
+
+    async markPotActivityRead(potId) {
+        return this.request(`/api/pots/${potId}/activity/read`, { method: 'POST' });
     }
 
     async getPotStatusCounts() {

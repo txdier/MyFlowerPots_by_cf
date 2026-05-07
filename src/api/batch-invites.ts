@@ -1,5 +1,7 @@
 import { errorResponse, jsonResponse } from '../utils/response-utils';
 
+import { markPotActivityRead } from '../utils/pot-activity-utils';
+
 type BatchInvitePermission = 'viewer' | 'collaborator';
 
 export async function handleBatchInvitesRequest(
@@ -141,10 +143,11 @@ async function handleAcceptBatchInvite(
   const collaboratorPotIds = await loadRelationPotIds(env, 'pot_collaborators', ownedPotIds, userId);
   const viewerPotIds = await loadRelationPotIds(env, 'pot_viewers', ownedPotIds, userId);
 
-  let addedCount = 0;
-  let upgradedCount = 0;
-  let skippedCount = 0;
-  const statements: any[] = [
+	  let addedCount = 0;
+	  let upgradedCount = 0;
+	  let skippedCount = 0;
+	  const baselinePotIds: string[] = [];
+	  const statements: any[] = [
     env.DB.prepare(`
       UPDATE pot_batch_invites
       SET claimed_by_user_id = ?, used_at = datetime('now')
@@ -161,12 +164,13 @@ async function handleAcceptBatchInvite(
         skippedCount += 1;
         continue;
       }
-      statements.push(
-        env.DB.prepare('INSERT INTO pot_viewers (pot_id, user_id) VALUES (?, ?)')
-          .bind(pot.id, userId)
-      );
-      addedCount += 1;
-      continue;
+	      statements.push(
+	        env.DB.prepare('INSERT INTO pot_viewers (pot_id, user_id) VALUES (?, ?)')
+	          .bind(pot.id, userId)
+	      );
+	      baselinePotIds.push(pot.id);
+	      addedCount += 1;
+	      continue;
     }
 
     if (isCollaborator) {
@@ -174,10 +178,11 @@ async function handleAcceptBatchInvite(
       continue;
     }
 
-    statements.push(
-      env.DB.prepare('INSERT INTO pot_collaborators (pot_id, user_id) VALUES (?, ?)')
-        .bind(pot.id, userId)
-    );
+	    statements.push(
+	      env.DB.prepare('INSERT INTO pot_collaborators (pot_id, user_id) VALUES (?, ?)')
+	        .bind(pot.id, userId)
+	    );
+	    baselinePotIds.push(pot.id);
 
     if (isViewer) {
       statements.push(
@@ -190,7 +195,10 @@ async function handleAcceptBatchInvite(
     }
   }
 
-  await env.DB.batch(statements);
+	  await env.DB.batch(statements);
+	  for (const potId of baselinePotIds) {
+	    await markPotActivityRead(env, potId, userId);
+	  }
 
   if (addedCount > 0 || upgradedCount > 0) {
     await notifyOwnerOfBatchAccept(env, invite.owner_id, userId, permissionType, ownedPots, addedCount, upgradedCount);

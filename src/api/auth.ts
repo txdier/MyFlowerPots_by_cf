@@ -960,6 +960,8 @@ async function handleUpgrade(request: Request, env: any): Promise<Response> {
       env.DB.prepare('UPDATE timelines SET user_id = ? WHERE user_id = ?').bind(newUserId, anonymousUserId),
       env.DB.prepare('UPDATE pot_collaborators SET user_id = ? WHERE user_id = ?').bind(newUserId, anonymousUserId),
       env.DB.prepare('UPDATE pot_viewers SET user_id = ? WHERE user_id = ?').bind(newUserId, anonymousUserId),
+      env.DB.prepare('UPDATE pot_activity_events SET actor_id = ? WHERE actor_id = ?').bind(newUserId, anonymousUserId),
+      env.DB.prepare('UPDATE pot_activity_reads SET user_id = ? WHERE user_id = ?').bind(newUserId, anonymousUserId),
       env.DB.prepare('UPDATE messages SET user_id = ? WHERE user_id = ?').bind(newUserId, anonymousUserId),
       env.DB.prepare('UPDATE messages SET sender_id = ? WHERE sender_id = ?').bind(newUserId, anonymousUserId)
     ];

@@ -159,11 +159,15 @@ describe('api regression: pots, lifecycle, and permission matrix', () => {
       body: { role: 'viewer' },
     }), 404);
 
-    await expectOk(await api(`/api/pots/${potId}/members/${viewer.userId}/role`, {
-      method: 'PATCH',
-      token: owner.token,
-      body: { role: 'collaborator' },
-    }));
+	    await expectOk(await api(`/api/pots/${potId}/members/${viewer.userId}/role`, {
+	      method: 'PATCH',
+	      token: owner.token,
+	      body: { role: 'collaborator' },
+	    }));
+	    const viewerMessages = await expectOk(await api('/api/messages', { token: viewer.token }));
+	    const upgradeMessage = viewerMessages.data.find((message: any) => message.title === '花盆权限已调整为共同照料');
+	    expect(upgradeMessage?.content).toContain('role-owner 已将您在花盆「Role Pot」中的权限调整为共同照料');
+	    expect(upgradeMessage?.content).not.toContain('主人');
 
     await expectOk(await api(`/api/pots/${potId}/members/${viewer.userId}/role`, {
       method: 'PATCH',
@@ -178,11 +182,15 @@ describe('api regression: pots, lifecycle, and permission matrix', () => {
 
     await addCareRecord(viewer, potId, { action: 'upgraded viewer can write' });
 
-    await expectOk(await api(`/api/pots/${potId}/members/${collaborator.userId}/role`, {
-      method: 'PATCH',
-      token: owner.token,
-      body: { role: 'viewer' },
-    }));
+	    await expectOk(await api(`/api/pots/${potId}/members/${collaborator.userId}/role`, {
+	      method: 'PATCH',
+	      token: owner.token,
+	      body: { role: 'viewer' },
+	    }));
+	    const collaboratorMessages = await expectOk(await api('/api/messages', { token: collaborator.token }));
+	    const downgradeMessage = collaboratorMessages.data.find((message: any) => message.title === '花盆权限已调整为仅查看');
+	    expect(downgradeMessage?.content).toContain('role-owner 已将您在花盆「Role Pot」中的权限调整为仅查看');
+	    expect(downgradeMessage?.content).not.toContain('主人');
 
     const afterDowngradeCollaborators = await expectOk(await api(`/api/collaborators/${potId}`, { token: owner.token }));
     const afterDowngradeViewers = await expectOk(await api(`/api/viewers/${potId}`, { token: owner.token }));

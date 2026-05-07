@@ -337,6 +337,13 @@
                         return query ? `pot-detail?${query}` : 'pot-detail';
                     };
 
+                    const markCurrentPotActivityRead = () => {
+                        if (!potId.value || shareToken.value || !apiClient.token || !apiClient.userId) return;
+                        apiClient.markPotActivityRead(potId.value).catch(error => {
+                            console.debug('标记花盆动态已读失败:', error);
+                        });
+                    };
+
                     const init = async () => {
                         const params = new URLSearchParams(window.location.search);
                         potId.value = params.get('potId');
@@ -360,6 +367,7 @@
                                     loadPotInfo(),
                                     loadTimelineRecords()
                                 ]);
+                                markCurrentPotActivityRead();
                             }
                         } catch (e) {
                             console.error(e);

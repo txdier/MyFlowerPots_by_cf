@@ -439,13 +439,23 @@
                                 <div class="flex-1 p-4 flex flex-col justify-between min-w-0">
                                     <div>
                                         <div class="flex items-center gap-1.5">
-                                            <h3 class="font-bold text-gray-800 truncate">{{ pot.name }}</h3>
+                                            <h3 class="font-bold text-gray-800 truncate min-w-0">{{ pot.name }}</h3>
+                                            <span v-if="pot.has_new_activity"
+                                                class="shrink-0 inline-flex items-center gap-1 rounded-full bg-sky-50 px-1.5 py-0.5 text-[9px] font-black text-sky-600">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+                                                {{ getPotActivityLabel(pot) }}
+                                            </span>
                                             <span v-if="activePotStatus === 'archived'"
                                                 class="shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[9px] font-black text-gray-400">已归档</span>
                                         </div>
-                                        <p class="text-[11px] text-gray-400 mt-1 truncate">
-                                            {{ activePotStatus === 'archived' ? (pot.archive_reason || '暂无归档原因') :
-                                            (pot.note || '暂无备注') }}
+                                        <p class="text-[11px] text-gray-400 mt-1 flex items-center gap-1.5 min-w-0">
+                                            <span class="shrink-0">
+                                                {{ activePotStatus === 'archived' ? '归档' : '备注' }}
+                                            </span>
+                                            <span class="truncate text-gray-500">
+                                                {{ activePotStatus === 'archived' ? (pot.archive_reason || '暂无归档原因') :
+                                                (pot.note || '暂无备注') }}
+                                            </span>
                                         </p>
                                     </div>
                                     <div class="flex justify-between items-end">
@@ -2817,7 +2827,32 @@
                     }
                 };
 
+                const getPotActivityLabel = (pot) => {
+                    const count = Number(pot?.new_activity_count || 0);
+                    if (count > 1) return `${count}条新动态`;
+                    return pot?.latest_activity_summary || '新动态';
+                };
+
+                const clearPotActivityMarker = (pot) => {
+                    if (!pot) return;
+                    pot.has_new_activity = 0;
+                    pot.new_activity_count = 0;
+                    pot.latest_activity_type = null;
+                    pot.latest_activity_summary = null;
+                    pot.latest_activity_at = null;
+                };
+
+                const markPotActivityReadBeforeOpen = (pot) => {
+                    if (!pot?.id || !pot.has_new_activity) return;
+                    clearPotActivityMarker(pot);
+                    apiClient.markPotActivityRead(pot.id).catch(e => {
+                        console.debug('标记花盆动态已读失败:', e);
+                    });
+                };
+
                 const goToPotDetail = (potId) => {
+                    const pot = pots.value.find(item => item.id === potId);
+                    markPotActivityReadBeforeOpen(pot);
                     window.location.href = `pot-detail?id=${potId}`;
                 };
 
@@ -3023,6 +3058,7 @@
                 const handleCardClick = (pot) => {
                     if (Date.now() < potStatusSwipeSuppressClickUntil) return;
                     if (!isEditMode.value) {
+                        markPotActivityReadBeforeOpen(pot);
                         window.location.href = `pot-detail?id=${pot.id}`;
                     }
                 };
@@ -3992,7 +4028,7 @@
                     leaveCollaborationFromSheet, removeViewerPotFromSheet,
                     confirmLeaveCollaboration, confirmLeaveViewer,
                     logout, closeAuthModals, switchToRegister, switchToLogin, switchToForgotPassword,
-                    formatDate, formatGrowthDuration, handleImageError, imgUrl, seedDemoData, goToPotDetail,
+                    formatDate, formatGrowthDuration, getPotActivityLabel, handleImageError, imgUrl, seedDemoData, goToPotDetail,
                     goEditPot: (id) => window.location.href = `edit-pot?id=${id}`,
                     goAddPot: () => window.location.href = 'add-pot',
                     goProfile: () => window.location.href = 'profile',

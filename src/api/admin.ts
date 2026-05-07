@@ -741,6 +741,8 @@ async function handleDeleteUser(env: any, id: string): Promise<Response> {
             env.DB.prepare('DELETE FROM pot_viewers WHERE user_id = ?').bind(id),
             env.DB.prepare('UPDATE care_records SET user_id = ? WHERE user_id = ?').bind(DELETED_USER_PLACEHOLDER_ID, id),
             env.DB.prepare('UPDATE timelines SET user_id = ? WHERE user_id = ?').bind(DELETED_USER_PLACEHOLDER_ID, id),
+            env.DB.prepare('UPDATE pot_activity_events SET actor_id = ? WHERE actor_id = ?').bind(DELETED_USER_PLACEHOLDER_ID, id),
+            env.DB.prepare('DELETE FROM pot_activity_reads WHERE user_id = ?').bind(id),
             env.DB.prepare('UPDATE pot_comments SET sender_id = ? WHERE sender_id = ?').bind(DELETED_USER_PLACEHOLDER_ID, id),
             env.DB.prepare('UPDATE pot_collab_invites SET claimed_by_user_id = NULL WHERE claimed_by_user_id = ?').bind(id),
             env.DB.prepare('UPDATE pot_view_invites SET claimed_by_user_id = NULL WHERE claimed_by_user_id = ?').bind(id),
@@ -780,6 +782,8 @@ async function handleDeleteUser(env: any, id: string): Promise<Response> {
             cleanupBatch.push(env.DB.prepare(`DELETE FROM care_schedules WHERE pot_id IN (${placeholders})`).bind(...potIds));
             cleanupBatch.push(env.DB.prepare(`DELETE FROM care_records WHERE pot_id IN (${placeholders})`).bind(...potIds));
             cleanupBatch.push(env.DB.prepare(`DELETE FROM timelines WHERE pot_id IN (${placeholders})`).bind(...potIds));
+            cleanupBatch.push(env.DB.prepare(`DELETE FROM pot_activity_reads WHERE pot_id IN (${placeholders})`).bind(...potIds));
+            cleanupBatch.push(env.DB.prepare(`DELETE FROM pot_activity_events WHERE pot_id IN (${placeholders})`).bind(...potIds));
         }
 
         // 删除花盆本身

@@ -1,5 +1,6 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
 import { findAccessiblePot } from '../utils/pot-access-utils';
+import { markPotActivityRead } from '../utils/pot-activity-utils';
 
 function isArchivedPot(pot: any): boolean {
   return String(pot?.status || 'active').toLowerCase() === 'archived';
@@ -174,6 +175,7 @@ async function handleAddCollaborator(request: Request, potId: string, userId: st
     .bind(potId, targetUser.id).run();
   await env.DB.prepare('DELETE FROM pot_viewers WHERE pot_id = ? AND user_id = ?')
     .bind(potId, targetUser.id).run();
+  await markPotActivityRead(env, potId, targetUser.id);
 
   try {
     const owner = await env.DB.prepare('SELECT display_name, email FROM users WHERE id = ?').bind(userId).first();
@@ -252,6 +254,9 @@ async function handleAcceptInviteLink(request: Request, token: string, userId: s
   }
 
   await env.DB.batch(batch);
+  if (!existing) {
+    await markPotActivityRead(env, invite.pot_id, userId);
+  }
 
   if (!existing) {
     try {
@@ -282,7 +287,7 @@ async function handleRemoveCollaborator(potId: string, targetUserId: string, use
 
   try {
     const owner = await env.DB.prepare('SELECT display_name, email FROM users WHERE id = ?').bind(userId).first();
-    const ownerName = owner?.display_name || owner?.email || '原主人';
+    const ownerName = owner?.display_name || owner?.email || '有人';
     await env.DB.prepare(`
       INSERT INTO messages (user_id, type, title, content, related_id)
       VALUES (?, 'system_info', '协作关系已终止', ?, ?)
