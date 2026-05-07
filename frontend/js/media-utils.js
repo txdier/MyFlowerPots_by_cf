@@ -1,10 +1,20 @@
 (function attachMyFlowerPotsMedia(global) {
     const DEFAULT_REMOTE_IMAGE_HOST = 'img.kaside365.com';
     const DEFAULT_POT_IMAGE = 'assets/images/icons/icons-default-pot.png';
+    const SMALL_IMAGE_MAX_SIDE = 128;
 
     const normalizeAssetPath = (src) => String(src || '')
         .replace(/^\/?assets\/deom\//i, '/assets/demo/')
         .replace(/^assets\//i, '/assets/');
+
+    const normalizeResizeDimension = (value) => {
+        const dimension = Number(value);
+        if (!Number.isFinite(dimension) || dimension <= 0) return value;
+        if (dimension <= 48) return 64;
+        if (dimension <= 80) return 80;
+        if (dimension <= SMALL_IMAGE_MAX_SIDE) return SMALL_IMAGE_MAX_SIDE;
+        return Math.round(dimension);
+    };
 
     const imgUrl = (src, width, height, options = {}) => {
         if (!src) return src;
@@ -12,7 +22,11 @@
         const normalizedSrc = normalizeAssetPath(src);
         if (normalizedSrc.startsWith('/assets/')) return normalizedSrc;
         if (!normalizedSrc.includes(remoteHost)) return normalizedSrc;
-        return `/cdn-cgi/image/width=${width},height=${height},dpr=2,fit=cover,format=auto/${normalizedSrc}`;
+        const resizeWidth = normalizeResizeDimension(width);
+        const resizeHeight = normalizeResizeDimension(height);
+        const maxSide = Math.max(Number(resizeWidth) || 0, Number(resizeHeight) || 0);
+        const format = options.format || (maxSide > 0 && maxSide <= SMALL_IMAGE_MAX_SIDE ? 'webp' : 'auto');
+        return `/cdn-cgi/image/width=${resizeWidth},height=${resizeHeight},dpr=2,fit=cover,format=${format}/${normalizedSrc}`;
     };
 
     const parseImageList = (value) => {

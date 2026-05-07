@@ -7,6 +7,7 @@ import {
   createPot,
   expectOk,
   expectStatus,
+  identifyAnonymousUser,
   registerUser,
   resetWorkerTestDatabase,
   testDb,
@@ -125,9 +126,88 @@ describe('api regression: comments, messages, plants, upload, analytics headers,
       emailVerified: true,
     });
     const normalUser = await registerUser('normal');
+    const manualVerifyUser = await registerUser('manual-verify');
+    const anonymousUser = await identifyAnonymousUser();
 
     expectStatus(await api('/api/admin/check', { token: normalUser.token }), 403);
     await expectOk(await api('/api/admin/check', { token: admin.token }));
+    expectStatus(await api(`/api/admin/users/${manualVerifyUser.userId}`, {
+      method: 'PUT',
+      token: normalUser.token,
+      body: {
+        emailVerified: true,
+        verificationReason: 'not-admin',
+      },
+    }), 403);
+
+    await testDb().batch([
+      testDb().prepare(`
+        INSERT INTO page_visits (path, visit_count, last_updated)
+        VALUES (?, ?, ?)
+      `).bind('/admin-stats', 7, '2026-05-07T00:00:00.000Z'),
+      testDb().prepare(`
+        INSERT INTO page_visits_daily (path, visit_date, visit_count)
+        VALUES (?, ?, ?)
+      `).bind('/admin-stats', '2026-05-06', 3),
+      testDb().prepare(`
+        INSERT INTO page_visits_daily (path, visit_date, visit_count)
+        VALUES (?, ?, ?)
+      `).bind('/admin-stats', '2026-05-07', 4),
+    ]);
+
+    const analytics = await expectOk(await api('/api/admin/analytics', { token: admin.token }));
+    const statsRow = analytics.data.find((item: any) => item.path === '/admin-stats');
+    expect(Number(statsRow?.visit_count)).toBe(7);
+
+    const filteredAnalytics = await expectOk(await api(
+      '/api/admin/analytics?startDate=2026-05-06&endDate=2026-05-07',
+      { token: admin.token }
+    ));
+    const filteredStatsRow = filteredAnalytics.data.find((item: any) => item.path === '/admin-stats');
+    expect(Number(filteredStatsRow?.visit_count)).toBe(7);
+
+    expectStatus(await api(`/api/admin/users/${anonymousUser.userId}`, {
+      method: 'PUT',
+      token: admin.token,
+      body: {
+        emailVerified: true,
+        verificationReason: 'anonymous users cannot be email verified',
+      },
+    }), 400);
+
+    await testDb()
+      .prepare(`
+        UPDATE users
+        SET verification_token = ?, verification_token_expires = ?
+        WHERE id = ?
+      `)
+      .bind('manual-token', '2099-01-01T00:00:00.000Z', manualVerifyUser.userId)
+      .run();
+
+    await expectOk(await api(`/api/admin/users/${manualVerifyUser.userId}`, {
+      method: 'PUT',
+      token: admin.token,
+      body: {
+        emailVerified: true,
+        verificationReason: 'support confirmed ownership',
+      },
+    }));
+
+    const verifiedUser = await testDb()
+      .prepare(`
+        SELECT email_verified, verification_token, verification_token_expires
+        FROM users
+        WHERE id = ?
+      `)
+      .bind(manualVerifyUser.userId)
+      .first();
+    expect(Number(verifiedUser?.email_verified)).toBe(1);
+    expect(verifiedUser?.verification_token).toBeNull();
+    expect(verifiedUser?.verification_token_expires).toBeNull();
+
+    for (let i = 0; i < 11; i++) {
+      await createPot(manualVerifyUser, { name: `Manual Verified Pot ${i + 1}` });
+    }
 
     await expectOk(await api('/api/admin/plants', {
       method: 'POST',
@@ -220,5 +300,11 @@ describe('api regression: comments, messages, plants, upload, analytics headers,
       method: 'DELETE',
       token: admin.token,
     }));
+
+    await testDb()
+      .prepare('UPDATE users SET is_disabled = 1 WHERE id = ?')
+      .bind(admin.userId)
+      .run();
+    expectStatus(await api('/api/admin/check', { token: admin.token }), 403);
   });
 });

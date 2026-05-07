@@ -126,6 +126,7 @@ async function handleImageUpload(request: Request, env: any, token: string | nul
       await env.STATIC_BUCKET.put(objectKey, imageFile.stream(), {
         httpMetadata: {
           contentType: imageFile.type,
+          cacheControl: 'public, max-age=31536000, immutable',
         }
       });
 

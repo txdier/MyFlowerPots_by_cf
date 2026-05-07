@@ -127,7 +127,6 @@
                 transform: rotate(360deg);
             }
         }
-
     </style>
 </head>
 
@@ -359,7 +358,8 @@
 
             <div v-else-if="pendingInvitePrompt" class="container py-6">
                 <section class="rounded-lg border border-gray-100 bg-white px-6 py-8 text-center shadow-sm">
-                    <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-green-50 text-xl text-green-600">
+                    <div
+                        class="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-green-50 text-xl text-green-600">
                         <i class="fa" :class="pendingInvitePrompt.icon"></i>
                     </div>
                     <h2 class="mt-5 text-2xl font-black text-gray-900">{{ pendingInvitePrompt.title }}</h2>
@@ -441,11 +441,11 @@
                             <div v-if="isArchived" class="flex items-baseline gap-2">
                                 <span class="text-gray-900 font-bold shrink-0 w-20">归档原因：</span>
                                 <span class="text-gray-600">
-	                                    {{ pot.archive_reason || '无' }}
-	                                    <template v-if="pot.archive_note">，{{ pot.archive_note }}</template>
-	                                </span>
-	                            </div>
-	                        </div>
+                                    {{ pot.archive_reason || '无' }}
+                                    <template v-if="pot.archive_note">，{{ pot.archive_note }}</template>
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -461,7 +461,7 @@
                             <button @click="plantInfoActiveTab = 'care'"
                                 class="flex-1 py-3 text-sm font-black border-b-2 transition"
                                 :class="plantInfoActiveTab === 'care' ? 'text-blue-600 border-blue-500' : 'text-gray-400 border-transparent'">
-                                照护建议
+                                养护建议
                             </button>
                         </div>
                     </div>
@@ -492,7 +492,7 @@
                         </div>
                     </div>
 
-                    <!-- 照护建议面板 -->
+                    <!-- 养护建议面板 -->
                     <div v-show="plantInfoActiveTab === 'care'">
                         <div class="px-6 py-6 overflow-hidden transition-all duration-500"
                             :style="{ maxHeight: showFullCareTips ? '3000px' : '400px' }">
@@ -624,7 +624,8 @@
                         </div>
                         -->
 
-                        <div v-if="isCareRecordsLoading && careRecords?.length === 0" class="p-6 space-y-4 animate-pulse">
+                        <div v-if="isCareRecordsLoading && careRecords?.length === 0"
+                            class="p-6 space-y-4 animate-pulse">
                             <div class="flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-2xl">
                                 <div class="space-y-2">
                                     <div class="h-4 bg-gray-200 rounded w-24"></div>
@@ -650,7 +651,8 @@
                                         }}</span>
                                     <div class="min-w-0">
                                         <div class="flex items-center gap-2">
-                                            <div class="text-xs font-bold text-gray-400 truncate">{{ group.displayAction }}
+                                            <div class="text-xs font-bold text-gray-400 truncate">{{ group.displayAction
+                                                }}
                                             </div>
                                             <span v-if="showOperatorName"
                                                 class="text-[9px] px-1.5 py-0.5 bg-gray-50 text-gray-400 rounded-md font-bold shrink-0">{{
@@ -681,7 +683,8 @@
                         -->
                         <div class="p-6 space-y-4 animate-fade-in">
                             <template v-if="isCareSchedulesLoading && careSchedules.length === 0">
-                                <div class="flex items-center justify-between gap-3 p-3 bg-gray-50/50 rounded-2xl animate-pulse">
+                                <div
+                                    class="flex items-center justify-between gap-3 p-3 bg-gray-50/50 rounded-2xl animate-pulse">
                                     <div class="flex items-center gap-3 flex-1">
                                         <div class="w-10 h-10 rounded-2xl bg-gray-200 shrink-0"></div>
                                         <div class="flex-1 space-y-2">
@@ -691,7 +694,8 @@
                                     </div>
                                     <div class="w-12 h-7 rounded-full bg-gray-200"></div>
                                 </div>
-                                <div class="flex items-center justify-between gap-3 p-3 bg-gray-50/50 rounded-2xl animate-pulse">
+                                <div
+                                    class="flex items-center justify-between gap-3 p-3 bg-gray-50/50 rounded-2xl animate-pulse">
                                     <div class="flex items-center gap-3 flex-1">
                                         <div class="w-10 h-10 rounded-2xl bg-gray-200 shrink-0"></div>
                                         <div class="flex-1 space-y-2">
@@ -708,11 +712,13 @@
                                         <div class="flex items-center gap-3 min-w-0">
                                             <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-lg shrink-0"
                                                 :class="getScheduleTypeStyle(schedule.care_type, schedule.custom_action).bg">
-                                                {{ getScheduleTypeStyle(schedule.care_type, schedule.custom_action).icon }}
+                                                {{ getScheduleTypeStyle(schedule.care_type, schedule.custom_action).icon
+                                                }}
                                             </div>
                                             <div class="min-w-0">
                                                 <div class="text-sm font-bold text-gray-800">
-                                                    {{ getScheduleTypeName(schedule.care_type, schedule.custom_action) }}
+                                                    {{ getScheduleTypeName(schedule.care_type, schedule.custom_action)
+                                                    }}
                                                 </div>
                                                 <div class="flex items-center gap-1 mt-0.5" @click.stop>
                                                     <span class="text-[10px] text-gray-400">每</span>
@@ -756,19 +762,20 @@
                             <i class="fa fa-chart-line text-blue-500"></i> 生长轨迹
                         </h3>
                         <div class="flex gap-2">
-	                            <button v-if="timelineRecords?.length >= 2" @click="toggleTimelineSort"
-	                                class="w-8 h-8 rounded-full bg-gray-100/80 text-gray-500 flex items-center justify-center active:scale-90 transition">
-	                                <i class="fas text-[12px]"
-	                                    :class="isTimelineDesc ? 'fa-sort-amount-down' : 'fa-sort-amount-up'"></i>
-	                            </button>
-	                            <button v-if="!isReadOnly" type="button" @click="openAddTimelineModal"
-	                                class="w-10 h-10 rounded-2xl text-blue-500 flex items-center justify-center text-xl transition active:scale-95 hover:bg-gray-50"
-                                    title="记录这一刻" aria-label="记录这一刻">
-	                                <i class="fa fa-plus"></i>
-	                            </button>
-	                        </div>
+                            <button v-if="timelineRecords?.length >= 2" @click="toggleTimelineSort"
+                                class="w-8 h-8 rounded-full bg-gray-100/80 text-gray-500 flex items-center justify-center active:scale-90 transition">
+                                <i class="fas text-[12px]"
+                                    :class="isTimelineDesc ? 'fa-sort-amount-down' : 'fa-sort-amount-up'"></i>
+                            </button>
+                            <button v-if="!isReadOnly" type="button" @click="openAddTimelineModal"
+                                class="w-10 h-10 rounded-2xl text-blue-500 flex items-center justify-center text-xl transition active:scale-95 hover:bg-gray-50"
+                                title="记录这一刻" aria-label="记录这一刻">
+                                <i class="fa fa-plus"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div v-if="isTimelineRecordsLoading && timelineRecords?.length === 0" class="p-6 space-y-6 animate-pulse">
+                    <div v-if="isTimelineRecordsLoading && timelineRecords?.length === 0"
+                        class="p-6 space-y-6 animate-pulse">
                         <div class="relative pl-6 border-l-2 border-gray-100">
                             <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-gray-200"></div>
                             <div class="space-y-3">
@@ -789,7 +796,8 @@
                             </div>
                         </div>
                     </div>
-                    <div v-else-if="timelineRecords?.length === 0" class="p-10 text-center text-gray-400">还没有留下它的成长瞬间</div>
+                    <div v-else-if="timelineRecords?.length === 0" class="p-10 text-center text-gray-400">还没有留下它的成长瞬间
+                    </div>
                     <div v-else class="p-6 space-y-6">
                         <div v-for="record in sortedTimelineRecords.slice(0, 3)" :key="record.id"
                             class="relative pl-6 border-l-2 border-blue-50">
@@ -837,8 +845,8 @@
                 </div>
 
                 <!-- 5. 危险区域 (仅主人可见) -->
-	                <div v-if="isOwner" class="pt-8 pb-10 flex flex-col items-center gap-4">
-	                    <button v-if="!isArchived" @click="openArchiveModal"
+                <div v-if="isOwner" class="pt-8 pb-10 flex flex-col items-center gap-4">
+                    <button v-if="!isArchived" @click="openArchiveModal"
                         class="w-full py-4 rounded-2xl text-gray-600 font-black text-sm bg-gray-100 border border-gray-200 hover:bg-gray-200 transition active:scale-95">
                         <i class="fa fa-archive mr-2"></i> 归档此花盆
                     </button>
@@ -849,81 +857,83 @@
                     <button @click="confirmDeletePot"
                         class="w-full py-4 rounded-2xl text-red-500 font-black text-sm bg-red-50 border border-red-100 hover:bg-red-100 transition active:scale-95">
                         <i class="fa fa-trash-alt mr-2"></i> 删除此花盆
-	                    </button>
+                    </button>
 
-	                </div>
+                </div>
 
-	                <div v-if="showArchiveModal" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4">
-	                    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeArchiveModal"></div>
-			                    <div
-			                        class="relative bg-white w-full max-w-lg rounded-t-[2rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col keyboard-safe-modal"
-                                    :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus">
-		                        <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 shrink-0">
-	                            <div>
-	                                <h3 class="text-xl font-black text-gray-800">归档此花盆</h3>
-	                                <p class="text-xs text-gray-400 mt-0.5">为 {{ pot?.name || '这盆植物' }} 记录归档原因</p>
-	                            </div>
-	                            <button type="button" @click="closeArchiveModal"
-	                                class="text-gray-400 hover:text-gray-600 transition">
-	                                <i class="fa fa-times text-xl"></i>
-	                            </button>
-	                        </div>
-			                        <div class="p-6 space-y-5 overflow-y-auto flex-1 keyboard-safe-modal-scroll">
-	                            <div class="rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 text-xs text-amber-700 leading-relaxed">
-	                                归档后这盆植物将不再出现在养护列表，也不会收到养护提醒。记录会保留，之后可以在已归档中查看和恢复。
-	                            </div>
-	                            <div>
-	                                <label class="block text-sm font-bold text-gray-700 mb-3">归档原因</label>
-	                                <div class="grid grid-cols-2 gap-2">
-	                                    <button v-for="reason in archiveReasons" :key="reason" type="button"
-	                                        @click="archiveForm.reason = reason"
-	                                        class="rounded-2xl border px-3 py-3 text-sm font-bold transition active:scale-95"
-	                                        :class="archiveForm.reason === reason ? 'bg-green-50 border-green-300 text-green-700 shadow-sm' : 'bg-white border-gray-100 text-gray-500'">
-	                                        {{ reason }}
-	                                    </button>
-	                                </div>
-	                            </div>
-	                            <div>
-	                                <label class="block text-sm font-bold text-gray-700 mb-2">备注
-	                                    <span class="text-gray-400 font-normal">（可选）</span>
-	                                </label>
-	                                <textarea v-model="archiveForm.note" placeholder="这次失败可能和什么有关？" rows="3"
-	                                    class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-green-300 resize-none transition"></textarea>
-	                            </div>
-                                <div>
-                                    <label class="block text-sm font-bold text-gray-700 mb-2">归档照片
-                                        <span class="text-gray-400 font-normal">（可选，会加入成长轨迹）</span>
-                                    </label>
-                                    <div class="grid grid-cols-4 gap-2">
-                                        <div v-for="(img, idx) in archiveForm.tempImages" :key="`archive-${idx}`"
-                                            class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden">
-                                            <img :src="img.preview" decoding="async" class="w-full h-full object-cover">
-                                            <button type="button" @click="removeArchiveImage(idx)"
-                                                class="absolute top-1 right-1 bg-black/50 text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center">
-                                                <i class="fa fa-times"></i>
-                                            </button>
-                                        </div>
-                                        <button v-if="archiveImageCount() < 3" type="button" @click="triggerArchiveFileInput"
-                                            class="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-300 hover:border-green-500 hover:text-green-500 transition active:scale-95">
-                                            <i class="fa fa-camera text-xl mb-1"></i>
-                                            <span class="text-[8px] font-black uppercase tracking-tighter">添加</span>
+                <div v-if="showArchiveModal"
+                    class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4">
+                    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeArchiveModal"></div>
+                    <div class="relative bg-white w-full max-w-lg rounded-t-[2rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col keyboard-safe-modal"
+                        :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus">
+                        <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 shrink-0">
+                            <div>
+                                <h3 class="text-xl font-black text-gray-800">归档此花盆</h3>
+                                <p class="text-xs text-gray-400 mt-0.5">为 {{ pot?.name || '这盆植物' }} 记录归档原因</p>
+                            </div>
+                            <button type="button" @click="closeArchiveModal"
+                                class="text-gray-400 hover:text-gray-600 transition">
+                                <i class="fa fa-times text-xl"></i>
+                            </button>
+                        </div>
+                        <div class="p-6 space-y-5 overflow-y-auto flex-1 keyboard-safe-modal-scroll">
+                            <div
+                                class="rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 text-xs text-amber-700 leading-relaxed">
+                                归档后这盆植物将不再出现在养护列表，也不会收到养护提醒。记录会保留，之后可以在已归档中查看和恢复。
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-3">归档原因</label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <button v-for="reason in archiveReasons" :key="reason" type="button"
+                                        @click="archiveForm.reason = reason"
+                                        class="rounded-2xl border px-3 py-3 text-sm font-bold transition active:scale-95"
+                                        :class="archiveForm.reason === reason ? 'bg-green-50 border-green-300 text-green-700 shadow-sm' : 'bg-white border-gray-100 text-gray-500'">
+                                        {{ reason }}
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">备注
+                                    <span class="text-gray-400 font-normal">（可选）</span>
+                                </label>
+                                <textarea v-model="archiveForm.note" placeholder="这次失败可能和什么有关？" rows="3"
+                                    class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-green-300 resize-none transition"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-2">归档照片
+                                    <span class="text-gray-400 font-normal">（可选，会加入成长轨迹）</span>
+                                </label>
+                                <div class="grid grid-cols-4 gap-2">
+                                    <div v-for="(img, idx) in archiveForm.tempImages" :key="`archive-${idx}`"
+                                        class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden">
+                                        <img :src="img.preview" decoding="async" class="w-full h-full object-cover">
+                                        <button type="button" @click="removeArchiveImage(idx)"
+                                            class="absolute top-1 right-1 bg-black/50 text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center">
+                                            <i class="fa fa-times"></i>
                                         </button>
                                     </div>
-                                    <input type="file" ref="archiveFileInput" @change="onArchiveFilesSelected" multiple
-                                        accept="image/*" class="hidden">
+                                    <button v-if="archiveImageCount() < 3" type="button"
+                                        @click="triggerArchiveFileInput"
+                                        class="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-300 hover:border-green-500 hover:text-green-500 transition active:scale-95">
+                                        <i class="fa fa-camera text-xl mb-1"></i>
+                                        <span class="text-[8px] font-black uppercase tracking-tighter">添加</span>
+                                    </button>
                                 </div>
-	                        </div>
-			                        <div class="px-6 pb-6 shrink-0 keyboard-safe-modal-footer">
-	                            <button @click="archiveCurrentPot" :disabled="isArchiveLoading"
-	                                class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
-	                                {{ isArchiveLoading ? '归档中...' : '确认归档' }}
-	                            </button>
-	                        </div>
-	                    </div>
-	                </div>
+                                <input type="file" ref="archiveFileInput" @change="onArchiveFilesSelected" multiple
+                                    accept="image/*" class="hidden">
+                            </div>
+                        </div>
+                        <div class="px-6 pb-6 shrink-0 keyboard-safe-modal-footer">
+                            <button @click="archiveCurrentPot" :disabled="isArchiveLoading"
+                                class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+                                {{ isArchiveLoading ? '归档中...' : '确认归档' }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
-	                <!-- 访客转换栏 (仅外部访客可见) -->
-	                <div v-if="isPublicVisitor" class="sticky bottom-4 left-0 right-0 z-50 px-4">
+                <!-- 访客转换栏 (仅外部访客可见) -->
+                <div v-if="isPublicVisitor" class="sticky bottom-4 left-0 right-0 z-50 px-4">
                     <div
                         class="bg-green-600 rounded-3xl p-5 shadow-2xl flex items-center justify-between text-white border border-green-500">
                         <div class="flex items-center gap-4">
@@ -961,8 +971,7 @@
                         <div v-if="transferPot"
                             class="bg-gray-50 rounded-2xl p-4 mb-8 flex items-center gap-4 text-left">
                             <img :src="imgUrl(transferPot.image_url, 64, 64) || 'assets/images/icons/icons-default-pot.png'"
-                                loading="lazy" decoding="async"
-                                class="w-16 h-16 rounded-xl object-cover">
+                                loading="lazy" decoding="async" class="w-16 h-16 rounded-xl object-cover">
                             <div class="min-w-0">
                                 <div class="font-bold text-gray-800 truncate">{{ transferPot.name }}</div>
                                 <div class="text-[10px] text-gray-400 mt-1">种植于 {{ formatDate(transferPot.plant_date) }}
@@ -988,8 +997,8 @@
             <!-- 弹窗：分享花盆 (QR Code) -->
             <div v-if="showShareModal" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showShareModal = false"></div>
-		                <div
-		                    class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
+                <div
+                    class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
                     <!-- 固定头部 -->
                     <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
                         <div class="flex justify-between items-center">
@@ -1009,10 +1018,10 @@
                                 <i class="fa fa-link"></i> 公开分享 · {{ pot.is_shared ? '已开启' : '已关闭' }}
                             </button>
 
-	                            <button type="button" @click="openMembersModal"
-	                                class="w-full py-4 rounded-2xl bg-emerald-50 text-emerald-600 text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition">
-		                                <i class="fa fa-users"></i> 成员与权限 · {{ memberTotalCount }}人
-	                            </button>
+                            <button type="button" @click="openMembersModal"
+                                class="w-full py-4 rounded-2xl bg-emerald-50 text-emerald-600 text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition">
+                                <i class="fa fa-users"></i> 成员与权限 · {{ memberTotalCount }}人
+                            </button>
                             <button v-if="!isArchived" @click="showTransferModal = true; showShareModal = false"
                                 class="w-full py-4 rounded-2xl bg-red-50 text-red-500 text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition">
                                 <i class="fa fa-exchange-alt"></i> 永久移交所有权
@@ -1022,7 +1031,8 @@
                 </div>
             </div>
 
-            <div v-if="showPublicShareModal" class="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-4">
+            <div v-if="showPublicShareModal"
+                class="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closePublicShareModal"></div>
                 <div
                     class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
@@ -1048,7 +1058,8 @@
                                 <div class="min-w-0">
                                     <h4 class="text-sm font-black text-gray-800">公开链接</h4>
                                     <p class="text-xs text-gray-400 mt-1 leading-relaxed">
-                                        {{ pot.is_shared ? (isArchived ? '已生成只读公开链接。' : '已生成公开查看链接。') : '开启后会生成公开查看链接。' }}
+                                        {{ pot.is_shared ? (isArchived ? '已生成只读公开链接。' : '已生成公开查看链接。') : '开启后会生成公开查看链接。'
+                                        }}
                                     </p>
                                 </div>
                                 <span class="shrink-0 text-[10px] font-black px-2.5 py-1 rounded-full"
@@ -1109,15 +1120,16 @@
             <div v-if="showAddTimelineModal"
                 class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeTimelineModal"></div>
-                <div
-                    class="relative bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit keyboard-safe-modal"
+                <div class="relative bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit keyboard-safe-modal"
                     :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus">
                     <!-- 固定头部 -->
                     <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
                         <div class="flex justify-between items-center">
                             <div>
-                                <h3 class="text-xl font-black text-gray-800">{{ isEditingTimeline ? '编辑成长轨迹' : '增加生长记录' }}</h3>
-                                <p class="text-xs text-gray-400 mt-1">{{ isEditingTimeline ? '调整日期、文字和照片' : '记录并见证它的成长蜕变' }}</p>
+                                <h3 class="text-xl font-black text-gray-800">{{ isEditingTimeline ? '编辑成长轨迹' : '增加生长记录'
+                                    }}</h3>
+                                <p class="text-xs text-gray-400 mt-1">{{ isEditingTimeline ? '调整日期、文字和照片' :
+                                    '记录并见证它的成长蜕变' }}</p>
                             </div>
                             <button @click="closeTimelineModal"
                                 class="text-gray-300 hover:text-gray-500 transition active:scale-95">
@@ -1126,7 +1138,7 @@
                         </div>
                     </div>
                     <!-- 可滚动内容区 -->
-	                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar keyboard-safe-modal-scroll">
+                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar keyboard-safe-modal-scroll">
                         <div class="space-y-6">
                             <div>
                                 <label
@@ -1145,9 +1157,11 @@
                                     class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">上传照片
                                     (多选, 最多9张)</label>
                                 <div class="grid grid-cols-4 gap-2 mt-2">
-                                    <div v-for="(img, idx) in newTimeline.existingImages" :key="`existing-${idx}-${img}`"
+                                    <div v-for="(img, idx) in newTimeline.existingImages"
+                                        :key="`existing-${idx}-${img}`"
                                         class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden">
-                                        <img :src="imgUrl(img, 100, 100)" loading="lazy" decoding="async" class="w-full h-full object-cover">
+                                        <img :src="imgUrl(img, 100, 100)" loading="lazy" decoding="async"
+                                            class="w-full h-full object-cover">
                                         <button @click="removeExistingTimelineImage(idx)"
                                             class="absolute top-1 right-1 bg-black/50 text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center">
                                             <i class="fa fa-times"></i>
@@ -1188,8 +1202,7 @@
             <div v-if="showAddScheduleModal"
                 class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showAddScheduleModal = false"></div>
-                <div
-                    class="relative bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit keyboard-safe-modal"
+                <div class="relative bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit keyboard-safe-modal"
                     :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus">
                     <!-- 固定头部 -->
                     <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
@@ -1202,7 +1215,7 @@
                         </div>
                     </div>
                     <!-- 可滚动内容区 -->
-	                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar keyboard-safe-modal-scroll">
+                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar keyboard-safe-modal-scroll">
                         <div class="space-y-6">
                             <div>
                                 <label
@@ -1360,8 +1373,8 @@
             <!-- 弹窗：成员与权限 -->
             <div v-if="showMembersModal" class="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeMembersModal"></div>
-		                <div
-		                    class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
+                <div
+                    class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
                     <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
                         <div class="flex items-start justify-between gap-4">
                             <button type="button" @click="returnToShareFromMembers"
@@ -1382,7 +1395,8 @@
                         <div class="space-y-6">
                             <section v-if="!isArchived">
                                 <div class="flex items-center justify-between mb-3">
-                                    <h4 class="text-xs font-black text-gray-400 tracking-wide">共同照料 {{ collaborators.length }}人</h4>
+                                    <h4 class="text-xs font-black text-gray-400 tracking-wide">共同照料 {{
+                                        collaborators.length }}人</h4>
                                     <button v-if="!isArchived" type="button" @click="openMemberInvite('collaborator')"
                                         class="w-9 h-9 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center transition active:scale-95"
                                         title="邀请共同照料" aria-label="邀请共同照料">
@@ -1397,17 +1411,20 @@
                                             <div
                                                 class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 font-black overflow-hidden shrink-0">
                                                 <img v-if="member.avatar_url" :src="imgUrl(member.avatar_url, 40, 40)"
-                                                    :alt="memberDisplayName(member)"
-                                                    class="w-full h-full object-cover" @error="handleMemberAvatarError">
-                                                <span :class="member.avatar_url ? 'hidden' : ''">{{ memberInitial(member) }}</span>
+                                                    :alt="memberDisplayName(member)" class="w-full h-full object-cover"
+                                                    @error="handleMemberAvatarError">
+                                                <span :class="member.avatar_url ? 'hidden' : ''">{{
+                                                    memberInitial(member) }}</span>
                                             </div>
                                             <div class="min-w-0">
-                                                <h5 class="text-sm font-black text-gray-800 truncate">{{ member.display_name || '未设置昵称' }}</h5>
+                                                <h5 class="text-sm font-black text-gray-800 truncate">{{
+                                                    member.display_name || '未设置昵称' }}</h5>
                                                 <p class="text-[10px] text-gray-400 truncate">{{ member.email }}</p>
                                             </div>
                                         </div>
                                         <div class="flex items-center gap-2 shrink-0">
-                                            <span class="rounded-lg bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-500">共同照料</span>
+                                            <span
+                                                class="rounded-lg bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-500">共同照料</span>
                                             <button type="button" @click.stop="toggleMemberMenu(member, 'collaborator')"
                                                 class="w-9 h-9 text-gray-300 hover:text-gray-600 flex items-center justify-center transition active:scale-95"
                                                 title="成员操作" aria-label="成员操作">
@@ -1416,7 +1433,8 @@
                                         </div>
                                         <div v-if="activeMemberMenuId === getMemberMenuKey(member, 'collaborator')"
                                             class="absolute right-4 top-14 z-20 w-44 overflow-hidden rounded-2xl bg-white shadow-xl border border-gray-100">
-                                            <button v-if="!isArchived" type="button" @click.stop="changeMemberRole(member, 'viewer')"
+                                            <button v-if="!isArchived" type="button"
+                                                @click.stop="changeMemberRole(member, 'viewer')"
                                                 class="w-full px-4 py-3 text-left text-xs font-bold text-gray-700 hover:bg-gray-50">改为仅查看</button>
                                             <button type="button" @click.stop="removeMember(member, 'collaborator')"
                                                 class="w-full px-4 py-3 text-left text-xs font-bold text-red-500 hover:bg-red-50">移除成员</button>
@@ -1431,7 +1449,8 @@
 
                             <section>
                                 <div class="flex items-center justify-between mb-3">
-                                    <h4 class="text-xs font-black text-gray-400 tracking-wide">仅查看 {{ viewers.length }}人</h4>
+                                    <h4 class="text-xs font-black text-gray-400 tracking-wide">仅查看 {{ viewers.length }}人
+                                    </h4>
                                     <button type="button" @click="openMemberInvite('viewer')"
                                         class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center transition active:scale-95"
                                         title="邀请仅查看成员" aria-label="邀请仅查看成员">
@@ -1446,17 +1465,20 @@
                                             <div
                                                 class="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-500 font-black overflow-hidden shrink-0">
                                                 <img v-if="member.avatar_url" :src="imgUrl(member.avatar_url, 40, 40)"
-                                                    :alt="memberDisplayName(member)"
-                                                    class="w-full h-full object-cover" @error="handleMemberAvatarError">
-                                                <span :class="member.avatar_url ? 'hidden' : ''">{{ memberInitial(member) }}</span>
+                                                    :alt="memberDisplayName(member)" class="w-full h-full object-cover"
+                                                    @error="handleMemberAvatarError">
+                                                <span :class="member.avatar_url ? 'hidden' : ''">{{
+                                                    memberInitial(member) }}</span>
                                             </div>
                                             <div class="min-w-0">
-                                                <h5 class="text-sm font-black text-gray-800 truncate">{{ member.display_name || '未设置昵称' }}</h5>
+                                                <h5 class="text-sm font-black text-gray-800 truncate">{{
+                                                    member.display_name || '未设置昵称' }}</h5>
                                                 <p class="text-[10px] text-gray-400 truncate">{{ member.email }}</p>
                                             </div>
                                         </div>
                                         <div class="flex items-center gap-2 shrink-0">
-                                            <span class="rounded-lg bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-500">仅查看</span>
+                                            <span
+                                                class="rounded-lg bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-500">仅查看</span>
                                             <button type="button" @click.stop="toggleMemberMenu(member, 'viewer')"
                                                 class="w-9 h-9 text-gray-300 hover:text-gray-600 flex items-center justify-center transition active:scale-95"
                                                 title="成员操作" aria-label="成员操作">
@@ -1465,7 +1487,8 @@
                                         </div>
                                         <div v-if="activeMemberMenuId === getMemberMenuKey(member, 'viewer')"
                                             class="absolute right-4 top-14 z-20 w-44 overflow-hidden rounded-2xl bg-white shadow-xl border border-gray-100">
-                                            <button v-if="!isArchived" type="button" @click.stop="changeMemberRole(member, 'collaborator')"
+                                            <button v-if="!isArchived" type="button"
+                                                @click.stop="changeMemberRole(member, 'collaborator')"
                                                 class="w-full px-4 py-3 text-left text-xs font-bold text-gray-700 hover:bg-gray-50">改为共同照料</button>
                                             <button type="button" @click.stop="removeMember(member, 'viewer')"
                                                 class="w-full px-4 py-3 text-left text-xs font-bold text-red-500 hover:bg-red-50">移除成员</button>
@@ -1488,10 +1511,10 @@
                 </div>
             </div>
 
-            <div v-if="showMemberInviteModal" class="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-4">
+            <div v-if="showMemberInviteModal"
+                class="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeMemberInviteModal"></div>
-                <div
-                    class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit keyboard-safe-modal"
+                <div class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit keyboard-safe-modal"
                     :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus">
                     <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
                         <div class="flex items-start justify-between gap-4">
@@ -1509,7 +1532,7 @@
                             </button>
                         </div>
                     </div>
-	                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar keyboard-safe-modal-scroll">
+                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar keyboard-safe-modal-scroll">
                         <div v-if="!isArchived" class="grid grid-cols-2 gap-2 mb-5 rounded-2xl bg-gray-100 p-1">
                             <button type="button" @click="setMemberInviteRole('viewer')"
                                 class="py-3 rounded-xl text-sm font-black transition"
@@ -1523,46 +1546,47 @@
                             </button>
                         </div>
 
-		                        <div class="space-y-4">
-		                            <div class="rounded-3xl border border-emerald-100 bg-emerald-50 p-5">
-		                                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-		                                    <div class="min-w-0">
-		                                        <h4 class="text-sm font-black text-emerald-700 flex items-center gap-2">
-		                                            <i class="fa fa-share-alt"></i> 链接邀请
-		                                        </h4>
-		                                        <p class="text-xs text-emerald-600/80 mt-2 leading-relaxed">
-		                                            {{ memberInviteLinkDescription }}
-		                                        </p>
-		                                        <div class="mt-2 text-xs text-emerald-600/80 leading-relaxed">
-		                                            {{ memberInviteLinkExpiryText }}
-		                                        </div>
-		                                    </div>
-		                                    <button type="button" @click="shareMemberInviteLink"
-		                                        class="w-full sm:w-36 shrink-0 inline-flex items-center justify-center whitespace-nowrap bg-green-500 text-white px-5 py-4 rounded-2xl font-black text-sm leading-none shadow-lg shadow-green-100 hover:bg-green-600 active:scale-95 transition">
-		                                        {{ memberInviteLinkButtonLabel }}
-		                                    </button>
-		                                </div>
-		                            </div>
-		                            <div class="rounded-3xl border border-gray-100 bg-gray-50 p-5">
-		                                <h4 class="text-sm font-black text-gray-800 flex items-center gap-2">
-		                                    <i class="fa fa-envelope text-green-500"></i> 邮箱邀请
-		                                </h4>
-		                                <p class="text-xs text-gray-500 mt-2 mb-4 leading-relaxed">
-		                                    邀请会直接发送到对方的消息中心。
-		                                </p>
-	                                <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
+                        <div class="space-y-4">
+                            <div class="rounded-3xl border border-emerald-100 bg-emerald-50 p-5">
+                                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                    <div class="min-w-0">
+                                        <h4 class="text-sm font-black text-emerald-700 flex items-center gap-2">
+                                            <i class="fa fa-share-alt"></i> 链接邀请
+                                        </h4>
+                                        <p class="text-xs text-emerald-600/80 mt-2 leading-relaxed">
+                                            {{ memberInviteLinkDescription }}
+                                        </p>
+                                        <div class="mt-2 text-xs text-emerald-600/80 leading-relaxed">
+                                            {{ memberInviteLinkExpiryText }}
+                                        </div>
+                                    </div>
+                                    <button type="button" @click="shareMemberInviteLink"
+                                        class="w-full sm:w-36 shrink-0 inline-flex items-center justify-center whitespace-nowrap bg-green-500 text-white px-5 py-4 rounded-2xl font-black text-sm leading-none shadow-lg shadow-green-100 hover:bg-green-600 active:scale-95 transition">
+                                        {{ memberInviteLinkButtonLabel }}
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="rounded-3xl border border-gray-100 bg-gray-50 p-5">
+                                <h4 class="text-sm font-black text-gray-800 flex items-center gap-2">
+                                    <i class="fa fa-envelope text-green-500"></i> 邮箱邀请
+                                </h4>
+                                <p class="text-xs text-gray-500 mt-2 mb-4 leading-relaxed">
+                                    邀请会直接发送到对方的消息中心。
+                                </p>
+                                <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
                                     <input type="email" v-model="memberInviteEmail" placeholder="输入好友注册邮箱"
-                                        autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="120"
+                                        autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false"
+                                        maxlength="120"
                                         class="w-full min-w-0 flex-1 bg-white border rounded-2xl py-4 px-6 font-bold text-gray-800 text-sm focus:ring-2 focus:ring-green-200 transition"
                                         :class="memberInviteEmail.trim() && !isMemberInviteEmailValid ? 'border-red-200 focus:ring-red-200' : 'border-gray-100'">
                                     <button type="button" @click="submitMemberEmailInvite"
                                         :disabled="isMemberInviteLoading || !isMemberInviteEmailValid"
                                         class="w-full sm:w-36 shrink-0 inline-flex items-center justify-center whitespace-nowrap bg-green-500 text-white px-5 py-4 rounded-2xl font-black text-sm leading-none shadow-lg shadow-green-100 hover:bg-green-600 disabled:opacity-50 active:scale-95 transition">
                                         {{ isMemberInviteLoading ? '发送中...' : memberInviteEmailButtonLabel }}
-	                                    </button>
-	                                </div>
-	                            </div>
-	                        </div>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1571,8 +1595,7 @@
             <div v-if="showTransferModal"
                 class="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showTransferModal = false"></div>
-                <div
-                    class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit keyboard-safe-modal"
+                <div class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit keyboard-safe-modal"
                     :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus">
                     <!-- 固定头部 -->
                     <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
@@ -1591,7 +1614,7 @@
                         </div>
                     </div>
                     <!-- 可滚动内容区 -->
-	                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar keyboard-safe-modal-scroll">
+                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar keyboard-safe-modal-scroll">
 
                         <div class="bg-red-50 p-6 rounded-3xl border border-red-100 mb-8">
                             <h4 class="text-red-600 font-black text-sm mb-2 flex items-center gap-2">
@@ -1608,7 +1631,8 @@
                                     class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">接收者邮箱</label>
                                 <div class="relative group">
                                     <input type="email" v-model="transferEmail" placeholder="输入对方注册邮箱"
-                                        autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="120"
+                                        autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false"
+                                        maxlength="120"
                                         class="w-full bg-gray-50 border-2 rounded-3xl py-5 px-8 font-black text-gray-800 text-base shadow-inner transition-all outline-none"
                                         :class="transferEmail.trim() && !isTransferEmailValid ? 'border-red-200 focus:border-red-200' : 'border-transparent focus:border-red-100'"
                                         @input="selectedTransferUser = null" @focus="showTransferSuggestions = true">
@@ -1617,7 +1641,8 @@
                                         <i class="fa fa-chevron-down text-xs"></i>
                                     </div>
                                 </div>
-                                <p v-if="transferEmail.trim() && !isTransferEmailValid" class="mt-2 ml-1 text-xs text-red-500">
+                                <p v-if="transferEmail.trim() && !isTransferEmailValid"
+                                    class="mt-2 ml-1 text-xs text-red-500">
                                     请输入正确的邮箱地址
                                 </p>
 
@@ -1667,10 +1692,10 @@
                 </div>
             </div>
 
-            <div v-if="showCommentModal" class="fixed inset-0 z-[85] flex items-end sm:items-center justify-center p-2 sm:p-4">
+            <div v-if="showCommentModal"
+                class="fixed inset-0 z-[85] flex items-end sm:items-center justify-center p-2 sm:p-4">
                 <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeCommentModal"></div>
-                <div
-                    class="relative bg-white w-full max-w-lg rounded-t-[2rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit comment-modal-shell"
+                <div class="relative bg-white w-full max-w-lg rounded-t-[2rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit comment-modal-shell"
                     :style="commentModalStyle">
                     <div
                         class="px-4 sm:px-8 pt-4 sm:pt-5 pb-3 shrink-0 border-b border-gray-50 bg-gradient-to-r from-amber-50 to-orange-50">
@@ -1681,7 +1706,8 @@
                                     <i class="fa fa-comment-dots text-base sm:text-lg"></i>
                                 </div>
                                 <div class="min-w-0">
-                                    <h3 class="text-[15px] sm:text-base font-black text-gray-800 truncate">{{ replyTargetComment ?
+                                    <h3 class="text-[15px] sm:text-base font-black text-gray-800 truncate">{{
+                                        replyTargetComment ?
                                         '回复植物留言' : '发送一条植物留言' }}</h3>
                                     <p class="text-[11px] text-gray-500 mt-1">{{ replyTargetComment ?
                                         '回复会作为该留言的第二行弹幕显示最新一条互动' : '会同步到消息中心，并在详情页弹幕中显示' }}</p>
@@ -1696,133 +1722,145 @@
                     <div class="min-h-0 flex-1 flex flex-col">
                         <div class="px-4 sm:px-8 pt-4 sm:pt-5 overflow-y-auto flex-1 no-scrollbar comment-thread-area">
                             <div class="mb-4 sm:mb-6">
-                            <div class="flex items-center justify-between gap-3">
-                                <div class="flex items-center gap-2 min-w-0">
-                                    <div class="flex items-center gap-1.5 min-w-0">
-                                        <div class="text-sm font-black text-gray-800 shrink-0">最近留言</div>
-                                        <div class="text-[11px] text-gray-400 shrink-0">
-                                            {{ isCommentsLoading && recentPotComments.length === 0 ? '加载中...' : `${recentPotComments.length} 条` }}
+                                <div class="flex items-center justify-between gap-3">
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <div class="flex items-center gap-1.5 min-w-0">
+                                            <div class="text-sm font-black text-gray-800 shrink-0">最近留言</div>
+                                            <div class="text-[11px] text-gray-400 shrink-0">
+                                                {{ isCommentsLoading && recentPotComments.length === 0 ? '加载中...' :
+                                                `${recentPotComments.length} 条` }}
+                                            </div>
                                         </div>
+                                        <button @click="toggleCommentSort"
+                                            class="shrink-0 px-3 py-2 rounded-2xl bg-gray-50 text-gray-500 text-[11px] font-black active:scale-95 transition flex items-center gap-1.5 border border-gray-100 comment-compact-button">
+                                            <i class="fa"
+                                                :class="commentSortOrder === 'asc' ? 'fa-sort-amount-down' : 'fa-sort-amount-up'"></i>
+                                            <span>{{ commentSortOrder === 'asc' ? '从旧到新' : '从新到旧' }}</span>
+                                        </button>
                                     </div>
-                                    <button @click="toggleCommentSort"
-                                        class="shrink-0 px-3 py-2 rounded-2xl bg-gray-50 text-gray-500 text-[11px] font-black active:scale-95 transition flex items-center gap-1.5 border border-gray-100 comment-compact-button">
-                                        <i class="fa"
-                                            :class="commentSortOrder === 'asc' ? 'fa-sort-amount-down' : 'fa-sort-amount-up'"></i>
-                                        <span>{{ commentSortOrder === 'asc' ? '从旧到新' : '从新到旧' }}</span>
+                                    <button v-if="canManageCommentDanmaku" @click="toggleCommentDanmaku"
+                                        class="shrink-0 inline-flex items-center gap-2 px-2.5 py-2 rounded-2xl border text-[11px] font-black active:scale-95 transition comment-compact-button"
+                                        :class="showCommentDanmaku ? 'bg-green-50 border-green-100 shadow-sm shadow-green-100 text-gray-800' : 'bg-gray-50 border-gray-100 text-gray-500'"
+                                        :aria-pressed="showCommentDanmaku ? 'true' : 'false'">
+                                        <span>弹幕</span>
+                                        <span
+                                            class="relative inline-flex w-10 h-6 rounded-full transition-all duration-300"
+                                            :class="showCommentDanmaku ? 'bg-green-500 shadow-lg shadow-green-200' : 'bg-gray-300'">
+                                            <span
+                                                class="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-300"
+                                                :class="showCommentDanmaku ? 'right-1' : 'left-1'"></span>
+                                        </span>
                                     </button>
                                 </div>
-                                <button v-if="canManageCommentDanmaku" @click="toggleCommentDanmaku"
-                                    class="shrink-0 inline-flex items-center gap-2 px-2.5 py-2 rounded-2xl border text-[11px] font-black active:scale-95 transition comment-compact-button"
-                                    :class="showCommentDanmaku ? 'bg-green-50 border-green-100 shadow-sm shadow-green-100 text-gray-800' : 'bg-gray-50 border-gray-100 text-gray-500'"
-                                    :aria-pressed="showCommentDanmaku ? 'true' : 'false'">
-                                    <span>弹幕</span>
-                                    <span class="relative inline-flex w-10 h-6 rounded-full transition-all duration-300"
-                                        :class="showCommentDanmaku ? 'bg-green-500 shadow-lg shadow-green-200' : 'bg-gray-300'">
-                                        <span
-                                            class="absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-all duration-300"
-                                            :class="showCommentDanmaku ? 'right-1' : 'left-1'"></span>
-                                    </span>
-                                </button>
-                            </div>
-                            <div v-if="isCommentsLoading && recentPotComments.length === 0" class="mt-4 space-y-3 pr-1 pb-4 animate-pulse">
-                                <div class="rounded-3xl border border-gray-100 bg-white px-4 py-3.5 sm:py-4 space-y-3">
-                                    <div class="h-4 bg-gray-200 rounded w-32"></div>
-                                    <div class="h-3.5 bg-gray-100 rounded w-full"></div>
-                                    <div class="h-3.5 bg-gray-100 rounded w-4/5"></div>
-                                </div>
-                                <div class="rounded-3xl border border-gray-100 bg-white px-4 py-3.5 sm:py-4 space-y-3">
-                                    <div class="h-4 bg-gray-200 rounded w-28"></div>
-                                    <div class="h-3.5 bg-gray-100 rounded w-full"></div>
-                                </div>
-                            </div>
-                            <div v-else-if="recentPotComments.length === 0"
-                                class="mt-4 rounded-3xl bg-gray-50 px-4 py-5 text-center text-xs text-gray-400">
-                                还没有留言，发一条试试。
-                            </div>
-                            <div v-else class="mt-4 space-y-3 pr-1 pb-4">
-                                <div v-for="item in recentPotComments" :key="item.id"
-                                    class="rounded-3xl border border-gray-100 bg-white px-4 py-3.5 sm:py-4 shadow-sm">
-                                    <div class="flex items-start justify-between gap-3">
-                                        <div class="min-w-0">
-                                            <div class="text-sm font-black text-gray-800 break-words">{{ item.senderName
-                                                }}</div>
-                                            <div class="text-xs text-gray-400 mt-1">{{ formatCommentTime(item.createdAt)
-                                                }}
-                                            </div>
-                                        </div>
-                                        <button v-if="canDeleteComment(item)" @click="deleteComment(item)"
-                                            class="shrink-0 w-8 h-8 rounded-full bg-red-50 text-red-500 text-[11px] font-black active:scale-95 transition flex items-center justify-center comment-delete-button"
-                                            title="删除留言" aria-label="删除留言">
-                                            <i class="fa fa-trash-alt text-[10px]"></i>
-                                        </button>
+                                <div v-if="isCommentsLoading && recentPotComments.length === 0"
+                                    class="mt-4 space-y-3 pr-1 pb-4 animate-pulse">
+                                    <div
+                                        class="rounded-3xl border border-gray-100 bg-white px-4 py-3.5 sm:py-4 space-y-3">
+                                        <div class="h-4 bg-gray-200 rounded w-32"></div>
+                                        <div class="h-3.5 bg-gray-100 rounded w-full"></div>
+                                        <div class="h-3.5 bg-gray-100 rounded w-4/5"></div>
                                     </div>
-                                    <div class="mt-3 text-sm text-gray-700 leading-7 sm:leading-relaxed break-words">{{ item.comment
-                                        }}</div>
-                                    <div v-if="item.replies?.length"
-                                        class="mt-3 rounded-2xl bg-gray-50 px-3.5 sm:px-4 py-3 text-sm text-gray-600 leading-7 sm:leading-relaxed break-words space-y-3">
-                                        <div class="text-[11px] font-black text-orange-500">全部回复</div>
-                                        <div v-for="reply in item.replies" :key="reply.id"
-                                            class="rounded-2xl bg-white/80 px-3 py-3 border border-white">
-                                            <div class="flex items-start justify-between gap-3">
-                                                <div class="min-w-0">
-                                                    <div class="text-[12px] font-black text-gray-700">{{
-                                                        reply.senderName }}</div>
-                                                    <div class="text-[10px] text-gray-400 mt-1">{{
-                                                        formatCommentTime(reply.createdAt) }}</div>
+                                    <div
+                                        class="rounded-3xl border border-gray-100 bg-white px-4 py-3.5 sm:py-4 space-y-3">
+                                        <div class="h-4 bg-gray-200 rounded w-28"></div>
+                                        <div class="h-3.5 bg-gray-100 rounded w-full"></div>
+                                    </div>
+                                </div>
+                                <div v-else-if="recentPotComments.length === 0"
+                                    class="mt-4 rounded-3xl bg-gray-50 px-4 py-5 text-center text-xs text-gray-400">
+                                    还没有留言，发一条试试。
+                                </div>
+                                <div v-else class="mt-4 space-y-3 pr-1 pb-4">
+                                    <div v-for="item in recentPotComments" :key="item.id"
+                                        class="rounded-3xl border border-gray-100 bg-white px-4 py-3.5 sm:py-4 shadow-sm">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div class="min-w-0">
+                                                <div class="text-sm font-black text-gray-800 break-words">{{
+                                                    item.senderName
+                                                    }}</div>
+                                                <div class="text-xs text-gray-400 mt-1">{{
+                                                    formatCommentTime(item.createdAt)
+                                                    }}
                                                 </div>
-                                                <button v-if="canDeleteComment(reply)" @click="deleteComment(reply)"
-                                                    class="w-7 h-7 rounded-full bg-red-50 text-red-500 text-[10px] font-black active:scale-95 transition flex items-center justify-center comment-delete-button"
-                                                    title="删除回复" aria-label="删除回复">
-                                                    <i class="fa fa-trash-alt text-[10px]"></i>
-                                                </button>
                                             </div>
-                                            <div class="mt-2 break-words">
-                                                <span class="font-black text-gray-700">{{ reply.senderName }}</span>
-                                                <span>：{{ reply.comment }}</span>
+                                            <button v-if="canDeleteComment(item)" @click="deleteComment(item)"
+                                                class="shrink-0 w-8 h-8 rounded-full bg-red-50 text-red-500 text-[11px] font-black active:scale-95 transition flex items-center justify-center comment-delete-button"
+                                                title="删除留言" aria-label="删除留言">
+                                                <i class="fa fa-trash-alt text-[10px]"></i>
+                                            </button>
+                                        </div>
+                                        <div
+                                            class="mt-3 text-sm text-gray-700 leading-7 sm:leading-relaxed break-words">
+                                            {{ item.comment
+                                            }}</div>
+                                        <div v-if="item.replies?.length"
+                                            class="mt-3 rounded-2xl bg-gray-50 px-3.5 sm:px-4 py-3 text-sm text-gray-600 leading-7 sm:leading-relaxed break-words space-y-3">
+                                            <div class="text-[11px] font-black text-orange-500">全部回复</div>
+                                            <div v-for="reply in item.replies" :key="reply.id"
+                                                class="rounded-2xl bg-white/80 px-3 py-3 border border-white">
+                                                <div class="flex items-start justify-between gap-3">
+                                                    <div class="min-w-0">
+                                                        <div class="text-[12px] font-black text-gray-700">{{
+                                                            reply.senderName }}</div>
+                                                        <div class="text-[10px] text-gray-400 mt-1">{{
+                                                            formatCommentTime(reply.createdAt) }}</div>
+                                                    </div>
+                                                    <button v-if="canDeleteComment(reply)" @click="deleteComment(reply)"
+                                                        class="w-7 h-7 rounded-full bg-red-50 text-red-500 text-[10px] font-black active:scale-95 transition flex items-center justify-center comment-delete-button"
+                                                        title="删除回复" aria-label="删除回复">
+                                                        <i class="fa fa-trash-alt text-[10px]"></i>
+                                                    </button>
+                                                </div>
+                                                <div class="mt-2 break-words">
+                                                    <span class="font-black text-gray-700">{{ reply.senderName }}</span>
+                                                    <span>：{{ reply.comment }}</span>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div v-if="canReplyComment && !item.isLegacy"
-                                        class="mt-4 pt-3 border-t border-gray-100 flex justify-end">
-                                        <button @click="beginReply(item)"
-                                            class="px-4 py-2 rounded-2xl bg-amber-50 text-amber-600 text-[11px] font-black active:scale-95 transition flex items-center gap-1.5 comment-compact-button">
-                                            <i class="fa fa-reply text-[10px]"></i>
-                                            <span>回复这条留言</span>
-                                        </button>
+                                        <div v-if="canReplyComment && !item.isLegacy"
+                                            class="mt-4 pt-3 border-t border-gray-100 flex justify-end">
+                                            <button @click="beginReply(item)"
+                                                class="px-4 py-2 rounded-2xl bg-amber-50 text-amber-600 text-[11px] font-black active:scale-95 transition flex items-center gap-1.5 comment-compact-button">
+                                                <i class="fa fa-reply text-[10px]"></i>
+                                                <span>回复这条留言</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="shrink-0 border-t border-gray-100 bg-white/95 backdrop-blur-sm comment-composer-panel">
-                            <div class="px-4 sm:px-8 pt-4 pb-4 sm:pb-6">
-                                <div v-if="replyTargetComment"
-                                    class="mb-4 rounded-3xl bg-amber-50 border border-amber-100 px-4 py-3">
-                                    <div class="flex items-start justify-between gap-3">
-                                        <div class="min-w-0">
-                                            <div class="text-[11px] font-black text-amber-600">正在回复 {{
-                                                replyTargetComment.senderName }}</div>
-                                            <div class="text-xs text-gray-500 mt-1 break-words">{{ replyTargetComment.comment }}
+                            <div
+                                class="shrink-0 border-t border-gray-100 bg-white/95 backdrop-blur-sm comment-composer-panel">
+                                <div class="px-4 sm:px-8 pt-4 pb-4 sm:pb-6">
+                                    <div v-if="replyTargetComment"
+                                        class="mb-4 rounded-3xl bg-amber-50 border border-amber-100 px-4 py-3">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div class="min-w-0">
+                                                <div class="text-[11px] font-black text-amber-600">正在回复 {{
+                                                    replyTargetComment.senderName }}</div>
+                                                <div class="text-xs text-gray-500 mt-1 break-words">{{
+                                                    replyTargetComment.comment }}
+                                                </div>
                                             </div>
+                                            <button @click="cancelReply"
+                                                class="shrink-0 px-3 py-1.5 rounded-full bg-white text-amber-600 text-[11px] font-black active:scale-95 transition">
+                                                取消
+                                            </button>
                                         </div>
-                                        <button @click="cancelReply"
-                                            class="shrink-0 px-3 py-1.5 rounded-full bg-white text-amber-600 text-[11px] font-black active:scale-95 transition">
-                                            取消
-                                        </button>
                                     </div>
+                                    <textarea ref="commentInputRef" v-model="commentForm.content" rows="4"
+                                        @focus="handleCommentInputFocus"
+                                        :placeholder="replyTargetComment ? `回复 ${replyTargetComment.senderName}...` : '写下新的观察、提醒或想对协作者说的话...'"
+                                        class="w-full bg-gray-50 border-none rounded-3xl py-4 sm:py-5 px-4 sm:px-6 font-bold text-gray-800 resize-none comment-textarea"></textarea>
+                                    <button @click="submitComment"
+                                        :disabled="isSubmittingComment || !commentForm.content.trim()"
+                                        class="w-full mt-4 bg-green-500 text-white py-3.5 sm:py-4 rounded-2xl text-base sm:text-lg font-black shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-[0.98] disabled:opacity-50">
+                                        {{ isSubmittingComment ? '提交中...' : (replyTargetComment ? '发送回复' : '发送留言') }}
+                                    </button>
                                 </div>
-                                <textarea ref="commentInputRef" v-model="commentForm.content" rows="4"
-                                    @focus="handleCommentInputFocus"
-                                    :placeholder="replyTargetComment ? `回复 ${replyTargetComment.senderName}...` : '写下新的观察、提醒或想对协作者说的话...'"
-                                    class="w-full bg-gray-50 border-none rounded-3xl py-4 sm:py-5 px-4 sm:px-6 font-bold text-gray-800 resize-none comment-textarea"></textarea>
-                                <button @click="submitComment" :disabled="isSubmittingComment || !commentForm.content.trim()"
-                                    class="w-full mt-4 bg-green-500 text-white py-3.5 sm:py-4 rounded-2xl text-base sm:text-lg font-black shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-[0.98] disabled:opacity-50">
-                                    {{ isSubmittingComment ? '提交中...' : (replyTargetComment ? '发送回复' : '发送留言') }}
-                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
             </div>
 
             <!-- 登录/注册 弹窗 (与首页保持一致) -->
@@ -1830,12 +1868,11 @@
                 <div class="fixed inset-0 z-[120] flex justify-center p-2 sm:p-4"
                     :class="isAuthKeyboardActive ? 'items-start sm:items-center' : 'items-end sm:items-center'">
                     <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeAuthModals"></div>
-                    <div
-                        class="relative bg-white w-full max-w-[500px] rounded-t-3xl sm:rounded-3xl shadow-2xl keyboard-safe-modal auth-keyboard-modal overflow-hidden flex flex-col min-h-0"
+                    <div class="relative bg-white w-full max-w-[500px] rounded-t-3xl sm:rounded-3xl shadow-2xl keyboard-safe-modal auth-keyboard-modal overflow-hidden flex flex-col min-h-0"
                         :class="[isAuthKeyboardActive ? 'auth-keyboard-active' : 'animate-slide-up', authKeyboardMode === 'sticky' ? 'auth-keyboard-sticky-fallback' : '']"
-                        :style="authKeyboardModalStyle" @focusin="handleAuthKeyboardFieldFocus" @focusout="handleAuthFocusOut"
-                        @compositionstart="handleAuthCompositionStart" @compositionend="handleAuthCompositionEnd"
-                        @click.stop @mousedown.stop @touchstart.stop>
+                        :style="authKeyboardModalStyle" @focusin="handleAuthKeyboardFieldFocus"
+                        @focusout="handleAuthFocusOut" @compositionstart="handleAuthCompositionStart"
+                        @compositionend="handleAuthCompositionEnd" @click.stop @mousedown.stop @touchstart.stop>
                         <div v-if="showLoginModal" class="flex flex-col min-h-0 flex-1">
                             <div class="shrink-0"
                                 :class="isAuthKeyboardActive ? 'px-7 pt-4 pb-3 sm:p-8 sm:pb-6' : 'px-7 pt-7 pb-5 sm:p-8 sm:pb-6'">
@@ -1846,34 +1883,44 @@
                                 <h3 class="text-2xl font-black text-gray-800 mb-2">欢迎回来</h3>
                                 <p v-show="!isAuthKeyboardActive" class="text-gray-400 text-sm">登录以同步您的花盆数据</p>
                             </div>
-                            <div class="px-7 sm:px-8 overflow-y-auto flex-1 min-h-0 keyboard-safe-modal-scroll auth-keyboard-scroll">
-                                <form id="detailAuthLoginForm" @submit.prevent="handleLogin" @focusin="scheduleLoginAutofillSync"
-                                    @click="scheduleLoginAutofillSync" autocomplete="on" class="space-y-3.5 pb-7 sm:pb-8" novalidate>
+                            <div
+                                class="px-7 sm:px-8 overflow-y-auto flex-1 min-h-0 keyboard-safe-modal-scroll auth-keyboard-scroll">
+                                <form id="detailAuthLoginForm" @submit.prevent="handleLogin"
+                                    @focusin="scheduleLoginAutofillSync" @click="scheduleLoginAutofillSync"
+                                    autocomplete="on" class="space-y-3.5 pb-7 sm:pb-8" novalidate>
                                     <div class="space-y-1.5">
                                         <label for="detailLoginEmail"
                                             class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
-                                        <input type="email" id="detailLoginEmail" name="email" autocomplete="username" inputmode="email"
-                                            enterkeyhint="next" @keydown.enter="submitAuthFormFromEnter($event, { formId: 'detailAuthLoginForm', nextFieldId: 'detailLoginPassword' })"
-                                            autocapitalize="none" spellcheck="false" maxlength="120" @input="handleLoginEmailInput"
-                                            @change="syncLoginFormFromDom" @blur="validateLoginEmail(true)"
-                                            @animationstart="syncLoginFormFromDom" v-model="loginForm.email"
-                                            placeholder="name@example.com" required :aria-invalid="loginErrors.email ? 'true' : 'false'"
+                                        <input type="email" id="detailLoginEmail" name="email" autocomplete="username"
+                                            inputmode="email" enterkeyhint="next"
+                                            @keydown.enter="submitAuthFormFromEnter($event, { formId: 'detailAuthLoginForm', nextFieldId: 'detailLoginPassword' })"
+                                            autocapitalize="none" spellcheck="false" maxlength="120"
+                                            @input="handleLoginEmailInput" @change="syncLoginFormFromDom"
+                                            @blur="validateLoginEmail(true)" @animationstart="syncLoginFormFromDom"
+                                            v-model="loginForm.email" placeholder="name@example.com" required
+                                            :aria-invalid="loginErrors.email ? 'true' : 'false'"
                                             class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
                                             :class="loginErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                                        <p v-if="loginErrors.email" class="auth-error-message text-xs text-red-500 px-1">{{ loginErrors.email }}</p>
+                                        <p v-if="loginErrors.email"
+                                            class="auth-error-message text-xs text-red-500 px-1">{{ loginErrors.email }}
+                                        </p>
                                     </div>
                                     <div class="space-y-1.5">
                                         <label for="detailLoginPassword"
                                             class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">密码</label>
-                                        <input type="password" id="detailLoginPassword" name="password" autocomplete="current-password"
-                                            enterkeyhint="done" @keydown.enter="submitAuthFormFromEnter($event, { formId: 'detailAuthLoginForm' })"
+                                        <input type="password" id="detailLoginPassword" name="password"
+                                            autocomplete="current-password" enterkeyhint="done"
+                                            @keydown.enter="submitAuthFormFromEnter($event, { formId: 'detailAuthLoginForm' })"
                                             autocapitalize="none" spellcheck="false" @input="handleLoginPasswordInput"
                                             @change="syncLoginFormFromDom" @blur="validateLoginPassword(true)"
-                                            @animationstart="syncLoginFormFromDom" v-model="loginForm.password" placeholder="请输入密码"
-                                            required :aria-invalid="loginErrors.password ? 'true' : 'false'"
+                                            @animationstart="syncLoginFormFromDom" v-model="loginForm.password"
+                                            placeholder="请输入密码" required
+                                            :aria-invalid="loginErrors.password ? 'true' : 'false'"
                                             class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
                                             :class="loginErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                                        <p v-if="loginErrors.password" class="auth-error-message text-xs text-red-500 px-1">{{ loginErrors.password }}</p>
+                                        <p v-if="loginErrors.password"
+                                            class="auth-error-message text-xs text-red-500 px-1">{{ loginErrors.password
+                                            }}</p>
                                     </div>
                                     <div v-if="loginStatus.message" class="rounded-2xl px-4 py-3 text-xs"
                                         :class="loginStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
@@ -1908,26 +1955,35 @@
                                 <h3 class="text-2xl font-black text-gray-800 mb-2">创建账号</h3>
                                 <p v-show="!isAuthKeyboardActive" class="text-gray-400 text-sm">开始您的智能养花之旅</p>
                             </div>
-                            <div class="px-7 sm:px-8 overflow-y-auto flex-1 min-h-0 keyboard-safe-modal-scroll auth-keyboard-scroll">
-                                <form id="detailAuthRegisterForm" @submit.prevent="handleRegister" class="space-y-3.5 pb-7 sm:pb-8" novalidate>
+                            <div
+                                class="px-7 sm:px-8 overflow-y-auto flex-1 min-h-0 keyboard-safe-modal-scroll auth-keyboard-scroll">
+                                <form id="detailAuthRegisterForm" @submit.prevent="handleRegister"
+                                    class="space-y-3.5 pb-7 sm:pb-8" novalidate>
                                     <div class="space-y-1.5">
                                         <label for="detailRegisterEmail"
                                             class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
-                                        <input type="email" id="detailRegisterEmail" name="email" autocomplete="email" inputmode="email"
-                                            enterkeyhint="next" @keydown.enter="submitAuthFormFromEnter($event, { formId: 'detailAuthRegisterForm', nextFieldId: 'detailRegisterNickname' })"
-                                            autocapitalize="none" spellcheck="false" maxlength="120" @input="handleRegisterEmailInput"
-                                            @blur="validateRegisterEmail(true)" @animationstart="syncRegisterFormFromDom"
-                                            v-model="registerForm.email" placeholder="name@example.com"
-                                            required :aria-invalid="registerErrors.email ? 'true' : 'false'"
+                                        <input type="email" id="detailRegisterEmail" name="email" autocomplete="email"
+                                            inputmode="email" enterkeyhint="next"
+                                            @keydown.enter="submitAuthFormFromEnter($event, { formId: 'detailAuthRegisterForm', nextFieldId: 'detailRegisterNickname' })"
+                                            autocapitalize="none" spellcheck="false" maxlength="120"
+                                            @input="handleRegisterEmailInput" @blur="validateRegisterEmail(true)"
+                                            @animationstart="syncRegisterFormFromDom" v-model="registerForm.email"
+                                            placeholder="name@example.com" required
+                                            :aria-invalid="registerErrors.email ? 'true' : 'false'"
                                             class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
                                             :class="registerErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                                        <p v-if="registerErrors.email" class="auth-error-message text-xs text-red-500 px-1">{{ registerErrors.email }}</p>
+                                        <p v-if="registerErrors.email"
+                                            class="auth-error-message text-xs text-red-500 px-1">{{ registerErrors.email
+                                            }}</p>
                                     </div>
                                     <div class="space-y-1.5">
-                                        <label class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">昵称
-                                            <span class="font-medium normal-case tracking-normal text-gray-300">(选填)</span></label>
-                                        <input type="text" id="detailRegisterNickname" name="nickname" autocomplete="nickname" maxlength="12"
-                                            enterkeyhint="next" autocapitalize="none" spellcheck="false"
+                                        <label
+                                            class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">昵称
+                                            <span
+                                                class="font-medium normal-case tracking-normal text-gray-300">(选填)</span></label>
+                                        <input type="text" id="detailRegisterNickname" name="nickname"
+                                            autocomplete="nickname" maxlength="12" enterkeyhint="next"
+                                            autocapitalize="none" spellcheck="false"
                                             @keydown.enter="submitAuthFormFromEnter($event, { formId: 'detailAuthRegisterForm', nextFieldId: 'detailRegisterPassword' })"
                                             @input="handleRegisterDisplayNameInput" @blur="normalizeRegisterDisplayName"
                                             v-model="registerForm.displayName" placeholder="给自己起个名字"
@@ -1936,38 +1992,47 @@
                                     <div class="space-y-1.5">
                                         <label for="detailRegisterPassword"
                                             class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">密码</label>
-                                        <input type="password" id="detailRegisterPassword" name="password" autocomplete="new-password"
-                                            enterkeyhint="next" @keydown.enter="submitAuthFormFromEnter($event, { formId: 'detailAuthRegisterForm', nextFieldId: 'detailRegisterConfirmPassword' })"
-                                            minlength="8" @input="handleRegisterPasswordInput" @blur="validateRegisterPassword(true)"
+                                        <input type="password" id="detailRegisterPassword" name="password"
+                                            autocomplete="new-password" enterkeyhint="next"
+                                            @keydown.enter="submitAuthFormFromEnter($event, { formId: 'detailAuthRegisterForm', nextFieldId: 'detailRegisterConfirmPassword' })"
+                                            minlength="8" @input="handleRegisterPasswordInput"
+                                            @blur="validateRegisterPassword(true)"
                                             @animationstart="syncRegisterFormFromDom" v-model="registerForm.password"
-                                            placeholder="至少 8 位，含字母和数字" required :aria-invalid="registerErrors.password ? 'true' : 'false'"
+                                            placeholder="至少 8 位，含字母和数字" required
+                                            :aria-invalid="registerErrors.password ? 'true' : 'false'"
                                             class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
                                             :class="registerErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                                        <p v-if="registerErrors.password" class="auth-error-message text-xs text-red-500 px-1">{{ registerErrors.password }}</p>
+                                        <p v-if="registerErrors.password"
+                                            class="auth-error-message text-xs text-red-500 px-1">{{
+                                            registerErrors.password }}</p>
                                     </div>
                                     <div class="relative space-y-1.5">
                                         <label for="detailRegisterConfirmPassword"
                                             class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">确认密码</label>
-                                        <input type="password" id="detailRegisterConfirmPassword" name="confirmPassword" autocomplete="new-password"
-                                            minlength="8" enterkeyhint="done"
+                                        <input type="password" id="detailRegisterConfirmPassword" name="confirmPassword"
+                                            autocomplete="new-password" minlength="8" enterkeyhint="done"
                                             @keydown.enter="submitAuthFormFromEnter($event, { formId: 'detailAuthRegisterForm' })"
                                             @input="handleRegisterConfirmPasswordInput"
-                                            @blur="validateRegisterConfirmPassword(true)" @animationstart="syncRegisterFormFromDom"
+                                            @blur="validateRegisterConfirmPassword(true)"
+                                            @animationstart="syncRegisterFormFromDom"
                                             v-model="registerForm.confirmPassword" placeholder="再次输入密码" required
                                             :aria-invalid="registerErrors.confirmPassword ? 'true' : 'false'"
                                             class="w-full bg-gray-50 border rounded-2xl py-3 pl-4 pr-10 focus:outline-none focus:ring-2 transition"
                                             :class="registerErrors.confirmPassword ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
                                         <div v-if="registerForm.password && registerForm.confirmPassword"
                                             class="absolute right-2 top-1/2 transform -translate-y-1/2">
-                                            <i v-if="passwordsMatch" class="fa fa-check text-green-500 pointer-events-none"></i>
-                                            <button v-else type="button" @pointerdown.prevent @click="clearRegisterConfirmPassword"
+                                            <i v-if="passwordsMatch"
+                                                class="fa fa-check text-green-500 pointer-events-none"></i>
+                                            <button v-else type="button" @pointerdown.prevent
+                                                @click="clearRegisterConfirmPassword"
                                                 class="w-8 h-8 flex items-center justify-center text-red-500 hover:text-red-600 transition"
                                                 title="清空确认密码" aria-label="清空确认密码">
                                                 <i class="fa fa-times"></i>
                                             </button>
                                         </div>
                                     </div>
-                                    <p v-if="registerErrors.confirmPassword" class="auth-error-message text-xs text-red-500 px-1">
+                                    <p v-if="registerErrors.confirmPassword"
+                                        class="auth-error-message text-xs text-red-500 px-1">
                                         {{ registerErrors.confirmPassword }}
                                     </p>
                                     <div v-if="registerStatus.message" class="rounded-2xl px-4 py-3 text-xs"
@@ -1976,14 +2041,16 @@
                                             :class="registerStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
                                         {{ registerStatus.message }}
                                     </div>
-                                    <div v-if="isTurnstileEnabled" id="detailRegisterTurnstile" class="auth-turnstile-slot w-full"></div>
+                                    <div v-if="isTurnstileEnabled" id="detailRegisterTurnstile"
+                                        class="auth-turnstile-slot w-full"></div>
                                     <button type="submit" :disabled="isAuthLoading || !isRegisterValid"
                                         class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                                         {{ isAuthLoading ? '注册中...' : '完成注册' }}
                                     </button>
                                     <div class="text-center pt-1">
                                         <span class="text-gray-400 text-sm">已有账号？</span>
-                                        <button type="button" @pointerdown.prevent @click="switchToLogin" class="text-green-500 text-sm font-bold ml-1">去登录</button>
+                                        <button type="button" @pointerdown.prevent @click="switchToLogin"
+                                            class="text-green-500 text-sm font-bold ml-1">去登录</button>
                                     </div>
                                 </form>
                             </div>
@@ -1999,21 +2066,25 @@
                                 <h3 class="text-2xl font-black text-gray-800 mb-2">重置您的密码</h3>
                                 <p v-show="!isAuthKeyboardActive" class="text-gray-400 text-sm">我们将向您的邮箱发送重置链接</p>
                             </div>
-                            <div class="px-7 sm:px-8 overflow-y-auto flex-1 min-h-0 keyboard-safe-modal-scroll auth-keyboard-scroll">
-                                <form id="detailAuthForgotPasswordForm" @submit.prevent="handleForgotPassword" class="space-y-3.5 pb-7 sm:pb-8" novalidate>
+                            <div
+                                class="px-7 sm:px-8 overflow-y-auto flex-1 min-h-0 keyboard-safe-modal-scroll auth-keyboard-scroll">
+                                <form id="detailAuthForgotPasswordForm" @submit.prevent="handleForgotPassword"
+                                    class="space-y-3.5 pb-7 sm:pb-8" novalidate>
                                     <div class="space-y-1.5">
                                         <label for="detailForgotPasswordEmail"
                                             class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
-                                        <input type="email" id="detailForgotPasswordEmail" name="email" autocomplete="email" inputmode="email"
-                                            enterkeyhint="send" @keydown.enter="submitAuthFormFromEnter($event, { formId: 'detailAuthForgotPasswordForm' })"
-                                            autocapitalize="none" spellcheck="false" maxlength="120" v-model="loginForm.email"
-                                            @input="handleForgotPasswordEmailInput" @change="syncLoginFormFromDom"
-                                            @animationstart="syncLoginFormFromDom"
-                                            @blur="validateForgotPasswordEmail(true)" placeholder="name@example.com" required
-                                            :aria-invalid="forgotPasswordErrors.email ? 'true' : 'false'"
+                                        <input type="email" id="detailForgotPasswordEmail" name="email"
+                                            autocomplete="email" inputmode="email" enterkeyhint="send"
+                                            @keydown.enter="submitAuthFormFromEnter($event, { formId: 'detailAuthForgotPasswordForm' })"
+                                            autocapitalize="none" spellcheck="false" maxlength="120"
+                                            v-model="loginForm.email" @input="handleForgotPasswordEmailInput"
+                                            @change="syncLoginFormFromDom" @animationstart="syncLoginFormFromDom"
+                                            @blur="validateForgotPasswordEmail(true)" placeholder="name@example.com"
+                                            required :aria-invalid="forgotPasswordErrors.email ? 'true' : 'false'"
                                             class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
                                             :class="forgotPasswordErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                                        <p v-if="forgotPasswordErrors.email" class="auth-error-message text-red-500 text-xs px-1">
+                                        <p v-if="forgotPasswordErrors.email"
+                                            class="auth-error-message text-red-500 text-xs px-1">
                                             {{ forgotPasswordErrors.email }}
                                         </p>
                                     </div>
@@ -2023,13 +2094,15 @@
                                             :class="forgotPasswordStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
                                         {{ forgotPasswordStatus.message }}
                                     </div>
-                                    <div v-if="isTurnstileEnabled" id="detailForgotPasswordTurnstile" class="auth-turnstile-slot w-full"></div>
+                                    <div v-if="isTurnstileEnabled" id="detailForgotPasswordTurnstile"
+                                        class="auth-turnstile-slot w-full"></div>
                                     <button type="submit" :disabled="isAuthLoading || !isForgotPasswordEmailValid"
                                         class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                                         {{ isAuthLoading ? '发送中...' : '发送重置邮件' }}
                                     </button>
                                     <div class="text-center pt-1">
-                                        <button type="button" @pointerdown.prevent @click="switchToLogin" class="text-green-500 text-sm font-bold">返回登录</button>
+                                        <button type="button" @pointerdown.prevent @click="switchToLogin"
+                                            class="text-green-500 text-sm font-bold">返回登录</button>
                                     </div>
                                 </form>
                             </div>
@@ -2044,7 +2117,7 @@
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
     <script src="js/config.js?v=20260429-turnstile"></script>
     <script src="js/api-client.js?v=20260429-turnstile"></script>
-    <script src="js/media-utils.js?v=20260421-refactor"></script>
+    <script src="js/media-utils.js?v=20260507-image-cache"></script>
     <script src="js/pot-permissions.js?v=20260421-refactor"></script>
     <script src="js/care-utils.js?v=20260421-refactor"></script>
     <script src="js/gallery-utils.js?v=20260421-refactor"></script>
@@ -2082,43 +2155,43 @@
                 const showFullCareTips = ref(false);
                 const plantInfoActiveTab = ref('basic');
                 const potStats = ref(null);
-	                const collabInviteSessionId = ref(null);
-	                const viewerInviteSessionId = ref(null);
-	                const commentInputRef = ref(null);
-	                const keyboardViewport = formUtils.createKeyboardViewportController({
-	                    ref,
-	                    computed,
-	                    onMounted,
-	                    onUnmounted
-	                });
-	                const {
-	                    keyboardViewportHeight,
-	                    isCompactKeyboardViewport,
-		                    keyboardModalStyle,
-		                    authKeyboardModalStyle,
-		                    isKeyboardActive: isAuthKeyboardActive,
-		                    authKeyboardMode,
-		                    handleKeyboardFieldFocus,
-		                    handleAuthKeyboardFieldFocus,
-		                    handleAuthCompositionStart,
-		                    handleAuthCompositionEnd,
-		                    handleAuthFocusOut,
-		                    submitAuthFormFromEnter
-		                } = keyboardViewport;
+                const collabInviteSessionId = ref(null);
+                const viewerInviteSessionId = ref(null);
+                const commentInputRef = ref(null);
+                const keyboardViewport = formUtils.createKeyboardViewportController({
+                    ref,
+                    computed,
+                    onMounted,
+                    onUnmounted
+                });
+                const {
+                    keyboardViewportHeight,
+                    isCompactKeyboardViewport,
+                    keyboardModalStyle,
+                    authKeyboardModalStyle,
+                    isKeyboardActive: isAuthKeyboardActive,
+                    authKeyboardMode,
+                    handleKeyboardFieldFocus,
+                    handleAuthKeyboardFieldFocus,
+                    handleAuthCompositionStart,
+                    handleAuthCompositionEnd,
+                    handleAuthFocusOut,
+                    submitAuthFormFromEnter
+                } = keyboardViewport;
 
                 // UI 状态
                 const showPlantModal = ref(false);
                 const showAddTimelineModal = ref(false);
-	                const showShareModal = ref(false);
-	                const showPublicShareModal = ref(false);
-	                const showPublicQrCode = ref(false);
-	                const isPublicShareLoading = ref(false);
-	                const showMembersModal = ref(false);
-	                const showMemberInviteModal = ref(false);
-		                const showCommentModal = ref(false);
-		                const showTransferModal = ref(false);
-		                const showArchiveModal = ref(false);
-	                const showAcceptTransferModal = ref(false);
+                const showShareModal = ref(false);
+                const showPublicShareModal = ref(false);
+                const showPublicQrCode = ref(false);
+                const isPublicShareLoading = ref(false);
+                const showMembersModal = ref(false);
+                const showMemberInviteModal = ref(false);
+                const showCommentModal = ref(false);
+                const showTransferModal = ref(false);
+                const showArchiveModal = ref(false);
+                const showAcceptTransferModal = ref(false);
                 const transferToken = ref(null);
                 const transferPot = ref(null);
                 const isAcceptingTransfer = ref(false);
@@ -2128,36 +2201,36 @@
                 const selectedTransferUser = ref(null);
                 const viewerIsCollaborator = ref(false);
                 const viewerIsViewer = ref(false);
-	                const isSubmittingComment = ref(false);
-	                const isArchiveLoading = ref(false);
-	                const showCommentDanmaku = ref(true);
+                const isSubmittingComment = ref(false);
+                const isArchiveLoading = ref(false);
+                const showCommentDanmaku = ref(true);
                 const potComments = ref([]);
                 const replyTargetComment = ref(null);
-	                const pendingInvitePrompt = ref(null);
-	                const commentSortOrder = ref('asc');
-	                const viewers = ref([]);
+                const pendingInvitePrompt = ref(null);
+                const commentSortOrder = ref('asc');
+                const viewers = ref([]);
                 const isPlantInfoLoading = ref(false);
                 const isCareRecordsLoading = ref(false);
                 const isTimelineRecordsLoading = ref(false);
                 const isPotStatsLoading = ref(false);
                 const isCareSchedulesLoading = ref(false);
                 const isCommentsLoading = ref(false);
-	                const newCollaboratorEmail = ref('');
-	                const newViewerEmail = ref('');
-	                const memberInviteRole = ref('viewer');
-	                const memberInviteEmail = ref('');
-	                const isMemberInviteLoading = ref(false);
-	                const activeMemberMenuId = ref(null);
-	                const memberRoleUpdatingUserId = ref(null);
-	                const commentForm = reactive({
-	                    content: ''
-	                });
-	                const archiveReasons = ['枯萎', '烂根', '病虫害', '环境不适', '送人/不再养护', '其他'];
-		                const archiveForm = reactive({
-		                    reason: '枯萎',
-		                    note: '',
-                            tempImages: []
-		                });
+                const newCollaboratorEmail = ref('');
+                const newViewerEmail = ref('');
+                const memberInviteRole = ref('viewer');
+                const memberInviteEmail = ref('');
+                const isMemberInviteLoading = ref(false);
+                const activeMemberMenuId = ref(null);
+                const memberRoleUpdatingUserId = ref(null);
+                const commentForm = reactive({
+                    content: ''
+                });
+                const archiveReasons = ['枯萎', '烂根', '病虫害', '环境不适', '送人/不再养护', '其他'];
+                const archiveForm = reactive({
+                    reason: '枯萎',
+                    note: '',
+                    tempImages: []
+                });
 
                 const activeSection = ref('');
                 const showActionMenu = ref(false);
@@ -2166,10 +2239,10 @@
                 const galleryImageLoadToken = ref(0);
                 const galleryDragOffset = ref(0);
                 const galleryIsDragging = ref(false);
-	                const isSavingTimeline = ref(false);
-	                const fileInput = ref(null);
-                    const archiveFileInput = ref(null);
-	                const touchStartX = ref(0);
+                const isSavingTimeline = ref(false);
+                const fileInput = ref(null);
+                const archiveFileInput = ref(null);
+                const touchStartX = ref(0);
                 const touchEndX = ref(0);
                 const heroImageLoaded = ref(false);
 
@@ -2229,25 +2302,25 @@
                     handleRegisterDisplayNameInput,
                     handleRegisterPasswordInput,
                     handleRegisterConfirmPasswordInput,
-	                    validateLoginForm,
-	                    validateRegisterForm
-	                } = authForms;
-	                const turnstileForms = window.createTurnstileController({
-	                    ref,
-	                    computed,
-	                    nextTick,
-	                    contexts: {
-	                        register: { containerId: 'detailRegisterTurnstile', action: 'register' },
-	                        forgotPassword: { containerId: 'detailForgotPasswordTurnstile', action: 'forgot_password' }
-	                    }
-	                });
-	                const isTurnstileEnabled = turnstileForms.isEnabled;
-	                const registerTurnstileToken = turnstileForms.tokenFor('register');
-	                const forgotPasswordTurnstileToken = turnstileForms.tokenFor('forgotPassword');
-	                const isRegisterTurnstileReady = turnstileForms.isReady('register');
-	                const isForgotPasswordTurnstileReady = turnstileForms.isReady('forgotPassword');
+                    validateLoginForm,
+                    validateRegisterForm
+                } = authForms;
+                const turnstileForms = window.createTurnstileController({
+                    ref,
+                    computed,
+                    nextTick,
+                    contexts: {
+                        register: { containerId: 'detailRegisterTurnstile', action: 'register' },
+                        forgotPassword: { containerId: 'detailForgotPasswordTurnstile', action: 'forgot_password' }
+                    }
+                });
+                const isTurnstileEnabled = turnstileForms.isEnabled;
+                const registerTurnstileToken = turnstileForms.tokenFor('register');
+                const forgotPasswordTurnstileToken = turnstileForms.tokenFor('forgotPassword');
+                const isRegisterTurnstileReady = turnstileForms.isReady('register');
+                const isForgotPasswordTurnstileReady = turnstileForms.isReady('forgotPassword');
 
-	                const isCollaboratorInviteEmailValid = computed(() => formUtils.isValidEmail(newCollaboratorEmail.value));
+                const isCollaboratorInviteEmailValid = computed(() => formUtils.isValidEmail(newCollaboratorEmail.value));
                 const isViewerInviteEmailValid = computed(() => formUtils.isValidEmail(newViewerEmail.value));
                 const isTransferEmailValid = computed(() => !transferEmail.value.trim() || formUtils.isValidEmail(transferEmail.value));
 
@@ -2266,9 +2339,9 @@
                 const editingTimelineId = ref(null);
                 const isEditingTimeline = computed(() => !!editingTimelineId.value);
 
-	                const careSchedules = ref([]);
-                    const carePanelActiveTab = ref('records');
-	                const showScheduleExpanded = ref(true);
+                const careSchedules = ref([]);
+                const carePanelActiveTab = ref('records');
+                const showScheduleExpanded = ref(true);
                 const showAddScheduleModal = ref(false);
                 const newSchedule = reactive({
                     careType: 'water',
@@ -2285,14 +2358,14 @@
                     { value: 'custom', icon: '⚙️', label: '自定义' }
                 ];
 
-	                const sectionTabs = computed(() => {
-	                    const tabs = [
-	                        { key: 'overview', label: '概览', id: 'section-overview' },
-	                        { key: 'records', label: '养护历史', id: 'section-records' },
-	                        { key: 'timelines', label: '生长轨迹', id: 'section-timelines' }
-	                    ];
-	                    return tabs;
-	                });
+                const sectionTabs = computed(() => {
+                    const tabs = [
+                        { key: 'overview', label: '概览', id: 'section-overview' },
+                        { key: 'records', label: '养护历史', id: 'section-records' },
+                        { key: 'timelines', label: '生长轨迹', id: 'section-timelines' }
+                    ];
+                    return tabs;
+                });
 
                 // 核心权限逻辑
                 // 确保 user_id 存在且匹配，防止 undefined === undefined 的误判
@@ -2302,24 +2375,24 @@
                         pot.value.user_id === currentUser.value.id;
                 });
                 const isArchived = computed(() => MyFlowerPotsPotPermissions.isArchivedPot(pot.value));
-	                const isReadOnly = computed(() => !!(isArchived.value || (!!shareToken.value && !isOwner.value && !viewerIsCollaborator.value) || pot.value?.is_viewer || viewerIsViewer.value));
-	                const isPublicVisitor = computed(() => !!shareToken.value && !currentUser.value);
-		                const canShowCareSchedules = computed(() => !!(
-		                    pot.value &&
-		                    !isPublicVisitor.value &&
-		                    !isArchived.value &&
-		                    (
-		                        isOwner.value ||
-		                        pot.value.is_collaborator ||
-		                        viewerIsCollaborator.value
-		                    )
-		                ));
-                    watch(canShowCareSchedules, (canShow) => {
-                        if (!canShow && carePanelActiveTab.value === 'schedules') {
-                            carePanelActiveTab.value = 'records';
-                        }
-                    });
-	                const showOperatorName = computed(() => !!(!shareToken.value && pot.value && (pot.value.is_collaborator || pot.value.collaborator_count > 0)));
+                const isReadOnly = computed(() => !!(isArchived.value || (!!shareToken.value && !isOwner.value && !viewerIsCollaborator.value) || pot.value?.is_viewer || viewerIsViewer.value));
+                const isPublicVisitor = computed(() => !!shareToken.value && !currentUser.value);
+                const canShowCareSchedules = computed(() => !!(
+                    pot.value &&
+                    !isPublicVisitor.value &&
+                    !isArchived.value &&
+                    (
+                        isOwner.value ||
+                        pot.value.is_collaborator ||
+                        viewerIsCollaborator.value
+                    )
+                ));
+                watch(canShowCareSchedules, (canShow) => {
+                    if (!canShow && carePanelActiveTab.value === 'schedules') {
+                        carePanelActiveTab.value = 'records';
+                    }
+                });
+                const showOperatorName = computed(() => !!(!shareToken.value && pot.value && (pot.value.is_collaborator || pot.value.collaborator_count > 0)));
                 const hasCollaborationAccess = computed(() => !!(isOwner.value || pot.value?.is_collaborator || viewerIsCollaborator.value));
                 const canCommentAsMember = computed(() => !!(
                     currentUser.value && pot.value && (
@@ -2344,59 +2417,59 @@
                     )
                 ));
                 const canManageCommentDanmaku = computed(() => !!(isOwner.value && hasCommentAudience.value && !isArchived.value));
-	                const canUseNativeShare = computed(() => !!(
-	                    typeof window !== 'undefined' &&
-	                    window.isSecureContext !== false &&
-	                    typeof navigator !== 'undefined' &&
-	                    typeof navigator.share === 'function'
-	                ));
-	                const memberTotalCount = computed(() => {
-	                    if (isArchived.value) {
-	                        const loadedViewerCount = Number(viewers.value?.length || 0);
-	                        return loadedViewerCount || Number(pot.value?.viewer_count || 0);
-	                    }
-	                    const loadedCount = Number(collaborators.value?.length || 0) + Number(viewers.value?.length || 0);
-	                    const knownCount = Number(pot.value?.collaborator_count || 0) + Number(pot.value?.viewer_count || 0);
-	                    return loadedCount || knownCount;
-	                });
-	                const isMemberInviteEmailValid = computed(() => formUtils.isValidEmail(memberInviteEmail.value));
-	                const memberInviteDescription = computed(() => {
-	                    if (memberInviteRole.value === 'collaborator') {
-	                        return '可新增和编辑养护、时间线、提醒';
-	                    }
-	                    return isArchived.value ? '可查看归档记录，不能编辑' : '可查看记录，不能编辑';
-	                });
-	                const memberInviteEmailButtonLabel = computed(() => (
-	                    memberInviteRole.value === 'collaborator' ? '发送协作邀请' : '发送查看邀请'
-	                ));
-		                const memberInviteLinkButtonLabel = computed(() => (
-		                    memberInviteRole.value === 'collaborator' ? '分享协作链接' : '分享查看链接'
-		                ));
-		                const memberInviteLinkDescription = computed(() => (
-		                    memberInviteRole.value === 'collaborator'
-		                        ? '点击按钮会优先调用系统分享，不可用时会自动复制邀请链接给好友。'
-		                        : '点击按钮会优先调用系统分享，不可用时会自动复制查看链接给好友。'
-		                ));
-		                const memberInviteLinkExpiryText = computed(() => (
-		                    memberInviteRole.value === 'collaborator'
-		                        ? '邀请链接默认 24 小时内有效。'
-		                        : '分享链接默认 24 小时内有效。'
-		                ));
-		                const shouldHideFloatingChrome = computed(() => !!(
-	                    showPlantModal.value ||
-	                    showAddTimelineModal.value ||
-	                    showShareModal.value ||
-	                    showPublicShareModal.value ||
-	                    showMembersModal.value ||
-	                    showMemberInviteModal.value ||
-		                    showCommentModal.value ||
-		                    showTransferModal.value ||
-		                    showArchiveModal.value ||
-	                    showAcceptTransferModal.value
-	                ));
+                const canUseNativeShare = computed(() => !!(
+                    typeof window !== 'undefined' &&
+                    window.isSecureContext !== false &&
+                    typeof navigator !== 'undefined' &&
+                    typeof navigator.share === 'function'
+                ));
+                const memberTotalCount = computed(() => {
+                    if (isArchived.value) {
+                        const loadedViewerCount = Number(viewers.value?.length || 0);
+                        return loadedViewerCount || Number(pot.value?.viewer_count || 0);
+                    }
+                    const loadedCount = Number(collaborators.value?.length || 0) + Number(viewers.value?.length || 0);
+                    const knownCount = Number(pot.value?.collaborator_count || 0) + Number(pot.value?.viewer_count || 0);
+                    return loadedCount || knownCount;
+                });
+                const isMemberInviteEmailValid = computed(() => formUtils.isValidEmail(memberInviteEmail.value));
+                const memberInviteDescription = computed(() => {
+                    if (memberInviteRole.value === 'collaborator') {
+                        return '可新增和编辑养护、时间线、提醒';
+                    }
+                    return isArchived.value ? '可查看归档记录，不能编辑' : '可查看记录，不能编辑';
+                });
+                const memberInviteEmailButtonLabel = computed(() => (
+                    memberInviteRole.value === 'collaborator' ? '发送协作邀请' : '发送查看邀请'
+                ));
+                const memberInviteLinkButtonLabel = computed(() => (
+                    memberInviteRole.value === 'collaborator' ? '分享协作链接' : '分享查看链接'
+                ));
+                const memberInviteLinkDescription = computed(() => (
+                    memberInviteRole.value === 'collaborator'
+                        ? '点击按钮会优先调用系统分享，不可用时会自动复制邀请链接给好友。'
+                        : '点击按钮会优先调用系统分享，不可用时会自动复制查看链接给好友。'
+                ));
+                const memberInviteLinkExpiryText = computed(() => (
+                    memberInviteRole.value === 'collaborator'
+                        ? '邀请链接默认 24 小时内有效。'
+                        : '分享链接默认 24 小时内有效。'
+                ));
+                const shouldHideFloatingChrome = computed(() => !!(
+                    showPlantModal.value ||
+                    showAddTimelineModal.value ||
+                    showShareModal.value ||
+                    showPublicShareModal.value ||
+                    showMembersModal.value ||
+                    showMemberInviteModal.value ||
+                    showCommentModal.value ||
+                    showTransferModal.value ||
+                    showArchiveModal.value ||
+                    showAcceptTransferModal.value
+                ));
                 const showCommentEntry = computed(() => !!(hasCommentAudience.value && canReplyComment.value));
                 const canLeaveComment = computed(() => canReplyComment.value);
-	                const isCompactCommentViewport = computed(() => isCompactKeyboardViewport.value);
+                const isCompactCommentViewport = computed(() => isCompactKeyboardViewport.value);
                 const canViewCommentDanmaku = computed(() => !!(
                     hasCommentAudience.value && (
                         showCommentEntry.value ||
@@ -2409,7 +2482,7 @@
                     )
                 ));
                 const commentModalStyle = computed(() => {
-	                    const rawHeight = keyboardViewportHeight.value || (typeof window !== 'undefined' ? window.innerHeight : 0);
+                    const rawHeight = keyboardViewportHeight.value || (typeof window !== 'undefined' ? window.innerHeight : 0);
                     const viewportHeight = Math.max(rawHeight || 0, 360);
                     const spacing = isCompactCommentViewport.value ? 8 : 32;
                     const maxHeight = Math.max(viewportHeight - spacing, 360);
@@ -2505,10 +2578,10 @@
                         window.history.replaceState({}, '', url.toString());
                     }
 
-	                    if (pot.value && isOwner.value) {
-	                        showShareModal.value = true;
-	                    }
-	                };
+                    if (pot.value && isOwner.value) {
+                        showShareModal.value = true;
+                    }
+                };
 
                 const getDirectParam = (name) => {
                     const url = new URL(window.location.href);
@@ -2589,19 +2662,19 @@
                         stopLoginAutofillWatcher();
                     }
 
-	                    if (registerVisible) {
-	                        scheduleRegisterAutofillSync();
-	                        turnstileForms.render('register');
-	                    } else {
-	                        turnstileForms.remove('register');
-	                    }
+                    if (registerVisible) {
+                        scheduleRegisterAutofillSync();
+                        turnstileForms.render('register');
+                    } else {
+                        turnstileForms.remove('register');
+                    }
 
-	                    if (forgotVisible) {
-	                        turnstileForms.render('forgotPassword');
-	                    } else {
-	                        turnstileForms.remove('forgotPassword');
-	                    }
-	                });
+                    if (forgotVisible) {
+                        turnstileForms.render('forgotPassword');
+                    } else {
+                        turnstileForms.remove('forgotPassword');
+                    }
+                });
 
                 const isAuthRequiredError = (err) => {
                     const status = Number(err?.status || 0);
@@ -2788,8 +2861,8 @@
                     careSchedules.value = [];
                     plantInfo.value = null;
                     matchedPlantName.value = null;
-	                    potComments.value = [];
-	                    pendingInvitePrompt.value = null;
+                    potComments.value = [];
+                    pendingInvitePrompt.value = null;
                     viewerIsCollaborator.value = false;
                     viewerIsViewer.value = false;
                     showCommentDanmaku.value = true;
@@ -2855,12 +2928,12 @@
                                 loadPublicPotDetail()
                             ]);
                             applyCurrentUserProfile(userRes);
-	                        } else if (potId.value) {
-	                            const [userRes] = await Promise.all([
-	                                userProfilePromise,
-	                                loadPotDetailWithPublicFallback()
-	                            ]);
-	                            applyCurrentUserProfile(userRes);
+                        } else if (potId.value) {
+                            const [userRes] = await Promise.all([
+                                userProfilePromise,
+                                loadPotDetailWithPublicFallback()
+                            ]);
+                            applyCurrentUserProfile(userRes);
                         } else {
                             isLoading.value = false;
                             redirectToErrorPage('not_found', '当前链接缺少必要参数，请从首页或最新入口重新进入。');
@@ -2886,70 +2959,70 @@
                     }
                 };
 
-	                const syncCommentDanmakuStateFromPot = () => {
-	                    showCommentDanmaku.value = Number(pot.value?.show_comment_danmaku ?? 1) === 1;
-	                };
+                const syncCommentDanmakuStateFromPot = () => {
+                    showCommentDanmaku.value = Number(pot.value?.show_comment_danmaku ?? 1) === 1;
+                };
 
-	                const syncShareMetadata = () => {
-	                    if (!pot.value?.name) return;
-	                    const title = `${pot.value.name} - 我的花盆`;
-	                    document.title = title;
-	                    document.querySelector('meta[property="og:title"]')?.setAttribute('content', title);
-	                    document.querySelector('meta[name="twitter:title"]')?.setAttribute('content', title);
-	                };
+                const syncShareMetadata = () => {
+                    if (!pot.value?.name) return;
+                    const title = `${pot.value.name} - 我的花盆`;
+                    document.title = title;
+                    document.querySelector('meta[property="og:title"]')?.setAttribute('content', title);
+                    document.querySelector('meta[name="twitter:title"]')?.setAttribute('content', title);
+                };
 
-		                const loadPotDetail = async () => {
-		                    const res = await apiClient.getPotDetail(potId.value);
-		                    if (res.success) {
-		                        pot.value = res.data;
-		                        syncCommentDanmakuStateFromPot();
-		                        syncShareMetadata();
-		                        markCurrentPotActivityRead();
-		                    }
-		                };
+                const loadPotDetail = async () => {
+                    const res = await apiClient.getPotDetail(potId.value);
+                    if (res.success) {
+                        pot.value = res.data;
+                        syncCommentDanmakuStateFromPot();
+                        syncShareMetadata();
+                        markCurrentPotActivityRead();
+                    }
+                };
 
-		                const canTryPublicIdFallback = (err) => {
-		                    const status = Number(err?.status || 0);
-		                    const rawMessage = String(err?.message || '');
-		                    return !!potId.value && (
-		                        status === 401 ||
-		                        status === 403 ||
-		                        status === 404 ||
-		                        /Authentication required|access denied|not found/i.test(rawMessage)
-		                    );
-		                };
+                const canTryPublicIdFallback = (err) => {
+                    const status = Number(err?.status || 0);
+                    const rawMessage = String(err?.message || '');
+                    return !!potId.value && (
+                        status === 401 ||
+                        status === 403 ||
+                        status === 404 ||
+                        /Authentication required|access denied|not found/i.test(rawMessage)
+                    );
+                };
 
-		                const applyPublicPotDetail = (data) => {
-		                    pot.value = data.pot;
-		                    if (pot.value?.share_token) {
-		                        shareToken.value = pot.value.share_token;
-		                    }
-		                    syncCommentDanmakuStateFromPot();
-		                    syncShareMetadata();
-		                    potId.value = pot.value.id;
-		                    viewerIsCollaborator.value = !!data.viewer?.isCollaborator;
-		                    viewerIsViewer.value = !!data.viewer?.isViewer;
-		                    if (data.careRecords) careRecords.value = data.careRecords;
-		                    if (data.timelines) timelineRecords.value = data.timelines;
-		                };
+                const applyPublicPotDetail = (data) => {
+                    pot.value = data.pot;
+                    if (pot.value?.share_token) {
+                        shareToken.value = pot.value.share_token;
+                    }
+                    syncCommentDanmakuStateFromPot();
+                    syncShareMetadata();
+                    potId.value = pot.value.id;
+                    viewerIsCollaborator.value = !!data.viewer?.isCollaborator;
+                    viewerIsViewer.value = !!data.viewer?.isViewer;
+                    if (data.careRecords) careRecords.value = data.careRecords;
+                    if (data.timelines) timelineRecords.value = data.timelines;
+                };
 
-		                const loadPotDetailWithPublicFallback = async () => {
-		                    try {
-		                        await loadPotDetail();
-		                    } catch (err) {
-		                        if (!canTryPublicIdFallback(err)) throw err;
-		                        try {
-		                            const res = await apiClient.getPublicPotDetailById(potId.value);
-		                            if (res.success) {
-		                                applyPublicPotDetail(res.data);
-		                                return;
-		                            }
-		                        } catch {
-		                            // Keep the original private-detail error so the existing guide remains accurate.
-		                        }
-		                        throw err;
-		                    }
-		                };
+                const loadPotDetailWithPublicFallback = async () => {
+                    try {
+                        await loadPotDetail();
+                    } catch (err) {
+                        if (!canTryPublicIdFallback(err)) throw err;
+                        try {
+                            const res = await apiClient.getPublicPotDetailById(potId.value);
+                            if (res.success) {
+                                applyPublicPotDetail(res.data);
+                                return;
+                            }
+                        } catch {
+                            // Keep the original private-detail error so the existing guide remains accurate.
+                        }
+                        throw err;
+                    }
+                };
 
                 const loadPublicPotDetail = async () => {
                     try {
@@ -2985,10 +3058,10 @@
                     return false;
                 };
 
-	                const openCollaboratorInviteLink = async () => {
-	                    const res = await apiClient.openCollaboratorInvite(collabToken.value, getInviteSessionId('collab_invite_session_id', collabInviteSessionId));
-                        return res?.data || null;
-	                };
+                const openCollaboratorInviteLink = async () => {
+                    const res = await apiClient.openCollaboratorInvite(collabToken.value, getInviteSessionId('collab_invite_session_id', collabInviteSessionId));
+                    return res?.data || null;
+                };
 
                 const tryResumeCollaboratorInviteFromLink = async () => {
                     try {
@@ -3013,10 +3086,10 @@
                     return false;
                 };
 
-	                const openViewerInviteLink = async () => {
-	                    const res = await apiClient.openViewerInvite(viewerToken.value, getInviteSessionId('viewer_invite_session_id', viewerInviteSessionId));
-                        return res?.data || null;
-	                };
+                const openViewerInviteLink = async () => {
+                    const res = await apiClient.openViewerInvite(viewerToken.value, getInviteSessionId('viewer_invite_session_id', viewerInviteSessionId));
+                    return res?.data || null;
+                };
 
                 const tryResumeViewerInviteFromLink = async () => {
                     try {
@@ -3110,61 +3183,61 @@
                 const handleForgotPassword = async () => {
                     syncLoginFormFromDom();
                     clearStatus(forgotPasswordStatus);
-	                    if (!validateForgotPasswordEmail(true)) {
-	                        await focusFieldById('detailForgotPasswordEmail');
-	                        return;
-	                    }
-	                    if (!forgotPasswordTurnstileToken.value) {
-	                        forgotPasswordStatus.type = 'error';
-	                        forgotPasswordStatus.message = '请先完成人机验证。';
-	                        await turnstileForms.render('forgotPassword');
-	                        return;
-	                    }
-	                    try {
-	                        isAuthLoading.value = true;
-	                        loginForm.email = formUtils.normalizeEmail(loginForm.email);
-	                        const res = await apiClient.forgotPassword(loginForm.email, forgotPasswordTurnstileToken.value);
-	                        if (res.success) {
-	                            forgotPasswordStatus.type = 'success';
-	                            forgotPasswordStatus.message = '重置链接已发送到您的邮箱，请检查收件箱和垃圾箱。';
+                    if (!validateForgotPasswordEmail(true)) {
+                        await focusFieldById('detailForgotPasswordEmail');
+                        return;
+                    }
+                    if (!forgotPasswordTurnstileToken.value) {
+                        forgotPasswordStatus.type = 'error';
+                        forgotPasswordStatus.message = '请先完成人机验证。';
+                        await turnstileForms.render('forgotPassword');
+                        return;
+                    }
+                    try {
+                        isAuthLoading.value = true;
+                        loginForm.email = formUtils.normalizeEmail(loginForm.email);
+                        const res = await apiClient.forgotPassword(loginForm.email, forgotPasswordTurnstileToken.value);
+                        if (res.success) {
+                            forgotPasswordStatus.type = 'success';
+                            forgotPasswordStatus.message = '重置链接已发送到您的邮箱，请检查收件箱和垃圾箱。';
                             loginStatus.type = 'success';
                             loginStatus.message = forgotPasswordStatus.message;
                             showForgotPasswordModal.value = false;
                             showLoginModal.value = true;
                         }
-	                    } catch (e) {
-	                        forgotPasswordStatus.type = 'error';
-	                        forgotPasswordStatus.message = '发送失败: ' + e.message;
-	                    } finally {
-	                        turnstileForms.reset('forgotPassword');
-	                        isAuthLoading.value = false;
-	                    }
-	                };
+                    } catch (e) {
+                        forgotPasswordStatus.type = 'error';
+                        forgotPasswordStatus.message = '发送失败: ' + e.message;
+                    } finally {
+                        turnstileForms.reset('forgotPassword');
+                        isAuthLoading.value = false;
+                    }
+                };
 
-	                const handleRegister = async () => {
-	                    if (!await validateRegisterForm()) {
-	                        return;
-	                    }
-	                    if (!registerTurnstileToken.value) {
-	                        registerStatus.type = 'error';
-	                        registerStatus.message = '请先完成人机验证。';
-	                        await turnstileForms.render('register');
-	                        return;
-	                    }
-	                    try {
-	                        isAuthLoading.value = true;
-	                        registerForm.email = formUtils.normalizeEmail(registerForm.email);
+                const handleRegister = async () => {
+                    if (!await validateRegisterForm()) {
+                        return;
+                    }
+                    if (!registerTurnstileToken.value) {
+                        registerStatus.type = 'error';
+                        registerStatus.message = '请先完成人机验证。';
+                        await turnstileForms.render('register');
+                        return;
+                    }
+                    try {
+                        isAuthLoading.value = true;
+                        registerForm.email = formUtils.normalizeEmail(registerForm.email);
                         normalizeRegisterDisplayName();
                         clearStatus(registerStatus);
                         const anonymousUserId = window.authStorage?.getUserId() || null;
                         const isAnonymous = !currentUser.value || currentUser.value.userType === 'anonymous';
 
-	                        let res;
-	                        if (isAnonymous && anonymousUserId) {
-	                            res = await apiClient.upgrade(registerForm.email, registerForm.password, registerForm.displayName, anonymousUserId, registerTurnstileToken.value);
-	                        } else {
-	                            res = await apiClient.register(registerForm.email, registerForm.password, registerForm.displayName, registerTurnstileToken.value);
-	                        }
+                        let res;
+                        if (isAnonymous && anonymousUserId) {
+                            res = await apiClient.upgrade(registerForm.email, registerForm.password, registerForm.displayName, anonymousUserId, registerTurnstileToken.value);
+                        } else {
+                            res = await apiClient.register(registerForm.email, registerForm.password, registerForm.displayName, registerTurnstileToken.value);
+                        }
 
                         if (res.success || res.token) {
                             try {
@@ -3176,14 +3249,14 @@
                             showAlert(isAnonymous ? '注册成功，您的匿名数据已合并！' : '注册成功！');
                             location.reload();
                         }
-	                    } catch (e) {
-	                        registerStatus.type = 'error';
-	                        registerStatus.message = '注册失败: ' + e.message;
-	                    } finally {
-	                        turnstileForms.reset('register');
-	                        isAuthLoading.value = false;
-	                    }
-	                };
+                    } catch (e) {
+                        registerStatus.type = 'error';
+                        registerStatus.message = '注册失败: ' + e.message;
+                    } finally {
+                        turnstileForms.reset('register');
+                        isAuthLoading.value = false;
+                    }
+                };
 
                 const logout = async () => { await apiClient.logout(); location.reload(); };
                 const closeAuthModals = () => {
@@ -3216,31 +3289,31 @@
                 };
                 const openInviteLogin = async () => {
                     clearAuthFeedback();
-	                    showRegisterModal.value = false;
-	                    showForgotPasswordModal.value = false;
-	                    showLoginModal.value = true;
-	                    if (isCompactKeyboardViewport.value) {
-	                        await nextTick();
-	                    } else {
-	                        await focusFieldById('detailLoginEmail', { scrollIntoView: false });
-	                    }
-	                    if (!document.getElementById('detailLoginEmail')) {
-	                        redirectInviteAuthFallback('login');
-	                    }
+                    showRegisterModal.value = false;
+                    showForgotPasswordModal.value = false;
+                    showLoginModal.value = true;
+                    if (isCompactKeyboardViewport.value) {
+                        await nextTick();
+                    } else {
+                        await focusFieldById('detailLoginEmail', { scrollIntoView: false });
+                    }
+                    if (!document.getElementById('detailLoginEmail')) {
+                        redirectInviteAuthFallback('login');
+                    }
                 };
                 const openInviteRegister = async () => {
                     clearAuthFeedback();
-	                    showLoginModal.value = false;
-	                    showForgotPasswordModal.value = false;
-	                    showRegisterModal.value = true;
-	                    if (isCompactKeyboardViewport.value) {
-	                        await nextTick();
-	                    } else {
-	                        await focusFieldById('detailRegisterEmail', { scrollIntoView: false });
-	                    }
-	                    if (!document.getElementById('detailRegisterEmail')) {
-	                        redirectInviteAuthFallback('register');
-	                    }
+                    showLoginModal.value = false;
+                    showForgotPasswordModal.value = false;
+                    showRegisterModal.value = true;
+                    if (isCompactKeyboardViewport.value) {
+                        await nextTick();
+                    } else {
+                        await focusFieldById('detailRegisterEmail', { scrollIntoView: false });
+                    }
+                    if (!document.getElementById('detailRegisterEmail')) {
+                        redirectInviteAuthFallback('register');
+                    }
                 };
                 const switchToForgotPassword = () => {
                     clearAuthFeedback();
@@ -3517,21 +3590,21 @@
                     }
                 };
 
-	                onMounted(() => {
-	                    init();
-	                    window.addEventListener('keydown', handleKeydown);
-	                });
+                onMounted(() => {
+                    init();
+                    window.addEventListener('keydown', handleKeydown);
+                });
 
-		                onUnmounted(() => {
-		                    window.removeEventListener('keydown', handleKeydown);
-		                    setAuthModalBodyLock(false);
-		                });
+                onUnmounted(() => {
+                    window.removeEventListener('keydown', handleKeydown);
+                    setAuthModalBodyLock(false);
+                });
 
                 // 组件卸载时移除事件监听
                 // 注意：在普通 HTML 环境中使用 Vue.createApp().mount() 时，
                 // 如果没有显式处理卸载，可能需要小心内存泄漏，但在这里通常刷新页面即重置。
 
-	                const triggerFileInput = () => fileInput.value?.click();
+                const triggerFileInput = () => fileInput.value?.click();
 
                 const getTodayString = () => new Date().toISOString().split('T')[0];
 
@@ -3567,38 +3640,38 @@
                     showAddTimelineModal.value = true;
                 };
 
-	                const onFilesSelected = async (e) => {
-	                    const remaining = 9 - timelineImageCount();
-	                    const items = await MyFlowerPotsMedia.selectImages(e, { limit: remaining });
-	                    newTimeline.tempImages.push(...items);
-	                };
+                const onFilesSelected = async (e) => {
+                    const remaining = 9 - timelineImageCount();
+                    const items = await MyFlowerPotsMedia.selectImages(e, { limit: remaining });
+                    newTimeline.tempImages.push(...items);
+                };
 
-	                const removeExistingTimelineImage = (idx) => newTimeline.existingImages.splice(idx, 1);
-	                const removeNewImage = (idx) => newTimeline.tempImages.splice(idx, 1);
+                const removeExistingTimelineImage = (idx) => newTimeline.existingImages.splice(idx, 1);
+                const removeNewImage = (idx) => newTimeline.tempImages.splice(idx, 1);
 
-                    const archiveImageCount = () => MyFlowerPotsArchive.archiveImageCount(archiveForm);
+                const archiveImageCount = () => MyFlowerPotsArchive.archiveImageCount(archiveForm);
 
-                    const resetArchiveForm = () => {
-                        MyFlowerPotsArchive.resetArchiveForm(archiveForm, archiveFileInput);
-                    };
+                const resetArchiveForm = () => {
+                    MyFlowerPotsArchive.resetArchiveForm(archiveForm, archiveFileInput);
+                };
 
-                    const triggerArchiveFileInput = () => {
-                        archiveFileInput.value?.click();
-                    };
+                const triggerArchiveFileInput = () => {
+                    archiveFileInput.value?.click();
+                };
 
-	                    const onArchiveFilesSelected = async (e) => {
-	                        await MyFlowerPotsArchive.selectArchiveImages(e, archiveForm);
-	                    };
+                const onArchiveFilesSelected = async (e) => {
+                    await MyFlowerPotsArchive.selectArchiveImages(e, archiveForm);
+                };
 
-                    const removeArchiveImage = (idx) => {
-                        archiveForm.tempImages.splice(idx, 1);
-                    };
+                const removeArchiveImage = (idx) => {
+                    archiveForm.tempImages.splice(idx, 1);
+                };
 
-	                    const uploadArchiveImagesForPot = async (targetPotId) => {
-	                        return MyFlowerPotsArchive.uploadArchiveImagesForPot(apiClient, archiveForm, targetPotId);
-	                    };
-	
-	                const saveTimelineRecord = async () => {
+                const uploadArchiveImagesForPot = async (targetPotId) => {
+                    return MyFlowerPotsArchive.uploadArchiveImagesForPot(apiClient, archiveForm, targetPotId);
+                };
+
+                const saveTimelineRecord = async () => {
                     if (isReadOnly.value) return;
                     if (!newTimeline.date) {
                         showAlert('请选择记录日期');
@@ -3608,17 +3681,17 @@
                         showAlert('请至少上传一张照片或写点描述');
                         return;
                     }
-	                    try {
-	                        isSavingTimeline.value = true;
-	                        const saveRes = await MyFlowerPotsTimeline.saveTimelineForm(apiClient, {
-	                            potId: potId.value,
-	                            timelineId: isEditingTimeline.value ? editingTimelineId.value : null,
-	                            date: newTimeline.date,
-	                            description: newTimeline.description,
-	                            existingImages: newTimeline.existingImages,
-	                            tempImages: newTimeline.tempImages
-	                        });
-	                        if (saveRes.success) {
+                    try {
+                        isSavingTimeline.value = true;
+                        const saveRes = await MyFlowerPotsTimeline.saveTimelineForm(apiClient, {
+                            potId: potId.value,
+                            timelineId: isEditingTimeline.value ? editingTimelineId.value : null,
+                            date: newTimeline.date,
+                            description: newTimeline.description,
+                            existingImages: newTimeline.existingImages,
+                            tempImages: newTimeline.tempImages
+                        });
+                        if (saveRes.success) {
                             showAddTimelineModal.value = false;
                             resetTimelineForm();
                             await loadTimelineRecords();
@@ -3670,46 +3743,46 @@
                     }
                 };
 
-		                const openArchiveModal = () => {
-		                    if (!isOwner.value || isArchived.value) return;
-                            resetArchiveForm();
-		                    showArchiveModal.value = true;
-		                };
+                const openArchiveModal = () => {
+                    if (!isOwner.value || isArchived.value) return;
+                    resetArchiveForm();
+                    showArchiveModal.value = true;
+                };
 
-		                const closeArchiveModal = () => {
-		                    if (isArchiveLoading.value) return;
-		                    showArchiveModal.value = false;
-                            resetArchiveForm();
-		                };
+                const closeArchiveModal = () => {
+                    if (isArchiveLoading.value) return;
+                    showArchiveModal.value = false;
+                    resetArchiveForm();
+                };
 
-	                const archiveCurrentPot = async () => {
-	                    if (!isOwner.value || isArchived.value || isArchiveLoading.value) return;
-		                    try {
-		                        isArchiveLoading.value = true;
-                                const imageUrls = await uploadArchiveImagesForPot(potId.value);
-		                        const res = await apiClient.archivePot(potId.value, {
-		                            reason: archiveForm.reason,
-		                            note: archiveForm.note.trim() || null,
-                                    imageUrls
-		                        });
-		                        if (res.success) {
-		                            showArchiveModal.value = false;
-                                    resetArchiveForm();
-		                            await loadPotDetail();
-	                            await Promise.allSettled([
-	                                loadCareSchedules(),
+                const archiveCurrentPot = async () => {
+                    if (!isOwner.value || isArchived.value || isArchiveLoading.value) return;
+                    try {
+                        isArchiveLoading.value = true;
+                        const imageUrls = await uploadArchiveImagesForPot(potId.value);
+                        const res = await apiClient.archivePot(potId.value, {
+                            reason: archiveForm.reason,
+                            note: archiveForm.note.trim() || null,
+                            imageUrls
+                        });
+                        if (res.success) {
+                            showArchiveModal.value = false;
+                            resetArchiveForm();
+                            await loadPotDetail();
+                            await Promise.allSettled([
+                                loadCareSchedules(),
                                 loadCareRecords(),
                                 loadTimelineRecords(),
                                 loadPotStats()
                             ]);
                             showAlert('已归档。');
                         }
-	                    } catch (err) {
-	                        showAlert('归档失败: ' + (err?.message || '请稍后重试'));
-	                    } finally {
-	                        isArchiveLoading.value = false;
-	                    }
-	                };
+                    } catch (err) {
+                        showAlert('归档失败: ' + (err?.message || '请稍后重试'));
+                    } finally {
+                        isArchiveLoading.value = false;
+                    }
+                };
 
                 // 编辑记录
                 const editRecord = (record) => {
@@ -3732,7 +3805,7 @@
 
                     try {
                         confirmingDeleteId.value = null; // 立即清除状态
-	                        const res = await apiClient.deleteCareRecord(record.id);
+                        const res = await apiClient.deleteCareRecord(record.id);
                         if (res.success) {
                             await loadCareRecords();
                             if (currentSheetGroup.value?.records) {
@@ -3819,28 +3892,28 @@
                     } catch (e) { showAlert('更新失败'); }
                 };
 
-	                const buildPotSubpageUrl = (page) => {
-	                    const params = new URLSearchParams();
-	                    if (potId.value) params.set('potId', potId.value);
-	                    if (shareToken.value) params.set('token', shareToken.value);
-	                    const query = params.toString();
-	                    return query ? `${page}?${query}` : page;
-	                };
+                const buildPotSubpageUrl = (page) => {
+                    const params = new URLSearchParams();
+                    if (potId.value) params.set('potId', potId.value);
+                    if (shareToken.value) params.set('token', shareToken.value);
+                    const query = params.toString();
+                    return query ? `${page}?${query}` : page;
+                };
 
-	                // 查看全部记录/轨迹
-	                const viewAllRecords = () => window.location.href = buildPotSubpageUrl('all-records');
-	                const viewAllTimelines = () => window.location.href = buildPotSubpageUrl('all-timelines');
+                // 查看全部记录/轨迹
+                const viewAllRecords = () => window.location.href = buildPotSubpageUrl('all-records');
+                const viewAllTimelines = () => window.location.href = buildPotSubpageUrl('all-timelines');
 
-	                // 统计
-	                const statsWaterCount = computed(() => potStats.value?.byType?.find(t => t.type === 'water')?.total_count || 0);
-	                const statsFertilizeCount = computed(() => potStats.value?.byType?.find(t => t.type === 'fertilize')?.total_count || 0);
-                    const statsCareCount = computed(() => Number(potStats.value?.total?.total_records || 0));
-	
-		                const formatDate = MyFlowerPotsDate.formatIsoDate;
-                    const growthDurationDays = computed(() => MyFlowerPotsDate.getGrowthDurationDays(pot.value));
-                    const growthDurationText = computed(() =>
-                        MyFlowerPotsDate.formatGrowthDuration(pot.value, '无', { includeExactDays: true })
-                    );
+                // 统计
+                const statsWaterCount = computed(() => potStats.value?.byType?.find(t => t.type === 'water')?.total_count || 0);
+                const statsFertilizeCount = computed(() => potStats.value?.byType?.find(t => t.type === 'fertilize')?.total_count || 0);
+                const statsCareCount = computed(() => Number(potStats.value?.total?.total_records || 0));
+
+                const formatDate = MyFlowerPotsDate.formatIsoDate;
+                const growthDurationDays = computed(() => MyFlowerPotsDate.getGrowthDurationDays(pot.value));
+                const growthDurationText = computed(() =>
+                    MyFlowerPotsDate.formatGrowthDuration(pot.value, '无', { includeExactDays: true })
+                );
 
                 const formatCommentTime = (dateStr) => MyFlowerPotsDate.formatDate(dateStr, 'datetime');
 
@@ -3865,29 +3938,29 @@
                     if (isReadOnly.value) return;
                     window.location.href = `edit-pot?id=${potId.value}`;
                 };
-	                const goAddCarePage = () => {
-	                    if (isReadOnly.value) return;
-	                    window.location.href = `care-record?potId=${potId.value}`;
-	                };
-                    const showCarePanelAddButton = computed(() =>
-                        !isReadOnly.value &&
-                        (
-                            carePanelActiveTab.value === 'records' ||
-                            (carePanelActiveTab.value === 'schedules' && canShowCareSchedules.value)
-                        )
-                    );
-                    const carePanelAddLabel = computed(() =>
-                        carePanelActiveTab.value === 'schedules' ? '添加提醒' : '新增养护'
-                    );
-                    const handleCarePanelAdd = () => {
-                        if (!showCarePanelAddButton.value) return;
-                        if (carePanelActiveTab.value === 'schedules') {
-                            showAddScheduleModal.value = true;
-                            return;
-                        }
-                        goAddCarePage();
-                    };
-	                const goCreatePot = () => window.location.href = '/';
+                const goAddCarePage = () => {
+                    if (isReadOnly.value) return;
+                    window.location.href = `care-record?potId=${potId.value}`;
+                };
+                const showCarePanelAddButton = computed(() =>
+                    !isReadOnly.value &&
+                    (
+                        carePanelActiveTab.value === 'records' ||
+                        (carePanelActiveTab.value === 'schedules' && canShowCareSchedules.value)
+                    )
+                );
+                const carePanelAddLabel = computed(() =>
+                    carePanelActiveTab.value === 'schedules' ? '添加提醒' : '新增养护'
+                );
+                const handleCarePanelAdd = () => {
+                    if (!showCarePanelAddButton.value) return;
+                    if (carePanelActiveTab.value === 'schedules') {
+                        showAddScheduleModal.value = true;
+                        return;
+                    }
+                    goAddCarePage();
+                };
+                const goCreatePot = () => window.location.href = '/';
 
                 const scrollToSection = (sectionId, sectionKey) => {
                     const el = document.getElementById(sectionId);
@@ -3989,14 +4062,14 @@
                         if (error?.name === 'AbortError') {
                             return { status: 'cancelled' };
                         }
-	                        console.warn('Native share failed, falling back:', error);
-	                        return { status: 'failed', error };
+                        console.warn('Native share failed, falling back:', error);
+                        return { status: 'failed', error };
                     } finally {
                         if (documentTitle && previousTitle) {
                             document.title = previousTitle;
                         }
-	                    }
-	                };
+                    }
+                };
 
                 const generateQRCode = async () => {
                     if (!pot.value) return;
@@ -4185,15 +4258,15 @@
                         return;
                     }
 
-	                    const result = await shareViaSystem({
-	                        title: pot.value?.name
-	                            ? `${isArchived.value ? '分享归档记录' : '分享植物'}：${pot.value.name}`
-	                            : (isArchived.value ? '分享归档花盆' : '分享花盆'),
-	                        text: pot.value?.name
-	                            ? `邀请你一起看看 ${pot.value.name} 的${isArchived.value ? '归档记录' : '成长记录'}。`
-	                            : `邀请你一起看看这盆植物的${isArchived.value ? '归档记录' : '成长记录'}。`,
-	                        url: shareUrl
-	                    });
+                    const result = await shareViaSystem({
+                        title: pot.value?.name
+                            ? `${isArchived.value ? '分享归档记录' : '分享植物'}：${pot.value.name}`
+                            : (isArchived.value ? '分享归档花盆' : '分享花盆'),
+                        text: pot.value?.name
+                            ? `邀请你一起看看 ${pot.value.name} 的${isArchived.value ? '归档记录' : '成长记录'}。`
+                            : `邀请你一起看看这盆植物的${isArchived.value ? '归档记录' : '成长记录'}。`,
+                        url: shareUrl
+                    });
 
                     if (result.status === 'shared' || result.status === 'cancelled') {
                         return;
@@ -4214,11 +4287,11 @@
 
                         const inviteTitle = buildInviteShareTitle('collab', pot.value?.name, true);
                         const shareResult = await shareViaSystem({
-		                            title: inviteTitle,
-		                            text: buildInviteShareText('collab'),
-                                    documentTitle: inviteTitle,
-	                            url: inviteUrl
-	                        });
+                            title: inviteTitle,
+                            text: buildInviteShareText('collab'),
+                            documentTitle: inviteTitle,
+                            url: inviteUrl
+                        });
                         if (shareResult.status === 'shared' || shareResult.status === 'cancelled') {
                             return;
                         }
@@ -4245,11 +4318,11 @@
 
                         const inviteTitle = buildInviteShareTitle('viewer', pot.value?.name, true);
                         const shareResult = await shareViaSystem({
-	                            title: inviteTitle,
-	                            text: buildInviteShareText('viewer'),
-                                documentTitle: inviteTitle,
-	                            url: inviteUrl
-	                        });
+                            title: inviteTitle,
+                            text: buildInviteShareText('viewer'),
+                            documentTitle: inviteTitle,
+                            url: inviteUrl
+                        });
                         if (shareResult.status === 'shared' || shareResult.status === 'cancelled') {
                             return;
                         }
@@ -4285,7 +4358,7 @@
                     }
                 };
 
-	                const focusCommentInput = () => {
+                const focusCommentInput = () => {
                     if (isCompactCommentViewport.value) return;
                     nextTick(() => commentInputRef.value?.focus());
                 };
@@ -4391,220 +4464,220 @@
                     }
                 };
 
-	                // 成员与权限
-	                const loadCollaborators = async () => {
-	                    if (!isOwner.value) return;
-	                    try {
-	                        const res = await apiClient.getCollaborators(potId.value);
-	                        if (res.success) {
-	                            collaborators.value = (res.data || []).map(member => ({ ...member, role: 'collaborator' }));
-	                        }
-	                    } catch (e) { console.error('Load collaborators failed', e); }
-	                };
+                // 成员与权限
+                const loadCollaborators = async () => {
+                    if (!isOwner.value) return;
+                    try {
+                        const res = await apiClient.getCollaborators(potId.value);
+                        if (res.success) {
+                            collaborators.value = (res.data || []).map(member => ({ ...member, role: 'collaborator' }));
+                        }
+                    } catch (e) { console.error('Load collaborators failed', e); }
+                };
 
-	                const loadViewers = async () => {
-	                    if (!isOwner.value) return;
-	                    try {
-	                        const res = await apiClient.getViewers(potId.value);
-	                        if (res.success) {
-	                            viewers.value = (res.data || []).map(member => ({ ...member, role: 'viewer' }));
-	                        }
-	                    } catch (e) { console.error('Load viewers failed', e); }
-	                };
+                const loadViewers = async () => {
+                    if (!isOwner.value) return;
+                    try {
+                        const res = await apiClient.getViewers(potId.value);
+                        if (res.success) {
+                            viewers.value = (res.data || []).map(member => ({ ...member, role: 'viewer' }));
+                        }
+                    } catch (e) { console.error('Load viewers failed', e); }
+                };
 
-	                const loadMembers = async () => {
-	                    if (!isOwner.value) return;
-	                    if (isArchived.value) {
-	                        collaborators.value = [];
-	                        await loadViewers();
-	                        return;
-	                    }
-	                    await Promise.all([loadCollaborators(), loadViewers()]);
-	                };
+                const loadMembers = async () => {
+                    if (!isOwner.value) return;
+                    if (isArchived.value) {
+                        collaborators.value = [];
+                        await loadViewers();
+                        return;
+                    }
+                    await Promise.all([loadCollaborators(), loadViewers()]);
+                };
 
-	                const syncMemberCounts = () => {
-	                    if (!pot.value) return;
-	                    pot.value.collaborator_count = collaborators.value.length;
-	                    pot.value.viewer_count = viewers.value.length;
-	                };
+                const syncMemberCounts = () => {
+                    if (!pot.value) return;
+                    pot.value.collaborator_count = collaborators.value.length;
+                    pot.value.viewer_count = viewers.value.length;
+                };
 
-	                const memberDisplayName = (member) => member?.display_name || member?.email || '成员';
-	                const memberInitial = (member) => {
-	                    const source = memberDisplayName(member);
-	                    return String(source || '?').trim().charAt(0).toUpperCase() || '?';
-	                };
+                const memberDisplayName = (member) => member?.display_name || member?.email || '成员';
+                const memberInitial = (member) => {
+                    const source = memberDisplayName(member);
+                    return String(source || '?').trim().charAt(0).toUpperCase() || '?';
+                };
 
-	                const handleMemberAvatarError = (event) => {
-	                    const img = event?.target;
-	                    if (!img) return;
-	                    img.style.display = 'none';
-	                    const fallback = img.nextElementSibling;
-	                    if (fallback) fallback.classList.remove('hidden');
-	                };
+                const handleMemberAvatarError = (event) => {
+                    const img = event?.target;
+                    if (!img) return;
+                    img.style.display = 'none';
+                    const fallback = img.nextElementSibling;
+                    if (fallback) fallback.classList.remove('hidden');
+                };
 
-	                const getMemberMenuKey = (member, role = member?.role) => `${role}:${member?.id || ''}`;
+                const getMemberMenuKey = (member, role = member?.role) => `${role}:${member?.id || ''}`;
 
-	                const toggleMemberMenu = (member, role) => {
-	                    const key = getMemberMenuKey(member, role);
-	                    activeMemberMenuId.value = activeMemberMenuId.value === key ? null : key;
-	                };
+                const toggleMemberMenu = (member, role) => {
+                    const key = getMemberMenuKey(member, role);
+                    activeMemberMenuId.value = activeMemberMenuId.value === key ? null : key;
+                };
 
-	                const openMembersModal = async () => {
-	                    if (!isOwner.value) return;
-	                    showShareModal.value = false;
-	                    showMembersModal.value = true;
-	                    activeMemberMenuId.value = null;
-	                    await loadMembers();
-	                };
+                const openMembersModal = async () => {
+                    if (!isOwner.value) return;
+                    showShareModal.value = false;
+                    showMembersModal.value = true;
+                    activeMemberMenuId.value = null;
+                    await loadMembers();
+                };
 
-	                const closeMembersModal = () => {
-	                    showMembersModal.value = false;
-	                    activeMemberMenuId.value = null;
-	                };
+                const closeMembersModal = () => {
+                    showMembersModal.value = false;
+                    activeMemberMenuId.value = null;
+                };
 
-	                const returnToShareFromMembers = () => {
-	                    closeMembersModal();
-	                    showShareModal.value = true;
-	                };
+                const returnToShareFromMembers = () => {
+                    closeMembersModal();
+                    showShareModal.value = true;
+                };
 
-	                const setMemberInviteRole = (role) => {
-	                    if (role === 'collaborator' && isArchived.value) return;
-	                    memberInviteRole.value = role === 'collaborator' ? 'collaborator' : 'viewer';
-	                };
+                const setMemberInviteRole = (role) => {
+                    if (role === 'collaborator' && isArchived.value) return;
+                    memberInviteRole.value = role === 'collaborator' ? 'collaborator' : 'viewer';
+                };
 
-	                const openMemberInvite = (role = 'viewer') => {
-	                    setMemberInviteRole(role);
-	                    if (isArchived.value) memberInviteRole.value = 'viewer';
-	                    memberInviteEmail.value = '';
-	                    isMemberInviteLoading.value = false;
-	                    activeMemberMenuId.value = null;
-	                    showMembersModal.value = false;
-	                    showMemberInviteModal.value = true;
-	                };
+                const openMemberInvite = (role = 'viewer') => {
+                    setMemberInviteRole(role);
+                    if (isArchived.value) memberInviteRole.value = 'viewer';
+                    memberInviteEmail.value = '';
+                    isMemberInviteLoading.value = false;
+                    activeMemberMenuId.value = null;
+                    showMembersModal.value = false;
+                    showMemberInviteModal.value = true;
+                };
 
-	                const closeMemberInviteModal = () => {
-	                    showMemberInviteModal.value = false;
-	                    memberInviteEmail.value = '';
-	                    isMemberInviteLoading.value = false;
-	                };
+                const closeMemberInviteModal = () => {
+                    showMemberInviteModal.value = false;
+                    memberInviteEmail.value = '';
+                    isMemberInviteLoading.value = false;
+                };
 
-	                const returnToMembersFromInvite = () => {
-	                    closeMemberInviteModal();
-	                    showMembersModal.value = true;
-	                    loadMembers();
-	                };
+                const returnToMembersFromInvite = () => {
+                    closeMemberInviteModal();
+                    showMembersModal.value = true;
+                    loadMembers();
+                };
 
-	                const submitMemberEmailInvite = async () => {
-	                    if (!memberInviteEmail.value.trim()) return;
-	                    if (!isMemberInviteEmailValid.value) {
-	                        showAlert('请输入正确的邮箱地址');
-	                        return;
-	                    }
-	                    if (memberInviteRole.value === 'collaborator' && isArchived.value) return;
-	                    try {
-	                        isMemberInviteLoading.value = true;
-	                        const normalizedEmail = formUtils.normalizeEmail(memberInviteEmail.value);
-	                        const isCollabInvite = memberInviteRole.value === 'collaborator';
-	                        const res = isCollabInvite
-	                            ? await apiClient.addCollaborator(potId.value, normalizedEmail)
-	                            : await apiClient.addViewer(potId.value, normalizedEmail);
-	                        if (res.success) {
-	                            memberInviteEmail.value = '';
-	                            await loadMembers();
-	                            showMemberInviteModal.value = false;
-	                            showMembersModal.value = true;
-	                            showAlert(isCollabInvite ? '协作邀请已发送，对方会在消息中心看到。' : '查看邀请已发送，对方会在消息中心看到。');
-	                        }
-	                    } catch (e) {
-	                        showAlert('邀请失败: ' + e.message);
-	                    } finally {
-	                        isMemberInviteLoading.value = false;
-	                    }
-	                };
+                const submitMemberEmailInvite = async () => {
+                    if (!memberInviteEmail.value.trim()) return;
+                    if (!isMemberInviteEmailValid.value) {
+                        showAlert('请输入正确的邮箱地址');
+                        return;
+                    }
+                    if (memberInviteRole.value === 'collaborator' && isArchived.value) return;
+                    try {
+                        isMemberInviteLoading.value = true;
+                        const normalizedEmail = formUtils.normalizeEmail(memberInviteEmail.value);
+                        const isCollabInvite = memberInviteRole.value === 'collaborator';
+                        const res = isCollabInvite
+                            ? await apiClient.addCollaborator(potId.value, normalizedEmail)
+                            : await apiClient.addViewer(potId.value, normalizedEmail);
+                        if (res.success) {
+                            memberInviteEmail.value = '';
+                            await loadMembers();
+                            showMemberInviteModal.value = false;
+                            showMembersModal.value = true;
+                            showAlert(isCollabInvite ? '协作邀请已发送，对方会在消息中心看到。' : '查看邀请已发送，对方会在消息中心看到。');
+                        }
+                    } catch (e) {
+                        showAlert('邀请失败: ' + e.message);
+                    } finally {
+                        isMemberInviteLoading.value = false;
+                    }
+                };
 
-	                const shareMemberInviteLink = async () => {
-	                    if (memberInviteRole.value === 'collaborator') {
-	                        await copyCollaboratorInvite();
-	                        return;
-	                    }
-	                    await copyViewerInvite();
-	                };
+                const shareMemberInviteLink = async () => {
+                    if (memberInviteRole.value === 'collaborator') {
+                        await copyCollaboratorInvite();
+                        return;
+                    }
+                    await copyViewerInvite();
+                };
 
-	                const moveMemberLocally = (member, nextRole) => {
-	                    const normalizedMember = { ...member, role: nextRole };
-	                    collaborators.value = collaborators.value.filter(item => item.id !== member.id);
-	                    viewers.value = viewers.value.filter(item => item.id !== member.id);
-	                    if (nextRole === 'collaborator') {
-	                        collaborators.value.push(normalizedMember);
-	                    } else {
-	                        viewers.value.push(normalizedMember);
-	                    }
-	                    syncMemberCounts();
-	                };
+                const moveMemberLocally = (member, nextRole) => {
+                    const normalizedMember = { ...member, role: nextRole };
+                    collaborators.value = collaborators.value.filter(item => item.id !== member.id);
+                    viewers.value = viewers.value.filter(item => item.id !== member.id);
+                    if (nextRole === 'collaborator') {
+                        collaborators.value.push(normalizedMember);
+                    } else {
+                        viewers.value.push(normalizedMember);
+                    }
+                    syncMemberCounts();
+                };
 
-	                const changeMemberRole = async (member, nextRole) => {
-	                    if (!member?.id) return;
-	                    if (nextRole === 'collaborator' && isArchived.value) return;
-	                    if (member.role === nextRole) return;
-	                    const name = memberDisplayName(member);
-	                    const confirmText = nextRole === 'viewer'
-	                        ? `将 ${name} 改为仅查看？\n对方将不能再新增或编辑养护、时间线、提醒。`
-	                        : `将 ${name} 改为共同照料？\n对方将可以新增和编辑养护、时间线、提醒。`;
-	                    if (!showConfirm(confirmText)) return;
-	                    activeMemberMenuId.value = null;
-	                    try {
-	                        memberRoleUpdatingUserId.value = member.id;
-	                        const res = await apiClient.updatePotMemberRole(potId.value, member.id, nextRole);
-	                        if (res.success) {
-	                            moveMemberLocally(member, nextRole);
-	                            showAlert('权限已更新');
-	                        }
-	                    } catch (e) {
-	                        showAlert('权限更新失败: ' + e.message);
-	                    } finally {
-	                        memberRoleUpdatingUserId.value = null;
-	                    }
-	                };
+                const changeMemberRole = async (member, nextRole) => {
+                    if (!member?.id) return;
+                    if (nextRole === 'collaborator' && isArchived.value) return;
+                    if (member.role === nextRole) return;
+                    const name = memberDisplayName(member);
+                    const confirmText = nextRole === 'viewer'
+                        ? `将 ${name} 改为仅查看？\n对方将不能再新增或编辑养护、时间线、提醒。`
+                        : `将 ${name} 改为共同照料？\n对方将可以新增和编辑养护、时间线、提醒。`;
+                    if (!showConfirm(confirmText)) return;
+                    activeMemberMenuId.value = null;
+                    try {
+                        memberRoleUpdatingUserId.value = member.id;
+                        const res = await apiClient.updatePotMemberRole(potId.value, member.id, nextRole);
+                        if (res.success) {
+                            moveMemberLocally(member, nextRole);
+                            showAlert('权限已更新');
+                        }
+                    } catch (e) {
+                        showAlert('权限更新失败: ' + e.message);
+                    } finally {
+                        memberRoleUpdatingUserId.value = null;
+                    }
+                };
 
-	                const removeMember = async (member, role = member?.role) => {
-	                    if (!member?.id) return;
-	                    const name = memberDisplayName(member);
-	                    if (!showConfirm(`确定移除成员 ${name} 吗？`)) return;
-	                    activeMemberMenuId.value = null;
-	                    try {
-	                        memberRoleUpdatingUserId.value = member.id;
-	                        const res = role === 'collaborator'
-	                            ? await apiClient.removeCollaborator(potId.value, member.id)
-	                            : await apiClient.removeViewer(potId.value, member.id);
-	                        if (res.success) {
-	                            collaborators.value = collaborators.value.filter(item => item.id !== member.id);
-	                            viewers.value = viewers.value.filter(item => item.id !== member.id);
-	                            syncMemberCounts();
-	                        }
-	                    } catch (e) {
-	                        showAlert('移除失败: ' + e.message);
-	                    } finally {
-	                        memberRoleUpdatingUserId.value = null;
-	                    }
-	                };
+                const removeMember = async (member, role = member?.role) => {
+                    if (!member?.id) return;
+                    const name = memberDisplayName(member);
+                    if (!showConfirm(`确定移除成员 ${name} 吗？`)) return;
+                    activeMemberMenuId.value = null;
+                    try {
+                        memberRoleUpdatingUserId.value = member.id;
+                        const res = role === 'collaborator'
+                            ? await apiClient.removeCollaborator(potId.value, member.id)
+                            : await apiClient.removeViewer(potId.value, member.id);
+                        if (res.success) {
+                            collaborators.value = collaborators.value.filter(item => item.id !== member.id);
+                            viewers.value = viewers.value.filter(item => item.id !== member.id);
+                            syncMemberCounts();
+                        }
+                    } catch (e) {
+                        showAlert('移除失败: ' + e.message);
+                    } finally {
+                        memberRoleUpdatingUserId.value = null;
+                    }
+                };
 
-	                const addCollaborator = async () => {
-	                    if (isArchived.value) return;
-	                    memberInviteRole.value = 'collaborator';
-	                    memberInviteEmail.value = newCollaboratorEmail.value;
-	                    await submitMemberEmailInvite();
-	                    newCollaboratorEmail.value = memberInviteEmail.value;
-	                };
+                const addCollaborator = async () => {
+                    if (isArchived.value) return;
+                    memberInviteRole.value = 'collaborator';
+                    memberInviteEmail.value = newCollaboratorEmail.value;
+                    await submitMemberEmailInvite();
+                    newCollaboratorEmail.value = memberInviteEmail.value;
+                };
 
-	                const addViewer = async () => {
-	                    memberInviteRole.value = 'viewer';
-	                    memberInviteEmail.value = newViewerEmail.value;
-	                    await submitMemberEmailInvite();
-	                    newViewerEmail.value = memberInviteEmail.value;
-	                };
+                const addViewer = async () => {
+                    memberInviteRole.value = 'viewer';
+                    memberInviteEmail.value = newViewerEmail.value;
+                    await submitMemberEmailInvite();
+                    newViewerEmail.value = memberInviteEmail.value;
+                };
 
-	                const removeCollaborator = async (collab) => removeMember({ ...collab, role: 'collaborator' }, 'collaborator');
-	                const removeViewer = async (viewer) => removeMember({ ...viewer, role: 'viewer' }, 'viewer');
+                const removeCollaborator = async (collab) => removeMember({ ...collab, role: 'collaborator' }, 'collaborator');
+                const removeViewer = async (viewer) => removeMember({ ...viewer, role: 'viewer' }, 'viewer');
 
                 const selectTransferCollab = (collab) => {
                     selectedTransferUser.value = collab;
@@ -4646,11 +4719,11 @@
                     return '未登录';
                 });
 
-	                // 监听成员弹窗开启加载数据
-	                watch([showMembersModal, showTransferModal], ([membersVisible, transferVisible]) => {
-	                    if (membersVisible) loadMembers();
-	                    if (transferVisible) loadCollaborators();
-	                });
+                // 监听成员弹窗开启加载数据
+                watch([showMembersModal, showTransferModal], ([membersVisible, transferVisible]) => {
+                    if (membersVisible) loadMembers();
+                    if (transferVisible) loadCollaborators();
+                });
 
                 watch(transferEmail, (val) => {
                     if (val) selectedTransferUser.value = null;
@@ -4716,9 +4789,9 @@
                     showAddTimelineModal, showShareModal, showPublicShareModal, showPublicQrCode, isPublicShareLoading, isSavingTimeline, isEditingTimeline, fileInput, archiveFileInput,
                     previewImages, previewIndex, galleryDragOffset, galleryIsDragging,
                     newTimeline, sortedTimelineRecords, isTimelineDesc,
-	                    goBack, goEditPage, goAddCarePage, goCreatePot, confirmDeletePot, openArchiveModal, closeArchiveModal,
-		                    archiveCurrentPot, restoreArchivedPot, showArchiveModal, isArchiveLoading, archiveForm, archiveReasons,
-                            archiveImageCount, triggerArchiveFileInput, onArchiveFilesSelected, removeArchiveImage,
+                    goBack, goEditPage, goAddCarePage, goCreatePot, confirmDeletePot, openArchiveModal, closeArchiveModal,
+                    archiveCurrentPot, restoreArchivedPot, showArchiveModal, isArchiveLoading, archiveForm, archiveReasons,
+                    archiveImageCount, triggerArchiveFileInput, onArchiveFilesSelected, removeArchiveImage,
                     openGallery, closeGallery, prevImg, nextImg, toggleTimelineSort,
                     handleGalleryTouchStart, handleGalleryTouchMove, handleGalleryTouchEnd,
                     openAddTimelineModal, openEditTimelineModal, closeTimelineModal, timelineImageCount,
@@ -4727,28 +4800,28 @@
                     imgUrl, groupedCareRecords, activeCareDate, currentSheetGroup,
                     showCareDetails, closeCareDetails, goAddCarePageWithDate,
                     plantInfoActiveTab, showFullPlantInfo, showFullCareTips, plantInfoGroups, careTipsGroups,
-	                    statsWaterCount, statsFertilizeCount, statsCareCount, growthDurationDays, growthDurationText,
-	                    careSchedules, carePanelActiveTab, showCarePanelAddButton, carePanelAddLabel, handleCarePanelAdd,
-                        showScheduleExpanded, showAddScheduleModal, newSchedule,
+                    statsWaterCount, statsFertilizeCount, statsCareCount, growthDurationDays, growthDurationText,
+                    careSchedules, carePanelActiveTab, showCarePanelAddButton, carePanelAddLabel, handleCarePanelAdd,
+                    showScheduleExpanded, showAddScheduleModal, newSchedule,
                     scheduleTypeOptions,
                     loadCareSchedules, saveNewSchedule, toggleScheduleEnabled, deleteSchedule, updateScheduleInterval,
                     getScheduleTypeStyle, getScheduleTypeName, scrollToSection, sectionTabs, activeSection,
                     editRecord, deleteRecord, viewAllRecords, viewAllTimelines, confirmingDeleteId,
-	                    cancelTransfer, rejectTransfer, acceptTransfer,
-	                    // 分享与协作
-	                    showShareModal, showMembersModal, showMemberInviteModal, showTransferModal,
-	                    openPublicShareModal, closePublicShareModal, returnToShareModal, togglePublicQrCode, enablePublicShare, disablePublicShare,
-	                    downloadQRCode, copyShareLink, sharePublicLink, copyCollaboratorInvite, copyViewerInvite,
-	                    openMembersModal, closeMembersModal, returnToShareFromMembers, openMemberInvite, closeMemberInviteModal, returnToMembersFromInvite,
-	                    collaborators, viewers, memberTotalCount, memberInviteRole, memberInviteEmail, isMemberInviteEmailValid, isMemberInviteLoading,
-	                    keyboardModalStyle, authKeyboardModalStyle, isAuthKeyboardActive, authKeyboardMode,
-	                    handleKeyboardFieldFocus, handleAuthKeyboardFieldFocus, handleAuthCompositionStart,
-	                    handleAuthCompositionEnd, handleAuthFocusOut, submitAuthFormFromEnter,
-	                    memberInviteDescription, memberInviteEmailButtonLabel, memberInviteLinkButtonLabel, memberInviteLinkDescription, memberInviteLinkExpiryText, setMemberInviteRole,
-	                    submitMemberEmailInvite, shareMemberInviteLink, activeMemberMenuId, memberRoleUpdatingUserId,
-	                    memberDisplayName, memberInitial, handleMemberAvatarError, getMemberMenuKey, toggleMemberMenu, changeMemberRole, removeMember,
-	                    removeCollaborator, addViewer, removeViewer, newViewerEmail,
-	                    showCommentModal, canReplyComment, canLeaveComment, showCommentEntry, canViewCommentDanmaku, canManageCommentDanmaku, shouldHideFloatingChrome, shouldShowCommentDanmaku, toggleCommentDanmaku,
+                    cancelTransfer, rejectTransfer, acceptTransfer,
+                    // 分享与协作
+                    showShareModal, showMembersModal, showMemberInviteModal, showTransferModal,
+                    openPublicShareModal, closePublicShareModal, returnToShareModal, togglePublicQrCode, enablePublicShare, disablePublicShare,
+                    downloadQRCode, copyShareLink, sharePublicLink, copyCollaboratorInvite, copyViewerInvite,
+                    openMembersModal, closeMembersModal, returnToShareFromMembers, openMemberInvite, closeMemberInviteModal, returnToMembersFromInvite,
+                    collaborators, viewers, memberTotalCount, memberInviteRole, memberInviteEmail, isMemberInviteEmailValid, isMemberInviteLoading,
+                    keyboardModalStyle, authKeyboardModalStyle, isAuthKeyboardActive, authKeyboardMode,
+                    handleKeyboardFieldFocus, handleAuthKeyboardFieldFocus, handleAuthCompositionStart,
+                    handleAuthCompositionEnd, handleAuthFocusOut, submitAuthFormFromEnter,
+                    memberInviteDescription, memberInviteEmailButtonLabel, memberInviteLinkButtonLabel, memberInviteLinkDescription, memberInviteLinkExpiryText, setMemberInviteRole,
+                    submitMemberEmailInvite, shareMemberInviteLink, activeMemberMenuId, memberRoleUpdatingUserId,
+                    memberDisplayName, memberInitial, handleMemberAvatarError, getMemberMenuKey, toggleMemberMenu, changeMemberRole, removeMember,
+                    removeCollaborator, addViewer, removeViewer, newViewerEmail,
+                    showCommentModal, canReplyComment, canLeaveComment, showCommentEntry, canViewCommentDanmaku, canManageCommentDanmaku, shouldHideFloatingChrome, shouldShowCommentDanmaku, toggleCommentDanmaku,
                     commentForm, submitComment, isSubmittingComment, openCommentModal, closeCommentModal, beginReply, cancelReply, toggleCommentSort, canDeleteComment, deleteComment,
                     potComments, recentPotComments, replyTargetComment, showCommentDanmaku, barrageComments, commentSortOrder,
                     commentModalStyle, handleCommentInputFocus,
@@ -4758,9 +4831,9 @@
                     // Auth
                     showUserMenu, showLoginModal, showRegisterModal, showForgotPasswordModal,
                     isAuthLoading, loginForm, registerForm, loginErrors, registerErrors, forgotPasswordErrors, loginStatus, registerStatus, forgotPasswordStatus, passwordsMatch,
-	                    isForgotPasswordEmailValid, isLoginValid, isRegisterValid,
-	                    isTurnstileEnabled, isRegisterTurnstileReady, isForgotPasswordTurnstileReady,
-	                    isCollaboratorInviteEmailValid, isViewerInviteEmailValid, isTransferEmailValid,
+                    isForgotPasswordEmailValid, isLoginValid, isRegisterValid,
+                    isTurnstileEnabled, isRegisterTurnstileReady, isForgotPasswordTurnstileReady,
+                    isCollaboratorInviteEmailValid, isViewerInviteEmailValid, isTransferEmailValid,
                     syncLoginFormFromDom, syncRegisterFormFromDom, scheduleLoginAutofillSync,
                     validateLoginEmail, validateLoginPassword, validateForgotPasswordEmail,
                     validateRegisterEmail, validateRegisterPassword, validateRegisterConfirmPassword,

@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+    <title>缓存管理 - 后台管理 - My Flower Pots</title>
+    <meta name="theme-color" content="#ffffff">
+    <link rel="stylesheet" href="css/tailwind-built.css">
+    <script src="js/vue.global.prod.js"></script>
+    <link rel="stylesheet" href="css/icons.css">
+    <style>
+        * {
+            touch-action: manipulation;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+            background-color: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+        }
+
+        [v-cloak] {
+            display: none;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+
+<body class="p-3 sm:p-4 md:p-8 admin-page">
+    <div id="app" v-cloak>
+        <!-- Security Loading Overlay -->
+        <div v-if="isCheckingAccess" class="loading-overlay">
+            <div class="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mb-4">
+            </div>
+            <p class="text-slate-500 font-medium">安全校验中...</p>
+        </div>
+
+        <div v-else class="max-w-7xl mx-auto overflow-hidden">
+            <!-- Header -->
+            <header class="flex flex-col md:flex-row md:flex-wrap md:items-center justify-between gap-4 mb-8">
+                <div class="cursor-pointer group" onclick="window.location.href='/'">
+                    <h1
+                        class="text-2xl sm:text-3xl font-bold text-slate-800 flex items-center gap-3 transition-colors">
+                        <i class="fa fa-shield-alt text-emerald-500"></i>
+                        后台管理中心
+                    </h1>
+                    <p class="text-slate-500 mt-1 flex items-center gap-1">
+                        <i class="fa fa-arrow-left text-xs opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                        返回主页
+                    </p>
+                </div>
+                <!-- 顶部导航切换 -->
+                <div class="w-full md:w-auto">
+                    <div class="grid grid-cols-5 md:inline-flex w-full md:w-auto bg-slate-100 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl">
+                        <a href="admin-plants"
+                            class="px-1 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium text-slate-500 hover:text-emerald-600 transition-all whitespace-nowrap flex items-center justify-center min-w-0">
+                            植物百科
+                        </a>
+                        <a href="admin-users"
+                            class="px-1 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium text-slate-500 hover:text-emerald-600 transition-all whitespace-nowrap flex items-center justify-center min-w-0">
+                            用户管理
+                        </a>
+                        <a href="admin-cache"
+                            class="bg-white shadow-sm text-emerald-600 px-1 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex items-center justify-center min-w-0">
+                            缓存
+                        </a>
+                        <a href="admin-stats"
+                            class="px-1 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium text-slate-500 hover:text-emerald-600 transition-all flex items-center justify-center whitespace-nowrap min-w-0">
+                            统计
+                        </a>
+                        <a href="admin-inbox"
+                            class="px-1 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium text-slate-500 hover:text-emerald-600 transition-all flex items-center justify-center gap-1 whitespace-nowrap min-w-0">
+                            收件箱
+                            <span v-if="supportUnreadCount > 0"
+                                class="bg-red-500 text-white text-[9px] sm:text-[10px] rounded-full flex items-center justify-center shadow-sm shrink-0 font-black min-w-4 h-4 sm:min-w-5 sm:h-5 px-1">
+                                {{ supportUnreadCount > 99 ? '99+' : supportUnreadCount }}
+                            </span>
+                        </a>
+                    </div>
+                </div>
+            </header>
+
+            <!-- 缓存管理视图 -->
+            <div class="space-y-8">
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="glass border border-white rounded-3xl p-6 shadow-sm">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center">
+                                <i class="fa fa-memory text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-slate-500 text-sm">内存占用</h3>
+                                <p class="text-2xl font-bold text-slate-800">{{ cacheStats.size }} <span class="text-xs font-normal">条条目</span></p>
+                            </div>
+                        </div>
+                        <button @click="fetchCacheStats" :disabled="cacheLoading"
+                            class="w-full py-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-all text-sm font-medium">
+                            <i class="fa fa-sync-alt mr-2" :class="{'animate-spin': cacheLoading}"></i> 刷新统计
+                        </button>
+                    </div>
+
+                    <div class="glass border border-white rounded-3xl p-6 shadow-sm">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center">
+                                <i class="fa fa-tags text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-slate-500 text-sm">缓存类型</h3>
+                                <p class="text-2xl font-bold text-slate-800">{{ cachePrefixEntries.length }} <span class="text-xs font-normal">种前缀</span></p>
+                            </div>
+                        </div>
+                        <p class="text-xs text-slate-400">目前主要用于植物匹配索引</p>
+                    </div>
+                </div>
+
+                <!-- Clear Controls -->
+                <div class="glass border border-white rounded-3xl p-6 shadow-sm">
+                    <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                        <i class="fa fa-eraser text-amber-500"></i> 清理缓存
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="space-y-4">
+                            <label class="block text-sm font-medium text-slate-600">选择清理范围</label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <label
+                                    class="flex items-center gap-3 p-4 rounded-2xl border-2 cursor-pointer transition-all"
+                                    :class="cacheClearScope === 'plants' ? 'border-emerald-500 bg-emerald-50/50' : 'border-slate-100 hover:bg-slate-50'">
+                                    <input type="radio" v-model="cacheClearScope" value="plants" class="hidden">
+                                    <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                                        :class="cacheClearScope === 'plants' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'">
+                                        <i class="fa fa-leaf"></i>
+                                    </div>
+                                    <div>
+                                        <div class="font-bold text-sm">植物库索引</div>
+                                        <div class="text-[10px] opacity-70">清理植物名称和别名匹配缓存</div>
+                                    </div>
+                                </label>
+                                <label
+                                    class="flex items-center gap-3 p-4 rounded-2xl border-2 cursor-pointer transition-all"
+                                    :class="cacheClearScope === 'all' ? 'border-red-500 bg-red-50/50' : 'border-slate-100 hover:bg-slate-50'">
+                                    <input type="radio" v-model="cacheClearScope" value="all" class="hidden">
+                                    <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                                        :class="cacheClearScope === 'all' ? 'bg-red-500 text-white' : 'bg-slate-100 text-slate-400'">
+                                        <i class="fa fa-fire"></i>
+                                    </div>
+                                    <div>
+                                        <div class="font-bold text-sm">清理全部</div>
+                                        <div class="text-[10px] opacity-70">重置所有内存缓存条目</div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col justify-end">
+                            <button @click="clearAdminCache" :disabled="cacheClearing"
+                                class="w-full py-4 bg-slate-800 text-white rounded-2xl font-bold hover:bg-slate-700 transition-all flex items-center justify-center gap-3">
+                                <i class="fa fa-broom" :class="{'animate-bounce': cacheClearing}"></i>
+                                {{ cacheClearing ? '正在清理...' : '执行清理' }}
+                            </button>
+                            <p v-if="cacheLastResult" class="mt-4 text-center text-sm text-emerald-600 font-medium">
+                                <i class="fa fa-check-circle mr-1"></i> 上次清理: {{ cacheLastResult.cleared }} 条 ({{ cacheLastResult.scopeLabel }})
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prefix Details Table -->
+                <div class="glass border border-white rounded-3xl overflow-hidden shadow-sm">
+                    <div class="px-6 py-4 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
+                        <h3 class="font-bold text-slate-800">各前缀占用详情</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+                                <tr>
+                                    <th class="px-6 py-3 font-semibold">缓存前缀</th>
+                                    <th class="px-6 py-3 font-semibold text-right">条目数量</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <tr v-for="[prefix, count] in cachePrefixEntries" :key="prefix" class="hover:bg-slate-50 transition-colors">
+                                    <td class="px-6 py-4">
+                                        <code class="px-2 py-1 bg-slate-100 rounded text-indigo-600 text-sm">{{ prefix }}</code>
+                                    </td>
+                                    <td class="px-6 py-4 text-right font-mono font-bold text-slate-700">
+                                        {{ count }}
+                                    </td>
+                                </tr>
+                                <tr v-if="cachePrefixEntries.length === 0">
+                                    <td colspan="2" class="px-6 py-10 text-center text-slate-400 italic">暂无活跃缓存</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast -->
+        <div v-if="toast.show"
+            class="fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 bg-slate-800 text-white rounded-2xl shadow-xl flex items-center gap-3 transition-all animate-bounce">
+            <i :class="toast.icon"></i>
+            {{ toast.message }}
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/api-client.js?v=20260426-adminpass"></script>
+    <script src="js/dialog-utils.js?v=20260421-refactor"></script>
+    <script src="js/ui-utils.js?v=20260421-refactor"></script>
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const nav = window.MyFlowerPotsNavigation;
+                const showConfirm = window.MyFlowerPotsDialog.confirm;
+                
+                const isCheckingAccess = ref(true);
+                const supportUnreadCount = ref(0);
+                const toast = ref({ show: false, message: '', icon: '' });
+
+                // 缓存管理相关
+                const cacheStats = ref({ size: 0, prefixes: {} });
+                const cacheLoading = ref(false);
+                const cacheClearing = ref(false);
+                const cacheClearScope = ref('plants');
+                const cachePrefix = ref('');
+                const cacheLastResult = ref(null);
+
+                const cachePrefixEntries = computed(() => {
+                    const prefixes = cacheStats.value?.prefixes || {};
+                    return Object.entries(prefixes).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+                });
+
+                const showToast = MyFlowerPotsUi.createToast(toast, {
+                    duration: 3000,
+                    defaultType: 'info'
+                });
+
+                const fetchSupportUnreadCount = async () => {
+                    try {
+                        const res = await apiClient.getSupportUnreadCount();
+                        if (res.success) {
+                            supportUnreadCount.value = Number(res.count) || 0;
+                        }
+                    } catch (err) {
+                        supportUnreadCount.value = 0;
+                    }
+                };
+
+                const normalizeCacheStats = (stats) => ({
+                    size: Number(stats?.size) || 0,
+                    prefixes: stats?.prefixes || {}
+                });
+
+                const fetchCacheStats = async () => {
+                    cacheLoading.value = true;
+                    try {
+                        const res = await apiClient.adminGetCacheStats();
+                        if (res.success) {
+                            cacheStats.value = normalizeCacheStats(res.data);
+                        }
+                    } catch (err) {
+                        showToast(err.message, 'fa fa-exclamation-circle');
+                    } finally {
+                        cacheLoading.value = false;
+                    }
+                };
+
+                const getCacheScopeLabel = (scope = cacheClearScope.value) => {
+                    if (scope === 'all') return '全部内存缓存';
+                    if (scope === 'plants') return '植物匹配缓存';
+                    return scope;
+                };
+
+                const clearAdminCache = async () => {
+                    const scope = cacheClearScope.value;
+                    const scopeLabel = getCacheScopeLabel(scope);
+                    if (!showConfirm(`确定要清理 ${scopeLabel} 吗？`)) return;
+
+                    cacheClearing.value = true;
+                    try {
+                        const res = await apiClient.adminClearCache({ scope });
+                        if (res.success) {
+                            cacheStats.value = normalizeCacheStats(res.data);
+                            cacheLastResult.value = {
+                                cleared: Number(res.cleared) || 0,
+                                scopeLabel
+                            };
+                            showToast(`已清理 ${cacheLastResult.value.cleared} 条缓存`, 'fa fa-check-circle');
+                        }
+                    } catch (err) {
+                        showToast(err.message, 'fa fa-exclamation-circle');
+                    } finally {
+                        cacheClearing.value = false;
+                    }
+                };
+
+                const checkAccess = async () => {
+                    try {
+                        const res = await apiClient.adminCheck();
+                        if (res.success) {
+                            isCheckingAccess.value = false;
+                            fetchCacheStats();
+                            fetchSupportUnreadCount();
+                        }
+                    } catch (err) {
+                        nav.redirectForApiError(err, { from: 'admin-cache', source: 'admin' }, { replace: true });
+                    }
+                };
+
+                onMounted(checkAccess);
+
+                return {
+                    isCheckingAccess, supportUnreadCount, toast,
+                    cacheStats, cachePrefixEntries, cacheLoading, cacheClearing, cacheClearScope, cachePrefix, cacheLastResult,
+                    fetchCacheStats, clearAdminCache
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>

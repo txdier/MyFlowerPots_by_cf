@@ -1,35 +1,29 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-    <title>Support收件箱 - My Flower Pots</title>
+    <title>Support收件箱 - 后台管理 - My Flower Pots</title>
     <meta name="theme-color" content="#ffffff">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="description" content="管理员Support收件箱，接收并回复用户Support请求。">
     <link rel="stylesheet" href="css/tailwind-built.css">
-    <script src="js/tailwindcss.js"></script>
     <script src="js/vue.global.prod.js"></script>
     <link rel="stylesheet" href="css/icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
             touch-action: manipulation;
+            box-sizing: border-box;
         }
 
         body {
-            font-family: 'Outfit', 'PingFang SC', sans-serif;
-            background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 50%, #f0f9ff 100%);
-            min-height: 100vh;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+            background-color: #f8fafc;
+            overflow-x: hidden;
         }
 
         .glass {
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
         }
 
         [v-cloak] {
@@ -47,191 +41,6 @@
             z-index: 1000;
         }
 
-        /* 邮件列表项 */
-        .email-item {
-            transition: all 0.2s ease;
-            cursor: pointer;
-            border-left: 3px solid transparent;
-        }
-
-        .email-item:hover {
-            background: rgba(16, 185, 129, 0.04);
-            border-left-color: #10b981;
-            transform: translateX(2px);
-        }
-
-        .email-item.active {
-            background: rgba(16, 185, 129, 0.08);
-            border-left-color: #10b981;
-        }
-
-        .email-item.unread .email-subject {
-            font-weight: 700;
-        }
-
-        /* 未读徽章 */
-        .unread-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #10b981;
-            flex-shrink: 0;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.5;
-            }
-        }
-
-        /* 状态徽章 */
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 2px 10px;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-
-        .badge-unread {
-            background: #dcfce7;
-            color: #16a34a;
-        }
-
-        .badge-read {
-            background: #f1f5f9;
-            color: #94a3b8;
-        }
-
-        .badge-replied {
-            background: #dbeafe;
-            color: #2563eb;
-        }
-
-        /* 详情区滚动 */
-        .email-detail-body {
-            max-height: calc(100vh - 420px);
-            overflow-y: auto;
-        }
-
-        /* 回复区 */
-        .reply-textarea {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
-            font-family: 'Outfit', sans-serif;
-            font-size: 0.9rem;
-            line-height: 1.6;
-            resize: vertical;
-            min-height: 120px;
-            transition: border-color 0.2s, box-shadow 0.2s;
-            background: #fff;
-            color: #334155;
-            outline: none;
-        }
-
-        .reply-textarea:focus {
-            border-color: #10b981;
-            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
-        }
-
-        /* 空状态 */
-        .empty-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 64px 24px;
-            color: #94a3b8;
-            text-align: center;
-        }
-
-        /* 邮件正文 */
-        .email-body-text {
-            white-space: pre-wrap;
-            word-break: break-word;
-            font-size: 0.9rem;
-            line-height: 1.7;
-            color: #475569;
-        }
-
-        /* 回复历史 */
-        .reply-bubble {
-            background: linear-gradient(135deg, #ecfdf5, #f0fdf4);
-            border: 1px solid #bbf7d0;
-            border-radius: 12px;
-            padding: 14px 18px;
-        }
-
-        /* 分页按钮 */
-        .page-btn {
-            padding: 6px 14px;
-            border-radius: 8px;
-            border: 1px solid #e2e8f0;
-            font-size: 0.85rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            background: white;
-            color: #64748b;
-        }
-
-        .page-btn:hover:not(:disabled) {
-            border-color: #10b981;
-            color: #10b981;
-        }
-
-        .page-btn:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-
-        /* Toast */
-        .toast-enter {
-            animation: toastIn 0.3s ease;
-        }
-
-        @keyframes toastIn {
-            from {
-                opacity: 0;
-                transform: translateX(-50%) translateY(20px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateX(-50%) translateY(0);
-            }
-        }
-
-        /* 确认遮罩 */
-        .confirm-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.35);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 500;
-            backdrop-filter: blur(4px);
-        }
-
-        /* 分割线 */
-        .divider {
-            height: 1px;
-            background: #f1f5f9;
-            margin: 0 -16px;
-        }
-
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
@@ -241,13 +50,126 @@
             scrollbar-width: none;
         }
 
+        .email-item {
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9;
+            transition: all 0.2s;
+        }
+
+        .email-item:hover {
+            background: #f8fafc;
+        }
+
+        .email-item.active {
+            background: #f0fdf4;
+            border-left: 3px solid #22c55e;
+        }
+
+        .email-item.unread {
+            background: white;
+        }
+
+        .unread-dot {
+            width: 8px;
+            height: 8px;
+            background: #22c55e;
+            border-radius: 50%;
+        }
+
+        .badge {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+
+        .badge-unread {
+            background: #fef2f2;
+            color: #ef4444;
+        }
+
+        .badge-read {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        .badge-replied {
+            background: #f0fdf4;
+            color: #22c55e;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 4rem 2rem;
+            text-align: center;
+        }
+
+        .reply-bubble {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 1rem;
+            border: 1px solid #e2e8f0;
+        }
+
+        .email-body-text {
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .page-btn {
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            color: #64748b;
+        }
+
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .confirm-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .reply-textarea {
+            width: 100%;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1rem;
+            outline: none;
+            transition: all 0.2s;
+            resize: none;
+        }
+
+        .reply-textarea:focus {
+            border-color: #22c55e;
+            box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.1);
+        }
+
         @media (max-width: 640px) {
-            .admin-page {
-                padding: 0.75rem;
+            .email-detail-body {
+                padding: 1rem !important;
             }
 
-            .email-detail-body {
-                max-height: none;
+            .reply-textarea {
+                font-size: 16px;
+                min-height: 104px;
+                max-height: 34vh;
             }
         }
     </style>
@@ -255,99 +177,100 @@
 
 <body class="p-3 sm:p-4 md:p-8 admin-page">
     <div id="app" v-cloak>
-        <!-- Loading Overlay -->
+        <!-- Security Loading Overlay -->
         <div v-if="isCheckingAccess" class="loading-overlay">
             <div class="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mb-4">
             </div>
             <p class="text-slate-500 font-medium">安全校验中...</p>
         </div>
 
-        <div v-else class="max-w-7xl mx-auto">
+        <div v-else class="max-w-7xl mx-auto overflow-hidden">
             <!-- Header -->
-            <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                <div class="cursor-pointer group" onclick="window.location.href='admin-plants'">
+            <header class="flex flex-col md:flex-row md:flex-wrap md:items-center justify-between gap-4 mb-8">
+                <div class="cursor-pointer group" onclick="window.location.href='/'">
                     <h1
                         class="text-2xl sm:text-3xl font-bold text-slate-800 flex items-center gap-3 transition-colors">
-                        <span
-                            class="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200">
-                            <i class="fa fa-envelope text-white text-base"></i>
-                        </span>
-                        Support收件箱
-                        <span v-if="meta.unread > 0"
-                            class="ml-1 px-2.5 py-0.5 bg-emerald-500 text-white text-sm rounded-full font-semibold shadow-lg shadow-emerald-200">
-                            {{ meta.unread }}
-                        </span>
+                        <i class="fa fa-shield-alt text-emerald-500"></i>
+                        后台管理中心
                     </h1>
-                    <p class="text-slate-500 mt-1 flex items-center gap-1 text-sm">
+                    <p class="text-slate-500 mt-1 flex items-center gap-1">
                         <i class="fa fa-arrow-left text-xs opacity-0 group-hover:opacity-100 transition-opacity"></i>
-                        返回管理中心
+                        返回主页
                     </p>
                 </div>
-                <div class="flex flex-col sm:flex-row sm:items-center gap-3 w-full md:w-auto">
-                    <span class="text-sm text-slate-400">
-                        共 <strong class="text-slate-600">{{ meta.total || 0 }}</strong> 封邮件
-                    </span>
-                    <button @click="loadEmails(currentPage)" :disabled="loading"
-                        class="w-full sm:w-auto justify-center flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:border-emerald-300 hover:text-emerald-600 transition-all shadow-sm text-sm font-medium">
-                        <i class="fa fa-spinner" :class="{ 'fa-spin': loading }"></i>
-                        刷新
-                    </button>
+                <!-- 顶部导航切换 -->
+                <div class="w-full md:w-auto">
+                    <div class="grid grid-cols-5 md:inline-flex w-full md:w-auto bg-slate-100 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl">
+                        <a href="admin-plants"
+                            class="px-1 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium text-slate-500 hover:text-emerald-600 transition-all whitespace-nowrap flex items-center justify-center min-w-0">
+                            植物百科
+                        </a>
+                        <a href="admin-users"
+                            class="px-1 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium text-slate-500 hover:text-emerald-600 transition-all whitespace-nowrap flex items-center justify-center min-w-0">
+                            用户管理
+                        </a>
+                        <a href="admin-cache"
+                            class="px-1 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium text-slate-500 hover:text-emerald-600 transition-all whitespace-nowrap flex items-center justify-center min-w-0">
+                            缓存
+                        </a>
+                        <a href="admin-stats"
+                            class="px-1 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium text-slate-500 hover:text-emerald-600 transition-all flex items-center justify-center whitespace-nowrap min-w-0">
+                            统计
+                        </a>
+                        <a href="admin-inbox"
+                            class="bg-white shadow-sm text-emerald-600 px-1 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all flex items-center justify-center gap-1 whitespace-nowrap min-w-0">
+                            收件箱
+                            <span v-if="meta.unread > 0"
+                                class="bg-red-500 text-white text-[9px] sm:text-[10px] rounded-full flex items-center justify-center shadow-sm shrink-0 font-black min-w-4 h-4 sm:min-w-5 sm:h-5 px-1">
+                                {{ meta.unread > 99 ? '99+' : meta.unread }}
+                            </span>
+                        </a>
+                    </div>
                 </div>
             </header>
 
             <!-- Main Layout: List + Detail -->
-            <div class="flex flex-col lg:flex-row gap-5" style="min-height: calc(100vh - 200px)">
+            <div class="flex flex-col lg:flex-row gap-4 lg:gap-5" :style="{ minHeight: isCompactLayout ? 'auto' : 'calc(100vh - 220px)' }">
                 <!-- Email List -->
                 <div v-show="!isCompactLayout || !selectedEmail"
                     class="glass rounded-2xl shadow-sm overflow-hidden flex flex-col transition-all duration-300 w-full"
-                    :class="selectedEmail ? 'lg:w-[240px] lg:min-w-[220px] lg:shrink-0' : 'lg:w-[380px] lg:min-w-[320px] lg:shrink-0'">
+                    :class="selectedEmail ? 'lg:w-[280px] lg:shrink-0' : 'lg:w-[400px] lg:shrink-0'">
                     <!-- List Header -->
                     <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                         <span class="text-sm font-semibold text-slate-600">
-                            <i class="fa fa-envelope mr-1.5 text-emerald-500"></i>
-                            收件箱
+                            邮件列表
                         </span>
-                        <span v-if="meta.unread > 0" class="badge badge-unread">
-                            {{ meta.unread }} 未读
-                        </span>
-                    </div>
-
-                    <!-- Loading skeleton -->
-                    <div v-if="loading && emails.length === 0" class="p-3 space-y-2">
-                        <div v-for="i in 5" :key="i" class="animate-pulse bg-slate-100 rounded-xl h-20"></div>
-                    </div>
-
-                    <!-- Empty state -->
-                    <div v-else-if="emails.length === 0" class="empty-state">
-                        <i class="fa fa-envelope text-5xl mb-4 opacity-20"></i>
-                        <p class="font-medium text-slate-400">收件箱为空</p>
-                        <p class="text-xs mt-1 text-slate-300">向 support@kaside365.com 发送邮件后将显示在这里</p>
+                        <button @click="loadEmails(currentPage)" class="text-slate-400 hover:text-emerald-500 transition-all">
+                            <i class="fa fa-sync-alt" :class="{ 'fa-spin': loading }"></i>
+                        </button>
                     </div>
 
                     <!-- Email items -->
-                    <div v-else class="overflow-y-auto flex-1">
+                    <div class="overflow-y-auto flex-1 no-scrollbar">
+                        <div v-if="loading && emails.length === 0" class="p-3 space-y-2">
+                            <div v-for="i in 5" :key="i" class="animate-pulse bg-slate-50 rounded-xl h-20"></div>
+                        </div>
+                        <div v-else-if="emails.length === 0" class="empty-state">
+                            <i class="fa fa-envelope text-4xl mb-4 opacity-10"></i>
+                            <p class="text-sm text-slate-400">收件箱为空</p>
+                        </div>
                         <div v-for="email in emails" :key="email.id" class="email-item px-4 py-3.5"
                             :class="{ 'active': selectedEmail?.id === email.id, 'unread': !email.read }"
                             @click="openEmail(email)">
-                            <div class="flex items-start gap-2.5">
-                                <div class="mt-1">
-                                    <div v-if="!email.read" class="unread-dot"></div>
-                                    <div v-else class="w-2 h-2"></div>
-                                </div>
+                            <div class="flex items-start gap-3">
+                                <div v-if="!email.read" class="unread-dot mt-1.5 shrink-0"></div>
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center justify-between gap-2 mb-1">
-                                        <span class="text-sm text-slate-700 truncate font-medium email-from">
+                                        <span class="text-sm font-bold text-slate-700 truncate">
                                             {{ formatFrom(email.from_addr) }}
                                         </span>
-                                        <span class="text-xs text-slate-400 flex-shrink-0">{{
-                                            formatDate(email.received_at) }}</span>
+                                        <span class="text-[10px] text-slate-400 shrink-0">{{ formatDate(email.received_at) }}</span>
                                     </div>
-                                    <p class="text-sm text-slate-600 truncate email-subject">{{ email.subject }}</p>
-                                    <div class="flex items-center gap-1.5 mt-1.5">
-                                        <span v-if="email.replied" class="badge badge-replied">
-                                            <i class="fa fa-arrow-left text-xs"></i> 已回复
+                                    <p class="text-xs text-slate-500 truncate">{{ email.subject }}</p>
+                                    <div v-if="email.replied" class="mt-2">
+                                        <span class="badge badge-replied">
+                                            <i class="fa fa-reply mr-1"></i> 已回复
                                         </span>
-                                        <span v-else-if="!email.read" class="badge badge-unread">未读</span>
                                     </div>
                                 </div>
                             </div>
@@ -355,161 +278,103 @@
                     </div>
 
                     <!-- Pagination -->
-                    <div v-if="totalPages > 1"
-                        class="border-t border-slate-100 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+                    <div v-if="totalPages > 1" class="border-t border-slate-100 px-4 py-3 flex items-center justify-between gap-2">
                         <button class="page-btn" :disabled="currentPage <= 1" @click="loadEmails(currentPage - 1)">
-                            <i class="fa fa-chevron-left mr-1"></i> 上一页
+                            <i class="fa fa-chevron-left"></i>
                         </button>
-                        <span class="text-xs text-slate-400">{{ currentPage }} / {{ totalPages }}</span>
-                        <button class="page-btn" :disabled="currentPage >= totalPages"
-                            @click="loadEmails(currentPage + 1)">
-                            下一页 <i class="fa fa-chevron-right ml-1"></i>
+                        <span class="text-[10px] text-slate-400">{{ currentPage }} / {{ totalPages }}</span>
+                        <button class="page-btn" :disabled="currentPage >= totalPages" @click="loadEmails(currentPage + 1)">
+                            <i class="fa fa-chevron-right"></i>
                         </button>
                     </div>
                 </div>
 
                 <!-- Email Detail Pane -->
                 <div v-show="!isCompactLayout || selectedEmail" class="glass rounded-2xl shadow-sm flex-1 overflow-hidden flex flex-col min-w-0">
-                    <!-- No-selection placeholder -->
                     <div v-if="!selectedEmail" class="empty-state flex-1">
-                        <div
-                            class="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center mb-4">
-                            <i class="fa fa-envelope-open text-3xl text-emerald-400"></i>
+                        <div class="w-20 h-20 rounded-2xl bg-slate-50 flex items-center justify-center mb-4">
+                            <i class="fa fa-envelope-open text-3xl text-slate-200"></i>
                         </div>
-                        <p class="font-semibold text-slate-400">选择一封邮件查看详情</p>
-                        <p class="text-xs mt-1 text-slate-300">点击左侧列表中的邮件</p>
+                        <p class="text-slate-400 font-medium">请选择一封邮件查看</p>
                     </div>
 
-                    <!-- Email Detail -->
                     <div v-else class="flex flex-col h-full">
-                        <!-- Subject & Meta -->
-                        <div class="px-4 sm:px-6 py-5 border-b border-slate-100">
-                            <div class="flex items-start justify-between gap-4 mb-3">
+                        <!-- Detail Header -->
+                        <div class="px-6 py-5 border-b border-slate-100 bg-white/50">
+                            <div class="flex items-start justify-between gap-4 mb-4">
                                 <div class="min-w-0 flex-1">
                                     <button v-if="isCompactLayout" @click="closeEmailDetail"
-                                        class="mb-3 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition-all">
-                                        <i class="fa fa-arrow-left"></i>
-                                        返回邮件列表
+                                        class="mb-3 text-sm font-bold text-emerald-600 flex items-center gap-1">
+                                        <i class="fa fa-arrow-left"></i> 返回列表
                                     </button>
-                                    <h2 class="text-lg sm:text-xl font-bold text-slate-800 leading-tight break-words">{{ selectedEmail.subject }}
-                                </h2>
+                                    <h2 class="text-lg sm:text-xl font-bold text-slate-800 leading-tight">{{ selectedEmail.subject }}</h2>
                                 </div>
                                 <button @click="confirmDelete(selectedEmail)"
-                                    class="flex-shrink-0 w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                                    title="删除邮件">
+                                    class="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
                                     <i class="fa fa-trash"></i>
                                 </button>
                             </div>
-                            <div class="flex flex-wrap items-center gap-3 text-sm min-w-0">
-                                <div class="flex items-center gap-1.5 text-slate-500">
-                                    <i class="fa fa-user-circle text-emerald-400"></i>
-                                    <span class="font-medium break-all">{{ selectedEmail.from_addr }}</span>
+                            <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-slate-700">{{ selectedEmail.from_addr }}</span>
                                 </div>
-                                <div class="text-slate-300">→</div>
-                                <div class="flex items-center gap-1.5 text-slate-400">
-                                    <i class="fa fa-envelope"></i>
-                                    <span class="break-all">{{ selectedEmail.to_addr }}</span>
-                                </div>
-                                <div class="w-full sm:w-auto sm:ml-auto flex flex-wrap items-center gap-2">
-                                    <span class="badge"
-                                        :class="selectedEmail.replied ? 'badge-replied' : (selectedEmail.read ? 'badge-read' : 'badge-unread')">
-                                        <i
-                                            :class="selectedEmail.replied ? 'fa fa-arrow-left' : (selectedEmail.read ? 'fa fa-envelope-open' : 'fa fa-bell')"></i>
-                                        {{ selectedEmail.replied ? '已回复' : (selectedEmail.read ? '已读' : '未读') }}
-                                    </span>
-                                    <span class="text-xs text-slate-400">{{ formatDateFull(selectedEmail.received_at)
-                                        }}</span>
-                                </div>
+                                <div class="text-xs text-slate-400">{{ formatDateFull(selectedEmail.received_at) }}</div>
                             </div>
                         </div>
 
-                        <!-- Scrollable body area -->
-                        <div class="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-6 email-detail-body">
-                            <!-- Original email body -->
-                            <div>
-                                <h3
-                                    class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                    <i class="fa fa-info-circle"></i> 邮件内容
-                                </h3>
-                                <!-- HTML body -->
+                        <!-- Content Area -->
+                        <div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+                            <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
                                 <iframe v-if="selectedEmail.html_body"
-                                    title="邮件 HTML 预览"
-                                    class="w-full h-[420px] bg-white rounded-xl border border-slate-100"
+                                    class="w-full h-[400px] border-none"
                                     :srcdoc="sanitizeHtml(selectedEmail.html_body)"
-                                    sandbox=""
-                                    referrerpolicy="no-referrer"></iframe>
-                                <!-- Plain text body -->
-                                <div v-else class="email-body-text bg-slate-50 rounded-xl p-4 border border-slate-100">
-                                    {{ selectedEmail.text_body }}</div>
+                                    sandbox="" referrerpolicy="no-referrer"></iframe>
+                                <div v-else class="email-body-text">{{ selectedEmail.text_body }}</div>
                             </div>
 
                             <!-- Attachments -->
-                            <div v-if="selectedEmail.attachments && selectedEmail.attachments.length > 0" class="mt-4 border-t border-slate-100 pt-4">
-                                <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                    <i class="fa fa-paperclip"></i> 附件 ({{ selectedEmail.attachments.length }})
-                                </h3>
+                            <div v-if="selectedEmail.attachments?.length > 0" class="space-y-3">
+                                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">附件</h4>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <button v-for="att in selectedEmail.attachments" :key="att.filename"
                                         @click="downloadAttachment(selectedEmail.id, att.filename)"
-                                        class="text-left flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl hover:border-emerald-200 hover:shadow-sm transition-all group w-full">
-                                        <div class="shrink-0 w-10 h-10 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+                                        class="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl hover:border-emerald-200 transition-all text-left">
+                                        <div class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center">
                                             <i class="fa fa-file"></i>
                                         </div>
-                                        <div class="flex-1 min-w-0">
-                                            <h4 class="text-sm font-medium text-slate-700 truncate group-hover:text-emerald-600 transition-colors">{{ att.filename }}</h4>
-                                            <p class="text-xs text-slate-400">{{ formatSize(att.size) }}</p>
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-bold text-slate-700 truncate">{{ att.filename }}</p>
+                                            <p class="text-[10px] text-slate-400">{{ formatSize(att.size) }}</p>
                                         </div>
                                     </button>
                                 </div>
                             </div>
 
-                            <!-- Reply history -->
-                            <div v-if="selectedEmail.replies && selectedEmail.replies.length > 0">
-                                <h3
-                                    class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                    <i class="fa fa-history"></i> 回复历史 ({{ selectedEmail.replies.length }})
-                                </h3>
-                                <div class="space-y-3">
-                                    <div v-for="reply in selectedEmail.replies" :key="reply.id" class="reply-bubble">
-                                        <div class="flex items-center justify-between mb-2">
-                                            <span
-                                                class="text-xs font-semibold text-emerald-600 flex items-center gap-1.5">
-                                                <i class="fa fa-arrow-left"></i> 我的回复
-                                            </span>
-                                            <span class="text-xs text-slate-400">{{ formatDateFull(reply.sent_at)
-                                                }}</span>
-                                        </div>
-                                        <p class="email-body-text text-slate-600">{{ reply.body }}</p>
+                            <!-- History -->
+                            <div v-if="selectedEmail.replies?.length > 0" class="space-y-4">
+                                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest">回复历史</h4>
+                                <div v-for="reply in selectedEmail.replies" :key="reply.id" class="reply-bubble">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-xs font-bold text-emerald-600">我的回复</span>
+                                        <span class="text-[10px] text-slate-400">{{ formatDateFull(reply.sent_at) }}</span>
                                     </div>
+                                    <p class="email-body-text text-slate-600">{{ reply.body }}</p>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Reply composer (sticky at bottom) -->
-                        <div class="border-t border-slate-100 px-4 sm:px-6 py-5 bg-white/60">
-                            <h3
-                                class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                <i class="fa fa-edit text-emerald-400"></i> 撰写回复
-                            </h3>
-                            <textarea id="reply-textarea" v-model="replyBody" class="reply-textarea"
-                                :placeholder="`回复给 ${selectedEmail.from_addr}...`" :disabled="sending"
-                                rows="4"></textarea>
-                            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mt-3">
-                                <span class="text-xs text-slate-400">
-                                    <i class="fa fa-info-circle mr-1"></i>
-                                    将以 <strong class="text-slate-500">support@kaside365.com</strong> 发送
-                                </span>
-                                <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                                    <button @click="replyBody = ''" :disabled="!replyBody || sending"
-                                        class="w-full sm:w-auto px-4 py-2 border border-slate-200 text-slate-500 rounded-xl text-sm hover:border-slate-300 transition-all disabled:opacity-40">
-                                        清除
-                                    </button>
-                                    <button @click="sendReply" :disabled="!replyBody.trim() || sending"
-                                        class="w-full sm:w-auto justify-center px-5 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-emerald-200 hover:shadow-emerald-300 hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
-                                        <i class="fa" :class="sending ? 'fa-spinner fa-spin' : 'fa-paper-plane'"></i>
-                                        {{ sending ? '发送中...' : '发送回复' }}
-                                    </button>
-                                </div>
+                        <!-- Footer / Reply -->
+                        <div class="p-6 bg-white/80 border-t border-slate-100"
+                            :style="{ paddingBottom: isCompactLayout ? `${keyboardInsetHeight + 24}px` : undefined }">
+                            <textarea v-model="replyBody" class="reply-textarea"
+                                :placeholder="'回复给 ' + selectedEmail.from_addr + '...'" :disabled="sending"></textarea>
+                            <div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                <p class="text-[10px] text-slate-400">将从 support@kaside365.com 发出</p>
+                                <button @click="sendReply" :disabled="!replyBody.trim() || sending"
+                                    class="w-full sm:w-auto px-8 py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                                    <i class="fa" :class="sending ? 'fa-spinner fa-spin' : 'fa-paper-plane'"></i>
+                                    {{ sending ? '正在发送...' : '发送回复' }}
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -517,35 +382,22 @@
             </div>
         </div>
 
-        <!-- Delete Confirm Dialog -->
+        <!-- Confirm Dialog -->
         <div v-if="showConfirm" class="confirm-overlay" @click.self="showConfirm = false">
-            <div class="glass rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4">
-                <div class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                    <i class="fa fa-trash text-red-500 text-xl"></i>
-                </div>
-                <h3 class="text-lg font-bold text-slate-800 text-center mb-2">确认删除</h3>
-                <p class="text-slate-500 text-center text-sm mb-6">
-                    将永久删除来自 <strong class="text-slate-700">{{ confirmTarget?.from_addr }}</strong> 的邮件及所有回复记录，此操作不可恢复。
-                </p>
-                <div class="flex flex-col sm:flex-row gap-3">
-                    <button @click="showConfirm = false"
-                        class="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 rounded-xl font-medium hover:border-slate-300 transition-all">
-                        取消
-                    </button>
-                    <button @click="deleteEmail"
-                        class="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 transition-all shadow-lg shadow-red-200">
-                        确认删除
-                    </button>
+            <div class="bg-white rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl">
+                <h3 class="text-lg font-bold text-slate-800 text-center mb-6">确认永久删除该邮件吗？</h3>
+                <div class="flex gap-3">
+                    <button @click="showConfirm = false" class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">取消</button>
+                    <button @click="deleteEmail" class="flex-1 py-3 bg-red-500 text-white rounded-xl font-bold">删除</button>
                 </div>
             </div>
         </div>
 
         <!-- Toast -->
         <div v-if="toast.show"
-            class="fixed bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 w-[calc(100%-1.5rem)] sm:w-auto max-w-[calc(100%-1.5rem)] px-4 sm:px-6 py-3.5 rounded-2xl shadow-xl flex items-center justify-center gap-3 toast-enter text-sm sm:text-base"
-            :class="toast.type === 'error' ? 'bg-red-600 text-white' : 'bg-slate-800 text-white'">
+            class="fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-3 bg-slate-800 text-white rounded-2xl shadow-xl flex items-center gap-3 transition-all animate-bounce">
             <i :class="toast.icon"></i>
-            <span class="font-medium">{{ toast.message }}</span>
+            {{ toast.message }}
         </div>
     </div>
 
@@ -566,60 +418,27 @@
                 const sending = ref(false);
                 const replyBody = ref('');
                 const isCheckingAccess = ref(true);
-                const toast = ref({ show: false, message: '', icon: '', type: 'info' });
+                const toast = ref({ show: false, message: '', icon: '' });
                 const showConfirm = ref(false);
-                const confirmTarget = ref(null);
-                const isCompactLayout = ref(typeof window !== 'undefined' ? window.innerWidth < 1024 : false);
+                const isCompactLayout = ref(window.innerWidth < 1024);
+                const keyboardInsetHeight = ref(0);
 
-                const totalPages = computed(() => Math.max(1, Math.ceil((meta.value.total || 0) / 20)));
-                const updateLayoutMode = () => {
-                    isCompactLayout.value = window.innerWidth < 1024;
-                };
-
-                const getToken = () => window.authStorage?.getToken() || null;
+                const totalPages = computed(() => Math.ceil((meta.value.total || 0) / 20));
 
                 const showToast = MyFlowerPotsUi.createToast(toast, {
-                    duration: 3500,
+                    duration: 3000,
                     defaultType: 'info'
                 });
 
-                const handleAdminInboxError = (err, message) => {
-                    const kind = nav.classifyApiError(err);
-                    if (kind === 'auth' || kind === 'forbidden') {
-                        nav.redirectForApiError(err, {
-                            from: 'admin-inbox',
-                            redirect: 'admin-inbox',
-                            authType: 'login_required',
-                            forbiddenType: 'admin_required',
-                            message: err.message || message,
-                            source: 'admin'
-                        }, { replace: true });
-                        return true;
-                    }
-                    return false;
-                };
-
                 const checkAccess = async () => {
                     try {
-                        const token = getToken();
-                        if (!token) {
-                            nav.redirectToLoginRequired({
-                                from: 'admin-inbox',
-                                redirect: 'admin-inbox',
-                                message: '请先登录管理员账号后再查看留言。'
-                            }, { replace: true });
-                            return;
+                        const res = await apiClient.adminCheck();
+                        if (res.success) {
+                            isCheckingAccess.value = false;
+                            loadEmails(1);
                         }
-                        await apiClient.adminCheck();
-                        isCheckingAccess.value = false;
-                        await loadEmails(1);
                     } catch (err) {
-                        if (handleAdminInboxError(err, '后台留言暂时无法访问。')) return;
-                        nav.redirectToAdminRequired({
-                            from: 'admin-inbox',
-                            message: err.message || '当前账号没有留言后台权限。',
-                            source: 'admin'
-                        }, { replace: true });
+                        nav.redirectForApiError(err, { from: 'admin-inbox', source: 'admin' }, { replace: true });
                     }
                 };
 
@@ -630,156 +449,101 @@
                         emails.value = data.emails || [];
                         meta.value = data.meta || { total: 0, unread: 0 };
                         currentPage.value = page;
-
-                        // If the currently selected email was updated, refresh it
-                        if (selectedEmail.value) {
-                            const updated = emails.value.find(e => e.id === selectedEmail.value.id);
-                            if (updated) selectedEmail.value = { ...selectedEmail.value, ...updated };
-                        }
                     } catch (err) {
-                        if (handleAdminInboxError(err, '加载邮件失败。')) return;
-                        showToast('加载邮件失败: ' + err.message, 'error');
+                        showToast('加载失败: ' + err.message, 'fa fa-exclamation-circle');
                     } finally {
                         loading.value = false;
                     }
                 };
 
-                const openEmail = async (emailSummary) => {
-                    const wasUnread = !emailSummary.read;
-                    
-                    // Optimistic update in list
-                    emailSummary.read = true;
-                    selectedEmail.value = { ...emailSummary, replies: [] };
-                    replyBody.value = '';
-
-                    // Immediate update for unread counter
-                    if (wasUnread && meta.value.unread > 0) {
-                        meta.value.unread--;
-                    }
-
+                const openEmail = async (email) => {
+                    const wasUnread = !email.read;
+                    email.read = true;
+                    selectedEmail.value = { ...email, replies: [] };
+                    if (wasUnread && meta.value.unread > 0) meta.value.unread--;
                     try {
-                        const data = await apiClient.adminGetSupportEmail(emailSummary.id);
+                        const data = await apiClient.adminGetSupportEmail(email.id);
                         selectedEmail.value = data;
                     } catch (err) {
-                        if (handleAdminInboxError(err, '加载邮件详情失败。')) return;
-                        showToast('加载邮件详情失败: ' + err.message, 'error');
+                        showToast('详情加载失败', 'fa fa-exclamation-circle');
                     }
                 };
 
                 const closeEmailDetail = () => {
                     selectedEmail.value = null;
-                    replyBody.value = '';
                 };
 
                 const sendReply = async () => {
-                    if (!replyBody.value.trim() || !selectedEmail.value) return;
+                    if (!replyBody.value.trim()) return;
                     sending.value = true;
                     try {
-                        const data = await apiClient.adminReplySupportEmail(selectedEmail.value.id, replyBody.value.trim());
-
-                        // Append reply locally
-                        selectedEmail.value.replies = [
-                            ...(selectedEmail.value.replies || []),
-                            { id: data.replyId, email_id: selectedEmail.value.id, body: replyBody.value.trim(), sent_at: data.sentAt }
-                        ];
+                        const res = await apiClient.adminReplySupportEmail(selectedEmail.value.id, replyBody.value.trim());
+                        selectedEmail.value.replies.push({
+                            id: res.replyId,
+                            body: replyBody.value.trim(),
+                            sent_at: res.sentAt
+                        });
                         selectedEmail.value.replied = true;
-
-                        // Update list status
                         const listItem = emails.value.find(e => e.id === selectedEmail.value.id);
                         if (listItem) listItem.replied = true;
-
                         replyBody.value = '';
-                        showToast('回复已发送 ✓', 'success');
+                        showToast('已发送', 'fa fa-check-circle');
                     } catch (err) {
-                        if (handleAdminInboxError(err, '回复发送失败。')) return;
-                        showToast('发送失败: ' + err.message, 'error');
+                        showToast(err.message, 'fa fa-exclamation-circle');
                     } finally {
                         sending.value = false;
                     }
                 };
 
-                const confirmDelete = (email) => {
-                    confirmTarget.value = email;
+                const confirmDelete = () => {
                     showConfirm.value = true;
                 };
 
                 const deleteEmail = async () => {
-                    if (!confirmTarget.value) return;
-                    const id = confirmTarget.value.id;
                     showConfirm.value = false;
                     try {
-                        await apiClient.adminDeleteSupportEmail(id);
-                        showToast('邮件删除成功', 'success');
-                        closeEmailDetail();
-                        await loadEmails(currentPage.value);
+                        await apiClient.adminDeleteSupportEmail(selectedEmail.value.id);
+                        showToast('已删除', 'fa fa-trash');
+                        selectedEmail.value = null;
+                        loadEmails(currentPage.value);
                     } catch (err) {
-                        if (handleAdminInboxError(err, '删除邮件失败。')) return;
-                        showToast('删除失败: ' + err.message, 'error');
+                        showToast(err.message, 'fa fa-exclamation-circle');
                     }
                 };
-
-                const formatFrom = MyFlowerPotsUi.formatEmailSender;
-                const formatDate = (iso) => MyFlowerPotsDate.formatRelativeTime(iso, {
-                    assumeUtc: true,
-                    locale: 'zh-CN'
-                });
-                const formatDateFull = (iso) => MyFlowerPotsDate.formatDateTime(iso, {
-                    assumeUtc: true,
-                    locale: 'zh-CN'
-                });
-                const sanitizeHtml = MyFlowerPotsUi.sanitizeHtml;
 
                 const downloadAttachment = async (emailId, filename) => {
                     try {
-                        showToast('正在准备下载...', 'info');
                         const blob = await apiClient.adminDownloadSupportAttachment(emailId, filename);
                         const url = window.URL.createObjectURL(blob);
                         const a = document.createElement('a');
-                        a.href = url;
-                        a.download = filename;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
+                        a.href = url; a.download = filename; a.click();
                         window.URL.revokeObjectURL(url);
                     } catch (err) {
-                        if (handleAdminInboxError(err, '下载附件失败。')) return;
-                        showToast('下载附件失败: ' + err.message, 'error');
+                        showToast('下载失败', 'fa fa-exclamation-circle');
                     }
                 };
 
-                window.addEventListener('auth:expired', (event) => {
-                    nav.redirectToSessionExpired(event.detail?.message, {
-                        from: 'admin-inbox',
-                        redirect: 'admin-inbox',
-                        source: 'admin'
-                    }, { replace: true });
-                });
-
-                const formatSize = (bytes) => {
-                    if (!bytes || bytes === 0) return '0 B';
-                    const k = 1024;
-                    const sizes = ['B', 'KB', 'MB', 'GB'];
-                    const i = Math.floor(Math.log(bytes) / Math.log(k));
-                    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+                const updateLayout = () => { isCompactLayout.value = window.innerWidth < 1024; };
+                const updateKeyboard = () => {
+                    if (!isCompactLayout.value || !window.visualViewport) { keyboardInsetHeight.value = 0; return; }
+                    keyboardInsetHeight.value = Math.max(0, window.innerHeight - window.visualViewport.height);
                 };
 
                 onMounted(() => {
-                    updateLayoutMode();
-                    window.addEventListener('resize', updateLayoutMode);
                     checkAccess();
-                });
-                onUnmounted(() => {
-                    window.removeEventListener('resize', updateLayoutMode);
+                    window.addEventListener('resize', updateLayout);
+                    window.visualViewport?.addEventListener('resize', updateKeyboard);
                 });
 
                 return {
-                    emails, selectedEmail, meta, currentPage, totalPages,
-                    loading, sending, replyBody, isCheckingAccess,
-                    toast, showConfirm, confirmTarget,
-                    isCompactLayout,
-                    loadEmails, openEmail, closeEmailDetail, sendReply,
-                    confirmDelete, deleteEmail, downloadAttachment, formatSize,
-                    formatFrom, formatDate, formatDateFull, sanitizeHtml
+                    isCheckingAccess, emails, selectedEmail, meta, currentPage, totalPages,
+                    loading, sending, replyBody, toast, showConfirm, isCompactLayout, keyboardInsetHeight,
+                    loadEmails, openEmail, closeEmailDetail, sendReply, confirmDelete, deleteEmail, downloadAttachment,
+                    formatFrom: MyFlowerPotsUi.formatEmailSender,
+                    formatDate: (iso) => MyFlowerPotsDate.formatRelativeTime(iso, { assumeUtc: true }),
+                    formatDateFull: (iso) => MyFlowerPotsDate.formatDateTime(iso, { assumeUtc: true }),
+                    sanitizeHtml: MyFlowerPotsUi.sanitizeHtml,
+                    formatSize: (bytes) => (bytes / 1024 / 1024).toFixed(2) + ' MB'
                 };
             }
         }).mount('#app');

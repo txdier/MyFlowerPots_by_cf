@@ -45,6 +45,68 @@ body.auth-modal-open {
     max-width: 1400px !important;
 }
 
+.admin-page #app > .max-w-7xl {
+    width: 100%;
+}
+
+.admin-page {
+    min-height: 100vh;
+    overflow-x: hidden;
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+.admin-mobile-card {
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    border-radius: 1rem;
+    padding: 1rem;
+}
+
+.admin-mobile-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+}
+
+.admin-mobile-actions button,
+.admin-mobile-actions a {
+    min-height: 2.5rem;
+    justify-content: center;
+}
+
+.admin-mobile-meta {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 0.25rem 0.75rem;
+    align-items: start;
+}
+
+.admin-mobile-meta dt {
+    color: #94a3b8;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.admin-mobile-meta dd {
+    min-width: 0;
+    color: #475569;
+    font-size: 0.875rem;
+    word-break: break-word;
+}
+
+@media (max-width: 640px) {
+    .admin-page {
+        padding-top: 0.75rem !important;
+    }
+
+    .admin-page .glass {
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+}
+
 /* 统一的容器类 - 强制优先级以对抗 Tailwind 默认的 container 插件 */
 .container {
     width: 100% !important;

@@ -6,7 +6,6 @@ import vm from "node:vm";
 
 const vendorJsFiles = new Set([
   "frontend/js/Sortable.min.js",
-  "frontend/js/tailwindcss.js",
   "frontend/js/vue.global.js",
   "frontend/js/vue.global.prod.js",
 ]);

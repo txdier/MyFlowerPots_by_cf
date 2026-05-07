@@ -31,6 +31,8 @@ const STATIC_PAGE_PATHS = new Set([
   '/admin-inbox',
   '/admin-plants',
   '/admin-stats',
+  '/admin-users',
+  '/admin-cache',
   '/all-records',
   '/all-timelines',
   '/care-record',

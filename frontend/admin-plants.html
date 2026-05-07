@@ -4,34 +4,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-    <title>植物百科管理 - My Flower Pots</title>
+    <title>植物百科 - 后台管理 - My Flower Pots</title>
     <meta name="theme-color" content="#ffffff">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <!-- Tailwind CSS (Optimized) -->
     <link rel="stylesheet" href="css/tailwind-built.css">
     <script src="js/vue.global.prod.js"></script>
     <link rel="stylesheet" href="css/icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
             touch-action: manipulation;
+            box-sizing: border-box;
         }
 
         body {
-            font-family: 'Outfit', 'PingFang SC', sans-serif;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
             background-color: #f8fafc;
+            overflow-x: hidden;
         }
 
         .glass {
             background: rgba(255, 255, 255, 0.8);
             backdrop-filter: blur(10px);
-        }
-
-        .tab-active {
-            border-bottom: 2px solid #10b981;
-            color: #10b981;
         }
 
         [v-cloak] {
@@ -47,7 +42,6 @@
             align-items: center;
             justify-content: center;
             z-index: 1000;
-            transition: opacity 0.5s ease;
         }
 
         .no-scrollbar::-webkit-scrollbar {
@@ -64,6 +58,38 @@
                 padding: 0.75rem;
             }
         }
+
+        .admin-pc-only { display: none !important; }
+        .admin-mobile-only { display: block !important; }
+        @media (min-width: 768px) {
+            .admin-pc-only { display: block !important; }
+            .admin-mobile-only { display: none !important; }
+        }
+
+        .admin-mobile-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 1rem;
+            border: 1px solid #f1f5f9;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        .admin-mobile-meta {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.5rem 1rem;
+            font-size: 0.75rem;
+        }
+
+        .admin-mobile-meta dt {
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        .admin-mobile-meta dd {
+            color: #475569;
+            text-align: right;
+        }
     </style>
 </head>
 
@@ -76,9 +102,9 @@
             <p class="text-slate-500 font-medium">安全校验中...</p>
         </div>
 
-        <div v-else class="max-w-6xl mx-auto">
+        <div v-else class="max-w-7xl mx-auto overflow-hidden">
             <!-- Header -->
-            <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+            <header class="flex flex-col md:flex-row md:flex-wrap md:items-center justify-between gap-4 mb-8">
                 <div class="cursor-pointer group" onclick="window.location.href='/'">
                     <h1
                         class="text-2xl sm:text-3xl font-bold text-slate-800 flex items-center gap-3 transition-colors">
@@ -90,35 +116,30 @@
                         返回主页
                     </p>
                 </div>
-                <!-- 顶部页签切换 -->
-                <div class="w-full md:w-auto overflow-x-auto no-scrollbar">
-                    <div class="inline-flex min-w-max bg-slate-100 p-1 rounded-2xl">
-                        <button @click="currentTab = 'plants'"
-                            :class="currentTab === 'plants' ? 'bg-white shadow-sm text-emerald-600' : 'text-slate-500'"
-                            class="px-4 sm:px-6 py-2 rounded-xl font-medium transition-all whitespace-nowrap">
+                <!-- 顶部导航切换 -->
+                <div class="w-full md:w-auto">
+                    <div class="grid grid-cols-5 md:inline-flex w-full md:w-auto bg-slate-100 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl">
+                        <a href="admin-plants"
+                            class="bg-white shadow-sm text-emerald-600 px-1 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex items-center justify-center min-w-0">
                             植物百科
-                        </button>
-                        <button @click="currentTab = 'users'"
-                            :class="currentTab === 'users' ? 'bg-white shadow-sm text-emerald-600' : 'text-slate-500'"
-                            class="px-4 sm:px-6 py-2 rounded-xl font-medium transition-all whitespace-nowrap">
+                        </a>
+                        <a href="admin-users"
+                            class="px-1 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium text-slate-500 hover:text-emerald-600 transition-all whitespace-nowrap flex items-center justify-center min-w-0">
                             用户管理
-                        </button>
-                        <button @click="currentTab = 'cache'"
-                            :class="currentTab === 'cache' ? 'bg-white shadow-sm text-emerald-600' : 'text-slate-500'"
-                            class="px-4 sm:px-6 py-2 rounded-xl font-medium transition-all whitespace-nowrap">
+                        </a>
+                        <a href="admin-cache"
+                            class="px-1 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium text-slate-500 hover:text-emerald-600 transition-all whitespace-nowrap flex items-center justify-center min-w-0">
                             缓存
-                        </button>
+                        </a>
                         <a href="admin-stats"
-                            class="px-4 sm:px-6 py-2 rounded-xl font-medium text-slate-500 hover:text-emerald-600 transition-all flex items-center gap-2 whitespace-nowrap">
-                            <i class="fa fa-chart-bar"></i>
+                            class="px-1 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium text-slate-500 hover:text-emerald-600 transition-all flex items-center justify-center whitespace-nowrap min-w-0">
                             统计
                         </a>
                         <a href="admin-inbox"
-                            class="px-4 sm:px-6 py-2 rounded-xl font-medium text-slate-500 hover:text-emerald-600 transition-all flex items-center gap-2 whitespace-nowrap">
-                            <i class="fa fa-envelope"></i>
+                            class="px-1 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium text-slate-500 hover:text-emerald-600 transition-all flex items-center justify-center gap-1 whitespace-nowrap min-w-0">
                             收件箱
                             <span v-if="supportUnreadCount > 0"
-                                class="bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center shadow-sm shrink-0 font-black aspect-square w-5 h-5">
+                                class="bg-red-500 text-white text-[9px] sm:text-[10px] rounded-full flex items-center justify-center shadow-sm shrink-0 font-black min-w-4 h-4 sm:min-w-5 sm:h-5 px-1">
                                 {{ supportUnreadCount > 99 ? '99+' : supportUnreadCount }}
                             </span>
                         </a>
@@ -126,89 +147,90 @@
                 </div>
             </header>
 
-            <!-- 植物管理视图 -->
-            <div v-if="currentTab === 'plants'">
+            <!-- 植物百科视图 -->
+            <div class="space-y-6">
                 <!-- Tools & Filters -->
-                <div
-                    class="glass border border-white rounded-2xl p-4 mb-6 flex flex-col md:flex-row gap-4 items-stretch md:items-center shadow-sm">
+                <div class="glass border border-white rounded-2xl p-4 flex flex-col sm:flex-row gap-4 items-stretch sm:items-center shadow-sm">
                     <div class="relative flex-1 w-full">
                         <i class="fa fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                        <input type="text" v-model="searchQuery" @keyup.enter="fetchPlants" placeholder="搜索植物名称或 ID..."
+                        <input type="text" v-model="searchQuery" @keyup.enter="fetchPlants"
+                            placeholder="搜索植物名称、别名或 ID..."
                             class="w-full pl-12 pr-4 py-3 rounded-xl border-none bg-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none transition-all">
                     </div>
-                    <div class="flex flex-wrap items-stretch gap-2 sm:gap-3 w-full md:w-auto">
-                        <button @click="fetchPlants"
-                            class="flex-1 sm:flex-none justify-center px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all flex items-center gap-2">
-                            <i class="fa fa-search"></i> 搜索
-                        </button>
-                        <button @click="downloadTemplate"
-                            class="flex-1 sm:flex-none justify-center px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-all flex items-center gap-2">
-                            <i class="fa fa-download"></i> 下载模板
+                    <div class="flex items-center gap-2">
+                        <button @click="openCreateModal"
+                            class="flex-1 sm:flex-none px-6 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 shadow-sm shadow-emerald-200">
+                            <i class="fa fa-plus"></i> 新增植物
                         </button>
                         <button @click="showImportModal = true"
-                            class="flex-1 sm:flex-none justify-center px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl hover:shadow-md transition-all flex items-center gap-2">
-                            <i class="fa fa-file-import"></i> 批量导入
-                        </button>
-                        <button @click="openCreateModal"
-                            class="flex-1 sm:flex-none justify-center px-4 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 shadow-lg shadow-emerald-200 transition-all flex items-center gap-2">
-                            <i class="fa fa-plus"></i> 新增植物
+                            class="px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all">
+                            <i class="fa fa-file-import"></i>
                         </button>
                     </div>
                 </div>
 
+                <!-- Batch Actions -->
+                <div v-if="selectedIds.length > 0"
+                    class="bg-slate-800 text-white px-6 py-3 rounded-2xl flex items-center justify-between animate-in fade-in slide-in-from-bottom-4 shadow-xl">
+                    <span class="text-sm font-medium">已选择 {{ selectedIds.length }} 个植物</span>
+                    <button @click="batchDelete"
+                        class="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-xl text-sm font-bold transition-all">
+                        批量删除
+                    </button>
+                </div>
+
                 <!-- Table -->
                 <div class="glass border border-white rounded-2xl overflow-hidden shadow-sm">
-                    <div class="overflow-x-auto">
+                    <div class="admin-pc-only overflow-x-auto">
                     <table class="w-full min-w-[720px] text-left">
                         <thead class="bg-slate-50 border-b border-slate-100">
                             <tr>
-                                <th class="px-6 py-4 w-12 text-center">
-                                    <input type="checkbox" @change="toggleAll" :checked="isAllSelected"
-                                        class="rounded border-slate-300 text-emerald-500 focus:ring-emerald-500">
+                                <th class="w-12 px-6 py-4">
+                                    <input type="checkbox" @click="toggleAll" :checked="isAllSelected"
+                                        class="h-4 w-4 rounded border-slate-300 text-emerald-500 focus:ring-emerald-500">
                                 </th>
-                                <th class="px-6 py-4 font-semibold text-slate-600">ID / 名称</th>
+                                <th class="px-6 py-4 font-semibold text-slate-600">植物信息</th>
                                 <th class="px-6 py-4 font-semibold text-slate-600">分类</th>
                                 <th class="px-6 py-4 font-semibold text-slate-600">养护难度</th>
                                 <th class="px-6 py-4 font-semibold text-slate-600 text-right">操作</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
-                            <tr v-for="plant in plants" :key="plant.id" class="hover:bg-slate-50 transition-colors">
-                                <td class="px-6 py-4 text-center">
+                            <tr v-for="plant in plants" :key="plant.id" class="hover:bg-slate-100 transition-colors">
+                                <td class="px-6 py-4">
                                     <input type="checkbox" v-model="selectedIds" :value="plant.id"
-                                        class="rounded border-slate-300 text-emerald-500 focus:ring-emerald-500">
+                                        class="h-4 w-4 rounded border-slate-300 text-emerald-500 focus:ring-emerald-500">
                                 </td>
                                 <td class="px-6 py-4">
-                                    <div class="flex items-center gap-3 min-w-0">
-                                        <div
-                                            class="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-500 overflow-hidden shrink-0">
-                                            <img v-if="plant.image_url" :src="plant.image_url"
-                                                class="w-full h-full object-cover">
-                                            <i v-else class="fa fa-seedling"></i>
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-12 h-12 rounded-xl bg-slate-200 overflow-hidden shrink-0 border border-white shadow-sm">
+                                            <img v-if="plant.image_url" :src="plant.image_url" class="w-full h-full object-cover">
+                                            <div v-else class="w-full h-full flex items-center justify-center text-slate-400">
+                                                <i class="fa fa-leaf"></i>
+                                            </div>
                                         </div>
-                                        <div class="min-w-0">
-                                            <div class="font-medium text-slate-800 break-words">{{ plant.name }}</div>
-                                            <div class="text-xs text-slate-400 font-mono break-all">{{ plant.id }}</div>
+                                        <div>
+                                            <div class="font-bold text-slate-800">{{ plant.name }}</div>
+                                            <div class="text-xs text-slate-400 font-mono">{{ plant.id }}</div>
                                         </div>
                                     </div>
                                 </td>
                                 <td class="px-6 py-4">
-                                    <span class="px-2 py-1 bg-slate-100 text-slate-600 rounded-md text-sm">{{
-                                        plant.category
-                                        || '未分类' }}</span>
+                                    <span class="text-sm text-slate-600 bg-slate-50 px-2 py-1 rounded-lg">{{ plant.category || '未分类' }}</span>
                                 </td>
                                 <td class="px-6 py-4">
-                                    <span :class="difficultyClass(plant.care_difficulty)"
-                                        class="px-2 py-1 rounded-md text-sm">{{ plant.care_difficulty || '未知' }}</span>
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold" :class="difficultyClass(plant.care_difficulty)">
+                                        {{ plant.care_difficulty }}
+                                    </span>
                                 </td>
                                 <td class="px-6 py-4 text-right">
                                     <div class="flex items-center justify-end gap-2">
                                         <button @click="openEditModal(plant)"
-                                            class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all">
+                                            class="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all">
                                             <i class="fa fa-edit"></i>
                                         </button>
                                         <button @click="deleteSingle(plant)"
-                                            class="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                                            class="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
                                             <i class="fa fa-trash"></i>
                                         </button>
                                     </div>
@@ -217,560 +239,229 @@
                         </tbody>
                     </table>
                     </div>
-                </div>
-
-                <!-- Pagination -->
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-6">
-                    <p class="text-sm text-slate-500">共 {{ pagination.total }} 条记录</p>
-                    <div class="flex items-center gap-2 self-start sm:self-auto">
-                        <button @click="changePage(pagination.page - 1)" :disabled="pagination.page === 1"
-                            class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-slate-600 disabled:opacity-50">上一页</button>
-                        <span class="text-slate-600">{{ pagination.page }} / {{ totalPages }}</span>
-                        <button @click="changePage(pagination.page + 1)" :disabled="pagination.page === totalPages"
-                            class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-slate-600 disabled:opacity-50">下一页</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 用户管理视图 -->
-            <div v-else-if="currentTab === 'users'">
-                <!-- Tools & Filters -->
-                <div class="glass border border-white rounded-2xl p-4 mb-6 flex flex-col sm:flex-row gap-4 items-stretch sm:items-center shadow-sm">
-                    <div class="relative flex-1 w-full">
-                        <i class="fa fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                        <input type="text" v-model="userSearchQuery" @keyup.enter="fetchUsers"
-                            placeholder="搜索用户邮箱或 ID..."
-                            class="w-full pl-12 pr-4 py-3 rounded-xl border-none bg-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none transition-all">
-                    </div>
-                    <button @click="fetchUsers"
-                        class="w-full sm:w-auto px-8 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all">
-                        搜索
-                    </button>
-                </div>
-
-                <!-- Table -->
-                <div class="glass border border-white rounded-2xl overflow-hidden shadow-sm">
-                    <div class="overflow-x-auto">
-                    <table class="w-full min-w-[1080px] text-left">
-                        <thead class="bg-slate-50 border-b border-slate-100">
-                            <tr>
-                                <th class="px-6 py-4 font-semibold text-slate-600">用户信息</th>
-                                <th class="px-6 py-4 font-semibold text-slate-600">用户名称</th>
-                                <th class="px-6 py-4 font-semibold text-slate-600">类型 / 状态</th>
-                                <th class="px-6 py-4 font-semibold text-slate-600">注册时间</th>
-                                <th class="px-6 py-4 font-semibold text-slate-600">最后登录</th>
-                                <th class="px-6 py-4 font-semibold text-slate-600">花盆数</th>
-                                <th class="px-6 py-4 font-semibold text-slate-600 text-right">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100">
-                            <tr v-for="user in users" :key="user.id" class="hover:bg-slate-100 transition-colors">
-                                <td class="px-6 py-4">
-                                    <div class="font-medium text-slate-800 break-words">{{ user.email || '游客' }}</div>
-                                    <div class="text-xs text-slate-400 font-mono break-all">{{ user.id }}</div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="text-slate-700">{{ user.display_name || '-' }}</div>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="flex flex-col gap-1">
-                                        <span class="text-xs px-2 py-0.5 rounded-full w-fit"
-                                            :class="user.user_type === 'email' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'">
-                                            {{ user.user_type === 'email' ? '邮箱用户' : '访客' }}
+                    <div class="admin-mobile-only p-3 space-y-3">
+                        <div v-if="plants.length === 0" class="py-10 text-center text-sm text-slate-400">
+                            暂无植物数据
+                        </div>
+                        <article v-for="plant in plants" :key="'mobile-plant-' + plant.id" class="admin-mobile-card">
+                            <div class="flex gap-3">
+                                <div class="w-16 h-16 rounded-xl bg-slate-200 overflow-hidden shrink-0">
+                                    <img v-if="plant.image_url" :src="plant.image_url" class="w-full h-full object-cover">
+                                    <div v-else class="w-full h-full flex items-center justify-center text-slate-400">
+                                        <i class="fa fa-leaf"></i>
+                                    </div>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <h3 class="font-bold text-slate-800 truncate">{{ plant.name }}</h3>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0" :class="difficultyClass(plant.care_difficulty)">
+                                            {{ plant.care_difficulty }}
                                         </span>
-                                        <span v-if="user.is_disabled"
-                                            class="text-xs px-2 py-0.5 bg-red-50 text-red-600 rounded-full w-fit">已禁用</span>
                                     </div>
-                                </td>
-                                <td class="px-6 py-4 text-sm text-slate-500">
-                                    {{ formatDateTime(user.created_at) }}
-                                </td>
-                                <td class="px-6 py-4 text-sm text-slate-500">
-                                    {{ formatDateTime(user.last_login) || '-' }}
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="flex items-center gap-2">
-                                        <span class="font-bold text-slate-700">{{ user.pot_count }}</span>
-                                        <span class="text-slate-300">/</span>
-                                        <span class="text-slate-500">{{ user.max_pots || (user.user_type === 'email' ?
-                                            (user.email_verified ? 50 : 10) : 3) }}</span>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 text-right">
-                                    <div class="flex items-center justify-end gap-2">
-                                        <button @click="openLimitModal(user)"
-                                            class="px-3 py-1 text-sm bg-white border border-slate-200 text-slate-600 rounded-lg hover:border-emerald-500 hover:text-emerald-500 transition-all">
-                                            调整上限
-                                        </button>
-                                        <button @click="toggleUserStatus(user)"
-                                            :class="user.is_disabled ? 'text-emerald-600 hover:bg-emerald-50' : 'text-blue-500 hover:bg-blue-50'"
-                                            class="px-3 py-1 text-sm bg-white border border-slate-200 rounded-lg transition-all">
-                                            {{ user.is_disabled ? '启用' : '禁用' }}
-                                        </button>
-                                        <button v-if="user.user_type === 'email' && user.email" @click="openPasswordResetModal(user)"
-                                            class="px-3 py-1 text-sm bg-white border border-slate-200 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-all">
-                                            重置密码
-                                        </button>
-                                        <button @click="confirmDeleteUser(user)"
-                                            class="px-3 py-1 text-sm bg-white border border-slate-200 text-red-500 hover:bg-red-50 rounded-lg transition-all">
-                                            彻底删除
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                    <p class="text-[10px] text-slate-400 font-mono mt-0.5 truncate">{{ plant.id }}</p>
+                                    <p class="text-xs text-slate-500 mt-1">{{ plant.category || '未分类' }}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-end gap-4 mt-4 pt-4 border-t border-slate-50">
+                                <button @click="openEditModal(plant)" class="text-slate-500 text-sm font-medium flex items-center gap-1">
+                                    <i class="fa fa-edit"></i> 编辑
+                                </button>
+                                <button @click="deleteSingle(plant)" class="text-red-500 text-sm font-medium flex items-center gap-1">
+                                    <i class="fa fa-trash"></i> 删除
+                                </button>
+                            </div>
+                        </article>
                     </div>
                 </div>
 
                 <!-- Pagination -->
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-6">
-                    <p class="text-sm text-slate-500">共 {{ userPagination.total }} 条用户</p>
-                    <div class="flex items-center gap-2 self-start sm:self-auto">
-                        <button @click="changeUserPage(userPagination.page - 1)" :disabled="userPagination.page === 1"
-                            class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-slate-600 disabled:opacity-50">上一页</button>
-                        <span class="text-slate-600">{{ userPagination.page }} / {{ totalUserPages }}</span>
-                        <button @click="changeUserPage(userPagination.page + 1)"
-                            :disabled="userPagination.page === totalUserPages"
-                            class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-slate-600 disabled:opacity-50">下一页</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 缓存管理视图 -->
-            <div v-else-if="currentTab === 'cache'" class="space-y-6">
-                <div class="glass border border-white rounded-2xl p-5 shadow-sm">
-                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div>
-                            <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
-                                <i class="fa fa-rotate-left text-emerald-500"></i>
-                                缓存管理
-                            </h2>
-                            <p class="text-sm text-slate-500 mt-1">
-                                手动查看和清理当前 Worker 进程内的内存缓存。
-                            </p>
-                        </div>
-                        <button @click="fetchCacheStats" :disabled="cacheLoading"
-                            class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:border-emerald-500 hover:text-emerald-600 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
-                            <i :class="cacheLoading ? 'fa fa-spinner fa-spin' : 'fa fa-rotate-left'"></i>
-                            {{ cacheLoading ? '读取中...' : '刷新状态' }}
-                        </button>
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
-                        <div class="bg-slate-50 rounded-xl p-4">
-                            <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">缓存条目</p>
-                            <p class="text-2xl font-black text-slate-800 mt-2">{{ cacheStats.size || 0 }}</p>
-                        </div>
-                        <div class="bg-slate-50 rounded-xl p-4">
-                            <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">前缀数量</p>
-                            <p class="text-2xl font-black text-slate-800 mt-2">{{ cachePrefixEntries.length }}</p>
-                        </div>
-                        <div class="bg-slate-50 rounded-xl p-4">
-                            <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">最近清理</p>
-                            <p class="text-sm font-semibold text-slate-700 mt-2">
-                                <span v-if="cacheLastResult">{{ cacheLastResult.cleared }} 条，{{ cacheLastResult.scopeLabel }}</span>
-                                <span v-else>暂无操作</span>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="glass border border-white rounded-2xl p-5 shadow-sm">
-                    <div class="flex flex-col md:flex-row gap-3 md:items-end">
-                        <div class="flex-[2_1_16rem] min-w-0">
-                            <label class="block text-sm font-semibold text-slate-600 mb-2">清理范围</label>
-                            <select v-model="cacheClearScope"
-                                class="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
-                                <option value="plants">植物匹配缓存</option>
-                                <option value="all">全部内存缓存</option>
-                                <option value="prefix">指定前缀</option>
-                            </select>
-                        </div>
-                        <div v-if="cacheClearScope === 'prefix'" class="flex-[2_1_16rem] min-w-0">
-                            <label class="block text-sm font-semibold text-slate-600 mb-2">缓存前缀</label>
-                            <input v-model.trim="cachePrefix" type="text" placeholder="例如 plant"
-                                class="w-full px-4 py-2.5 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
-                        </div>
-                        <button @click="clearAdminCache" :disabled="cacheClearing"
-                            class="w-full md:w-24 px-3 py-2.5 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-all flex items-center justify-center gap-1.5 disabled:opacity-60 shrink-0 text-sm font-semibold whitespace-nowrap">
-                            <i :class="cacheClearing ? 'fa fa-spinner fa-spin' : 'fa fa-trash-alt'"></i>
-                            {{ cacheClearing ? '清理中' : '清理' }}
-                        </button>
-                    </div>
-                    <p class="text-xs text-slate-400 mt-3">
-                        植物数据保存、删除和导入会自动刷新植物缓存；这里用于生产排查或手动刷新。
-                    </p>
-                </div>
-
-                <div class="glass border border-white rounded-2xl overflow-hidden shadow-sm">
-                    <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                        <h3 class="font-bold text-slate-700">缓存前缀分布</h3>
-                        <span class="text-xs text-slate-400">来自 /api/admin/cache/stats</span>
-                    </div>
-                    <div v-if="cachePrefixEntries.length === 0" class="p-6 text-sm text-slate-400">
-                        当前没有可展示的缓存条目。
-                    </div>
-                    <div v-else class="divide-y divide-slate-100">
-                        <div v-for="entry in cachePrefixEntries" :key="entry[0]"
-                            class="px-5 py-4 flex items-center justify-between">
-                            <span class="font-mono text-sm text-slate-700 break-all">{{ entry[0] }}</span>
-                            <span class="px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold">{{ entry[1] }}</span>
-                        </div>
+                    <p class="text-sm text-slate-500">共 {{ pagination.total }} 种植物</p>
+                    <div class="grid grid-cols-3 gap-2 w-full sm:flex sm:items-center sm:w-auto sm:self-auto">
+                        <button @click="changePage(pagination.page - 1)" :disabled="pagination.page === 1"
+                            class="px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 disabled:opacity-50">上一页</button>
+                        <span class="text-slate-600 flex items-center justify-center">{{ pagination.page }} / {{ totalPages }}</span>
+                        <button @click="changePage(pagination.page + 1)" :disabled="pagination.page === totalPages"
+                            class="px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 disabled:opacity-50">下一页</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Plant Edit/Create Modal -->
+        <!-- Create/Edit Modal -->
         <div v-if="showModal"
             class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-sm">
-            <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-4xl max-h-[calc(100dvh-0.5rem)] sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-                <!-- Modal Header -->
-                <div class="p-4 sm:p-6 border-b border-slate-100 flex items-center justify-between gap-4">
-                    <h3 class="text-lg sm:text-xl font-bold text-slate-800">{{ isEditing ? '编辑植物' : '新增植物' }}</h3>
+            <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col keyboard-safe-modal">
+                <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+                    <h3 class="text-xl font-bold text-slate-800">{{ isEditing ? '编辑植物' : '新增植物' }}</h3>
                     <button @click="showModal = false" class="text-slate-400 hover:text-slate-600">
                         <i class="fa fa-times text-xl"></i>
                     </button>
                 </div>
 
                 <!-- Tabs -->
-                <div class="bg-slate-50 px-4 sm:px-6 overflow-x-auto no-scrollbar">
-                    <div class="flex min-w-max">
-                        <button v-for="t in tabs" :key="t.id" @click="activeTab = t.id"
-                            :class="activeTab === t.id ? 'tab-active' : 'text-slate-400 border-transparent'"
-                            class="px-4 sm:px-6 py-4 font-medium transition-all border-b-2 whitespace-nowrap">
-                            {{ t.name }}
-                        </button>
-                    </div>
+                <div class="flex border-b border-slate-100 bg-slate-50/50 px-6">
+                    <button v-for="tab in tabs" :key="tab.id" @click="activeTab = tab.id"
+                        class="px-6 py-4 text-sm font-bold border-b-2 transition-all"
+                        :class="activeTab === tab.id ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-slate-500'">
+                        {{ tab.name }}
+                    </button>
                 </div>
 
-                <!-- Modal Body -->
-                <div class="p-4 sm:p-6 overflow-y-auto flex-1 bg-white">
-                    <!-- Tab: Basic -->
-                    <div v-show="activeTab === 'basic'" class="space-y-4">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Form Content -->
+                <div class="flex-1 overflow-y-auto p-6 space-y-6 keyboard-safe-modal-scroll">
+                    <!-- Basic Info -->
+                    <div v-show="activeTab === 'basic'" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">唯一 ID (不可更改)</label>
-                                <input type="text" v-model="formData.id" :readonly="isEditing"
-                                    :class="isEditing ? 'bg-slate-100 cursor-not-allowed' : 'bg-white'"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
-                                <p class="text-xs text-slate-400 mt-1">例如: YueJi, JinZhanJu</p>
+                                <label class="block text-sm font-medium text-slate-600 mb-2">植物 ID (拼音首字母/唯一码)</label>
+                                <input type="text" v-model="formData.id" :disabled="isEditing" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500 disabled:bg-slate-50 disabled:text-slate-400">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">植物名称</label>
-                                <input type="text" v-model="formData.name"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">标准名称</label>
-                                <input type="text" v-model="formData.basic_info.standard_name"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
+                                <label class="block text-sm font-medium text-slate-600 mb-2">中文名</label>
+                                <input type="text" v-model="formData.name" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">拉丁名</label>
-                                <input type="text" v-model="formData.basic_info.latinName"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
+                                <label class="block text-sm font-medium text-slate-600 mb-2">标准名</label>
+                                <input type="text" v-model="formData.basic_info.standard_name" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-2">拉丁名</label>
+                                <input type="text" v-model="formData.basic_info.latinName" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-600 mb-1">别名 (逗号分隔)</label>
-                            <input type="text" v-model="synonymsInput"
-                                class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
+                            <label class="block text-sm font-medium text-slate-600 mb-2">别名 (英文逗号分隔)</label>
+                            <input type="text" v-model="synonymsInput" @focusin="handleKeyboardFieldFocus"
+                                class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                                placeholder="例：绿萝,魔鬼藤">
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">科属</label>
-                                <input type="text" v-model="formData.basic_info.family"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
+                                <label class="block text-sm font-medium text-slate-600 mb-2">科属</label>
+                                <input type="text" v-model="formData.basic_info.family" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">产地</label>
-                                <input type="text" v-model="formData.basic_info.origin"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
+                                <label class="block text-sm font-medium text-slate-600 mb-2">产地</label>
+                                <input type="text" v-model="formData.basic_info.origin" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-600 mb-1">主图 URL (可选)</label>
-                            <div class="flex flex-col sm:flex-row gap-2">
-                                <input type="text" v-model="formData.image_url"
-                                    class="flex-1 px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
-                                    placeholder="https://...">
+                            <label class="block text-sm font-medium text-slate-600 mb-2">植物主图 URL</label>
+                            <div class="flex gap-4">
+                                <input type="text" v-model="formData.image_url" @focusin="handleKeyboardFieldFocus"
+                                    class="flex-1 px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
                                 <button @click="triggerUpload"
-                                    class="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-all">上传</button>
+                                    class="px-4 py-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-all">
+                                    <i class="fa fa-upload"></i> 上传
+                                </button>
+                                <input type="file" ref="fileInput" @change="handleUpload" class="hidden" accept="image/*">
                             </div>
-                            <input type="file" ref="fileInput" @change="handleUpload" class="hidden" accept="image/*">
                         </div>
                     </div>
 
-                    <!-- Tab: Ornamental -->
-                    <div v-show="activeTab === 'ornamental'" class="space-y-4">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Ornamental -->
+                    <div v-show="activeTab === 'ornamental'" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">分类</label>
-                                <input type="text" v-model="formData.category"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
+                                <label class="block text-sm font-medium text-slate-600 mb-2">植物分类</label>
+                                <input type="text" v-model="formData.category" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                                    placeholder="例：观叶植物, 多肉植物">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">生长习性</label>
-                                <input type="text" v-model="formData.ornamental_features.growthHabit"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
+                                <label class="block text-sm font-medium text-slate-600 mb-2">生长习性</label>
+                                <input type="text" v-model="formData.ornamental_features.growthHabit" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-2">花色</label>
+                                <input type="text" v-model="formData.ornamental_features.flowerColor" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-2">花期</label>
+                                <input type="text" v-model="formData.ornamental_features.floweringSeason" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
                             </div>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">花色</label>
-                                <input type="text" v-model="formData.ornamental_features.flowerColor"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">花期</label>
-                                <input type="text" v-model="formData.ornamental_features.floweringSeason"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">香味</label>
-                                <input type="text" v-model="formData.ornamental_features.fragrance"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
-                            </div>
-                            <div class="flex items-center gap-2 pt-8">
+                        <div class="flex items-center gap-8 p-4 bg-slate-50 rounded-2xl">
+                            <label class="flex items-center gap-3 cursor-pointer">
                                 <input type="checkbox" v-model="formData.ornamental_features.potSuitable"
-                                    class="w-5 h-5 rounded border-slate-300 text-emerald-500 focus:ring-emerald-500">
-                                <label class="text-sm font-medium text-slate-600">适合盆栽</label>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-600 mb-1">园林用途</label>
-                            <input type="text" v-model="formData.ornamental_features.landscapeUse"
-                                class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-600 mb-1">花语/象征</label>
-                            <input type="text" v-model="formData.ornamental_features.symbolism"
-                                class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
+                                    class="h-5 w-5 rounded border-slate-300 text-emerald-500 focus:ring-emerald-500">
+                                <span class="text-sm font-medium text-slate-700">适合盆栽</span>
+                            </label>
                         </div>
                     </div>
 
-                    <!-- Tab: Care -->
-                    <div v-show="activeTab === 'care'" class="space-y-4">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Care -->
+                    <div v-show="activeTab === 'care'" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">养护难度</label>
-                                <select v-model="formData.care_difficulty"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
-                                    <option value="容易">容易</option>
-                                    <option value="中等">中等</option>
-                                    <option value="较高">较高</option>
-                                    <option value="极高">极高</option>
+                                <label class="block text-sm font-medium text-slate-600 mb-2">养护难度</label>
+                                <select v-model="formData.care_difficulty" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
+                                    <option>容易</option>
+                                    <option>中等</option>
+                                    <option>较高</option>
+                                    <option>极高</option>
                                 </select>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">光照需求</label>
-                                <input type="text" v-model="formData.care_guide.lightRequirement"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">水分需求</label>
-                                <input type="text" v-model="formData.care_guide.waterRequirement"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">适宜温度</label>
-                                <input type="text" v-model="formData.care_guide.temperature"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">耐旱性</label>
-                                <input type="text" v-model="formData.care_guide.droughtTolerance"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">耐阴性</label>
-                                <input type="text" v-model="formData.care_guide.shadeTolerance"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">耐寒性</label>
-                                <input type="text" v-model="formData.care_guide.coldTolerance"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">浇水建议</label>
-                                <textarea v-model="formData.care_guide.watering" rows="2"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">施肥建议</label>
-                                <textarea v-model="formData.care_guide.fertilizing" rows="2"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">病虫害</label>
-                                <input type="text" v-model="formData.care_guide.pests"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-slate-600 mb-1">安全信息 (有毒/无毒)</label>
-                                <input type="text" v-model="formData.care_guide.safetyInfo"
-                                    class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
+                                <label class="block text-sm font-medium text-slate-600 mb-2">光照要求</label>
+                                <input type="text" v-model="formData.care_guide.lightRequirement" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
                             </div>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-600 mb-1">特殊说明</label>
-                            <textarea v-model="formData.care_guide.specialNotes" rows="2"
-                                class="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+                            <label class="block text-sm font-medium text-slate-600 mb-2">浇水建议</label>
+                            <textarea v-model="formData.care_guide.watering" rows="3" @focusin="handleKeyboardFieldFocus"
+                                class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
                         </div>
                     </div>
                 </div>
 
-                <!-- Modal Footer -->
-                <div class="p-4 sm:p-6 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3">
+                <div class="p-6 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-3 keyboard-safe-modal-footer">
                     <button @click="showModal = false"
-                        class="w-full sm:w-auto px-6 py-2 text-slate-600 hover:bg-slate-50 rounded-xl transition-all">取消</button>
+                        class="px-8 py-3 text-slate-600 font-bold hover:bg-slate-100 rounded-xl transition-all">取消</button>
                     <button @click="savePlant" :disabled="saving"
-                        class="w-full sm:w-auto justify-center px-8 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 shadow-lg shadow-emerald-200 transition-all flex items-center gap-2">
-                        <i v-if="saving" class="fa fa-spinner fa-spin"></i>
-                        {{ saving ? '保存中...' : '提交保存' }}
+                        class="px-12 py-3 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600 shadow-lg shadow-emerald-200 transition-all disabled:opacity-50">
+                        {{ saving ? '正在保存...' : '保存修改' }}
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- Batch Import Modal -->
+        <!-- Import Modal -->
         <div v-if="showImportModal"
             class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-sm">
-            <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-2xl max-h-[calc(100dvh-0.5rem)] sm:max-h-[90vh] shadow-2xl overflow-y-auto p-4 sm:p-6">
-                <div class="flex items-center justify-between gap-4 mb-6">
-                    <h3 class="text-lg sm:text-xl font-bold text-slate-800">批量导入植物数据</h3>
+            <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden p-6 keyboard-safe-modal">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-xl font-bold text-slate-800">批量导入</h3>
                     <button @click="showImportModal = false" class="text-slate-400 hover:text-slate-600">
                         <i class="fa fa-times text-xl"></i>
                     </button>
                 </div>
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-slate-600 mb-2">请粘贴 JSON 数组：</label>
-                    <textarea v-model="importJson" rows="12"
-                        class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 font-mono text-sm outline-none focus:ring-2 focus:ring-emerald-500"
+                <div class="space-y-4 keyboard-safe-modal-scroll">
+                    <p class="text-sm text-slate-500 leading-relaxed">
+                        请粘贴 JSON 格式的植物数据数组。你可以先下载模板文件参考格式。
+                    </p>
+                    <textarea v-model="importJson" rows="12" @focusin="handleKeyboardFieldFocus"
+                        class="w-full p-4 rounded-2xl border border-slate-200 font-mono text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
                         placeholder="[{ 'id': '...', 'name': '...' }, ...]"></textarea>
                 </div>
-                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div class="text-xs text-slate-400 max-w-none sm:max-w-[60%] leading-relaxed">
-                        * 注意：导入将会按 ID 更新现有数据，请确保 JSON 格式正确且符合模板规范。
-                    </div>
-                    <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                        <button @click="showImportModal = false"
-                            class="w-full sm:w-auto px-6 py-2 text-slate-600 hover:bg-slate-50 rounded-xl transition-all">取消</button>
-                        <button @click="doImport" :disabled="!importJson || importing"
-                            class="w-full sm:w-auto justify-center px-6 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all flex items-center gap-2">
-                            <i v-if="importing" class="fa fa-spinner fa-spin"></i>
-                            {{ importing ? '处理中...' : '开始导入' }}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Limit Adjustment Modal -->
-        <div v-if="showLimitModal"
-            class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-sm">
-            <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md shadow-2xl overflow-hidden p-4 sm:p-6">
-                <div class="flex items-center justify-between gap-4 mb-6">
-                    <h3 class="text-lg sm:text-xl font-bold text-slate-800">调整用户花盆上限</h3>
-                    <button @click="showLimitModal = false" class="text-slate-400 hover:text-slate-600">
-                        <i class="fa fa-times text-xl"></i>
-                    </button>
-                </div>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-slate-600 mb-2">用户邮箱</label>
-                        <p class="text-slate-800 font-medium break-all">{{ activeUser?.email || '访客' }}</p>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-600 mb-2">新的上限值</label>
-                        <input type="number" v-model="newLimit"
-                            class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
-                            placeholder="留空即回复系统默认设置">
-                        <p class="text-xs text-slate-400 mt-2">
-                            * 留空表示跟随系统默认规则（普通 10 / 已验证 50）。设置极大数值（如 9999）即为无限名额。
-                        </p>
-                    </div>
-                </div>
-                <div class="flex flex-col sm:flex-row gap-3 mt-8">
-                    <button @click="showLimitModal = false"
-                        class="flex-1 py-3 text-slate-600 hover:bg-slate-50 rounded-xl transition-all">取消</button>
-                    <button @click="saveLimit" :disabled="savingLimit"
-                        class="flex-1 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all">
-                        {{ savingLimit ? '正在保存...' : '确认修改' }}
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Password Reset Modal -->
-        <div v-if="showPasswordResetModal"
-            class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-sm">
-            <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md shadow-2xl overflow-hidden p-4 sm:p-6">
-                <div class="flex items-center justify-between gap-4 mb-6">
-                    <h3 class="text-lg sm:text-xl font-bold text-slate-800">重置用户密码</h3>
-                    <button @click="closePasswordResetModal" class="text-slate-400 hover:text-slate-600">
-                        <i class="fa fa-times text-xl"></i>
-                    </button>
-                </div>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-slate-600 mb-2">用户邮箱</label>
-                        <p class="text-slate-800 font-medium break-all">{{ activeUser?.email }}</p>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-600 mb-2">新密码</label>
-                        <input type="password" v-model="passwordResetForm.password" autocomplete="new-password"
-                            @input="validatePasswordReset"
-                            class="w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-emerald-500"
-                            :class="passwordResetErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-slate-200'"
-                            placeholder="至少 8 位，含字母和数字">
-                        <p v-if="passwordResetErrors.password" class="text-xs text-red-500 mt-2">
-                            {{ passwordResetErrors.password }}
-                        </p>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-600 mb-2">确认新密码</label>
-                        <input type="password" v-model="passwordResetForm.confirmPassword" autocomplete="new-password"
-                            @input="validatePasswordReset"
-                            class="w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-emerald-500"
-                            :class="passwordResetErrors.confirmPassword ? 'border-red-200 focus:ring-red-200' : 'border-slate-200'"
-                            placeholder="再次输入新密码">
-                        <p v-if="passwordResetErrors.confirmPassword" class="text-xs text-red-500 mt-2">
-                            {{ passwordResetErrors.confirmPassword }}
-                        </p>
-                    </div>
-                    <label class="flex items-start gap-3 p-3 rounded-xl bg-slate-50 cursor-pointer">
-                        <input type="checkbox" v-model="passwordResetForm.notifyUser"
-                            class="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-500 focus:ring-emerald-500">
-                        <span class="text-sm text-slate-700 leading-relaxed">
-                            发送邮件通知用户
-                        </span>
-                    </label>
-                    <p class="text-sm text-slate-500 leading-relaxed">
-                        确认后将立即覆盖该用户的登录密码。通知邮件只说明密码已由管理员重置，不包含新密码。
-                    </p>
-                </div>
-                <div class="flex flex-col sm:flex-row gap-3 mt-8">
-                    <button @click="closePasswordResetModal"
-                        class="flex-1 py-3 text-slate-600 hover:bg-slate-50 rounded-xl transition-all">取消</button>
-                    <button @click="resetUserPassword" :disabled="!isPasswordResetFormValid || savingPasswordReset"
-                        class="flex-1 py-3 bg-indigo-500 text-white rounded-xl hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-                        {{ savingPasswordReset ? '正在重置...' : '确认重置' }}
+                <div class="flex flex-col sm:flex-row gap-3 mt-8 keyboard-safe-modal-footer">
+                    <button @click="downloadTemplate"
+                        class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-all">下载模板</button>
+                    <button @click="doImport" :disabled="importing || !importJson"
+                        class="flex-1 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all">
+                        {{ importing ? '正在导入...' : '执行导入' }}
                     </button>
                 </div>
             </div>
@@ -784,21 +475,24 @@
         </div>
     </div>
 
-	    <!-- Scripts -->
-	    <script src="js/api-client.js?v=20260426-adminpass"></script>
-	    <script src="js/media-utils.js?v=20260421-refactor"></script>
-	    <script src="js/dialog-utils.js?v=20260421-refactor"></script>
-	    <script src="js/ui-utils.js?v=20260421-refactor"></script>
-	    <script src="js/date-utils.js?v=20260421-refactor"></script>
-	    <script>
-        const { createApp, ref, computed, onMounted, watch } = Vue;
+    <!-- Scripts -->
+    <script src="js/api-client.js?v=20260426-adminpass"></script>
+    <script src="js/media-utils.js?v=20260507-image-cache"></script>
+    <script src="js/dialog-utils.js?v=20260421-refactor"></script>
+    <script src="js/ui-utils.js?v=20260421-refactor"></script>
+    <script src="js/date-utils.js?v=20260421-refactor"></script>
+    <script src="js/form-utils.js?v=20260421-refactor"></script>
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
 
         createApp({
             setup() {
                 const nav = window.MyFlowerPotsNavigation;
-                const showAlert = window.MyFlowerPotsDialog.alert;
                 const showConfirm = window.MyFlowerPotsDialog.confirm;
-                const currentTab = ref('plants'); // 'plants' or 'users'
+
+                const isCheckingAccess = ref(true);
+                const supportUnreadCount = ref(0);
+                const toast = ref({ show: false, message: '', icon: '' });
 
                 // 植物管理相关
                 const plants = ref([]);
@@ -813,29 +507,7 @@
                 const importing = ref(false);
                 const importJson = ref('');
                 const synonymsInput = ref('');
-
-                // 用户管理相关
-                const users = ref([]);
-                const userPagination = ref({ page: 1, pageSize: 20, total: 0 });
-                const userSearchQuery = ref('');
-                const showLimitModal = ref(false);
-                const activeUser = ref(null);
-                const newLimit = ref('');
-                const savingLimit = ref(false);
-                const showPasswordResetModal = ref(false);
-                const passwordResetForm = ref({ password: '', confirmPassword: '', notifyUser: false });
-                const passwordResetErrors = ref({ password: '', confirmPassword: '' });
-                const savingPasswordReset = ref(false);
-
-                const toast = ref({ show: false, message: '', icon: '' });
-                const isCheckingAccess = ref(true);
-                const supportUnreadCount = ref(0);
-                const cacheStats = ref({ size: 0, prefixes: {} });
-                const cacheLoading = ref(false);
-                const cacheClearing = ref(false);
-                const cacheClearScope = ref('plants');
-                const cachePrefix = ref('');
-                const cacheLastResult = ref(null);
+                const fileInput = ref(null);
 
                 const tabs = [
                     { id: 'basic', name: '基本信息' },
@@ -844,28 +516,20 @@
                 ];
 
                 const formData = ref({
-                    id: '',
-                    name: '',
-                    category: '',
-                    care_difficulty: '中等',
-                    image_url: '',
-                    basic_info: {},
-                    ornamental_features: {},
-                    care_guide: {}
+                    id: '', name: '', category: '', care_difficulty: '中等', image_url: '',
+                    basic_info: {}, ornamental_features: {}, care_guide: {}
                 });
 
+                // 键盘适配
+                const { modalStyle: keyboardModalStyle, handleFieldFocus: handleKeyboardFieldFocus } =
+                    window.MyFlowerPotsForm?.createKeyboardViewportController() || { modalStyle: {}, handleFieldFocus: () => {} };
+
                 const totalPages = computed(() => Math.ceil(pagination.value.total / pagination.value.pageSize));
-                const totalUserPages = computed(() => Math.ceil(userPagination.value.total / userPagination.value.pageSize));
-                const isPasswordResetFormValid = computed(() =>
-                    passwordResetForm.value.password.length >= 8 &&
-                    passwordResetForm.value.password === passwordResetForm.value.confirmPassword &&
-                    !passwordResetErrors.value.password &&
-                    !passwordResetErrors.value.confirmPassword
-                );
                 const isAllSelected = computed(() => plants.value.length > 0 && selectedIds.value.length === plants.value.length);
-                const cachePrefixEntries = computed(() => {
-                    const prefixes = cacheStats.value?.prefixes || {};
-                    return Object.entries(prefixes).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+                const showToast = MyFlowerPotsUi.createToast(toast, {
+                    duration: 3000,
+                    defaultType: 'info'
                 });
 
                 const fetchPlants = async () => {
@@ -880,18 +544,6 @@
                     }
                 };
 
-                const fetchUsers = async () => {
-                    try {
-                        const res = await apiClient.adminGetUsers(userPagination.value.page, userPagination.value.pageSize, userSearchQuery.value);
-                        if (res.success) {
-                            users.value = res.data;
-                            userPagination.value.total = res.pagination.total;
-                        }
-                    } catch (err) {
-                        showToast(err.message, 'fa fa-exclamation-circle');
-                    }
-                };
-
                 const fetchSupportUnreadCount = async () => {
                     try {
                         const res = await apiClient.getSupportUnreadCount();
@@ -900,83 +552,13 @@
                         }
                     } catch (err) {
                         supportUnreadCount.value = 0;
-                        console.error('Failed to fetch support unread count:', err);
                     }
                 };
-
-                const normalizeCacheStats = (stats) => ({
-                    size: Number(stats?.size) || 0,
-                    prefixes: stats?.prefixes || {}
-                });
-
-                const fetchCacheStats = async () => {
-                    cacheLoading.value = true;
-                    try {
-                        const res = await apiClient.adminGetCacheStats();
-                        if (res.success) {
-                            cacheStats.value = normalizeCacheStats(res.data);
-                        }
-                    } catch (err) {
-                        showToast(err.message, 'fa fa-exclamation-circle');
-                    } finally {
-                        cacheLoading.value = false;
-                    }
-                };
-
-                const getCacheScopeLabel = (scope = cacheClearScope.value) => {
-                    if (scope === 'all') return '全部内存缓存';
-                    if (scope === 'plants') return '植物匹配缓存';
-                    if (scope === 'prefix') return `前缀 ${cachePrefix.value || '-'}`;
-                    return scope;
-                };
-
-                const clearAdminCache = async () => {
-                    const scope = cacheClearScope.value;
-                    const prefix = cachePrefix.value.trim();
-
-                    if (scope === 'prefix' && !prefix) {
-                        showToast('请输入要清理的缓存前缀', 'fa fa-exclamation-circle');
-                        return;
-                    }
-
-                    const scopeLabel = getCacheScopeLabel(scope);
-                    if (!showConfirm(`确定要清理 ${scopeLabel} 吗？`)) return;
-
-                    cacheClearing.value = true;
-                    try {
-                        const res = await apiClient.adminClearCache({ scope, prefix });
-                        if (res.success) {
-                            cacheStats.value = normalizeCacheStats(res.data);
-                            cacheLastResult.value = {
-                                cleared: Number(res.cleared) || 0,
-                                scopeLabel
-                            };
-                            showToast(`已清理 ${cacheLastResult.value.cleared} 条缓存`, 'fa fa-check-circle');
-                        }
-                    } catch (err) {
-                        showToast(err.message, 'fa fa-exclamation-circle');
-                    } finally {
-                        cacheClearing.value = false;
-                    }
-                };
-
-                // 监听页签切换自动加载数据
-                watch(currentTab, (newVal) => {
-                    if (newVal === 'plants') fetchPlants();
-                    if (newVal === 'users') fetchUsers();
-                    if (newVal === 'cache') fetchCacheStats();
-                });
 
                 const changePage = (p) => {
                     if (p < 1 || p > totalPages.value) return;
                     pagination.value.page = p;
                     fetchPlants();
-                };
-
-                const changeUserPage = (p) => {
-                    if (p < 1 || p > totalUserPages.value) return;
-                    userPagination.value.page = p;
-                    fetchUsers();
                 };
 
                 const toggleAll = () => {
@@ -997,124 +579,6 @@
                     }
                 };
 
-                const openLimitModal = (user) => {
-                    activeUser.value = user;
-                    newLimit.value = user.max_pots || '';
-                    showLimitModal.value = true;
-                };
-
-                const saveLimit = async () => {
-                    savingLimit.value = true;
-                    try {
-                        const res = await apiClient.adminUpdateUser(activeUser.value.id, { maxPots: newLimit.value });
-                        if (res.success) {
-                            showToast('限额更新成功', 'fa fa-check-circle');
-                            showLimitModal.value = false;
-                            fetchUsers();
-                        }
-                    } catch (err) {
-                        showToast(err.message, 'fa fa-exclamation-circle');
-                    } finally {
-                        savingLimit.value = false;
-                    }
-                };
-
-	                const validatePasswordReset = () => {
-	                    const password = passwordResetForm.value.password || '';
-	                    passwordResetErrors.value.password = password.length < 8
-	                        ? '密码至少需要 8 位'
-	                        : (!/[A-Za-z]/.test(password) || !/\d/.test(password) ? '密码需同时包含字母和数字' : '');
-	                    passwordResetErrors.value.confirmPassword =
-	                        !passwordResetForm.value.confirmPassword || passwordResetForm.value.password === passwordResetForm.value.confirmPassword
-	                            ? ''
-                            : '两次输入的密码不一致';
-                    return !passwordResetErrors.value.password && !passwordResetErrors.value.confirmPassword;
-                };
-
-                const openPasswordResetModal = (user) => {
-                    if (user.user_type !== 'email' || !user.email) {
-                        showToast('只能重置邮箱用户的密码', 'fa fa-exclamation-circle');
-                        return;
-                    }
-                    activeUser.value = user;
-                    passwordResetForm.value = { password: '', confirmPassword: '', notifyUser: false };
-                    passwordResetErrors.value = { password: '', confirmPassword: '' };
-                    showPasswordResetModal.value = true;
-                };
-
-                const closePasswordResetModal = () => {
-                    if (savingPasswordReset.value) return;
-                    showPasswordResetModal.value = false;
-                    passwordResetForm.value = { password: '', confirmPassword: '', notifyUser: false };
-                    passwordResetErrors.value = { password: '', confirmPassword: '' };
-                };
-
-                const resetUserPassword = async () => {
-                    if (!activeUser.value || !validatePasswordReset()) return;
-
-                    savingPasswordReset.value = true;
-                    try {
-                        const notifyUser = passwordResetForm.value.notifyUser === true;
-                        const res = await apiClient.adminResetUserPassword(
-                            activeUser.value.id,
-                            passwordResetForm.value.password,
-                            notifyUser
-                        );
-                        if (res.success) {
-                            const emailSubmitted = res.emailSubmitted ?? res.emailSent;
-                            let message = '密码已重置，未发送通知邮件';
-                            let icon = 'fa fa-check-circle';
-                            if (notifyUser) {
-                                if (emailSubmitted) {
-                                    message = '密码已重置，通知邮件已提交发送';
-                                } else {
-                                    message = '密码已重置，但通知邮件提交失败';
-                                    icon = 'fa fa-exclamation-circle';
-                                }
-                            }
-                            showToast(message, icon);
-                            showPasswordResetModal.value = false;
-                            passwordResetForm.value = { password: '', confirmPassword: '', notifyUser: false };
-                            passwordResetErrors.value = { password: '', confirmPassword: '' };
-                        }
-                    } catch (err) {
-                        showToast(err.message, 'fa fa-exclamation-circle');
-                    } finally {
-                        savingPasswordReset.value = false;
-                    }
-                };
-
-                const toggleUserStatus = async (user) => {
-                    const action = user.is_disabled ? '启用' : '禁用';
-                    if (!showConfirm(`确定要${action}用户 "${user.email || user.id}" 吗？`)) return;
-
-                    try {
-                        const res = await apiClient.adminUpdateUser(user.id, { isDisabled: !user.is_disabled });
-                        if (res.success) {
-                            showToast(`用户已${action}`, 'fa fa-check-circle');
-                            fetchUsers();
-                        }
-                    } catch (err) {
-                        showToast(err.message, 'fa fa-exclamation-circle');
-                    }
-                };
-
-                const confirmDeleteUser = async (user) => {
-                    const confirmMsg = `❗ 危险警告 ❗\n\n您确定要彻底删除用户 "${user.email || user.id}" 吗？\n\n该操作将：\n1. 永久删除该账号\n2. 物理删除所有关联花盆及成长记录\n3. 彻底清除 R2 存储中的所有相关图片文件\n\n此操作不可撤销，确定继续吗？`;
-                    if (!showConfirm(confirmMsg)) return;
-
-                    showToast('正在深度清理用户数据...', 'fa fa-spinner fa-spin');
-                    try {
-                        const res = await apiClient.adminDeleteUser(user.id);
-                        if (res.success) {
-                            showToast('用户及关联数据已彻底清除', 'fa fa-trash-alt');
-                            fetchUsers();
-                        }
-                    } catch (err) {
-                        showToast(err.message, 'fa fa-exclamation-circle');
-                    }
-                };
-
                 const openCreateModal = () => {
                     isEditing.value = false;
                     activeTab.value = 'basic';
@@ -1129,7 +593,6 @@
                 const openEditModal = (plant) => {
                     isEditing.value = true;
                     activeTab.value = 'basic';
-                    // 深拷贝
                     formData.value = JSON.parse(JSON.stringify(plant));
                     synonymsInput.value = (plant.synonyms || []).join(', ');
                     showModal.value = true;
@@ -1139,26 +602,13 @@
                     if (!formData.value.id || !formData.value.name) {
                         return showToast('ID 和名称不能为空', 'fa fa-exclamation-triangle');
                     }
-
-                    // 处理别名
-                    const synonyms = synonymsInput.value.split(',')
-                        .map(s => s.trim())
-                        .filter(s => s.length > 0);
-
-                    const payload = {
-                        ...formData.value,
-                        synonyms
-                    };
-
+                    const synonyms = synonymsInput.value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                    const payload = { ...formData.value, synonyms };
                     saving.value = true;
                     try {
-                        let res;
-                        if (isEditing.value) {
-                            res = await apiClient.adminUpdatePlant(formData.value.id, payload);
-                        } else {
-                            res = await apiClient.adminCreatePlant(payload);
-                        }
-
+                        let res = isEditing.value
+                            ? await apiClient.adminUpdatePlant(formData.value.id, payload)
+                            : await apiClient.adminCreatePlant(payload);
                         if (res.success) {
                             showToast('保存成功', 'fa fa-check-circle');
                             showModal.value = false;
@@ -1198,11 +648,29 @@
                     }
                 };
 
+                const triggerUpload = () => fileInput.value.click();
+                const handleUpload = async (e) => {
+                    const [item] = await MyFlowerPotsMedia.selectImages(e, { limit: 1 });
+                    if (!item) return;
+                    try {
+                        showToast('正在上传图片...', 'fa fa-spinner fa-spin');
+                        const [uploadedUrl] = await MyFlowerPotsMedia.uploadImages(apiClient, [item], {
+                            uploadType: 'plants',
+                            entityId: formData.value.id || 'temp'
+                        });
+                        if (uploadedUrl) {
+                            formData.value.image_url = uploadedUrl;
+                            showToast('图片上传成功', 'fa fa-check-circle');
+                        }
+                    } catch (err) {
+                        showToast(err.message, 'fa fa-exclamation-circle');
+                    }
+                };
+
                 const doImport = async () => {
                     try {
                         const data = JSON.parse(importJson.value);
                         if (!Array.isArray(data)) throw new Error('必须是一个 JSON 数组');
-
                         importing.value = true;
                         const res = await apiClient.adminBatchImport(data);
                         if (res.success) {
@@ -1212,137 +680,47 @@
                             fetchPlants();
                         }
                     } catch (err) {
-                        showAlert('JSON 格式错误: ' + err.message);
+                        showToast(err.message, 'fa fa-exclamation-circle');
                     } finally {
                         importing.value = false;
                     }
                 };
 
                 const downloadTemplate = () => {
-                    const template = [{
-                        id: "PinYin",
-                        basicInfo: {
-                            name: "名称", standard_name: "标准名", latinName: "拉丁名",
-                            synonyms: ["别名1", "别名2"], family: "科属", origin: "产地"
-                        },
-                        ornamentalFeatures: {
-                            category: "分类", growthHabit: "生长习性", flowerColor: "花色",
-                            floweringSeason: "花期", fragrance: "香味", landscapeUse: "用途",
-                            potSuitable: true, symbolism: "象征"
-                        },
-                        careGuide: {
-                            careDifficulty: "容易/中等/较高", lightRequirement: "光照",
-                            waterRequirement: "水分", temperature: "15–30℃", humidity: "湿度",
-                            soilRequirement: "土壤", droughtTolerance: "耐旱", shadeTolerance: "耐阴",
-                            coldTolerance: "耐寒", watering: "浇水建议", fertilizing: "施肥建议",
-                            pruning: "修剪", propagation: "繁殖", pests: "病虫",
-                            safetyInfo: "安全说明", specialNotes: "特殊说明"
-                        }
-                    }];
+                    const template = [{ id: "PinYin", basicInfo: { name: "名称" }, careGuide: { careDifficulty: "中等" } }];
                     const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'plant_import_template.json';
-                    a.click();
+                    a.href = url; a.download = 'plant_import_template.json'; a.click();
                     URL.revokeObjectURL(url);
                 };
 
                 const formatDateTime = (dateStr) => MyFlowerPotsDate.formatDateTime(dateStr);
 
-                const showToast = MyFlowerPotsUi.createToast(toast, {
-                    duration: 3000,
-                    defaultType: 'info'
-                });
-
-                // Image Upload
-	                const fileInput = ref(null);
-	                const triggerUpload = () => fileInput.value.click();
-	                const handleUpload = async (e) => {
-	                    const [item] = await MyFlowerPotsMedia.selectImages(e, { limit: 1 });
-	                    if (!item) return;
-	
-	                    try {
-	                        showToast('正在上传图片...', 'fa fa-spinner fa-spin');
-	                        // 使用通用上传接口，这里传入 plantId 作为目录后缀
-	                        const [uploadedUrl] = await MyFlowerPotsMedia.uploadImages(apiClient, [item], {
-	                            uploadType: 'plants',
-	                            entityId: formData.value.id || 'temp'
-	                        });
-	                        if (uploadedUrl) {
-	                            formData.value.image_url = uploadedUrl;
-	                            showToast('图片上传成功', 'fa fa-check-circle');
-	                        }
-                    } catch (err) {
-                        showToast(err.message, 'fa fa-exclamation-circle');
-                    }
-                };
-
                 const checkAccess = async () => {
-                    const token = window.authStorage?.getToken() || null;
-                    if (!token) {
-                        nav.redirectToLoginRequired({
-                            from: 'admin-plants',
-                            redirect: 'admin-plants',
-                            message: '请先登录管理员账号后再进入后台。'
-                        }, { replace: true });
-                        return;
-                    }
-
                     try {
                         const res = await apiClient.adminCheck();
                         if (res.success) {
                             isCheckingAccess.value = false;
                             fetchPlants();
                             fetchSupportUnreadCount();
-                        } else {
-                            nav.redirectToAdminRequired({
-                                from: 'admin-plants',
-                                message: res.message || '当前账号没有植物管理后台权限。',
-                                source: 'admin'
-                            }, { replace: true });
                         }
                     } catch (err) {
-                        console.error('Access check failed:', err);
-                        if (nav.classifyApiError(err) === 'auth') {
-                            nav.redirectToLoginRequired({
-                                from: 'admin-plants',
-                                redirect: 'admin-plants',
-                                message: err.message || '请重新登录管理员账号后再进入后台。'
-                            }, { replace: true });
-                            return;
-                        }
-                        nav.redirectToAdminRequired({
-                            from: 'admin-plants',
-                            message: err.message || '权限校验失败，请确认当前账号具有管理员权限。',
-                            source: 'admin'
-                        }, { replace: true });
+                        nav.redirectForApiError(err, { from: 'admin-plants', source: 'admin' }, { replace: true });
                     }
                 };
-
-                window.addEventListener('auth:expired', (event) => {
-                    nav.redirectToSessionExpired(event.detail?.message, {
-                        from: 'admin-plants',
-                        redirect: 'admin-plants',
-                        source: 'admin'
-                    }, { replace: true });
-                });
 
                 onMounted(checkAccess);
 
                 return {
-                    currentTab, plants, pagination, searchQuery, selectedIds, totalPages, isAllSelected,
+                    isCheckingAccess, supportUnreadCount, toast,
+                    plants, pagination, searchQuery, selectedIds, totalPages, isAllSelected,
                     showModal, isEditing, activeTab, tabs, formData, saving, synonymsInput,
-                    showImportModal, importJson, importing, toast, fileInput, isCheckingAccess,
-                    supportUnreadCount,
-                    cacheStats, cachePrefixEntries, cacheLoading, cacheClearing, cacheClearScope, cachePrefix, cacheLastResult,
-                    users, userPagination, userSearchQuery, showLimitModal, activeUser, newLimit, savingLimit, totalUserPages,
-                    showPasswordResetModal, passwordResetForm, passwordResetErrors, savingPasswordReset, isPasswordResetFormValid,
-                    fetchPlants, fetchUsers, changePage, changeUserPage, toggleAll, difficultyClass, openCreateModal,
+                    showImportModal, importJson, importing, fileInput,
+                    keyboardModalStyle, handleKeyboardFieldFocus,
+                    fetchPlants, changePage, toggleAll, difficultyClass, openCreateModal,
                     openEditModal, savePlant, deleteSingle, batchDelete, downloadTemplate, formatDateTime,
-                    doImport, triggerUpload, handleUpload, openLimitModal, saveLimit, openPasswordResetModal,
-                    closePasswordResetModal, resetUserPassword, validatePasswordReset, toggleUserStatus, confirmDeleteUser,
-                    fetchCacheStats, clearAdminCache
+                    doImport, triggerUpload, handleUpload
                 };
             }
         }).mount('#app');

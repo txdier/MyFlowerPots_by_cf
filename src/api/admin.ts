@@ -75,6 +75,7 @@ async function ensureDeletedUserPlaceholder(env: any): Promise<void> {
 type AdminUserSnapshot = {
     email?: string | null;
     email_verified?: number | boolean | null;
+    is_disabled?: number | boolean | null;
     user_type?: string | null;
 };
 
@@ -101,14 +102,10 @@ export async function isAdmin(
     const devAdminUserIds = isLocalDev ? parseCsvEnv(env.DEV_ADMIN_USER_IDS) : [];
     const devAdminAnyEmailUser = isLocalDev && isTruthyEnv(env.DEV_ADMIN_ANY_EMAIL_USER);
 
-    if (adminUserIds.includes(userId) || devAdminUserIds.includes(userId)) {
-        return true;
-    }
-
     try {
         // 根据 token (userId) 查找用户邮箱
         const user: any = knownUser || await env.DB
-            .prepare('SELECT email, email_verified, user_type FROM users WHERE id = ?')
+            .prepare('SELECT email, email_verified, is_disabled, user_type FROM users WHERE id = ?')
             .bind(userId)
             .first();
 
@@ -117,8 +114,17 @@ export async function isAdmin(
             return false;
         }
 
+        if (user.is_disabled === 1 || user.is_disabled === true) {
+            console.warn('isAdmin: Disabled user attempted admin access', { userId });
+            return false;
+        }
+
         const userEmail = String(user.email || '').trim().toLowerCase();
         const isEmailUser = user.user_type === 'email' && !!userEmail;
+
+        if (adminUserIds.includes(userId) || devAdminUserIds.includes(userId)) {
+            return true;
+        }
 
         if (devAdminAnyEmailUser && isEmailUser) {
             return true;
@@ -236,7 +242,7 @@ export async function handleAdminRequest(
     if (path.startsWith('/api/admin/users/') && request.method === 'PUT') {
         const id = path.split('/').pop();
         if (!id) return errorResponse('Missing user ID', 400);
-        return handleUpdateUser(request, env, id);
+        return handleUpdateUser(request, env, id, userId);
     }
 
     // DELETE /api/admin/users/:id - 彻底删除用户
@@ -605,13 +611,14 @@ async function handleGetUsers(request: Request, env: any, url: URL): Promise<Res
     }
 }
 
-async function handleUpdateUser(request: Request, env: any, id: string): Promise<Response> {
+async function handleUpdateUser(request: Request, env: any, id: string, adminUserId: string | null): Promise<Response> {
     try {
         const data = await request.json() as any;
-        const { maxPots, isDisabled } = data;
+        const { maxPots, isDisabled, emailVerified, verificationReason } = data;
 
         const updates: string[] = [];
         const params: any[] = [];
+        const shouldVerifyEmail = Object.prototype.hasOwnProperty.call(data, 'emailVerified');
 
         if (maxPots !== undefined) {
             updates.push('max_pots = ?');
@@ -621,6 +628,43 @@ async function handleUpdateUser(request: Request, env: any, id: string): Promise
         if (isDisabled !== undefined) {
             updates.push('is_disabled = ?');
             params.push(isDisabled ? 1 : 0);
+        }
+
+        if (shouldVerifyEmail) {
+            if (emailVerified !== true) {
+                return errorResponse('Manual verification can only mark email users as verified', 400);
+            }
+
+            const user: any = await env.DB
+                .prepare('SELECT id, email, user_type, email_verified FROM users WHERE id = ?')
+                .bind(id)
+                .first();
+
+            if (!user) {
+                return errorResponse('User not found', 404);
+            }
+
+            if (user.user_type !== 'email' || !user.email) {
+                return errorResponse('Only email users can be manually verified', 400);
+            }
+
+            if (user.email_verified === 1 || user.email_verified === true) {
+                if (updates.length === 0) {
+                    return jsonResponse({ success: true, message: 'User email is already verified' });
+                }
+            } else {
+                const reason = String(verificationReason || '').trim().slice(0, 200);
+                console.warn('Admin manually verified user email', {
+                    adminUserId,
+                    targetUserId: id,
+                    targetEmail: user.email,
+                    reason: reason || null
+                });
+
+                updates.push('email_verified = 1');
+                updates.push('verification_token = NULL');
+                updates.push('verification_token_expires = NULL');
+            }
         }
 
         if (updates.length === 0) {
