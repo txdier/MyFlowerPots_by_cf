@@ -27,6 +27,11 @@ export async function handlePotsRequest(
     return handleGetPotDetailBundle(path, env, token);
   }
 
+  // 2️⃣ 成员权限调整
+  if (request.method === 'PATCH' && path.match(/^\/api\/pots\/[^/]+\/members\/[^/]+\/role$/)) {
+    return handleUpdatePotMemberRole(request, env, path, token);
+  }
+
   // 2️⃣ 花盆详情
   if (request.method === 'GET' && path.match(/^\/api\/pots\/[^/]+$/)) {
     return handleGetPotDetail(path, env, url, token);
@@ -572,6 +577,103 @@ async function sealArchivedPotAccess(env: any, potId: string, ownerId: string, p
     await env.DB.batch(notifications);
   } catch (error) {
     console.error('Failed to send archive permission notifications:', error);
+  }
+}
+
+async function handleUpdatePotMemberRole(
+  request: Request,
+  env: any,
+  path: string,
+  token: string | null
+): Promise<Response> {
+  try {
+    const match = path.match(/^\/api\/pots\/([^/]+)\/members\/([^/]+)\/role$/);
+    if (!match) return errorResponse('Not Found', 404);
+
+    const potId = decodeURIComponent(match[1]);
+    const targetUserId = decodeURIComponent(match[2]);
+    const userId = token;
+    if (!userId) return errorResponse('Authentication required', 401);
+
+    const body = await request.json() as { role?: string };
+    const role = String(body.role || '').trim();
+    if (role !== 'viewer' && role !== 'collaborator') {
+      return errorResponse('Invalid member role', 400);
+    }
+
+    const pot = await findAccessiblePot(env, potId, userId, 'owner', {
+      select: "p.id, p.user_id, p.name, COALESCE(p.status, 'active') as status"
+    });
+    if (!pot) return errorResponse('Pot not found or access denied', 404);
+    if (targetUserId === pot.user_id) return errorResponse('Cannot change owner role', 400);
+    if (role === 'collaborator' && pot.status === 'archived') {
+      return errorResponse('Archived pots do not support collaborators', 400);
+    }
+
+    const target = await env.DB.prepare(`
+      SELECT
+        u.id,
+        u.display_name,
+        u.email,
+        EXISTS(SELECT 1 FROM pot_collaborators WHERE pot_id = ? AND user_id = u.id) as is_collaborator,
+        EXISTS(SELECT 1 FROM pot_viewers WHERE pot_id = ? AND user_id = u.id) as is_viewer
+      FROM users u
+      WHERE u.id = ?
+    `).bind(potId, potId, targetUserId).first();
+    if (!target || (!target.is_collaborator && !target.is_viewer)) {
+      return errorResponse('Member not found', 404);
+    }
+
+    const alreadyTargetRole = role === 'collaborator'
+      ? !!target.is_collaborator && !target.is_viewer
+      : !!target.is_viewer && !target.is_collaborator;
+
+    if (!alreadyTargetRole) {
+      if (role === 'collaborator') {
+        await env.DB.batch([
+          env.DB.prepare(`
+            INSERT OR IGNORE INTO pot_collaborators (pot_id, user_id, role)
+            VALUES (?, ?, 'collaborator')
+          `).bind(potId, targetUserId),
+          env.DB.prepare('DELETE FROM pot_viewers WHERE pot_id = ? AND user_id = ?')
+            .bind(potId, targetUserId)
+        ]);
+      } else {
+        await env.DB.batch([
+          env.DB.prepare(`
+            INSERT OR IGNORE INTO pot_viewers (pot_id, user_id)
+            VALUES (?, ?)
+          `).bind(potId, targetUserId),
+          env.DB.prepare('DELETE FROM pot_collaborators WHERE pot_id = ? AND user_id = ?')
+            .bind(potId, targetUserId)
+        ]);
+      }
+
+      const permissionLabel = role === 'collaborator' ? '共同照料' : '仅查看';
+      const content = role === 'collaborator'
+        ? `花盆「${pot.name || '未命名'}」的主人已将您的权限调整为共同照料。您现在可以新增和编辑养护、时间线、提醒。`
+        : `花盆「${pot.name || '未命名'}」的主人已将您的权限调整为仅查看。您仍可查看记录，但不能新增或编辑养护、时间线、提醒。`;
+      try {
+        await env.DB.prepare(`
+          INSERT INTO messages (user_id, sender_id, type, title, content, related_id)
+          VALUES (?, ?, 'system_info', ?, ?, ?)
+        `).bind(targetUserId, userId, `花盆权限已调整为${permissionLabel}`, content, potId).run();
+      } catch (error) {
+        console.error('Failed to send member role update notification:', error);
+      }
+    }
+
+    return jsonResponse({
+      success: true,
+      data: {
+        potId,
+        userId: targetUserId,
+        role
+      }
+    });
+  } catch (error) {
+    console.error('Update pot member role error:', error);
+    return errorResponse('Failed to update member role', 500);
   }
 }
 

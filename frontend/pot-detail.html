@@ -28,7 +28,7 @@
 
     <!-- Tailwind CSS & Custom Styles (Optimized) -->
     <link rel="stylesheet" href="css/tailwind-built.css?v=20260407-1">
-    <link rel="stylesheet" href="css/app.css?v=20260429-auth-validation">
+    <link rel="stylesheet" href="css/app.css?v=20260505-auth-keyboard">
 
     <!-- 图标库 -->
     <link rel="stylesheet" href="css/icons.css">
@@ -413,7 +413,7 @@
                                 <i class="fa fa-archive mr-0.5"></i> 已归档
                             </span>
                             <span v-if="pot.is_collaborator || (isOwner && pot.collaborator_count > 0)"
-                                class="px-2 py-0.5 bg-orange-100 text-orange-600 text-[10px] font-black rounded-lg">
+                                class="px-2 py-0.5 bg-blue-50 text-blue-500 text-[10px] font-black rounded-lg">
                                 <i class="fa fa-users mr-0.5"></i> 共同照料中
                             </span>
                             <span v-else-if="pot.is_viewer"
@@ -461,7 +461,7 @@
                             <button @click="plantInfoActiveTab = 'care'"
                                 class="flex-1 py-3 text-sm font-black border-b-2 transition"
                                 :class="plantInfoActiveTab === 'care' ? 'text-blue-600 border-blue-500' : 'text-gray-400 border-transparent'">
-                                养护提示
+                                照护建议
                             </button>
                         </div>
                     </div>
@@ -492,7 +492,7 @@
                         </div>
                     </div>
 
-                    <!-- 养护提示面板 -->
+                    <!-- 照护建议面板 -->
                     <div v-show="plantInfoActiveTab === 'care'">
                         <div class="px-6 py-6 overflow-hidden transition-all duration-500"
                             :style="{ maxHeight: showFullCareTips ? '3000px' : '400px' }">
@@ -855,8 +855,9 @@
 
 	                <div v-if="showArchiveModal" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4">
 	                    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeArchiveModal"></div>
-		                    <div
-		                        class="relative bg-white w-full max-w-lg rounded-t-[2rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col max-h-[90vh]">
+			                    <div
+			                        class="relative bg-white w-full max-w-lg rounded-t-[2rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col keyboard-safe-modal"
+                                    :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus">
 		                        <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 shrink-0">
 	                            <div>
 	                                <h3 class="text-xl font-black text-gray-800">归档此花盆</h3>
@@ -867,7 +868,7 @@
 	                                <i class="fa fa-times text-xl"></i>
 	                            </button>
 	                        </div>
-		                        <div class="p-6 space-y-5 overflow-y-auto">
+			                        <div class="p-6 space-y-5 overflow-y-auto flex-1 keyboard-safe-modal-scroll">
 	                            <div class="rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 text-xs text-amber-700 leading-relaxed">
 	                                归档后这盆植物将不再出现在养护列表，也不会收到养护提醒。记录会保留，之后可以在已归档中查看和恢复。
 	                            </div>
@@ -912,7 +913,7 @@
                                         accept="image/*" class="hidden">
                                 </div>
 	                        </div>
-		                        <div class="px-6 pb-6 shrink-0">
+			                        <div class="px-6 pb-6 shrink-0 keyboard-safe-modal-footer">
 	                            <button @click="archiveCurrentPot" :disabled="isArchiveLoading"
 	                                class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
 	                                {{ isArchiveLoading ? '归档中...' : '确认归档' }}
@@ -987,8 +988,8 @@
             <!-- 弹窗：分享花盆 (QR Code) -->
             <div v-if="showShareModal" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showShareModal = false"></div>
-                <div
-                    class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
+		                <div
+		                    class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
                     <!-- 固定头部 -->
                     <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
                         <div class="flex justify-between items-center">
@@ -1008,14 +1009,10 @@
                                 <i class="fa fa-link"></i> 公开分享 · {{ pot.is_shared ? '已开启' : '已关闭' }}
                             </button>
 
-                            <button @click="showViewerModal = true; showShareModal = false"
-                                class="w-full py-4 rounded-2xl bg-emerald-50 text-emerald-600 text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition">
-	                                <i class="fa fa-book-open"></i> 分享给站内好友
-                            </button>
-                            <button v-if="!isArchived" @click="showCollaboratorModal = true; showShareModal = false"
-                                class="w-full py-4 rounded-2xl bg-orange-50 text-orange-600 text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition">
-	                                <i class="fa fa-users"></i> 邀请共同养护
-                            </button>
+	                            <button type="button" @click="openMembersModal"
+	                                class="w-full py-4 rounded-2xl bg-emerald-50 text-emerald-600 text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition">
+		                                <i class="fa fa-users"></i> 成员与权限 · {{ memberTotalCount }}人
+	                            </button>
                             <button v-if="!isArchived" @click="showTransferModal = true; showShareModal = false"
                                 class="w-full py-4 rounded-2xl bg-red-50 text-red-500 text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition">
                                 <i class="fa fa-exchange-alt"></i> 永久移交所有权
@@ -1113,7 +1110,8 @@
                 class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeTimelineModal"></div>
                 <div
-                    class="relative bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
+                    class="relative bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit keyboard-safe-modal"
+                    :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus">
                     <!-- 固定头部 -->
                     <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
                         <div class="flex justify-between items-center">
@@ -1128,7 +1126,7 @@
                         </div>
                     </div>
                     <!-- 可滚动内容区 -->
-                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar">
+	                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar keyboard-safe-modal-scroll">
                         <div class="space-y-6">
                             <div>
                                 <label
@@ -1191,7 +1189,8 @@
                 class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showAddScheduleModal = false"></div>
                 <div
-                    class="relative bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
+                    class="relative bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit keyboard-safe-modal"
+                    :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus">
                     <!-- 固定头部 -->
                     <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
                         <div class="flex justify-between items-center">
@@ -1203,7 +1202,7 @@
                         </div>
                     </div>
                     <!-- 可滚动内容区 -->
-                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar">
+	                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar keyboard-safe-modal-scroll">
                         <div class="space-y-6">
                             <div>
                                 <label
@@ -1358,195 +1357,212 @@
                 </transition>
             </teleport>
 
-            <!-- 弹窗：协作管理 -->
-            <div v-if="showCollaboratorModal"
-                class="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-4">
-                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showCollaboratorModal = false"></div>
-                <div
-                    class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
-                    <!-- 固定头部 -->
+            <!-- 弹窗：成员与权限 -->
+            <div v-if="showMembersModal" class="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeMembersModal"></div>
+		                <div
+		                    class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
                     <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
                         <div class="flex items-start justify-between gap-4">
-                            <button type="button" @click="showShareModal = true; showCollaboratorModal = false"
+                            <button type="button" @click="returnToShareFromMembers"
                                 class="shrink-0 text-gray-400 transition active:scale-95">
                                 <i class="fa fa-arrow-left text-xl"></i>
                             </button>
                             <div class="flex-1 min-w-0">
-	                                <h3 class="text-xl font-black text-gray-800">邀请共同养护</h3>
-	                                <p class="text-xs text-gray-400 mt-1">邀请站内好友一起养护您的植物</p>
+                                <h3 class="text-xl font-black text-gray-800">成员与权限</h3>
+                                <p class="text-xs text-gray-400 mt-1">仅所有者可查看和管理成员</p>
                             </div>
-                            <button type="button" @click="showCollaboratorModal = false"
+                            <button type="button" @click="closeMembersModal"
                                 class="text-gray-300 hover:text-gray-500 transition active:scale-95">
                                 <i class="fa fa-times text-xl"></i>
                             </button>
                         </div>
                     </div>
-                    <!-- 可滚动内容区 -->
-                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar">
-
-                        <!-- 协作成员列表 -->
-                        <div class="space-y-4 overflow-y-auto no-scrollbar"
-                            :class="collaborators?.length > 0 ? 'mb-8 max-h-[40vh]' : 'mb-6'">
-                            <div v-for="collab in collaborators" :key="collab.id"
-                                class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
-                                <div class="flex items-center gap-3">
-                                    <div
-                                        class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 font-black">
-                                        {{ (collab.display_name || collab.email || '?')[0].toUpperCase() }}
-                                    </div>
-                                    <div>
-                                        <h4 class="text-sm font-black text-gray-800">{{ collab.display_name || '未设置昵称'
-                                            }}
-                                        </h4>
-                                        <p class="text-[10px] text-gray-400">{{ collab.email }}</p>
-                                    </div>
-                                </div>
-                                <button v-if="isOwner" @click="removeCollaborator(collab)"
-                                    class="text-gray-300 hover:text-red-500 p-2 transition">
-                                    <i class="fa fa-user-minus"></i>
-                                </button>
-                            </div>
-                            <div v-if="collaborators?.length === 0"
-                                class="rounded-3xl border border-dashed border-gray-200 bg-gray-50/80 py-8 px-4 text-center text-gray-300 text-xs font-bold">
-	                                还没有邀请成员一起养护
-                            </div>
-                        </div>
-
-                        <!-- 分享邀请 -->
-                        <div v-if="isOwner" class="space-y-4">
-                            <div class="rounded-3xl border border-gray-100 bg-gray-50 p-5">
-                                <div class="flex items-start justify-between gap-4 mb-4">
-                                    <div>
-                                        <h4 class="text-sm font-black text-gray-800 flex items-center gap-2">
-                                            <i class="fa fa-envelope text-orange-500"></i> 邮箱邀请
-                                        </h4>
-                                        <p class="text-xs text-gray-500 mt-2 leading-relaxed">
-                                            邀请会直接发送到对方的消息中心。
-                                        </p>
-                                    </div>
-                                </div>
-                                <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
-                                    <input type="email" v-model="newCollaboratorEmail" placeholder="输入好友注册邮箱"
-                                        autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="120"
-                                        class="w-full min-w-0 flex-1 bg-white border rounded-2xl py-4 px-6 font-bold text-gray-800 text-sm focus:ring-2 focus:ring-orange-200 transition"
-                                        :class="newCollaboratorEmail.trim() && !isCollaboratorInviteEmailValid ? 'border-red-200 focus:ring-red-200' : 'border-gray-100'">
-                                    <button @click="addCollaborator" :disabled="!isCollaboratorInviteEmailValid"
-                                        class="w-full sm:w-32 shrink-0 inline-flex items-center justify-center whitespace-nowrap bg-orange-500 text-white px-6 py-4 rounded-2xl font-black text-sm leading-none shadow-lg shadow-orange-100 hover:bg-orange-600 disabled:opacity-50 active:scale-95 transition">
-                                        发送邀请
+                    <div class="px-6 sm:px-8 pb-6 overflow-y-auto flex-1 no-scrollbar">
+                        <div class="space-y-6">
+                            <section v-if="!isArchived">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="text-xs font-black text-gray-400 tracking-wide">共同照料 {{ collaborators.length }}人</h4>
+                                    <button v-if="!isArchived" type="button" @click="openMemberInvite('collaborator')"
+                                        class="w-9 h-9 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center transition active:scale-95"
+                                        title="邀请共同照料" aria-label="邀请共同照料">
+                                        <i class="fa fa-plus"></i>
                                     </button>
                                 </div>
-                            </div>
-                            <div class="rounded-3xl border border-orange-100 bg-orange-50 p-5">
-                                <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                    <div class="min-w-0">
-                                        <h4 class="text-sm font-black text-orange-700 flex items-center gap-2">
-                                            <i class="fa fa-share-alt"></i> 链接邀请
-                                        </h4>
-                                        <p class="text-xs text-orange-600/80 mt-2 leading-relaxed">
-                                            点击按钮会优先调用系统分享，不可用时会自动复制邀请链接给好友。
-                                        </p>
-                                        <div class="mt-2 text-xs text-orange-600/80 leading-relaxed">
-                                            邀请链接默认 24 小时内有效。
+                                <div class="space-y-3">
+                                    <div v-for="member in collaborators" :key="'collab-' + member.id"
+                                        class="relative flex items-center justify-between gap-3 p-4 bg-gray-50 rounded-2xl"
+                                        :class="memberRoleUpdatingUserId === member.id ? 'opacity-60 pointer-events-none' : ''">
+                                        <div class="flex items-center gap-3 min-w-0">
+                                            <div
+                                                class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 font-black overflow-hidden shrink-0">
+                                                <img v-if="member.avatar_url" :src="imgUrl(member.avatar_url, 40, 40)"
+                                                    :alt="memberDisplayName(member)"
+                                                    class="w-full h-full object-cover" @error="handleMemberAvatarError">
+                                                <span :class="member.avatar_url ? 'hidden' : ''">{{ memberInitial(member) }}</span>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <h5 class="text-sm font-black text-gray-800 truncate">{{ member.display_name || '未设置昵称' }}</h5>
+                                                <p class="text-[10px] text-gray-400 truncate">{{ member.email }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-2 shrink-0">
+                                            <span class="rounded-lg bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-500">共同照料</span>
+                                            <button type="button" @click.stop="toggleMemberMenu(member, 'collaborator')"
+                                                class="w-9 h-9 text-gray-300 hover:text-gray-600 flex items-center justify-center transition active:scale-95"
+                                                title="成员操作" aria-label="成员操作">
+                                                <i class="fa fa-ellipsis-h"></i>
+                                            </button>
+                                        </div>
+                                        <div v-if="activeMemberMenuId === getMemberMenuKey(member, 'collaborator')"
+                                            class="absolute right-4 top-14 z-20 w-44 overflow-hidden rounded-2xl bg-white shadow-xl border border-gray-100">
+                                            <button v-if="!isArchived" type="button" @click.stop="changeMemberRole(member, 'viewer')"
+                                                class="w-full px-4 py-3 text-left text-xs font-bold text-gray-700 hover:bg-gray-50">改为仅查看</button>
+                                            <button type="button" @click.stop="removeMember(member, 'collaborator')"
+                                                class="w-full px-4 py-3 text-left text-xs font-bold text-red-500 hover:bg-red-50">移除成员</button>
                                         </div>
                                     </div>
-                                    <button @click="copyCollaboratorInvite"
-                                        class="w-full sm:w-32 shrink-0 inline-flex items-center justify-center whitespace-nowrap bg-orange-500 text-white px-6 py-4 rounded-2xl font-black text-sm leading-none shadow-lg shadow-orange-100 hover:bg-orange-600 active:scale-95 transition">
-                                        分享邀请
+                                    <div v-if="collaborators.length === 0"
+                                        class="rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 py-6 px-4 text-center text-gray-300 text-xs font-bold">
+                                        暂无共同照料成员
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section>
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="text-xs font-black text-gray-400 tracking-wide">仅查看 {{ viewers.length }}人</h4>
+                                    <button type="button" @click="openMemberInvite('viewer')"
+                                        class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center transition active:scale-95"
+                                        title="邀请仅查看成员" aria-label="邀请仅查看成员">
+                                        <i class="fa fa-plus"></i>
                                     </button>
                                 </div>
-                            </div>
+                                <div class="space-y-3">
+                                    <div v-for="member in viewers" :key="'viewer-' + member.id"
+                                        class="relative flex items-center justify-between gap-3 p-4 bg-gray-50 rounded-2xl"
+                                        :class="memberRoleUpdatingUserId === member.id ? 'opacity-60 pointer-events-none' : ''">
+                                        <div class="flex items-center gap-3 min-w-0">
+                                            <div
+                                                class="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-500 font-black overflow-hidden shrink-0">
+                                                <img v-if="member.avatar_url" :src="imgUrl(member.avatar_url, 40, 40)"
+                                                    :alt="memberDisplayName(member)"
+                                                    class="w-full h-full object-cover" @error="handleMemberAvatarError">
+                                                <span :class="member.avatar_url ? 'hidden' : ''">{{ memberInitial(member) }}</span>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <h5 class="text-sm font-black text-gray-800 truncate">{{ member.display_name || '未设置昵称' }}</h5>
+                                                <p class="text-[10px] text-gray-400 truncate">{{ member.email }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-2 shrink-0">
+                                            <span class="rounded-lg bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-500">仅查看</span>
+                                            <button type="button" @click.stop="toggleMemberMenu(member, 'viewer')"
+                                                class="w-9 h-9 text-gray-300 hover:text-gray-600 flex items-center justify-center transition active:scale-95"
+                                                title="成员操作" aria-label="成员操作">
+                                                <i class="fa fa-ellipsis-h"></i>
+                                            </button>
+                                        </div>
+                                        <div v-if="activeMemberMenuId === getMemberMenuKey(member, 'viewer')"
+                                            class="absolute right-4 top-14 z-20 w-44 overflow-hidden rounded-2xl bg-white shadow-xl border border-gray-100">
+                                            <button v-if="!isArchived" type="button" @click.stop="changeMemberRole(member, 'collaborator')"
+                                                class="w-full px-4 py-3 text-left text-xs font-bold text-gray-700 hover:bg-gray-50">改为共同照料</button>
+                                            <button type="button" @click.stop="removeMember(member, 'viewer')"
+                                                class="w-full px-4 py-3 text-left text-xs font-bold text-red-500 hover:bg-red-50">移除成员</button>
+                                        </div>
+                                    </div>
+                                    <div v-if="viewers.length === 0"
+                                        class="rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 py-6 px-4 text-center text-gray-300 text-xs font-bold">
+                                        暂无仅查看成员
+                                    </div>
+                                </div>
+                            </section>
                         </div>
-
+                    </div>
+                    <div class="px-6 sm:px-8 pt-4 pb-6 shrink-0 border-t border-gray-50 bg-white">
+                        <button type="button" @click="openMemberInvite('viewer')"
+                            class="w-full py-4 rounded-2xl bg-green-500 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-green-100 active:scale-95 transition">
+                            <i class="fa fa-user-plus"></i> 邀请成员
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <div v-if="showViewerModal" class="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-4">
-                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showViewerModal = false"></div>
+            <div v-if="showMemberInviteModal" class="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeMemberInviteModal"></div>
                 <div
-                    class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
+                    class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit keyboard-safe-modal"
+                    :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus">
                     <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
                         <div class="flex items-start justify-between gap-4">
-                            <button type="button" @click="showShareModal = true; showViewerModal = false"
+                            <button type="button" @click="returnToMembersFromInvite"
                                 class="shrink-0 text-gray-400 transition active:scale-95">
                                 <i class="fa fa-arrow-left text-xl"></i>
-	                            </button>
-	                            <div class="flex-1 min-w-0">
-		                                <h3 class="text-xl font-black text-gray-800">分享给站内好友</h3>
-		                                <p class="text-xs text-gray-400 mt-1">
-		                                    {{ isArchived ? '站内好友接受后只能查看归档记录，不能编辑或共同养护' : '站内好友接受后会出现在他的“好友分享”中，可长期查看，但不能编辑' }}
-		                                </p>
-	                            </div>
-                            <button type="button" @click="showViewerModal = false"
+                            </button>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-xl font-black text-gray-800">邀请成员</h3>
+                                <p class="text-xs text-gray-400 mt-1">{{ memberInviteDescription }}</p>
+                            </div>
+                            <button type="button" @click="closeMemberInviteModal"
                                 class="text-gray-300 hover:text-gray-500 transition active:scale-95">
                                 <i class="fa fa-times text-xl"></i>
                             </button>
                         </div>
                     </div>
-                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar">
-                        <div class="space-y-4 overflow-y-auto no-scrollbar"
-                            :class="viewers?.length > 0 ? 'mb-8 max-h-[40vh]' : 'mb-6'">
-                            <div v-for="viewer in viewers" :key="viewer.id"
-                                class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
-                                <div class="flex items-center gap-3">
-                                    <div
-                                        class="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-500 font-black">
-                                        {{ (viewer.display_name || viewer.email || '?')[0].toUpperCase() }}
-                                    </div>
-                                    <div>
-                                        <h4 class="text-sm font-black text-gray-800">{{ viewer.display_name || '未设置昵称'
-                                            }}</h4>
-                                        <p class="text-[10px] text-gray-400">{{ viewer.email }}</p>
-                                    </div>
-                                </div>
-                                <button @click="removeViewer(viewer)"
-                                    class="text-gray-300 hover:text-red-500 p-2 transition">
-                                    <i class="fa fa-user-minus"></i>
-                                </button>
-                            </div>
-                            <div v-if="viewers?.length === 0"
-                                class="rounded-3xl border border-dashed border-gray-200 bg-gray-50/80 py-8 px-4 text-center text-gray-300 text-xs font-bold">
-	                                还没有分享给站内好友
-                            </div>
+	                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar keyboard-safe-modal-scroll">
+                        <div v-if="!isArchived" class="grid grid-cols-2 gap-2 mb-5 rounded-2xl bg-gray-100 p-1">
+                            <button type="button" @click="setMemberInviteRole('viewer')"
+                                class="py-3 rounded-xl text-sm font-black transition"
+                                :class="memberInviteRole === 'viewer' ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-400'">
+                                仅查看
+                            </button>
+                            <button type="button" @click="setMemberInviteRole('collaborator')"
+                                class="py-3 rounded-xl text-sm font-black transition"
+                                :class="memberInviteRole === 'collaborator' ? 'bg-white text-blue-500 shadow-sm' : 'text-gray-400'">
+                                共同照料
+                            </button>
                         </div>
 
-                        <div class="space-y-4">
-                            <div class="rounded-3xl border border-gray-100 bg-gray-50 p-5 flex flex-col sm:min-h-[148px]">
-                                <div class="mb-4">
-                                    <h4 class="text-sm font-black text-gray-800 flex items-center gap-2">
-                                        <i class="fa fa-envelope text-emerald-500"></i> 邮箱分享
-                                    </h4>
-                                </div>
-                                <div class="flex flex-col sm:flex-row gap-2 mt-auto sm:items-center">
-                                    <input type="email" v-model="newViewerEmail" placeholder="输入好友注册邮箱"
+		                        <div class="space-y-4">
+		                            <div class="rounded-3xl border border-emerald-100 bg-emerald-50 p-5">
+		                                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+		                                    <div class="min-w-0">
+		                                        <h4 class="text-sm font-black text-emerald-700 flex items-center gap-2">
+		                                            <i class="fa fa-share-alt"></i> 链接邀请
+		                                        </h4>
+		                                        <p class="text-xs text-emerald-600/80 mt-2 leading-relaxed">
+		                                            {{ memberInviteLinkDescription }}
+		                                        </p>
+		                                        <div class="mt-2 text-xs text-emerald-600/80 leading-relaxed">
+		                                            {{ memberInviteLinkExpiryText }}
+		                                        </div>
+		                                    </div>
+		                                    <button type="button" @click="shareMemberInviteLink"
+		                                        class="w-full sm:w-36 shrink-0 inline-flex items-center justify-center whitespace-nowrap bg-green-500 text-white px-5 py-4 rounded-2xl font-black text-sm leading-none shadow-lg shadow-green-100 hover:bg-green-600 active:scale-95 transition">
+		                                        {{ memberInviteLinkButtonLabel }}
+		                                    </button>
+		                                </div>
+		                            </div>
+		                            <div class="rounded-3xl border border-gray-100 bg-gray-50 p-5">
+		                                <h4 class="text-sm font-black text-gray-800 flex items-center gap-2">
+		                                    <i class="fa fa-envelope text-green-500"></i> 邮箱邀请
+		                                </h4>
+		                                <p class="text-xs text-gray-500 mt-2 mb-4 leading-relaxed">
+		                                    邀请会直接发送到对方的消息中心。
+		                                </p>
+	                                <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
+                                    <input type="email" v-model="memberInviteEmail" placeholder="输入好友注册邮箱"
                                         autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="120"
-                                        class="w-full min-w-0 flex-1 bg-white border rounded-2xl py-4 px-6 font-bold text-gray-800 text-sm focus:ring-2 focus:ring-emerald-200 transition"
-                                        :class="newViewerEmail.trim() && !isViewerInviteEmailValid ? 'border-red-200 focus:ring-red-200' : 'border-gray-100'">
-                                    <button @click="addViewer" :disabled="!isViewerInviteEmailValid"
-                                        class="w-full sm:w-32 shrink-0 inline-flex items-center justify-center whitespace-nowrap bg-green-500 text-white px-6 py-4 rounded-2xl font-black text-sm leading-none shadow-lg shadow-green-100 hover:bg-green-600 disabled:opacity-50 active:scale-95 transition">
-                                        发送邀请
-                                    </button>
-                                </div>
-                            </div>
-                            <div
-                                class="rounded-3xl border border-emerald-100 bg-emerald-50 p-5 flex flex-col sm:min-h-[148px]">
-                                <div class="mb-4">
-                                    <h4 class="text-sm font-black text-emerald-700 flex items-center gap-2">
-                                        <i class="fa fa-share-alt"></i> 链接分享
-                                    </h4>
-                                </div>
-                                <div class="flex flex-col gap-3 mt-auto sm:flex-row sm:items-center">
-                                    <div
-                                        class="flex-1 min-w-0 inline-flex items-center px-2 py-2 text-xs text-emerald-600/80 leading-relaxed">
-                                        点击按钮会优先调用系统分享，不可用时会自动复制查看链接给好友。分享链接默认 24 小时内有效。
-                                    </div>
-                                    <button @click="copyViewerInvite"
-                                        class="w-full sm:w-32 shrink-0 inline-flex items-center justify-center whitespace-nowrap bg-green-500 text-white px-6 py-4 rounded-2xl font-black text-sm leading-none shadow-lg shadow-green-100 hover:bg-green-600 active:scale-95 transition">
-                                        分享链接
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                                        class="w-full min-w-0 flex-1 bg-white border rounded-2xl py-4 px-6 font-bold text-gray-800 text-sm focus:ring-2 focus:ring-green-200 transition"
+                                        :class="memberInviteEmail.trim() && !isMemberInviteEmailValid ? 'border-red-200 focus:ring-red-200' : 'border-gray-100'">
+                                    <button type="button" @click="submitMemberEmailInvite"
+                                        :disabled="isMemberInviteLoading || !isMemberInviteEmailValid"
+                                        class="w-full sm:w-36 shrink-0 inline-flex items-center justify-center whitespace-nowrap bg-green-500 text-white px-5 py-4 rounded-2xl font-black text-sm leading-none shadow-lg shadow-green-100 hover:bg-green-600 disabled:opacity-50 active:scale-95 transition">
+                                        {{ isMemberInviteLoading ? '发送中...' : memberInviteEmailButtonLabel }}
+	                                    </button>
+	                                </div>
+	                            </div>
+	                        </div>
                     </div>
                 </div>
             </div>
@@ -1556,7 +1572,8 @@
                 class="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showTransferModal = false"></div>
                 <div
-                    class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit">
+                    class="relative bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit keyboard-safe-modal"
+                    :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus">
                     <!-- 固定头部 -->
                     <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
                         <div class="flex items-start justify-between gap-4">
@@ -1574,7 +1591,7 @@
                         </div>
                     </div>
                     <!-- 可滚动内容区 -->
-                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar">
+	                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar keyboard-safe-modal-scroll">
 
                         <div class="bg-red-50 p-6 rounded-3xl border border-red-100 mb-8">
                             <h4 class="text-red-600 font-black text-sm mb-2 flex items-center gap-2">
@@ -1810,183 +1827,214 @@
 
             <!-- 登录/注册 弹窗 (与首页保持一致) -->
             <template v-if="showLoginModal || showRegisterModal || showForgotPasswordModal">
-                <div class="fixed inset-0 z-[120] flex items-center justify-center p-4">
+                <div class="fixed inset-0 z-[120] flex justify-center p-2 sm:p-4"
+                    :class="isAuthKeyboardActive ? 'items-start sm:items-center' : 'items-end sm:items-center'">
                     <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeAuthModals"></div>
                     <div
-                        class="relative bg-white w-full max-w-[500px] max-h-[calc(100vh-2rem)] overflow-y-auto rounded-3xl shadow-2xl animate-slide-up">
-                    <!-- 登录弹窗 -->
-                    <div v-if="showLoginModal" class="px-7 py-7 sm:p-8">
-                        <button @click="closeAuthModals"
-                            class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
-                            <i class="fa fa-times text-xl"></i>
-                        </button>
-                        <h3 class="text-2xl font-black text-gray-800 mb-2">欢迎回来</h3>
-                        <p class="text-gray-400 text-sm mb-6">登录以同步您的花盆数据</p>
-	                        <form @submit.prevent="handleLogin" @focusin="scheduleLoginAutofillSync" @click="scheduleLoginAutofillSync" autocomplete="on" class="space-y-3.5" novalidate>
-                            <div class="space-y-1.5">
-                                <label for="detailLoginEmail"
-                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
-                                <input type="email" id="detailLoginEmail" name="email" autocomplete="username" inputmode="email"
-                                    autocapitalize="none" spellcheck="false" maxlength="120" @input="handleLoginEmailInput"
-                                    @change="syncLoginFormFromDom" @blur="validateLoginEmail(true)"
-                                    @animationstart="syncLoginFormFromDom" v-model="loginForm.email"
-                                    placeholder="name@example.com" required :aria-invalid="loginErrors.email ? 'true' : 'false'"
-                                    class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
-                                    :class="loginErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                                <p v-if="loginErrors.email" class="text-xs text-red-500 px-1">{{ loginErrors.email }}</p>
+                        class="relative bg-white w-full max-w-[500px] rounded-t-3xl sm:rounded-3xl shadow-2xl keyboard-safe-modal auth-keyboard-modal overflow-hidden flex flex-col min-h-0"
+                        :class="[isAuthKeyboardActive ? 'auth-keyboard-active' : 'animate-slide-up', authKeyboardMode === 'sticky' ? 'auth-keyboard-sticky-fallback' : '']"
+                        :style="authKeyboardModalStyle" @focusin="handleAuthKeyboardFieldFocus" @focusout="handleAuthFocusOut"
+                        @compositionstart="handleAuthCompositionStart" @compositionend="handleAuthCompositionEnd"
+                        @click.stop @mousedown.stop @touchstart.stop>
+                        <div v-if="showLoginModal" class="flex flex-col min-h-0 flex-1">
+                            <div class="shrink-0"
+                                :class="isAuthKeyboardActive ? 'px-7 pt-4 pb-3 sm:p-8 sm:pb-6' : 'px-7 pt-7 pb-5 sm:p-8 sm:pb-6'">
+                                <button @click="closeAuthModals"
+                                    class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
+                                    <i class="fa fa-times text-xl"></i>
+                                </button>
+                                <h3 class="text-2xl font-black text-gray-800 mb-2">欢迎回来</h3>
+                                <p v-show="!isAuthKeyboardActive" class="text-gray-400 text-sm">登录以同步您的花盆数据</p>
                             </div>
-                            <div class="space-y-1.5">
-                                <label for="detailLoginPassword"
-                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">密码</label>
-                                <input type="password" id="detailLoginPassword" name="password" autocomplete="current-password"
-                                    autocapitalize="none" spellcheck="false" @input="handleLoginPasswordInput"
-                                    @change="syncLoginFormFromDom" @blur="validateLoginPassword(true)"
-                                    @animationstart="syncLoginFormFromDom" v-model="loginForm.password" placeholder="请输入密码"
-                                    required :aria-invalid="loginErrors.password ? 'true' : 'false'"
-                                    class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
-                                    :class="loginErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                                <p v-if="loginErrors.password" class="text-xs text-red-500 px-1">{{ loginErrors.password }}</p>
+                            <div class="px-7 sm:px-8 overflow-y-auto flex-1 min-h-0 keyboard-safe-modal-scroll auth-keyboard-scroll">
+                                <form id="detailAuthLoginForm" @submit.prevent="handleLogin" @focusin="scheduleLoginAutofillSync"
+                                    @click="scheduleLoginAutofillSync" autocomplete="on" class="space-y-3.5 pb-7 sm:pb-8" novalidate>
+                                    <div class="space-y-1.5">
+                                        <label for="detailLoginEmail"
+                                            class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
+                                        <input type="email" id="detailLoginEmail" name="email" autocomplete="username" inputmode="email"
+                                            enterkeyhint="next" @keydown.enter="submitAuthFormFromEnter($event, { formId: 'detailAuthLoginForm', nextFieldId: 'detailLoginPassword' })"
+                                            autocapitalize="none" spellcheck="false" maxlength="120" @input="handleLoginEmailInput"
+                                            @change="syncLoginFormFromDom" @blur="validateLoginEmail(true)"
+                                            @animationstart="syncLoginFormFromDom" v-model="loginForm.email"
+                                            placeholder="name@example.com" required :aria-invalid="loginErrors.email ? 'true' : 'false'"
+                                            class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                            :class="loginErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                                        <p v-if="loginErrors.email" class="auth-error-message text-xs text-red-500 px-1">{{ loginErrors.email }}</p>
+                                    </div>
+                                    <div class="space-y-1.5">
+                                        <label for="detailLoginPassword"
+                                            class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">密码</label>
+                                        <input type="password" id="detailLoginPassword" name="password" autocomplete="current-password"
+                                            enterkeyhint="done" @keydown.enter="submitAuthFormFromEnter($event, { formId: 'detailAuthLoginForm' })"
+                                            autocapitalize="none" spellcheck="false" @input="handleLoginPasswordInput"
+                                            @change="syncLoginFormFromDom" @blur="validateLoginPassword(true)"
+                                            @animationstart="syncLoginFormFromDom" v-model="loginForm.password" placeholder="请输入密码"
+                                            required :aria-invalid="loginErrors.password ? 'true' : 'false'"
+                                            class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                            :class="loginErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                                        <p v-if="loginErrors.password" class="auth-error-message text-xs text-red-500 px-1">{{ loginErrors.password }}</p>
+                                    </div>
+                                    <div v-if="loginStatus.message" class="rounded-2xl px-4 py-3 text-xs"
+                                        :class="loginStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
+                                        <i class="fa mr-1"
+                                            :class="loginStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
+                                        {{ loginStatus.message }}
+                                    </div>
+                                    <button type="submit" :disabled="isAuthLoading || !isLoginValid"
+                                        class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+                                        {{ isAuthLoading ? '登录中...' : '立即登录' }}
+                                    </button>
+                                    <div class="flex items-center justify-between gap-4 pt-1">
+                                        <button type="button" @pointerdown.prevent @click="switchToForgotPassword"
+                                            class="text-xs text-gray-400 hover:text-green-500 transition">忘记密码？</button>
+                                        <div class="text-right">
+                                            <span class="text-gray-400 text-sm">还没有账号？</span>
+                                            <button type="button" @pointerdown.prevent @click="switchToRegister"
+                                                class="text-green-500 text-sm font-bold ml-1">注册一个</button>
+                                        </div>
+                                    </div>
+                                </form>
                             </div>
-                            <div v-if="loginStatus.message" class="rounded-2xl px-4 py-3 text-xs"
-                                :class="loginStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
-                                <i class="fa mr-1"
-                                    :class="loginStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
-                                {{ loginStatus.message }}
-                            </div>
-                            <button type="submit" :disabled="isAuthLoading || !isLoginValid"
-                                class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold mt-2 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
-                                {{ isAuthLoading ? '登录中...' : '立即登录' }}
-                            </button>
-                        </form>
-                        <div class="mt-4 text-right">
-                            <button @pointerdown.prevent @click="switchToForgotPassword"
-                                class="text-xs text-gray-400 hover:text-green-500 transition">忘记密码？</button>
                         </div>
-                        <div class="mt-6 pt-5 border-t border-gray-50 text-center">
-                            <span class="text-gray-400 text-sm">还没有账号？</span>
-                            <button @pointerdown.prevent @click="switchToRegister"
-                                class="text-green-500 text-sm font-bold ml-1">注册一个</button>
-                        </div>
-                    </div>
 
-                    <!-- 注册弹窗 -->
-                    <div v-if="showRegisterModal" class="px-7 py-7 sm:p-8">
-                        <button @click="closeAuthModals"
-                            class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
-                            <i class="fa fa-times text-xl"></i>
-                        </button>
-                        <h3 class="text-2xl font-black text-gray-800 mb-2">创建账号</h3>
-                        <p class="text-gray-400 text-sm mb-6">开始您的智能养花之旅</p>
-	                        <form @submit.prevent="handleRegister" class="space-y-3.5" novalidate>
-                            <div class="space-y-1.5">
-                                <label for="detailRegisterEmail"
-                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
-                                <input type="email" id="detailRegisterEmail" name="email" autocomplete="email" inputmode="email"
-                                    autocapitalize="none" spellcheck="false" maxlength="120" @input="handleRegisterEmailInput"
-                                    @blur="validateRegisterEmail(true)" @animationstart="syncRegisterFormFromDom"
-                                    v-model="registerForm.email" placeholder="name@example.com"
-                                    required :aria-invalid="registerErrors.email ? 'true' : 'false'"
-                                    class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
-                                    :class="registerErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                                <p v-if="registerErrors.email" class="text-xs text-red-500 px-1">{{ registerErrors.email }}</p>
+                        <div v-if="showRegisterModal" class="flex flex-col min-h-0 flex-1">
+                            <div class="shrink-0"
+                                :class="isAuthKeyboardActive ? 'px-7 pt-4 pb-3 sm:p-8 sm:pb-6' : 'px-7 pt-7 pb-5 sm:p-8 sm:pb-6'">
+                                <button @click="closeAuthModals"
+                                    class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
+                                    <i class="fa fa-times text-xl"></i>
+                                </button>
+                                <h3 class="text-2xl font-black text-gray-800 mb-2">创建账号</h3>
+                                <p v-show="!isAuthKeyboardActive" class="text-gray-400 text-sm">开始您的智能养花之旅</p>
                             </div>
-                            <div class="space-y-1.5">
-                                <label class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">昵称
-                                    <span class="font-medium normal-case tracking-normal text-gray-300">(选填)</span></label>
-                                <input type="text" id="detailRegisterNickname" name="nickname" autocomplete="nickname" maxlength="12"
-                                    @input="handleRegisterDisplayNameInput" @blur="normalizeRegisterDisplayName"
-                                    v-model="registerForm.displayName" placeholder="给自己起个名字"
-                                    class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-green-500 transition">
+                            <div class="px-7 sm:px-8 overflow-y-auto flex-1 min-h-0 keyboard-safe-modal-scroll auth-keyboard-scroll">
+                                <form id="detailAuthRegisterForm" @submit.prevent="handleRegister" class="space-y-3.5 pb-7 sm:pb-8" novalidate>
+                                    <div class="space-y-1.5">
+                                        <label for="detailRegisterEmail"
+                                            class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
+                                        <input type="email" id="detailRegisterEmail" name="email" autocomplete="email" inputmode="email"
+                                            enterkeyhint="next" @keydown.enter="submitAuthFormFromEnter($event, { formId: 'detailAuthRegisterForm', nextFieldId: 'detailRegisterNickname' })"
+                                            autocapitalize="none" spellcheck="false" maxlength="120" @input="handleRegisterEmailInput"
+                                            @blur="validateRegisterEmail(true)" @animationstart="syncRegisterFormFromDom"
+                                            v-model="registerForm.email" placeholder="name@example.com"
+                                            required :aria-invalid="registerErrors.email ? 'true' : 'false'"
+                                            class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                            :class="registerErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                                        <p v-if="registerErrors.email" class="auth-error-message text-xs text-red-500 px-1">{{ registerErrors.email }}</p>
+                                    </div>
+                                    <div class="space-y-1.5">
+                                        <label class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">昵称
+                                            <span class="font-medium normal-case tracking-normal text-gray-300">(选填)</span></label>
+                                        <input type="text" id="detailRegisterNickname" name="nickname" autocomplete="nickname" maxlength="12"
+                                            enterkeyhint="next" autocapitalize="none" spellcheck="false"
+                                            @keydown.enter="submitAuthFormFromEnter($event, { formId: 'detailAuthRegisterForm', nextFieldId: 'detailRegisterPassword' })"
+                                            @input="handleRegisterDisplayNameInput" @blur="normalizeRegisterDisplayName"
+                                            v-model="registerForm.displayName" placeholder="给自己起个名字"
+                                            class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-green-500 transition">
+                                    </div>
+                                    <div class="space-y-1.5">
+                                        <label for="detailRegisterPassword"
+                                            class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">密码</label>
+                                        <input type="password" id="detailRegisterPassword" name="password" autocomplete="new-password"
+                                            enterkeyhint="next" @keydown.enter="submitAuthFormFromEnter($event, { formId: 'detailAuthRegisterForm', nextFieldId: 'detailRegisterConfirmPassword' })"
+                                            minlength="8" @input="handleRegisterPasswordInput" @blur="validateRegisterPassword(true)"
+                                            @animationstart="syncRegisterFormFromDom" v-model="registerForm.password"
+                                            placeholder="至少 8 位，含字母和数字" required :aria-invalid="registerErrors.password ? 'true' : 'false'"
+                                            class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                            :class="registerErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                                        <p v-if="registerErrors.password" class="auth-error-message text-xs text-red-500 px-1">{{ registerErrors.password }}</p>
+                                    </div>
+                                    <div class="relative space-y-1.5">
+                                        <label for="detailRegisterConfirmPassword"
+                                            class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">确认密码</label>
+                                        <input type="password" id="detailRegisterConfirmPassword" name="confirmPassword" autocomplete="new-password"
+                                            minlength="8" enterkeyhint="done"
+                                            @keydown.enter="submitAuthFormFromEnter($event, { formId: 'detailAuthRegisterForm' })"
+                                            @input="handleRegisterConfirmPasswordInput"
+                                            @blur="validateRegisterConfirmPassword(true)" @animationstart="syncRegisterFormFromDom"
+                                            v-model="registerForm.confirmPassword" placeholder="再次输入密码" required
+                                            :aria-invalid="registerErrors.confirmPassword ? 'true' : 'false'"
+                                            class="w-full bg-gray-50 border rounded-2xl py-3 pl-4 pr-10 focus:outline-none focus:ring-2 transition"
+                                            :class="registerErrors.confirmPassword ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                                        <div v-if="registerForm.password && registerForm.confirmPassword"
+                                            class="absolute right-2 top-1/2 transform -translate-y-1/2">
+                                            <i v-if="passwordsMatch" class="fa fa-check text-green-500 pointer-events-none"></i>
+                                            <button v-else type="button" @pointerdown.prevent @click="clearRegisterConfirmPassword"
+                                                class="w-8 h-8 flex items-center justify-center text-red-500 hover:text-red-600 transition"
+                                                title="清空确认密码" aria-label="清空确认密码">
+                                                <i class="fa fa-times"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <p v-if="registerErrors.confirmPassword" class="auth-error-message text-xs text-red-500 px-1">
+                                        {{ registerErrors.confirmPassword }}
+                                    </p>
+                                    <div v-if="registerStatus.message" class="rounded-2xl px-4 py-3 text-xs"
+                                        :class="registerStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
+                                        <i class="fa mr-1"
+                                            :class="registerStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
+                                        {{ registerStatus.message }}
+                                    </div>
+                                    <div v-if="isTurnstileEnabled" id="detailRegisterTurnstile" class="auth-turnstile-slot w-full"></div>
+                                    <button type="submit" :disabled="isAuthLoading || !isRegisterValid"
+                                        class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+                                        {{ isAuthLoading ? '注册中...' : '完成注册' }}
+                                    </button>
+                                    <div class="text-center pt-1">
+                                        <span class="text-gray-400 text-sm">已有账号？</span>
+                                        <button type="button" @pointerdown.prevent @click="switchToLogin" class="text-green-500 text-sm font-bold ml-1">去登录</button>
+                                    </div>
+                                </form>
                             </div>
-                            <div class="space-y-1.5">
-                                <label for="detailRegisterPassword"
-                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">密码</label>
-                                <input type="password" id="detailRegisterPassword" name="password" autocomplete="new-password"
-                                    minlength="8" @input="handleRegisterPasswordInput" @blur="validateRegisterPassword(true)"
-                                    @animationstart="syncRegisterFormFromDom" v-model="registerForm.password"
-                                    placeholder="至少 8 位" required :aria-invalid="registerErrors.password ? 'true' : 'false'"
-                                    class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
-                                    :class="registerErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                                <p v-if="registerErrors.password" class="text-xs text-red-500 px-1">{{ registerErrors.password }}</p>
-                            </div>
-                            <div class="relative space-y-1.5">
-                                <label for="detailRegisterConfirmPassword"
-                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">确认密码</label>
-                                <input type="password" id="detailRegisterConfirmPassword" name="confirmPassword" autocomplete="new-password"
-                                    minlength="8" @input="handleRegisterConfirmPasswordInput"
-                                    @blur="validateRegisterConfirmPassword(true)" @animationstart="syncRegisterFormFromDom"
-                                    v-model="registerForm.confirmPassword" placeholder="再次输入密码" required
-                                    :aria-invalid="registerErrors.confirmPassword ? 'true' : 'false'"
-                                    class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
-                                    :class="registerErrors.confirmPassword ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                                <div v-if="registerForm.password && registerForm.confirmPassword"
-                                    class="absolute right-3 top-1/2 transform -translate-y-1/2">
-                                    <i v-if="passwordsMatch" class="fa fa-check text-green-500"></i>
-                                    <i v-else class="fa fa-times text-red-500"></i>
-                                </div>
-                            </div>
-                            <p v-if="registerErrors.confirmPassword" class="text-xs text-red-500 px-1">
-                                {{ registerErrors.confirmPassword }}
-                            </p>
-	                            <div v-if="registerStatus.message" class="rounded-2xl px-4 py-3 text-xs"
-	                                :class="registerStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
-	                                <i class="fa mr-1"
-	                                    :class="registerStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
-	                                {{ registerStatus.message }}
-	                            </div>
-	                            <div v-if="isTurnstileEnabled" id="detailRegisterTurnstile" class="auth-turnstile-slot w-full"></div>
-	                            <button type="submit" :disabled="isAuthLoading || !isRegisterValid || !isRegisterTurnstileReady"
-	                                class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold mt-2 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
-	                                {{ isAuthLoading ? '注册中...' : '完成注册' }}
-	                            </button>
-                        </form>
-                        <div class="mt-6 pt-5 border-t border-gray-50 text-center">
-                            <span class="text-gray-400 text-sm">已有账号？</span>
-                            <button @pointerdown.prevent @click="switchToLogin" class="text-green-500 text-sm font-bold ml-1">去登录</button>
                         </div>
-                    </div>
 
-                    <!-- 忘记密码弹窗 -->
-                    <div v-if="showForgotPasswordModal" class="px-7 py-7 sm:p-8">
-                        <button @click="closeAuthModals"
-                            class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
-                            <i class="fa fa-times text-xl"></i>
-                        </button>
-                        <h3 class="text-2xl font-black text-gray-800 mb-2">重置您的密码</h3>
-                        <p class="text-gray-400 text-sm mb-6">我们将向您的邮箱发送重置链接</p>
-	                        <form @submit.prevent="handleForgotPassword" class="space-y-3.5" novalidate>
-                            <div class="space-y-1.5">
-                                <label for="detailForgotPasswordEmail"
-                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
-                                <input type="email" id="detailForgotPasswordEmail" name="email" autocomplete="email" inputmode="email"
-                                    autocapitalize="none" spellcheck="false" maxlength="120" v-model="loginForm.email"
-                                    @input="handleForgotPasswordEmailInput" @change="syncLoginFormFromDom"
-                                    @animationstart="syncLoginFormFromDom"
-                                    @blur="validateForgotPasswordEmail(true)" placeholder="name@example.com" required
-                                    :aria-invalid="forgotPasswordErrors.email ? 'true' : 'false'"
-                                    class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
-                                    :class="forgotPasswordErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                                <p v-if="forgotPasswordErrors.email" class="text-red-500 text-xs px-1">
-                                    {{ forgotPasswordErrors.email }}
-                                </p>
+                        <div v-if="showForgotPasswordModal" class="flex flex-col min-h-0 flex-1">
+                            <div class="shrink-0"
+                                :class="isAuthKeyboardActive ? 'px-7 pt-4 pb-3 sm:p-8 sm:pb-6' : 'px-7 pt-7 pb-5 sm:p-8 sm:pb-6'">
+                                <button @click="closeAuthModals"
+                                    class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
+                                    <i class="fa fa-times text-xl"></i>
+                                </button>
+                                <h3 class="text-2xl font-black text-gray-800 mb-2">重置您的密码</h3>
+                                <p v-show="!isAuthKeyboardActive" class="text-gray-400 text-sm">我们将向您的邮箱发送重置链接</p>
                             </div>
-	                            <div v-if="forgotPasswordStatus.message" class="rounded-2xl px-4 py-3 text-xs"
-	                                :class="forgotPasswordStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
-	                                <i class="fa mr-1"
-	                                    :class="forgotPasswordStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
-	                                {{ forgotPasswordStatus.message }}
-	                            </div>
-	                            <div v-if="isTurnstileEnabled" id="detailForgotPasswordTurnstile" class="auth-turnstile-slot w-full"></div>
-	                            <button type="submit" :disabled="isAuthLoading || !isForgotPasswordEmailValid || !isForgotPasswordTurnstileReady"
-	                                class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold mt-2 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
-	                                {{ isAuthLoading ? '发送中...' : '发送重置邮件' }}
-                            </button>
-                        </form>
-                        <div class="mt-6 pt-5 border-t border-gray-50 text-center">
-                            <button @pointerdown.prevent @click="switchToLogin" class="text-green-500 text-sm font-bold">返回登录</button>
+                            <div class="px-7 sm:px-8 overflow-y-auto flex-1 min-h-0 keyboard-safe-modal-scroll auth-keyboard-scroll">
+                                <form id="detailAuthForgotPasswordForm" @submit.prevent="handleForgotPassword" class="space-y-3.5 pb-7 sm:pb-8" novalidate>
+                                    <div class="space-y-1.5">
+                                        <label for="detailForgotPasswordEmail"
+                                            class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
+                                        <input type="email" id="detailForgotPasswordEmail" name="email" autocomplete="email" inputmode="email"
+                                            enterkeyhint="send" @keydown.enter="submitAuthFormFromEnter($event, { formId: 'detailAuthForgotPasswordForm' })"
+                                            autocapitalize="none" spellcheck="false" maxlength="120" v-model="loginForm.email"
+                                            @input="handleForgotPasswordEmailInput" @change="syncLoginFormFromDom"
+                                            @animationstart="syncLoginFormFromDom"
+                                            @blur="validateForgotPasswordEmail(true)" placeholder="name@example.com" required
+                                            :aria-invalid="forgotPasswordErrors.email ? 'true' : 'false'"
+                                            class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                            :class="forgotPasswordErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                                        <p v-if="forgotPasswordErrors.email" class="auth-error-message text-red-500 text-xs px-1">
+                                            {{ forgotPasswordErrors.email }}
+                                        </p>
+                                    </div>
+                                    <div v-if="forgotPasswordStatus.message" class="rounded-2xl px-4 py-3 text-xs"
+                                        :class="forgotPasswordStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
+                                        <i class="fa mr-1"
+                                            :class="forgotPasswordStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
+                                        {{ forgotPasswordStatus.message }}
+                                    </div>
+                                    <div v-if="isTurnstileEnabled" id="detailForgotPasswordTurnstile" class="auth-turnstile-slot w-full"></div>
+                                    <button type="submit" :disabled="isAuthLoading || !isForgotPasswordEmailValid"
+                                        class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+                                        {{ isAuthLoading ? '发送中...' : '发送重置邮件' }}
+                                    </button>
+                                    <div class="text-center pt-1">
+                                        <button type="button" @pointerdown.prevent @click="switchToLogin" class="text-green-500 text-sm font-bold">返回登录</button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
                     </div>
-                </div>
                 </div>
             </template>
         </main>
@@ -2003,8 +2051,8 @@
     <script src="js/timeline-utils.js?v=20260421-refactor"></script>
     <script src="js/archive-utils.js?v=20260421-refactor"></script>
     <script src="js/date-utils.js?v=20260428-growth"></script>
-    <script src="js/form-utils.js?v=20260429-auth"></script>
-    <script src="js/turnstile-utils.js?v=20260429-turnstile"></script>
+    <script src="js/form-utils.js?v=20260505-auth-keyboard"></script>
+    <script src="js/turnstile-utils.js?v=20260505-auth-keyboard"></script>
     <script src="js/clipboard.js?v=20260407-2"></script>
     <script src="js/dialog-utils.js?v=20260421-refactor"></script>
 
@@ -2034,24 +2082,42 @@
                 const showFullCareTips = ref(false);
                 const plantInfoActiveTab = ref('basic');
                 const potStats = ref(null);
-                const collabInviteSessionId = ref(null);
-                const viewerInviteSessionId = ref(null);
-                const commentInputRef = ref(null);
-                const commentViewportHeight = ref(typeof window !== 'undefined' ? window.innerHeight : 0);
-                const viewportWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 0);
+	                const collabInviteSessionId = ref(null);
+	                const viewerInviteSessionId = ref(null);
+	                const commentInputRef = ref(null);
+	                const keyboardViewport = formUtils.createKeyboardViewportController({
+	                    ref,
+	                    computed,
+	                    onMounted,
+	                    onUnmounted
+	                });
+	                const {
+	                    keyboardViewportHeight,
+	                    isCompactKeyboardViewport,
+		                    keyboardModalStyle,
+		                    authKeyboardModalStyle,
+		                    isKeyboardActive: isAuthKeyboardActive,
+		                    authKeyboardMode,
+		                    handleKeyboardFieldFocus,
+		                    handleAuthKeyboardFieldFocus,
+		                    handleAuthCompositionStart,
+		                    handleAuthCompositionEnd,
+		                    handleAuthFocusOut,
+		                    submitAuthFormFromEnter
+		                } = keyboardViewport;
 
                 // UI 状态
                 const showPlantModal = ref(false);
                 const showAddTimelineModal = ref(false);
-                const showShareModal = ref(false);
-                const showPublicShareModal = ref(false);
-                const showPublicQrCode = ref(false);
-                const isPublicShareLoading = ref(false);
-                const showCollaboratorModal = ref(false);
-                const showViewerModal = ref(false);
-	                const showCommentModal = ref(false);
-	                const showTransferModal = ref(false);
-	                const showArchiveModal = ref(false);
+	                const showShareModal = ref(false);
+	                const showPublicShareModal = ref(false);
+	                const showPublicQrCode = ref(false);
+	                const isPublicShareLoading = ref(false);
+	                const showMembersModal = ref(false);
+	                const showMemberInviteModal = ref(false);
+		                const showCommentModal = ref(false);
+		                const showTransferModal = ref(false);
+		                const showArchiveModal = ref(false);
 	                const showAcceptTransferModal = ref(false);
                 const transferToken = ref(null);
                 const transferPot = ref(null);
@@ -2067,17 +2133,22 @@
 	                const showCommentDanmaku = ref(true);
                 const potComments = ref([]);
                 const replyTargetComment = ref(null);
-                const pendingInvitePrompt = ref(null);
-                const commentSortOrder = ref('asc');
-                const viewers = ref([]);
+	                const pendingInvitePrompt = ref(null);
+	                const commentSortOrder = ref('asc');
+	                const viewers = ref([]);
                 const isPlantInfoLoading = ref(false);
                 const isCareRecordsLoading = ref(false);
                 const isTimelineRecordsLoading = ref(false);
                 const isPotStatsLoading = ref(false);
                 const isCareSchedulesLoading = ref(false);
                 const isCommentsLoading = ref(false);
-                const newCollaboratorEmail = ref('');
-                const newViewerEmail = ref('');
+	                const newCollaboratorEmail = ref('');
+	                const newViewerEmail = ref('');
+	                const memberInviteRole = ref('viewer');
+	                const memberInviteEmail = ref('');
+	                const isMemberInviteLoading = ref(false);
+	                const activeMemberMenuId = ref(null);
+	                const memberRoleUpdatingUserId = ref(null);
 	                const commentForm = reactive({
 	                    content: ''
 	                });
@@ -2149,6 +2220,7 @@
                     validateRegisterEmail,
                     validateRegisterPassword,
                     validateRegisterConfirmPassword,
+                    clearRegisterConfirmPassword,
                     normalizeRegisterDisplayName,
                     handleLoginEmailInput,
                     handleLoginPasswordInput,
@@ -2272,27 +2344,59 @@
                     )
                 ));
                 const canManageCommentDanmaku = computed(() => !!(isOwner.value && hasCommentAudience.value && !isArchived.value));
-                const canUseNativeShare = computed(() => !!(
-                    typeof window !== 'undefined' &&
-                    window.isSecureContext !== false &&
-                    typeof navigator !== 'undefined' &&
-                    typeof navigator.share === 'function'
-                ));
-                const shouldHideFloatingChrome = computed(() => !!(
-                    showPlantModal.value ||
-                    showAddTimelineModal.value ||
-                    showShareModal.value ||
-                    showPublicShareModal.value ||
-                    showCollaboratorModal.value ||
-	                    showViewerModal.value ||
-	                    showCommentModal.value ||
-	                    showTransferModal.value ||
-	                    showArchiveModal.value ||
+	                const canUseNativeShare = computed(() => !!(
+	                    typeof window !== 'undefined' &&
+	                    window.isSecureContext !== false &&
+	                    typeof navigator !== 'undefined' &&
+	                    typeof navigator.share === 'function'
+	                ));
+	                const memberTotalCount = computed(() => {
+	                    if (isArchived.value) {
+	                        const loadedViewerCount = Number(viewers.value?.length || 0);
+	                        return loadedViewerCount || Number(pot.value?.viewer_count || 0);
+	                    }
+	                    const loadedCount = Number(collaborators.value?.length || 0) + Number(viewers.value?.length || 0);
+	                    const knownCount = Number(pot.value?.collaborator_count || 0) + Number(pot.value?.viewer_count || 0);
+	                    return loadedCount || knownCount;
+	                });
+	                const isMemberInviteEmailValid = computed(() => formUtils.isValidEmail(memberInviteEmail.value));
+	                const memberInviteDescription = computed(() => {
+	                    if (memberInviteRole.value === 'collaborator') {
+	                        return '可新增和编辑养护、时间线、提醒';
+	                    }
+	                    return isArchived.value ? '可查看归档记录，不能编辑' : '可查看记录，不能编辑';
+	                });
+	                const memberInviteEmailButtonLabel = computed(() => (
+	                    memberInviteRole.value === 'collaborator' ? '发送协作邀请' : '发送查看邀请'
+	                ));
+		                const memberInviteLinkButtonLabel = computed(() => (
+		                    memberInviteRole.value === 'collaborator' ? '分享协作链接' : '分享查看链接'
+		                ));
+		                const memberInviteLinkDescription = computed(() => (
+		                    memberInviteRole.value === 'collaborator'
+		                        ? '点击按钮会优先调用系统分享，不可用时会自动复制邀请链接给好友。'
+		                        : '点击按钮会优先调用系统分享，不可用时会自动复制查看链接给好友。'
+		                ));
+		                const memberInviteLinkExpiryText = computed(() => (
+		                    memberInviteRole.value === 'collaborator'
+		                        ? '邀请链接默认 24 小时内有效。'
+		                        : '分享链接默认 24 小时内有效。'
+		                ));
+		                const shouldHideFloatingChrome = computed(() => !!(
+	                    showPlantModal.value ||
+	                    showAddTimelineModal.value ||
+	                    showShareModal.value ||
+	                    showPublicShareModal.value ||
+	                    showMembersModal.value ||
+	                    showMemberInviteModal.value ||
+		                    showCommentModal.value ||
+		                    showTransferModal.value ||
+		                    showArchiveModal.value ||
 	                    showAcceptTransferModal.value
 	                ));
                 const showCommentEntry = computed(() => !!(hasCommentAudience.value && canReplyComment.value));
                 const canLeaveComment = computed(() => canReplyComment.value);
-                const isCompactCommentViewport = computed(() => viewportWidth.value > 0 && viewportWidth.value < 640);
+	                const isCompactCommentViewport = computed(() => isCompactKeyboardViewport.value);
                 const canViewCommentDanmaku = computed(() => !!(
                     hasCommentAudience.value && (
                         showCommentEntry.value ||
@@ -2305,7 +2409,7 @@
                     )
                 ));
                 const commentModalStyle = computed(() => {
-                    const rawHeight = commentViewportHeight.value || (typeof window !== 'undefined' ? window.innerHeight : 0);
+	                    const rawHeight = keyboardViewportHeight.value || (typeof window !== 'undefined' ? window.innerHeight : 0);
                     const viewportHeight = Math.max(rawHeight || 0, 360);
                     const spacing = isCompactCommentViewport.value ? 8 : 32;
                     const maxHeight = Math.max(viewportHeight - spacing, 360);
@@ -2401,10 +2505,10 @@
                         window.history.replaceState({}, '', url.toString());
                     }
 
-                    if (pot.value && isOwner.value && !isArchived.value) {
-                        showShareModal.value = true;
-                    }
-                };
+	                    if (pot.value && isOwner.value) {
+	                        showShareModal.value = true;
+	                    }
+	                };
 
                 const getDirectParam = (name) => {
                     const url = new URL(window.location.href);
@@ -2455,7 +2559,30 @@
                     return sessionId;
                 };
 
+                const authBodyScrollLock = { locked: false, bodyOverflow: '', htmlOverscrollBehavior: '' };
+                const setAuthModalBodyLock = (locked) => {
+                    if (typeof document === 'undefined') return;
+                    document.body.classList.toggle('auth-modal-open', !!locked);
+                    if (locked) {
+                        if (!authBodyScrollLock.locked) {
+                            authBodyScrollLock.bodyOverflow = document.body.style.overflow || '';
+                            authBodyScrollLock.htmlOverscrollBehavior = document.documentElement.style.overscrollBehavior || '';
+                            authBodyScrollLock.locked = true;
+                        }
+                        document.body.style.overflow = 'hidden';
+                        document.documentElement.style.overscrollBehavior = 'none';
+                        return;
+                    }
+                    if (!authBodyScrollLock.locked) return;
+                    document.body.style.overflow = authBodyScrollLock.bodyOverflow;
+                    document.documentElement.style.overscrollBehavior = authBodyScrollLock.htmlOverscrollBehavior;
+                    authBodyScrollLock.locked = false;
+                    authBodyScrollLock.bodyOverflow = '';
+                    authBodyScrollLock.htmlOverscrollBehavior = '';
+                };
+
                 watch([showLoginModal, showForgotPasswordModal, showRegisterModal], ([loginVisible, forgotVisible, registerVisible]) => {
+                    setAuthModalBodyLock(loginVisible || forgotVisible || registerVisible);
                     if (loginVisible || forgotVisible) {
                         scheduleLoginAutofillSync();
                     } else {
@@ -3081,23 +3208,31 @@
                 };
                 const openInviteLogin = async () => {
                     clearAuthFeedback();
-                    showRegisterModal.value = false;
-                    showForgotPasswordModal.value = false;
-                    showLoginModal.value = true;
-                    await focusFieldById('detailLoginEmail');
-                    if (!document.getElementById('detailLoginEmail')) {
-                        redirectInviteAuthFallback('login');
-                    }
+	                    showRegisterModal.value = false;
+	                    showForgotPasswordModal.value = false;
+	                    showLoginModal.value = true;
+	                    if (isCompactKeyboardViewport.value) {
+	                        await nextTick();
+	                    } else {
+	                        await focusFieldById('detailLoginEmail', { scrollIntoView: false });
+	                    }
+	                    if (!document.getElementById('detailLoginEmail')) {
+	                        redirectInviteAuthFallback('login');
+	                    }
                 };
                 const openInviteRegister = async () => {
                     clearAuthFeedback();
-                    showLoginModal.value = false;
-                    showForgotPasswordModal.value = false;
-                    showRegisterModal.value = true;
-                    await focusFieldById('detailRegisterEmail');
-                    if (!document.getElementById('detailRegisterEmail')) {
-                        redirectInviteAuthFallback('register');
-                    }
+	                    showLoginModal.value = false;
+	                    showForgotPasswordModal.value = false;
+	                    showRegisterModal.value = true;
+	                    if (isCompactKeyboardViewport.value) {
+	                        await nextTick();
+	                    } else {
+	                        await focusFieldById('detailRegisterEmail', { scrollIntoView: false });
+	                    }
+	                    if (!document.getElementById('detailRegisterEmail')) {
+	                        redirectInviteAuthFallback('register');
+	                    }
                 };
                 const switchToForgotPassword = () => {
                     clearAuthFeedback();
@@ -3374,21 +3509,15 @@
                     }
                 };
 
-                onMounted(() => {
-                    init();
-                    updateCommentViewportMetrics();
-                    window.addEventListener('keydown', handleKeydown);
-                    window.addEventListener('resize', updateCommentViewportMetrics);
-                    window.visualViewport?.addEventListener('resize', updateCommentViewportMetrics);
-                    window.visualViewport?.addEventListener('scroll', updateCommentViewportMetrics);
-                });
+	                onMounted(() => {
+	                    init();
+	                    window.addEventListener('keydown', handleKeydown);
+	                });
 
-                onUnmounted(() => {
-                    window.removeEventListener('keydown', handleKeydown);
-                    window.removeEventListener('resize', updateCommentViewportMetrics);
-                    window.visualViewport?.removeEventListener('resize', updateCommentViewportMetrics);
-                    window.visualViewport?.removeEventListener('scroll', updateCommentViewportMetrics);
-                });
+		                onUnmounted(() => {
+		                    window.removeEventListener('keydown', handleKeydown);
+		                    setAuthModalBodyLock(false);
+		                });
 
                 // 组件卸载时移除事件监听
                 // 注意：在普通 HTML 环境中使用 Vue.createApp().mount() 时，
@@ -4148,13 +4277,7 @@
                     }
                 };
 
-                const updateCommentViewportMetrics = () => {
-                    const vv = window.visualViewport;
-                    commentViewportHeight.value = Math.round(vv?.height || window.innerHeight || 0);
-                    viewportWidth.value = Math.round(vv?.width || window.innerWidth || 0);
-                };
-
-                const focusCommentInput = () => {
+	                const focusCommentInput = () => {
                     if (isCompactCommentViewport.value) return;
                     nextTick(() => commentInputRef.value?.focus());
                 };
@@ -4260,86 +4383,220 @@
                     }
                 };
 
-                // 协作管理
-                const loadCollaborators = async () => {
-                    if (!isOwner.value) return;
-                    try {
-                        const res = await apiClient.getCollaborators(potId.value);
-                        if (res.success) collaborators.value = res.data;
-                    } catch (e) { console.error('Load collaborators failed', e); }
-                };
+	                // 成员与权限
+	                const loadCollaborators = async () => {
+	                    if (!isOwner.value) return;
+	                    try {
+	                        const res = await apiClient.getCollaborators(potId.value);
+	                        if (res.success) {
+	                            collaborators.value = (res.data || []).map(member => ({ ...member, role: 'collaborator' }));
+	                        }
+	                    } catch (e) { console.error('Load collaborators failed', e); }
+	                };
 
-                const loadViewers = async () => {
-                    if (!isOwner.value) return;
-                    try {
-                        const res = await apiClient.getViewers(potId.value);
-                        if (res.success) viewers.value = res.data;
-                    } catch (e) { console.error('Load viewers failed', e); }
-                };
+	                const loadViewers = async () => {
+	                    if (!isOwner.value) return;
+	                    try {
+	                        const res = await apiClient.getViewers(potId.value);
+	                        if (res.success) {
+	                            viewers.value = (res.data || []).map(member => ({ ...member, role: 'viewer' }));
+	                        }
+	                    } catch (e) { console.error('Load viewers failed', e); }
+	                };
 
-                const addCollaborator = async () => {
-                    if (isArchived.value) return;
-                    if (!newCollaboratorEmail.value.trim()) return;
-                    if (!isCollaboratorInviteEmailValid.value) {
-                        showAlert('请输入正确的邮箱地址');
-                        return;
-                    }
-                    try {
-                        const normalizedEmail = formUtils.normalizeEmail(newCollaboratorEmail.value);
-                        const res = await apiClient.addCollaborator(potId.value, normalizedEmail);
-                        if (res.success) {
-                            newCollaboratorEmail.value = '';
-                            await loadCollaborators();
-                            showAlert('邀请已发送，对方会在消息中心看到。');
-                        }
-                    } catch (e) {
-                        showAlert('邀请失败: ' + e.message);
-                    }
-                };
+	                const loadMembers = async () => {
+	                    if (!isOwner.value) return;
+	                    if (isArchived.value) {
+	                        collaborators.value = [];
+	                        await loadViewers();
+	                        return;
+	                    }
+	                    await Promise.all([loadCollaborators(), loadViewers()]);
+	                };
 
-                const addViewer = async () => {
-                    if (!newViewerEmail.value.trim()) return;
-                    if (!isViewerInviteEmailValid.value) {
-                        showAlert('请输入正确的邮箱地址');
-                        return;
-                    }
-                    try {
-                        const normalizedEmail = formUtils.normalizeEmail(newViewerEmail.value);
-                        const res = await apiClient.addViewer(potId.value, normalizedEmail);
-                        if (res.success) {
-                            newViewerEmail.value = '';
-                            await loadViewers();
-                            showAlert('好友查看邀请已发送，对方会在消息中心看到。');
-                        }
-                    } catch (e) {
-                        showAlert('邀请失败: ' + e.message);
-                    }
-                };
+	                const syncMemberCounts = () => {
+	                    if (!pot.value) return;
+	                    pot.value.collaborator_count = collaborators.value.length;
+	                    pot.value.viewer_count = viewers.value.length;
+	                };
 
-                const removeCollaborator = async (collab) => {
-                    if (isArchived.value) return;
-                    if (!showConfirm(`确定移除共同照料成员 ${collab.display_name || collab.email} 吗？`)) return;
-                    try {
-                        const res = await apiClient.removeCollaborator(potId.value, collab.id);
-                        if (res.success) {
-                            await loadCollaborators();
-                        }
-                    } catch (e) {
-                        showAlert('移除失败: ' + e.message);
-                    }
-                };
+	                const memberDisplayName = (member) => member?.display_name || member?.email || '成员';
+	                const memberInitial = (member) => {
+	                    const source = memberDisplayName(member);
+	                    return String(source || '?').trim().charAt(0).toUpperCase() || '?';
+	                };
 
-                const removeViewer = async (viewer) => {
-                    if (!showConfirm(`确定取消 ${viewer.display_name || viewer.email} 的查看权限吗？`)) return;
-                    try {
-                        const res = await apiClient.removeViewer(potId.value, viewer.id);
-                        if (res.success) {
-                            await loadViewers();
-                        }
-                    } catch (e) {
-                        showAlert('移除失败: ' + e.message);
-                    }
-                };
+	                const handleMemberAvatarError = (event) => {
+	                    const img = event?.target;
+	                    if (!img) return;
+	                    img.style.display = 'none';
+	                    const fallback = img.nextElementSibling;
+	                    if (fallback) fallback.classList.remove('hidden');
+	                };
+
+	                const getMemberMenuKey = (member, role = member?.role) => `${role}:${member?.id || ''}`;
+
+	                const toggleMemberMenu = (member, role) => {
+	                    const key = getMemberMenuKey(member, role);
+	                    activeMemberMenuId.value = activeMemberMenuId.value === key ? null : key;
+	                };
+
+	                const openMembersModal = async () => {
+	                    if (!isOwner.value) return;
+	                    showShareModal.value = false;
+	                    showMembersModal.value = true;
+	                    activeMemberMenuId.value = null;
+	                    await loadMembers();
+	                };
+
+	                const closeMembersModal = () => {
+	                    showMembersModal.value = false;
+	                    activeMemberMenuId.value = null;
+	                };
+
+	                const returnToShareFromMembers = () => {
+	                    closeMembersModal();
+	                    showShareModal.value = true;
+	                };
+
+	                const setMemberInviteRole = (role) => {
+	                    if (role === 'collaborator' && isArchived.value) return;
+	                    memberInviteRole.value = role === 'collaborator' ? 'collaborator' : 'viewer';
+	                };
+
+	                const openMemberInvite = (role = 'viewer') => {
+	                    setMemberInviteRole(role);
+	                    if (isArchived.value) memberInviteRole.value = 'viewer';
+	                    memberInviteEmail.value = '';
+	                    isMemberInviteLoading.value = false;
+	                    activeMemberMenuId.value = null;
+	                    showMembersModal.value = false;
+	                    showMemberInviteModal.value = true;
+	                };
+
+	                const closeMemberInviteModal = () => {
+	                    showMemberInviteModal.value = false;
+	                    memberInviteEmail.value = '';
+	                    isMemberInviteLoading.value = false;
+	                };
+
+	                const returnToMembersFromInvite = () => {
+	                    closeMemberInviteModal();
+	                    showMembersModal.value = true;
+	                    loadMembers();
+	                };
+
+	                const submitMemberEmailInvite = async () => {
+	                    if (!memberInviteEmail.value.trim()) return;
+	                    if (!isMemberInviteEmailValid.value) {
+	                        showAlert('请输入正确的邮箱地址');
+	                        return;
+	                    }
+	                    if (memberInviteRole.value === 'collaborator' && isArchived.value) return;
+	                    try {
+	                        isMemberInviteLoading.value = true;
+	                        const normalizedEmail = formUtils.normalizeEmail(memberInviteEmail.value);
+	                        const isCollabInvite = memberInviteRole.value === 'collaborator';
+	                        const res = isCollabInvite
+	                            ? await apiClient.addCollaborator(potId.value, normalizedEmail)
+	                            : await apiClient.addViewer(potId.value, normalizedEmail);
+	                        if (res.success) {
+	                            memberInviteEmail.value = '';
+	                            await loadMembers();
+	                            showMemberInviteModal.value = false;
+	                            showMembersModal.value = true;
+	                            showAlert(isCollabInvite ? '协作邀请已发送，对方会在消息中心看到。' : '查看邀请已发送，对方会在消息中心看到。');
+	                        }
+	                    } catch (e) {
+	                        showAlert('邀请失败: ' + e.message);
+	                    } finally {
+	                        isMemberInviteLoading.value = false;
+	                    }
+	                };
+
+	                const shareMemberInviteLink = async () => {
+	                    if (memberInviteRole.value === 'collaborator') {
+	                        await copyCollaboratorInvite();
+	                        return;
+	                    }
+	                    await copyViewerInvite();
+	                };
+
+	                const moveMemberLocally = (member, nextRole) => {
+	                    const normalizedMember = { ...member, role: nextRole };
+	                    collaborators.value = collaborators.value.filter(item => item.id !== member.id);
+	                    viewers.value = viewers.value.filter(item => item.id !== member.id);
+	                    if (nextRole === 'collaborator') {
+	                        collaborators.value.push(normalizedMember);
+	                    } else {
+	                        viewers.value.push(normalizedMember);
+	                    }
+	                    syncMemberCounts();
+	                };
+
+	                const changeMemberRole = async (member, nextRole) => {
+	                    if (!member?.id) return;
+	                    if (nextRole === 'collaborator' && isArchived.value) return;
+	                    if (member.role === nextRole) return;
+	                    const name = memberDisplayName(member);
+	                    const confirmText = nextRole === 'viewer'
+	                        ? `将 ${name} 改为仅查看？\n对方将不能再新增或编辑养护、时间线、提醒。`
+	                        : `将 ${name} 改为共同照料？\n对方将可以新增和编辑养护、时间线、提醒。`;
+	                    if (!showConfirm(confirmText)) return;
+	                    activeMemberMenuId.value = null;
+	                    try {
+	                        memberRoleUpdatingUserId.value = member.id;
+	                        const res = await apiClient.updatePotMemberRole(potId.value, member.id, nextRole);
+	                        if (res.success) {
+	                            moveMemberLocally(member, nextRole);
+	                            showAlert('权限已更新');
+	                        }
+	                    } catch (e) {
+	                        showAlert('权限更新失败: ' + e.message);
+	                    } finally {
+	                        memberRoleUpdatingUserId.value = null;
+	                    }
+	                };
+
+	                const removeMember = async (member, role = member?.role) => {
+	                    if (!member?.id) return;
+	                    const name = memberDisplayName(member);
+	                    if (!showConfirm(`确定移除成员 ${name} 吗？`)) return;
+	                    activeMemberMenuId.value = null;
+	                    try {
+	                        memberRoleUpdatingUserId.value = member.id;
+	                        const res = role === 'collaborator'
+	                            ? await apiClient.removeCollaborator(potId.value, member.id)
+	                            : await apiClient.removeViewer(potId.value, member.id);
+	                        if (res.success) {
+	                            collaborators.value = collaborators.value.filter(item => item.id !== member.id);
+	                            viewers.value = viewers.value.filter(item => item.id !== member.id);
+	                            syncMemberCounts();
+	                        }
+	                    } catch (e) {
+	                        showAlert('移除失败: ' + e.message);
+	                    } finally {
+	                        memberRoleUpdatingUserId.value = null;
+	                    }
+	                };
+
+	                const addCollaborator = async () => {
+	                    if (isArchived.value) return;
+	                    memberInviteRole.value = 'collaborator';
+	                    memberInviteEmail.value = newCollaboratorEmail.value;
+	                    await submitMemberEmailInvite();
+	                    newCollaboratorEmail.value = memberInviteEmail.value;
+	                };
+
+	                const addViewer = async () => {
+	                    memberInviteRole.value = 'viewer';
+	                    memberInviteEmail.value = newViewerEmail.value;
+	                    await submitMemberEmailInvite();
+	                    newViewerEmail.value = memberInviteEmail.value;
+	                };
+
+	                const removeCollaborator = async (collab) => removeMember({ ...collab, role: 'collaborator' }, 'collaborator');
+	                const removeViewer = async (viewer) => removeMember({ ...viewer, role: 'viewer' }, 'viewer');
 
                 const selectTransferCollab = (collab) => {
                     selectedTransferUser.value = collab;
@@ -4381,11 +4638,11 @@
                     return '未登录';
                 });
 
-                // 监听协作弹窗开启加载数据
-                watch([showCollaboratorModal, showTransferModal, showViewerModal], ([collabVisible, transferVisible, viewerVisible]) => {
-                    if (collabVisible || transferVisible) loadCollaborators();
-                    if (viewerVisible) loadViewers();
-                });
+	                // 监听成员弹窗开启加载数据
+	                watch([showMembersModal, showTransferModal], ([membersVisible, transferVisible]) => {
+	                    if (membersVisible) loadMembers();
+	                    if (transferVisible) loadCollaborators();
+	                });
 
                 watch(transferEmail, (val) => {
                     if (val) selectedTransferUser.value = null;
@@ -4469,12 +4726,21 @@
                     loadCareSchedules, saveNewSchedule, toggleScheduleEnabled, deleteSchedule, updateScheduleInterval,
                     getScheduleTypeStyle, getScheduleTypeName, scrollToSection, sectionTabs, activeSection,
                     editRecord, deleteRecord, viewAllRecords, viewAllTimelines, confirmingDeleteId,
-                    cancelTransfer, rejectTransfer, acceptTransfer,
-                    // 分享与协作
-                    showShareModal, showCollaboratorModal, showViewerModal, showTransferModal,
-                    openPublicShareModal, closePublicShareModal, returnToShareModal, togglePublicQrCode, enablePublicShare, disablePublicShare,
-                    downloadQRCode, copyShareLink, sharePublicLink, copyCollaboratorInvite, copyViewerInvite, collaborators, removeCollaborator, viewers, addViewer, removeViewer, newViewerEmail,
-                    showCommentModal, canReplyComment, canLeaveComment, showCommentEntry, canViewCommentDanmaku, canManageCommentDanmaku, shouldHideFloatingChrome, shouldShowCommentDanmaku, toggleCommentDanmaku,
+	                    cancelTransfer, rejectTransfer, acceptTransfer,
+	                    // 分享与协作
+	                    showShareModal, showMembersModal, showMemberInviteModal, showTransferModal,
+	                    openPublicShareModal, closePublicShareModal, returnToShareModal, togglePublicQrCode, enablePublicShare, disablePublicShare,
+	                    downloadQRCode, copyShareLink, sharePublicLink, copyCollaboratorInvite, copyViewerInvite,
+	                    openMembersModal, closeMembersModal, returnToShareFromMembers, openMemberInvite, closeMemberInviteModal, returnToMembersFromInvite,
+	                    collaborators, viewers, memberTotalCount, memberInviteRole, memberInviteEmail, isMemberInviteEmailValid, isMemberInviteLoading,
+	                    keyboardModalStyle, authKeyboardModalStyle, isAuthKeyboardActive, authKeyboardMode,
+	                    handleKeyboardFieldFocus, handleAuthKeyboardFieldFocus, handleAuthCompositionStart,
+	                    handleAuthCompositionEnd, handleAuthFocusOut, submitAuthFormFromEnter,
+	                    memberInviteDescription, memberInviteEmailButtonLabel, memberInviteLinkButtonLabel, memberInviteLinkDescription, memberInviteLinkExpiryText, setMemberInviteRole,
+	                    submitMemberEmailInvite, shareMemberInviteLink, activeMemberMenuId, memberRoleUpdatingUserId,
+	                    memberDisplayName, memberInitial, handleMemberAvatarError, getMemberMenuKey, toggleMemberMenu, changeMemberRole, removeMember,
+	                    removeCollaborator, addViewer, removeViewer, newViewerEmail,
+	                    showCommentModal, canReplyComment, canLeaveComment, showCommentEntry, canViewCommentDanmaku, canManageCommentDanmaku, shouldHideFloatingChrome, shouldShowCommentDanmaku, toggleCommentDanmaku,
                     commentForm, submitComment, isSubmittingComment, openCommentModal, closeCommentModal, beginReply, cancelReply, toggleCommentSort, canDeleteComment, deleteComment,
                     potComments, recentPotComments, replyTargetComment, showCommentDanmaku, barrageComments, commentSortOrder,
                     commentModalStyle, handleCommentInputFocus,
@@ -4490,6 +4756,7 @@
                     syncLoginFormFromDom, syncRegisterFormFromDom, scheduleLoginAutofillSync,
                     validateLoginEmail, validateLoginPassword, validateForgotPasswordEmail,
                     validateRegisterEmail, validateRegisterPassword, validateRegisterConfirmPassword,
+                    clearRegisterConfirmPassword,
                     handleLoginEmailInput, handleLoginPasswordInput, handleForgotPasswordEmailInput,
                     handleRegisterEmailInput, handleRegisterDisplayNameInput, handleRegisterPasswordInput, handleRegisterConfirmPasswordInput,
                     normalizeRegisterDisplayName,

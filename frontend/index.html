@@ -58,7 +58,7 @@
 
     <!-- Tailwind CSS & Custom Styles (Optimized) -->
     <link rel="stylesheet" href="css/tailwind-built.css?v=20260421-search">
-    <link rel="stylesheet" href="css/app.css?v=20260429-auth-validation">
+    <link rel="stylesheet" href="css/app.css?v=20260505-auth-keyboard">
 
     <!-- 图标库 -->
     <link rel="stylesheet" href="css/icons.css?v=20260421-search">
@@ -71,8 +71,8 @@
     <script src="js/pot-permissions.js?v=20260421-refactor"></script>
     <script src="js/archive-utils.js?v=20260421-refactor"></script>
     <script src="js/date-utils.js?v=20260428-growth"></script>
-    <script src="js/form-utils.js?v=20260429-auth"></script>
-    <script src="js/turnstile-utils.js?v=20260429-turnstile"></script>
+    <script src="js/form-utils.js?v=20260505-auth-keyboard"></script>
+    <script src="js/turnstile-utils.js?v=20260505-auth-keyboard"></script>
     <script src="js/clipboard.js?v=20260407-2"></script>
     <script src="js/dialog-utils.js?v=20260421-refactor"></script>
     <script src="js/batch-actions-utils.js?v=20260421-refactor"></script>
@@ -549,197 +549,218 @@
 
         <!-- 登录/注册 弹窗 -->
         <template v-if="showLoginModal || showRegisterModal || showForgotPasswordModal">
-            <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
-                <!-- 遮罩层也限制在 650px 范围内（可选，如果要完全模拟移动 App 在中心） -->
+            <div class="fixed inset-0 z-[60] flex justify-center p-2 sm:p-4"
+                :class="isAuthKeyboardActive ? 'items-start sm:items-center' : 'items-end sm:items-center'">
                 <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeAuthModals"></div>
-                <div class="relative bg-white w-full max-w-[500px] max-h-[calc(100vh-2rem)] overflow-y-auto rounded-3xl shadow-2xl animate-slide-up"
+                <div class="relative bg-white w-full max-w-[500px] rounded-t-3xl sm:rounded-3xl shadow-2xl keyboard-safe-modal auth-keyboard-modal overflow-hidden flex flex-col min-h-0"
+                    :class="[isAuthKeyboardActive ? 'auth-keyboard-active' : 'animate-slide-up', authKeyboardMode === 'sticky' ? 'auth-keyboard-sticky-fallback' : '']"
+                    :style="authKeyboardModalStyle" @focusin="handleAuthKeyboardFieldFocus" @focusout="handleAuthFocusOut"
+                    @compositionstart="handleAuthCompositionStart" @compositionend="handleAuthCompositionEnd"
                     @click.stop @mousedown.stop @touchstart.stop>
-                <!-- 登录弹窗 -->
-                <div v-if="showLoginModal" class="px-7 py-7 sm:p-8">
-                    <!-- 关闭按钮 -->
-                    <button @click="closeAuthModals"
-                        class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
-                        <i class="fa fa-times text-xl"></i>
-                    </button>
-
-                    <h3 class="text-2xl font-black text-gray-800 mb-2">欢迎回来</h3>
-                    <p class="text-gray-400 text-sm mb-6">{{ loginModalLead }}</p>
-                    <form @submit.prevent="handleLogin" @focusin="scheduleLoginAutofillSync"
-                        @click="scheduleLoginAutofillSync" autocomplete="on" class="space-y-3.5" novalidate>
-                        <div class="space-y-1.5">
-                            <label for="loginEmail"
-                                class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
-                            <input type="email" id="loginEmail" name="email" autocomplete="username" inputmode="email"
-                                autocapitalize="none" spellcheck="false" maxlength="120" @input="handleLoginEmailInput"
-                                @change="syncLoginFormFromDom" @blur="validateLoginEmail(true)"
-                                @animationstart="syncLoginFormFromDom" v-model="loginForm.email"
-                                placeholder="name@example.com" required
-                                :aria-invalid="loginErrors.email ? 'true' : 'false'"
-                                class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
-                                :class="loginErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                            <p v-if="loginErrors.email" class="text-xs text-red-500 px-1">{{ loginErrors.email }}</p>
+                    <div v-if="showLoginModal" class="flex flex-col min-h-0 flex-1">
+                        <div class="shrink-0"
+                            :class="isAuthKeyboardActive ? 'px-7 pt-4 pb-3 sm:p-8 sm:pb-6' : 'px-7 pt-7 pb-5 sm:p-8 sm:pb-6'">
+                            <button @click="closeAuthModals"
+                                class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
+                                <i class="fa fa-times text-xl"></i>
+                            </button>
+                            <h3 class="text-2xl font-black text-gray-800 mb-2">欢迎回来</h3>
+                            <p v-show="!isAuthKeyboardActive" class="text-gray-400 text-sm">{{ loginModalLead }}</p>
                         </div>
-                        <div class="space-y-1.5">
-                            <label for="loginPassword"
-                                class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">密码</label>
-                            <input type="password" id="loginPassword" name="password" autocomplete="current-password"
-                                autocapitalize="none" spellcheck="false" @input="handleLoginPasswordInput"
-                                @change="syncLoginFormFromDom" @blur="validateLoginPassword(true)"
-                                @animationstart="syncLoginFormFromDom" v-model="loginForm.password" placeholder="请输入密码"
-                                required :aria-invalid="loginErrors.password ? 'true' : 'false'"
-                                class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
-                                :class="loginErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                            <p v-if="loginErrors.password" class="text-xs text-red-500 px-1">{{ loginErrors.password }}
-                            </p>
+                        <div class="px-7 sm:px-8 overflow-y-auto flex-1 min-h-0 keyboard-safe-modal-scroll auth-keyboard-scroll">
+                            <form id="homeLoginForm" @submit.prevent="handleLogin" @focusin="scheduleLoginAutofillSync"
+                                @click="scheduleLoginAutofillSync" autocomplete="on" class="space-y-3.5 pb-7 sm:pb-8" novalidate>
+                                <div class="space-y-1.5">
+                                    <label for="loginEmail"
+                                        class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
+                                    <input type="email" id="loginEmail" name="email" autocomplete="username" inputmode="email"
+                                        enterkeyhint="next" @keydown.enter="submitAuthFormFromEnter($event, { formId: 'homeLoginForm', nextFieldId: 'loginPassword' })"
+                                        autocapitalize="none" spellcheck="false" maxlength="120" @input="handleLoginEmailInput"
+                                        @change="syncLoginFormFromDom" @blur="validateLoginEmail(true)"
+                                        @animationstart="syncLoginFormFromDom" v-model="loginForm.email"
+                                        placeholder="name@example.com" required
+                                        :aria-invalid="loginErrors.email ? 'true' : 'false'"
+                                        class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                        :class="loginErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                                    <p v-if="loginErrors.email" class="auth-error-message text-xs text-red-500 px-1">{{ loginErrors.email }}</p>
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label for="loginPassword"
+                                        class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">密码</label>
+                                    <input type="password" id="loginPassword" name="password" autocomplete="current-password"
+                                        enterkeyhint="done" @keydown.enter="submitAuthFormFromEnter($event, { formId: 'homeLoginForm' })"
+                                        autocapitalize="none" spellcheck="false" @input="handleLoginPasswordInput"
+                                        @change="syncLoginFormFromDom" @blur="validateLoginPassword(true)"
+                                        @animationstart="syncLoginFormFromDom" v-model="loginForm.password" placeholder="请输入密码"
+                                        required :aria-invalid="loginErrors.password ? 'true' : 'false'"
+                                        class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                        :class="loginErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                                    <p v-if="loginErrors.password" class="auth-error-message text-xs text-red-500 px-1">{{ loginErrors.password }}</p>
+                                </div>
+                                <div v-if="loginStatus.message" class="rounded-2xl px-4 py-3 text-xs"
+                                    :class="loginStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
+                                    <i class="fa mr-1"
+                                        :class="loginStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
+                                    {{ loginStatus.message }}
+                                </div>
+                                <button type="submit" :disabled="isAuthLoading || !isLoginValid"
+                                    class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+                                    {{ isAuthLoading ? '登录中...' : '立即登录' }}
+                                </button>
+                                <div class="flex items-center justify-between gap-4 pt-1">
+                                    <button type="button" @pointerdown.prevent @click="switchToForgotPassword"
+                                        class="text-xs text-gray-400 hover:text-green-500 transition">忘记密码？</button>
+                                    <div class="text-right">
+                                        <span class="text-gray-400 text-sm">还没有账号？</span>
+                                        <button type="button" @pointerdown.prevent @click="switchToRegister"
+                                            class="text-green-500 text-sm font-bold ml-1">注册一个</button>
+                                    </div>
+                                </div>
+                            </form>
                         </div>
-                        <div v-if="loginStatus.message" class="rounded-2xl px-4 py-3 text-xs"
-                            :class="loginStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
-                            <i class="fa mr-1"
-                                :class="loginStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
-                            {{ loginStatus.message }}
-                        </div>
-                        <button type="submit" :disabled="isAuthLoading || !isLoginValid"
-                            class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold mt-2 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
-                            {{ isAuthLoading ? '登录中...' : '立即登录' }}
-                        </button>
-                    </form>
-                    <div class="mt-4 text-right">
-                        <button @pointerdown.prevent @click="switchToForgotPassword"
-                            class="text-xs text-gray-400 hover:text-green-500 transition">忘记密码？</button>
                     </div>
-                    <div class="mt-6 pt-5 border-t border-gray-50 text-center">
-                        <span class="text-gray-400 text-sm">还没有账号？</span>
-                        <button @pointerdown.prevent @click="switchToRegister" class="text-green-500 text-sm font-bold ml-1">注册一个</button>
+
+                    <div v-if="showRegisterModal" class="flex flex-col min-h-0 flex-1">
+                        <div class="shrink-0"
+                            :class="isAuthKeyboardActive ? 'px-7 pt-4 pb-3 sm:p-8 sm:pb-6' : 'px-7 pt-7 pb-5 sm:p-8 sm:pb-6'">
+                            <button @click="closeAuthModals"
+                                class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
+                                <i class="fa fa-times text-xl"></i>
+                            </button>
+                            <h3 class="text-2xl font-black text-gray-800 mb-2">创建账号</h3>
+                            <p v-show="!isAuthKeyboardActive" class="text-gray-400 text-sm">{{ registerModalLead }}</p>
+                        </div>
+                        <div class="px-7 sm:px-8 overflow-y-auto flex-1 min-h-0 keyboard-safe-modal-scroll auth-keyboard-scroll">
+                            <form id="homeRegisterForm" @submit.prevent="handleRegister" class="space-y-3.5 pb-7 sm:pb-8" novalidate>
+                                <div class="space-y-1.5">
+                                    <label for="registerEmail"
+                                        class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
+                                    <input type="email" id="registerEmail" name="email" autocomplete="email" inputmode="email"
+                                        enterkeyhint="next" @keydown.enter="submitAuthFormFromEnter($event, { formId: 'homeRegisterForm', nextFieldId: 'registerNickname' })"
+                                        autocapitalize="none" spellcheck="false" maxlength="120"
+                                        @input="handleRegisterEmailInput" @blur="validateRegisterEmail(true)"
+                                        @animationstart="syncRegisterFormFromDom" v-model="registerForm.email"
+                                        placeholder="name@example.com" required
+                                        :aria-invalid="registerErrors.email ? 'true' : 'false'"
+                                        class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                        :class="registerErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                                    <p v-if="registerErrors.email" class="auth-error-message text-xs text-red-500 px-1">{{ registerErrors.email }}</p>
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label for="registerNickname"
+                                        class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">昵称
+                                        <span class="font-medium normal-case tracking-normal text-gray-300">(选填)</span></label>
+                                    <input type="text" id="registerNickname" name="nickname" autocomplete="nickname"
+                                        enterkeyhint="next" autocapitalize="none" spellcheck="false"
+                                        @keydown.enter="submitAuthFormFromEnter($event, { formId: 'homeRegisterForm', nextFieldId: 'registerPassword' })"
+                                        maxlength="12" @input="handleRegisterDisplayNameInput"
+                                        @blur="normalizeRegisterDisplayName" v-model="registerForm.displayName"
+                                        placeholder="给自己起个名字"
+                                        class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-green-500 transition">
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label for="registerPassword"
+                                        class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">密码</label>
+                                    <input type="password" id="registerPassword" name="password" autocomplete="new-password"
+                                        enterkeyhint="next" @keydown.enter="submitAuthFormFromEnter($event, { formId: 'homeRegisterForm', nextFieldId: 'registerConfirmPassword' })"
+                                        minlength="8" @input="handleRegisterPasswordInput"
+                                        @blur="validateRegisterPassword(true)" @animationstart="syncRegisterFormFromDom"
+                                        v-model="registerForm.password" placeholder="至少 8 位，含字母和数字" required
+                                        :aria-invalid="registerErrors.password ? 'true' : 'false'"
+                                        class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                        :class="registerErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                                    <p v-if="registerErrors.password" class="auth-error-message text-xs text-red-500 px-1">{{ registerErrors.password }}</p>
+                                </div>
+                                <div class="relative space-y-1.5">
+                                    <label for="registerConfirmPassword"
+                                        class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">确认密码</label>
+                                    <input type="password" id="registerConfirmPassword" name="confirmPassword"
+                                        autocomplete="new-password" minlength="8" enterkeyhint="done"
+                                        @keydown.enter="submitAuthFormFromEnter($event, { formId: 'homeRegisterForm' })"
+                                        @input="handleRegisterConfirmPasswordInput"
+                                        @blur="validateRegisterConfirmPassword(true)" @animationstart="syncRegisterFormFromDom"
+                                        v-model="registerForm.confirmPassword" placeholder="再次输入密码" required
+                                        :aria-invalid="registerErrors.confirmPassword ? 'true' : 'false'"
+                                        class="w-full bg-gray-50 border rounded-2xl py-3 pl-4 pr-10 focus:outline-none focus:ring-2 transition"
+                                        :class="registerErrors.confirmPassword ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                                    <div v-if="registerForm.password && registerForm.confirmPassword"
+                                        class="absolute right-2 top-1/2 transform -translate-y-1/2">
+                                        <i v-if="passwordsMatch" class="fa fa-check text-green-500 pointer-events-none"></i>
+                                        <button v-else type="button" @pointerdown.prevent @click="clearRegisterConfirmPassword"
+                                            class="w-8 h-8 flex items-center justify-center text-red-500 hover:text-red-600 transition"
+                                            title="清空确认密码" aria-label="清空确认密码">
+                                            <i class="fa fa-times"></i>
+                                        </button>
+                                    </div>
+                                    <p v-if="registerErrors.confirmPassword" class="auth-error-message text-xs text-red-500 px-1">
+                                        {{ registerErrors.confirmPassword }}
+                                    </p>
+                                </div>
+                                <div v-if="registerStatus.message" class="rounded-2xl px-4 py-3 text-xs"
+                                    :class="registerStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
+                                    <i class="fa mr-1"
+                                        :class="registerStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
+                                    {{ registerStatus.message }}
+                                </div>
+                                <div v-if="isTurnstileEnabled" id="registerTurnstile" class="auth-turnstile-slot w-full"></div>
+                                <button type="submit" :disabled="isAuthLoading || !isRegisterValid"
+                                    class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+                                    {{ isAuthLoading ? '注册并合并数据' : '完成注册' }}
+                                </button>
+                                <div class="text-center pt-1">
+                                    <span class="text-gray-400 text-sm">已有账号？</span>
+                                    <button type="button" @pointerdown.prevent @click="switchToLogin"
+                                        class="text-green-500 text-sm font-bold ml-1">去登录</button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
 
-                <!-- 注册弹窗 -->
-                <div v-if="showRegisterModal" class="px-7 py-7 sm:p-8">
-                    <!-- 关闭按钮 -->
-                    <button @click="closeAuthModals"
-                        class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
-                        <i class="fa fa-times text-xl"></i>
-                    </button>
-
-                    <h3 class="text-2xl font-black text-gray-800 mb-2">创建账号</h3>
-                    <p class="text-gray-400 text-sm mb-6">{{ registerModalLead }}</p>
-                    <form @submit.prevent="handleRegister" class="space-y-3.5" novalidate>
-                        <div class="space-y-1.5">
-                            <label for="registerEmail"
-                                class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
-                            <input type="email" id="registerEmail" name="email" autocomplete="email" inputmode="email"
-                                autocapitalize="none" spellcheck="false" maxlength="120"
-                                @input="handleRegisterEmailInput" @blur="validateRegisterEmail(true)"
-                                @animationstart="syncRegisterFormFromDom" v-model="registerForm.email"
-                                placeholder="name@example.com" required
-                                :aria-invalid="registerErrors.email ? 'true' : 'false'"
-                                class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
-                                :class="registerErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                            <p v-if="registerErrors.email" class="text-xs text-red-500 px-1">{{ registerErrors.email }}
-                            </p>
+                    <div v-if="showForgotPasswordModal" class="flex flex-col min-h-0 flex-1">
+                        <div class="shrink-0"
+                            :class="isAuthKeyboardActive ? 'px-7 pt-4 pb-3 sm:p-8 sm:pb-6' : 'px-7 pt-7 pb-5 sm:p-8 sm:pb-6'">
+                            <button @click="closeAuthModals"
+                                class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
+                                <i class="fa fa-times text-xl"></i>
+                            </button>
+                            <h3 class="text-2xl font-black text-gray-800 mb-2">重置您的密码</h3>
+                            <p v-show="!isAuthKeyboardActive" class="text-gray-400 text-sm">我们将向您的邮箱发送重置链接</p>
                         </div>
-                        <div class="space-y-1.5">
-                            <label for="registerNickname"
-                                class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">昵称
-                                <span class="font-medium normal-case tracking-normal text-gray-300">(选填)</span></label>
-                            <input type="text" id="registerNickname" name="nickname" autocomplete="nickname"
-                                maxlength="12" @input="handleRegisterDisplayNameInput"
-                                @blur="normalizeRegisterDisplayName" v-model="registerForm.displayName"
-                                placeholder="给自己起个名字"
-                                class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-green-500 transition">
+                        <div class="px-7 sm:px-8 overflow-y-auto flex-1 min-h-0 keyboard-safe-modal-scroll auth-keyboard-scroll">
+                            <form id="homeForgotPasswordForm" @submit.prevent="handleForgotPassword" class="space-y-3.5 pb-7 sm:pb-8" novalidate>
+                                <div class="space-y-1.5">
+                                    <label
+                                        class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
+                                    <input type="email" id="forgotPasswordEmail" name="email" autocomplete="email" inputmode="email"
+                                        enterkeyhint="send" @keydown.enter="submitAuthFormFromEnter($event, { formId: 'homeForgotPasswordForm' })"
+                                        autocapitalize="none" spellcheck="false" maxlength="120" v-model="loginForm.email"
+                                        @input="handleForgotPasswordEmailInput" @change="syncLoginFormFromDom"
+                                        @animationstart="syncLoginFormFromDom" @blur="validateForgotPasswordEmail(true)"
+                                        placeholder="name@example.com" required
+                                        :aria-invalid="forgotPasswordErrors.email ? 'true' : 'false'"
+                                        class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
+                                        :class="forgotPasswordErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
+                                    <p v-if="forgotPasswordErrors.email" class="auth-error-message text-red-500 text-xs px-1">
+                                        {{ forgotPasswordErrors.email }}
+                                    </p>
+                                </div>
+                                <div v-if="forgotPasswordStatus.message" class="rounded-2xl px-4 py-3 text-xs"
+                                    :class="forgotPasswordStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
+                                    <i class="fa mr-1"
+                                        :class="forgotPasswordStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
+                                    {{ forgotPasswordStatus.message }}
+                                </div>
+                                <div v-if="isTurnstileEnabled" id="forgotPasswordTurnstile" class="auth-turnstile-slot w-full"></div>
+                                <button type="submit" :disabled="isAuthLoading || !isForgotPasswordEmailValid"
+                                    class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+                                    {{ isAuthLoading ? '发送中...' : '发送重置邮件' }}
+                                </button>
+                                <div class="text-center pt-1">
+                                    <button type="button" @pointerdown.prevent @click="switchToLogin" class="text-green-500 text-sm font-bold">返回登录</button>
+                                </div>
+                            </form>
                         </div>
-                        <div class="space-y-1.5">
-                            <label for="registerPassword"
-                                class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">密码</label>
-                            <input type="password" id="registerPassword" name="password" autocomplete="new-password"
-                                minlength="8" @input="handleRegisterPasswordInput"
-                                @blur="validateRegisterPassword(true)" @animationstart="syncRegisterFormFromDom"
-                                v-model="registerForm.password" placeholder="至少 8 位" required
-                                :aria-invalid="registerErrors.password ? 'true' : 'false'"
-                                class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
-                                :class="registerErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                            <p v-if="registerErrors.password" class="text-xs text-red-500 px-1">{{
-                                registerErrors.password }}</p>
-                        </div>
-                        <div class="relative space-y-1.5">
-                            <label for="registerConfirmPassword"
-                                class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">确认密码</label>
-                            <input type="password" id="registerConfirmPassword" name="confirmPassword"
-                                autocomplete="new-password" minlength="8" @input="handleRegisterConfirmPasswordInput"
-                                @blur="validateRegisterConfirmPassword(true)" @animationstart="syncRegisterFormFromDom"
-                                v-model="registerForm.confirmPassword" placeholder="再次输入密码" required
-                                :aria-invalid="registerErrors.confirmPassword ? 'true' : 'false'"
-                                class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
-                                :class="registerErrors.confirmPassword ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                            <div v-if="registerForm.password && registerForm.confirmPassword"
-                                class="absolute right-3 top-1/2 transform -translate-y-1/2">
-                                <i v-if="passwordsMatch" class="fa fa-check text-green-500"></i>
-                                <i v-else class="fa fa-times text-red-500"></i>
-                            </div>
-                            <p v-if="registerErrors.confirmPassword" class="text-xs text-red-500 px-1">
-                                {{ registerErrors.confirmPassword }}
-                            </p>
-                        </div>
-                        <div v-if="registerStatus.message" class="rounded-2xl px-4 py-3 text-xs"
-                            :class="registerStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
-                            <i class="fa mr-1"
-                                :class="registerStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
-                            {{ registerStatus.message }}
-                        </div>
-                        <div v-if="isTurnstileEnabled" id="registerTurnstile" class="auth-turnstile-slot w-full"></div>
-                        <button type="submit" :disabled="isAuthLoading || !isRegisterValid || !isRegisterTurnstileReady"
-                            class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold mt-2 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
-                            {{ isAuthLoading ? '注册并合并数据' : '完成注册' }}
-                        </button>
-                    </form>
-                    <div class="mt-6 pt-5 border-t border-gray-50 text-center">
-                        <span class="text-gray-400 text-sm">已有账号？</span>
-                        <button @pointerdown.prevent @click="switchToLogin" class="text-green-500 text-sm font-bold ml-1">去登录</button>
                     </div>
-                </div>
-
-                <!-- 忘记密码弹窗 -->
-                <div v-if="showForgotPasswordModal" class="px-7 py-7 sm:p-8">
-                    <!-- 关闭按钮 -->
-                    <button @click="closeAuthModals"
-                        class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
-                        <i class="fa fa-times text-xl"></i>
-                    </button>
-
-                    <h3 class="text-2xl font-black text-gray-800 mb-2">重置您的密码</h3>
-                    <p class="text-gray-400 text-sm mb-6">我们将向您的邮箱发送重置链接</p>
-                    <form @submit.prevent="handleForgotPassword" class="space-y-3.5" novalidate>
-                        <div class="space-y-1.5">
-                            <label
-                                class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
-                            <input type="email" id="forgotPasswordEmail" name="email" autocomplete="email" inputmode="email"
-                                autocapitalize="none" spellcheck="false" maxlength="120" v-model="loginForm.email"
-                                @input="handleForgotPasswordEmailInput" @change="syncLoginFormFromDom"
-                                @animationstart="syncLoginFormFromDom" @blur="validateForgotPasswordEmail(true)"
-                                placeholder="name@example.com" required
-                                :aria-invalid="forgotPasswordErrors.email ? 'true' : 'false'"
-                                class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
-                                :class="forgotPasswordErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                            <p v-if="forgotPasswordErrors.email" class="text-red-500 text-xs px-1">
-                                {{ forgotPasswordErrors.email }}
-                            </p>
-                        </div>
-                        <div v-if="forgotPasswordStatus.message" class="rounded-2xl px-4 py-3 text-xs"
-                            :class="forgotPasswordStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
-                            <i class="fa mr-1"
-                                :class="forgotPasswordStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
-                            {{ forgotPasswordStatus.message }}
-                        </div>
-                        <div v-if="isTurnstileEnabled" id="forgotPasswordTurnstile" class="auth-turnstile-slot w-full"></div>
-                        <button type="submit" :disabled="isAuthLoading || !isForgotPasswordEmailValid || !isForgotPasswordTurnstileReady"
-                            class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold mt-2 shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
-                            {{ isAuthLoading ? '发送中...' : '发送重置邮件' }}
-                        </button>
-                    </form>
-                    <div class="mt-6 pt-5 border-t border-gray-50 text-center">
-                        <button @pointerdown.prevent @click="switchToLogin" class="text-green-500 text-sm font-bold">返回登录</button>
-                    </div>
-                </div>
                 </div>
             </div>
         </template>
@@ -881,10 +902,11 @@
         <!-- 批量养护弹窗 -->
         <div v-if="showBatchCareModal" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click.stop.prevent="closeBatchCareModal"></div>
-            <div class="relative bg-white w-full max-w-[500px] rounded-3xl shadow-2xl overflow-hidden animate-slide-up"
+            <div class="relative bg-white w-full max-w-[500px] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col keyboard-safe-modal"
+                :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus"
                 @click.stop @mousedown.stop @touchstart.stop>
                 <!-- 标题栏 -->
-                <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50">
+                <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 shrink-0">
                     <div class="flex items-center gap-3 min-w-0">
                         <button type="button" @click.stop.prevent="returnToBatchActionSheetFromCare"
                             class="shrink-0 inline-flex items-center justify-center text-gray-400 transition active:scale-95">
@@ -901,7 +923,7 @@
                     </button>
                 </div>
                 <!-- 内容区 -->
-                <div class="p-6 space-y-5">
+                <div class="p-6 space-y-5 overflow-y-auto flex-1 keyboard-safe-modal-scroll">
                     <div v-if="selectedCareExcludedCount > 0"
                         class="rounded-2xl bg-gray-50 border border-gray-100 px-4 py-3 text-xs text-gray-500 leading-relaxed">
                         已自动排除 {{ selectedCareExcludedCount }} 个仅查看花盆，批量养护只会作用于自有和共同照料花盆。
@@ -941,7 +963,7 @@
                     </div>
                 </div>
                 <!-- 确认按钮 -->
-                <div class="px-6 pb-6">
+                <div class="px-6 pb-6 shrink-0 keyboard-safe-modal-footer">
                     <button @click="submitBatchCare" :disabled="isBatchCareSubmitDisabled"
                         class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                         {{ isBatchCareLoading ? '记录中...' : `确认养护 ${selectedCareManageableCount} 个花盆` }}
@@ -954,7 +976,8 @@
             class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click.stop.prevent="closeBatchArchiveModal">
             </div>
-            <div class="relative bg-white w-full max-w-[500px] rounded-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col max-h-[90vh]"
+            <div class="relative bg-white w-full max-w-[500px] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col keyboard-safe-modal"
+                :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus"
                 @click.stop @mousedown.stop @touchstart.stop>
                 <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 shrink-0">
                     <div class="flex items-center gap-3 min-w-0">
@@ -975,7 +998,7 @@
                         <i class="fa fa-times text-xl"></i>
                     </button>
                 </div>
-                <div class="p-6 space-y-5 overflow-y-auto">
+                <div class="p-6 space-y-5 overflow-y-auto flex-1 keyboard-safe-modal-scroll">
                     <div
                         class="rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 text-xs text-amber-700 leading-relaxed">
                         {{ archiveTargetPot ? '归档后这盆植物将不再出现在养护列表，也不会收到养护提醒。记录会保留，之后可以在已归档中查看和恢复。' :
@@ -1026,7 +1049,7 @@
                             accept="image/*" class="hidden">
                     </div>
                 </div>
-                <div class="px-6 pb-6 shrink-0">
+                <div class="px-6 pb-6 shrink-0 keyboard-safe-modal-footer">
                     <button @click="submitBatchArchive"
                         :disabled="isBatchArchiveLoading || (!archiveTargetPot && selectedOwnedCount === 0)"
                         class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
@@ -1040,8 +1063,9 @@
         <div v-if="showBatchInviteModal" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click.stop.prevent="closeBatchInviteModal">
             </div>
-            <div class="relative bg-white w-full max-w-[500px] rounded-3xl shadow-2xl overflow-hidden animate-slide-up">
-                <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50">
+            <div class="relative bg-white w-full max-w-[500px] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col keyboard-safe-modal"
+                :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus">
+                <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 shrink-0">
                     <div class="flex items-center gap-3 min-w-0">
                         <button type="button" @click.stop.prevent="returnToBatchActionSheetFromInvite"
                             class="shrink-0 inline-flex items-center justify-center text-gray-400 transition active:scale-95">
@@ -1060,7 +1084,7 @@
                         <i class="fa fa-times text-xl"></i>
                     </button>
                 </div>
-                <div class="p-6 space-y-5">
+                <div class="p-6 space-y-5 overflow-y-auto flex-1 keyboard-safe-modal-scroll">
                     <div v-if="selectedExcludedCount > 0"
                         class="rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 text-xs text-amber-700 leading-relaxed">
                         已自动排除 {{ selectedExcludedCount }} 个非本人拥有的花盆，批量邀请只会作用于自己的花盆。
@@ -1083,14 +1107,14 @@
                             </button>
                             <button @click="batchInviteForm.permission = 'collaborator'"
                                 class="rounded-2xl border-2 px-4 py-4 text-left transition-all active:scale-95"
-                                :class="batchInviteForm.permission === 'collaborator' ? 'bg-orange-50 border-orange-300 shadow-md shadow-orange-100' : 'bg-white border-gray-100'">
+                                :class="batchInviteForm.permission === 'collaborator' ? 'bg-blue-50 border-blue-300 shadow-md shadow-blue-100' : 'bg-white border-gray-100'">
                                 <div class="flex items-center gap-2 text-sm font-black"
-                                    :class="batchInviteForm.permission === 'collaborator' ? 'text-orange-700' : 'text-gray-700'">
+                                    :class="batchInviteForm.permission === 'collaborator' ? 'text-blue-700' : 'text-gray-700'">
                                     <i class="fa fa-users"></i>
                                     <span>共同照料</span>
                                 </div>
                                 <p class="text-[11px] mt-2 leading-relaxed"
-                                    :class="batchInviteForm.permission === 'collaborator' ? 'text-orange-600' : 'text-gray-400'">
+                                    :class="batchInviteForm.permission === 'collaborator' ? 'text-blue-600' : 'text-gray-400'">
                                     好友可查看并参与照料，但不拥有花盆本身。
                                 </p>
                             </button>
@@ -1144,7 +1168,7 @@
                         系统会优先调起分享面板；如果当前环境不支持，再自动复制批量邀请链接，对方确认后会一次性获得这些花盆的对应权限。
                     </div>
                 </div>
-                <div class="px-6 pb-6">
+                <div class="px-6 pb-6 shrink-0 keyboard-safe-modal-footer">
                     <button @click="submitBatchInvite"
                         :disabled="isBatchInviteLoading || selectedOwnedCount === 0 || (batchInviteForm.method === 'email' && !isBatchInviteEmailValid)"
                         class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
@@ -1212,7 +1236,7 @@
                             <div class="min-w-0">
                                 <div class="text-sm font-black text-gray-800">分享与邀请</div>
                                 <div class="text-[11px] text-gray-400 mt-1">
-                                    {{ activePotStatus === 'archived' ? '去详情页管理公开分享和仅查看分享' : '去详情页管理公开分享、仅查看和共同照料' }}
+                                    {{ activePotStatus === 'archived' ? '管理公开分享和仅查看成员' : '管理公开分享、成员权限和邀请' }}
                                 </div>
                             </div>
                         </button>
@@ -1257,7 +1281,7 @@
                             @click="leaveCollaborationFromSheet(activePotAction)"
                             class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition">
                             <div
-                                class="w-11 h-11 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
+                                class="w-11 h-11 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-sign-out-alt"></i>
                             </div>
                             <div class="min-w-0">
@@ -1535,6 +1559,7 @@
                     validateRegisterEmail,
                     validateRegisterPassword,
                     validateRegisterConfirmPassword,
+                    clearRegisterConfirmPassword,
                     normalizeRegisterDisplayName,
                     handleLoginEmailInput,
                     handleLoginPasswordInput,
@@ -1543,10 +1568,28 @@
                     handleRegisterDisplayNameInput,
                     handleRegisterPasswordInput,
                     handleRegisterConfirmPasswordInput,
-                    validateLoginForm,
-                    validateRegisterForm
-                } = authForms;
-                const turnstileForms = window.createTurnstileController({
+	                    validateLoginForm,
+	                    validateRegisterForm
+	                } = authForms;
+	                const keyboardViewport = formUtils.createKeyboardViewportController({
+	                    ref,
+	                    computed,
+	                    onMounted,
+	                    onUnmounted
+	                });
+		                const {
+		                    keyboardModalStyle,
+		                    authKeyboardModalStyle,
+		                    isKeyboardActive: isAuthKeyboardActive,
+		                    authKeyboardMode,
+		                    handleKeyboardFieldFocus,
+		                    handleAuthKeyboardFieldFocus,
+		                    handleAuthCompositionStart,
+		                    handleAuthCompositionEnd,
+		                    handleAuthFocusOut,
+		                    submitAuthFormFromEnter
+		                } = keyboardViewport;
+	                const turnstileForms = window.createTurnstileController({
                     ref,
                     computed,
                     nextTick,
@@ -1917,16 +1960,39 @@
                     }
                 };
 
-                const isAuthRequiredError = (error) => {
-                    const status = Number(error?.status || 0);
-                    const message = String(error?.message || '').trim();
-                    return status === 401 || /Authentication required/i.test(message);
-                };
+	                const isAuthRequiredError = (error) => {
+	                    const status = Number(error?.status || 0);
+	                    const message = String(error?.message || '').trim();
+	                    return status === 401 || /Authentication required/i.test(message);
+	                };
 
-                watch([showLoginModal, showForgotPasswordModal, showRegisterModal], ([loginVisible, forgotVisible, registerVisible]) => {
-                    if (loginVisible || forgotVisible) {
-                        scheduleLoginAutofillSync();
-                    } else {
+	                const authBodyScrollLock = { locked: false, bodyOverflow: '', htmlOverscrollBehavior: '' };
+	                const setAuthModalBodyLock = (locked) => {
+	                    if (typeof document === 'undefined') return;
+	                    document.body.classList.toggle('auth-modal-open', !!locked);
+	                    if (locked) {
+	                        if (!authBodyScrollLock.locked) {
+	                            authBodyScrollLock.bodyOverflow = document.body.style.overflow || '';
+	                            authBodyScrollLock.htmlOverscrollBehavior = document.documentElement.style.overscrollBehavior || '';
+	                            authBodyScrollLock.locked = true;
+	                        }
+	                        document.body.style.overflow = 'hidden';
+	                        document.documentElement.style.overscrollBehavior = 'none';
+	                        return;
+	                    }
+	                    if (!authBodyScrollLock.locked) return;
+	                    document.body.style.overflow = authBodyScrollLock.bodyOverflow;
+	                    document.documentElement.style.overscrollBehavior = authBodyScrollLock.htmlOverscrollBehavior;
+	                    authBodyScrollLock.locked = false;
+	                    authBodyScrollLock.bodyOverflow = '';
+	                    authBodyScrollLock.htmlOverscrollBehavior = '';
+	                };
+
+	                watch([showLoginModal, showForgotPasswordModal, showRegisterModal], ([loginVisible, forgotVisible, registerVisible]) => {
+	                    setAuthModalBodyLock(loginVisible || forgotVisible || registerVisible);
+	                    if (loginVisible || forgotVisible) {
+	                        scheduleLoginAutofillSync();
+	                    } else {
                         stopLoginAutofillWatcher();
                     }
 
@@ -3889,10 +3955,11 @@
                     window.addEventListener('scroll', handleHomeScroll, { passive: true });
                 });
 
-                onUnmounted(() => {
-                    window.removeEventListener('scroll', handleHomeScroll);
-                    destroySortable();
-                });
+	                onUnmounted(() => {
+	                    window.removeEventListener('scroll', handleHomeScroll);
+	                    setAuthModalBodyLock(false);
+	                    destroySortable();
+	                });
 
                 return {
                     isLoading, pots, displayedPots, isPotSearchActive, potSearchQuery, potSearchInput, hasPotSearchQuery, openPotSearch, closePotSearch, clearPotSearch,
@@ -3909,9 +3976,13 @@
                     isTurnstileEnabled, isRegisterTurnstileReady, isForgotPasswordTurnstileReady,
                     allSelected, selectedCount,
                     selectedOwnedCount, selectedCareManageableCount, selectedViewerCount, selectedExcludedCount, selectedCareExcludedCount, isBatchInviteEmailValid, hasOverlayModalOpen,
-                    syncLoginFormFromDom, syncRegisterFormFromDom, scheduleLoginAutofillSync,
+	                    syncLoginFormFromDom, syncRegisterFormFromDom, scheduleLoginAutofillSync,
+		                    keyboardModalStyle, authKeyboardModalStyle, isAuthKeyboardActive, authKeyboardMode,
+		                    handleKeyboardFieldFocus, handleAuthKeyboardFieldFocus, handleAuthCompositionStart,
+		                    handleAuthCompositionEnd, handleAuthFocusOut, submitAuthFormFromEnter,
                     validateLoginEmail, validateLoginPassword, validateForgotPasswordEmail,
                     validateRegisterEmail, validateRegisterPassword, validateRegisterConfirmPassword,
+                    clearRegisterConfirmPassword,
                     handleLoginEmailInput, handleLoginPasswordInput, handleForgotPasswordEmailInput,
                     handleRegisterEmailInput, handleRegisterDisplayNameInput, handleRegisterPasswordInput, handleRegisterConfirmPasswordInput,
                     normalizeRegisterDisplayName,

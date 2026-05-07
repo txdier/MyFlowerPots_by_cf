@@ -30,7 +30,12 @@
 
     const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeEmail(value));
 
-    const isValidPassword = (value, minLength = 8) => String(value || '').length >= minLength;
+    const hasPasswordLetter = (value) => /[A-Za-z]/.test(String(value || ''));
+    const hasPasswordNumber = (value) => /\d/.test(String(value || ''));
+    const isValidPassword = (value, minLength = 8) => {
+        const raw = String(value || '');
+        return raw.length >= minLength && hasPasswordLetter(raw) && hasPasswordNumber(raw);
+    };
 
     const getEmailError = (value, options = {}) => {
         const normalized = normalizeEmail(value);
@@ -49,6 +54,9 @@
         if (raw.length < minLength) {
             return options.tooShortMessage || ("密码至少 " + minLength + " 位");
         }
+        if (!hasPasswordLetter(raw) || !hasPasswordNumber(raw)) {
+            return options.weakMessage || '密码需同时包含字母和数字';
+        }
         return '';
     };
 
@@ -64,14 +72,289 @@
         });
     };
 
-    const focusFieldById = async (elementId, nextTickFn = null) => {
+    const isKeyboardFocusableField = (element) => !!(
+        element?.matches?.('input, textarea, select, [contenteditable="true"]')
+    );
+
+    const isElementOutsideVisualViewport = (element, options = {}) => {
+        if (!element || typeof element.getBoundingClientRect !== 'function') return true;
+        const rect = element.getBoundingClientRect();
+        const topInset = Number.isFinite(Number(options.topInset)) ? Number(options.topInset) : 16;
+        const bottomInset = Number.isFinite(Number(options.bottomInset)) ? Number(options.bottomInset) : 16;
+        const viewportTop = Math.round(window.visualViewport?.offsetTop || 0);
+        const viewportHeight = Math.round(window.visualViewport?.height || window.innerHeight || 0);
+        const viewportBottom = viewportTop + viewportHeight;
+        return rect.top < viewportTop + topInset || rect.bottom > viewportBottom - bottomInset;
+    };
+
+    const scrollFieldIntoView = (element, options = {}) => {
+        if (!element || typeof element.scrollIntoView !== 'function') return;
+        const delayMs = Number.isFinite(Number(options.delayMs)) ? Number(options.delayMs) : 180;
+        const repeatDelayMs = Number.isFinite(Number(options.repeatDelayMs)) ? Number(options.repeatDelayMs) : 0;
+        const doScroll = () => {
+            if (typeof options.shouldSkip === 'function' && options.shouldSkip()) return;
+            if (options.ifNeeded && !isElementOutsideVisualViewport(element, options)) return;
+            element.scrollIntoView({
+                block: options.block || 'center',
+                inline: options.inline || 'nearest',
+                behavior: options.behavior || 'smooth'
+            });
+        };
+        window.setTimeout(() => {
+            doScroll();
+            if (repeatDelayMs > 0) {
+                window.setTimeout(doScroll, repeatDelayMs);
+            }
+        }, delayMs);
+    };
+
+    const focusFieldById = async (elementId, nextTickFn = null, options = {}) => {
         if (typeof nextTickFn === 'function') {
             await nextTickFn();
         }
         const input = document.getElementById(elementId);
         if (typeof input?.focus === 'function') {
-            input.focus();
+            if (options.preventScroll) {
+                try {
+                    input.focus({ preventScroll: true });
+                } catch (e) {
+                    input.focus();
+                }
+            } else {
+                input.focus();
+            }
+            if (options.scrollIntoView) {
+                scrollFieldIntoView(input, options);
+            }
         }
+    };
+
+    const createKeyboardViewportController = (options = {}) => {
+        const {
+            ref,
+            computed,
+            onMounted,
+            onUnmounted,
+            compactWidth = 640,
+            compactSpacing = 8,
+            regularSpacing = 32,
+            minHeight = 280,
+            maxHeightCss = '56rem',
+            focusScrollDelayMs = 180,
+            keyboardActivationThreshold = 120,
+            authTopGap = 4,
+            authBottomGap = 4,
+            authFocusOutResetDelayMs = 180
+        } = options;
+
+        if (typeof ref !== 'function' || typeof computed !== 'function') {
+            throw new Error('createKeyboardViewportController requires Vue ref and computed helpers');
+        }
+
+        const getViewportHeight = () => {
+            if (typeof window === 'undefined') return 0;
+            return Math.round(window.visualViewport?.height || window.innerHeight || 0);
+        };
+        const getViewportWidth = () => {
+            if (typeof window === 'undefined') return 0;
+            return Math.round(window.visualViewport?.width || window.innerWidth || 0);
+        };
+        const getViewportTop = () => {
+            if (typeof window === 'undefined') return 0;
+            return Math.round(window.visualViewport?.offsetTop || 0);
+        };
+        const getLayoutViewportHeight = () => {
+            if (typeof window === 'undefined') return 0;
+            return Math.round(window.innerHeight || 0);
+        };
+
+        const keyboardViewportHeight = ref(getViewportHeight());
+        const keyboardViewportWidth = ref(getViewportWidth());
+        const keyboardViewportTop = ref(getViewportTop());
+        const hasVisualViewport = ref(typeof window !== 'undefined' && !!window.visualViewport);
+        const layoutViewportBaseline = ref(getLayoutViewportHeight());
+        const isComposing = ref(false);
+
+        const updateKeyboardViewportMetrics = () => {
+            keyboardViewportHeight.value = getViewportHeight();
+            keyboardViewportWidth.value = getViewportWidth();
+            keyboardViewportTop.value = getViewportTop();
+            hasVisualViewport.value = typeof window !== 'undefined' && !!window.visualViewport;
+            layoutViewportBaseline.value = Math.max(
+                Number(layoutViewportBaseline.value || 0),
+                Number(getLayoutViewportHeight() || 0)
+            );
+        };
+
+        const isCompactKeyboardViewport = computed(() => (
+            Number(keyboardViewportWidth.value || 0) > 0 &&
+            Number(keyboardViewportWidth.value || 0) < compactWidth
+        ));
+
+        const keyboardModalStyle = computed(() => {
+            const rawHeight = keyboardViewportHeight.value || getViewportHeight();
+            const viewportHeight = Math.max(Number(rawHeight || 0), minHeight);
+            const spacing = isCompactKeyboardViewport.value ? compactSpacing : regularSpacing;
+            const maxHeight = Math.max(viewportHeight - spacing, minHeight);
+            return { maxHeight: `min(${maxHeight}px, ${maxHeightCss})` };
+        });
+
+        const isKeyboardActive = computed(() => {
+            if (!isCompactKeyboardViewport.value) return false;
+            const rawHeight = Number(keyboardViewportHeight.value || getViewportHeight() || 0);
+            const layoutHeight = Math.max(
+                Number(getLayoutViewportHeight() || 0),
+                Number(layoutViewportBaseline.value || 0)
+            );
+            if (!rawHeight || !layoutHeight || layoutHeight <= rawHeight) return false;
+            return (layoutHeight - rawHeight) >= keyboardActivationThreshold;
+        });
+
+        const authViewportTop = computed(() => Math.max(0, Number(keyboardViewportTop.value || getViewportTop() || 0)));
+        const authViewportHeight = computed(() => Math.max(0, Number(keyboardViewportHeight.value || getViewportHeight() || 0)));
+        const authViewportBottomPadding = computed(() => (
+            `calc(env(safe-area-inset-bottom, 0px) + ${authBottomGap}px)`
+        ));
+        const keyboardInsetHeight = computed(() => {
+            if (!isKeyboardActive.value) return 0;
+            const rawHeight = Number(keyboardViewportHeight.value || getViewportHeight() || 0);
+            const layoutHeight = Math.max(
+                Number(getLayoutViewportHeight() || 0),
+                Number(layoutViewportBaseline.value || 0)
+            );
+            return Math.max(0, layoutHeight - rawHeight - authViewportTop.value);
+        });
+        const isKeyboardViewportReliable = computed(() => (
+            !!hasVisualViewport.value &&
+            Number(authViewportHeight.value || 0) > 0 &&
+            Number(keyboardViewportWidth.value || 0) > 0
+        ));
+        const authKeyboardMode = computed(() => {
+            if (!isKeyboardActive.value) return 'idle';
+            return isKeyboardViewportReliable.value ? 'fixed' : 'sticky';
+        });
+
+        const authKeyboardModalStyle = computed(() => {
+            if (!isKeyboardActive.value) {
+                return keyboardModalStyle.value;
+            }
+            const rawHeight = authViewportHeight.value || getViewportHeight();
+            return {
+                maxHeight: `min(calc(${rawHeight}px - ${authTopGap}px - ${authBottomGap}px - env(safe-area-inset-bottom, 0px)), ${maxHeightCss})`,
+                marginTop: `${authViewportTop.value + authTopGap}px`,
+                marginBottom: authViewportBottomPadding.value,
+                '--keyboard-inset-height': `${keyboardInsetHeight.value}px`
+            };
+        });
+
+        const handleKeyboardFieldFocus = (eventOrElement) => {
+            if (!isCompactKeyboardViewport.value) return;
+            const target = eventOrElement?.target || eventOrElement;
+            if (!isKeyboardFocusableField(target)) return;
+            scrollFieldIntoView(target, { delayMs: focusScrollDelayMs });
+        };
+
+        const handleAuthKeyboardFieldFocus = (eventOrElement) => {
+            if (!isCompactKeyboardViewport.value || isComposing.value) return;
+            const target = eventOrElement?.target || eventOrElement;
+            if (!isKeyboardFocusableField(target)) return;
+            scrollFieldIntoView(target, {
+                delayMs: focusScrollDelayMs,
+                repeatDelayMs: 140,
+                block: 'nearest',
+                ifNeeded: true,
+                topInset: 16,
+                bottomInset: 16,
+                shouldSkip: () => isComposing.value
+            });
+        };
+
+        const handleAuthCompositionStart = () => {
+            isComposing.value = true;
+        };
+
+        const handleAuthCompositionEnd = (eventOrElement) => {
+            isComposing.value = false;
+            handleAuthKeyboardFieldFocus(eventOrElement);
+        };
+
+        const handleAuthFocusOut = () => {
+            if (!isCompactKeyboardViewport.value) return;
+            window.setTimeout(() => {
+                if (document.activeElement && isKeyboardFocusableField(document.activeElement)) return;
+                window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+            }, authFocusOutResetDelayMs);
+        };
+
+        const focusNextAuthField = (nextFieldId) => {
+            if (!nextFieldId) return false;
+            const target = document.getElementById(nextFieldId);
+            if (typeof target?.focus !== 'function') return false;
+            try {
+                target.focus({ preventScroll: true });
+            } catch (e) {
+                target.focus();
+            }
+            handleAuthKeyboardFieldFocus(target);
+            return true;
+        };
+
+        const submitAuthFormFromEnter = (event, options = {}) => {
+            if (isComposing.value || event?.isComposing) return;
+            if (event?.key && event.key !== 'Enter') return;
+            const form = options.formId ? document.getElementById(options.formId) : event?.target?.form;
+            if (!form) return;
+            event?.preventDefault?.();
+            if (options.nextFieldId && focusNextAuthField(options.nextFieldId)) return;
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit();
+            } else {
+                form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+            }
+        };
+
+        if (typeof onMounted === 'function') {
+            onMounted(() => {
+                updateKeyboardViewportMetrics();
+                window.addEventListener('resize', updateKeyboardViewportMetrics);
+                window.visualViewport?.addEventListener('resize', updateKeyboardViewportMetrics);
+                window.visualViewport?.addEventListener('scroll', updateKeyboardViewportMetrics);
+            });
+        }
+
+        if (typeof onUnmounted === 'function') {
+            onUnmounted(() => {
+                window.removeEventListener('resize', updateKeyboardViewportMetrics);
+                window.visualViewport?.removeEventListener('resize', updateKeyboardViewportMetrics);
+                window.visualViewport?.removeEventListener('scroll', updateKeyboardViewportMetrics);
+            });
+        }
+
+        return {
+            keyboardViewportHeight,
+            keyboardViewportWidth,
+            keyboardViewportTop,
+            keyboardInsetHeight,
+            isCompactKeyboardViewport,
+            isKeyboardActive,
+            isComposing,
+            keyboardModalStyle,
+            authViewportTop,
+            authViewportHeight,
+            authViewportBottomPadding,
+            isKeyboardViewportReliable,
+            authKeyboardMode,
+            authKeyboardModalStyle,
+            updateKeyboardViewportMetrics,
+            handleKeyboardFieldFocus,
+            handleAuthKeyboardFieldFocus,
+            handleAuthCompositionStart,
+            handleAuthCompositionEnd,
+            handleAuthFocusOut,
+            focusNextAuthField,
+            submitAuthFormFromEnter,
+            scrollKeyboardFieldIntoView: scrollFieldIntoView
+        };
     };
 
     const createAuthFormController = (options = {}) => {
@@ -211,7 +494,15 @@
             autofillDelays.forEach(delay => window.setTimeout(syncRegisterFormFromDom, delay));
         };
 
-        const focusAuthFieldById = (elementId) => focusFieldById(elementId, nextTick);
+        const focusAuthFieldById = (elementId, options = {}) => focusFieldById(elementId, nextTick, {
+            preventScroll: true,
+            scrollIntoView: true,
+            block: 'nearest',
+            ifNeeded: true,
+            topInset: 16,
+            bottomInset: 16,
+            ...options
+        });
 
         const validateLoginEmail = (showRequired = false) => {
             loginForm.email = normalizeEmail(loginForm.email);
@@ -256,11 +547,21 @@
             return !registerErrors.confirmPassword;
         };
 
+        const clearRegisterConfirmPassword = async () => {
+            clearStatus(registerStatus);
+            registerForm.confirmPassword = '';
+            registerErrors.confirmPassword = '';
+            await focusAuthFieldById(fieldIds.registerConfirmPassword, { delayMs: 0 });
+        };
+
         const normalizeRegisterDisplayName = () => {
             registerForm.displayName = normalizeDisplayName(registerForm.displayName);
         };
 
-        const handleLoginEmailInput = () => {
+        const shouldSkipComposingInput = (event) => !!event?.isComposing;
+
+        const handleLoginEmailInput = (event) => {
+            if (shouldSkipComposingInput(event)) return;
             clearStatus(loginStatus);
             if (!loginForm.email) {
                 loginErrors.email = '';
@@ -269,7 +570,8 @@
             validateLoginEmail(false);
         };
 
-        const handleLoginPasswordInput = () => {
+        const handleLoginPasswordInput = (event) => {
+            if (shouldSkipComposingInput(event)) return;
             clearStatus(loginStatus);
             if (!loginForm.password) {
                 loginErrors.password = '';
@@ -278,7 +580,8 @@
             validateLoginPassword(false);
         };
 
-        const handleForgotPasswordEmailInput = () => {
+        const handleForgotPasswordEmailInput = (event) => {
+            if (shouldSkipComposingInput(event)) return;
             clearStatus(forgotPasswordStatus);
             if (!loginForm.email) {
                 forgotPasswordErrors.email = '';
@@ -287,7 +590,8 @@
             validateForgotPasswordEmail(false);
         };
 
-        const handleRegisterEmailInput = () => {
+        const handleRegisterEmailInput = (event) => {
+            if (shouldSkipComposingInput(event)) return;
             clearStatus(registerStatus);
             if (!registerForm.email) {
                 registerErrors.email = '';
@@ -296,12 +600,14 @@
             validateRegisterEmail(false);
         };
 
-        const handleRegisterDisplayNameInput = () => {
+        const handleRegisterDisplayNameInput = (event) => {
+            if (shouldSkipComposingInput(event)) return;
             clearStatus(registerStatus);
             registerForm.displayName = normalizeDisplayName(registerForm.displayName);
         };
 
-        const handleRegisterPasswordInput = () => {
+        const handleRegisterPasswordInput = (event) => {
+            if (shouldSkipComposingInput(event)) return;
             clearStatus(registerStatus);
             validateRegisterPassword(false);
             if (registerForm.confirmPassword) {
@@ -311,7 +617,8 @@
             }
         };
 
-        const handleRegisterConfirmPasswordInput = () => {
+        const handleRegisterConfirmPasswordInput = (event) => {
+            if (shouldSkipComposingInput(event)) return;
             clearStatus(registerStatus);
             validateRegisterConfirmPassword(false);
         };
@@ -391,6 +698,7 @@
             validateRegisterEmail,
             validateRegisterPassword,
             validateRegisterConfirmPassword,
+            clearRegisterConfirmPassword,
             normalizeRegisterDisplayName,
             handleLoginEmailInput,
             handleLoginPasswordInput,
@@ -417,6 +725,7 @@
         getPasswordError,
         syncFormFieldsFromDom,
         focusFieldById,
+        createKeyboardViewportController,
         createAuthFormController
     };
 })(window);

@@ -103,7 +103,7 @@
         return {
             isEnabled,
             tokenFor: (key) => states[key]?.token,
-            isReady: (key) => computed(() => !!states[key]?.token.value),
+            isReady: (key) => computed(() => !siteKey || !!states[key]?.token.value),
             render,
             reset,
             remove

@@ -28,7 +28,7 @@
     <script src="js/api-client.js?v=20260421-methods"></script>
     <script src="js/media-utils.js?v=20260421-refactor"></script>
     <script src="js/ui-utils.js?v=20260421-refactor"></script>
-    <script src="js/form-utils.js?v=20260421-auth"></script>
+    <script src="js/form-utils.js?v=20260505-auth-keyboard"></script>
 </head>
 
 <body class="bg-gray-50">
@@ -163,7 +163,7 @@
                                 class="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">新密码</label>
                             <input id="profileNewPassword" type="password" v-model="passForm.newPassword"
                                 autocomplete="new-password" minlength="8" @input="handleNewPasswordInput"
-                                @blur="validateNewPassword(true)" placeholder="至少 8 位"
+                                @blur="validateNewPassword(true)" placeholder="至少 8 位，含字母和数字"
                                 :aria-invalid="securityErrors.newPassword ? 'true' : 'false'"
                                 class="w-full bg-gray-50 border rounded-2xl py-4 px-6 focus:outline-none focus:ring-2 transition"
                                 :class="securityErrors.newPassword ? 'border-red-200 focus:ring-red-200' : 'border-transparent focus:ring-red-500'">

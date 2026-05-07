@@ -738,7 +738,7 @@
                             @input="validatePasswordReset"
                             class="w-full px-4 py-3 rounded-xl border outline-none focus:ring-2 focus:ring-emerald-500"
                             :class="passwordResetErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-slate-200'"
-                            placeholder="至少 8 位">
+                            placeholder="至少 8 位，含字母和数字">
                         <p v-if="passwordResetErrors.password" class="text-xs text-red-500 mt-2">
                             {{ passwordResetErrors.password }}
                         </p>
@@ -1019,13 +1019,14 @@
                     }
                 };
 
-                const validatePasswordReset = () => {
-                    passwordResetErrors.value.password = passwordResetForm.value.password.length >= 8
-                        ? ''
-                        : '密码至少需要 8 位';
-                    passwordResetErrors.value.confirmPassword =
-                        !passwordResetForm.value.confirmPassword || passwordResetForm.value.password === passwordResetForm.value.confirmPassword
-                            ? ''
+	                const validatePasswordReset = () => {
+	                    const password = passwordResetForm.value.password || '';
+	                    passwordResetErrors.value.password = password.length < 8
+	                        ? '密码至少需要 8 位'
+	                        : (!/[A-Za-z]/.test(password) || !/\d/.test(password) ? '密码需同时包含字母和数字' : '');
+	                    passwordResetErrors.value.confirmPassword =
+	                        !passwordResetForm.value.confirmPassword || passwordResetForm.value.password === passwordResetForm.value.confirmPassword
+	                            ? ''
                             : '两次输入的密码不一致';
                     return !passwordResetErrors.value.password && !passwordResetErrors.value.confirmPassword;
                 };

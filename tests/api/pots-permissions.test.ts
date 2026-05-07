@@ -136,4 +136,82 @@ describe('api regression: pots, lifecycle, and permission matrix', () => {
 
     expectStatus(await api(`/api/pots/${potId}`, { token: owner.token }), 404);
   });
+
+  it('covers owner-managed collaborator and viewer role changes', async () => {
+    const owner = await registerUser('role-owner');
+    const viewer = await registerUser('role-viewer');
+    const collaborator = await registerUser('role-collab');
+    const stranger = await registerUser('role-stranger');
+    const potId = await createPot(owner, { name: 'Role Pot' });
+
+    await addViewer(owner, potId, viewer);
+    await addCollaborator(owner, potId, collaborator);
+
+    expectStatus(await api(`/api/pots/${potId}/members/${viewer.userId}/role`, {
+      method: 'PATCH',
+      token: collaborator.token,
+      body: { role: 'collaborator' },
+    }), 404);
+
+    expectStatus(await api(`/api/pots/${potId}/members/${stranger.userId}/role`, {
+      method: 'PATCH',
+      token: owner.token,
+      body: { role: 'viewer' },
+    }), 404);
+
+    await expectOk(await api(`/api/pots/${potId}/members/${viewer.userId}/role`, {
+      method: 'PATCH',
+      token: owner.token,
+      body: { role: 'collaborator' },
+    }));
+
+    await expectOk(await api(`/api/pots/${potId}/members/${viewer.userId}/role`, {
+      method: 'PATCH',
+      token: owner.token,
+      body: { role: 'collaborator' },
+    }));
+
+    const afterUpgradeCollaborators = await expectOk(await api(`/api/collaborators/${potId}`, { token: owner.token }));
+    const afterUpgradeViewers = await expectOk(await api(`/api/viewers/${potId}`, { token: owner.token }));
+    expect(afterUpgradeCollaborators.data.some((member: any) => member.id === viewer.userId)).toBe(true);
+    expect(afterUpgradeViewers.data.some((member: any) => member.id === viewer.userId)).toBe(false);
+
+    await addCareRecord(viewer, potId, { action: 'upgraded viewer can write' });
+
+    await expectOk(await api(`/api/pots/${potId}/members/${collaborator.userId}/role`, {
+      method: 'PATCH',
+      token: owner.token,
+      body: { role: 'viewer' },
+    }));
+
+    const afterDowngradeCollaborators = await expectOk(await api(`/api/collaborators/${potId}`, { token: owner.token }));
+    const afterDowngradeViewers = await expectOk(await api(`/api/viewers/${potId}`, { token: owner.token }));
+    expect(afterDowngradeCollaborators.data.some((member: any) => member.id === collaborator.userId)).toBe(false);
+    expect(afterDowngradeViewers.data.some((member: any) => member.id === collaborator.userId)).toBe(true);
+
+    await expectOk(await api(`/api/pots/${potId}`, { token: collaborator.token }));
+    expectStatus(await api('/api/care-records', {
+      method: 'POST',
+      token: collaborator.token,
+      body: {
+        potId,
+        type: 'water',
+        action: 'downgraded collaborator cannot write',
+        careDate: '2026-04-14',
+      },
+    }), 403);
+
+    const archivedPotId = await createPot(owner, { name: 'Archived Role Pot' });
+    await addViewer(owner, archivedPotId, stranger);
+    await expectOk(await api(`/api/pots/${archivedPotId}/archive`, {
+      method: 'POST',
+      token: owner.token,
+      body: { reason: 'regression', note: 'role change archive guard' },
+    }));
+    expectStatus(await api(`/api/pots/${archivedPotId}/members/${stranger.userId}/role`, {
+      method: 'PATCH',
+      token: owner.token,
+      body: { role: 'collaborator' },
+    }), 400);
+  });
 });

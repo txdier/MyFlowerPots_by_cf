@@ -23,6 +23,11 @@ body {
     overscroll-behavior-y: none;
 }
 
+body.auth-modal-open {
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
 #app {
     width: 100% !important;
     max-width: 650px !important;
@@ -413,8 +418,81 @@ body {
 
 /* 弹窗高度限制类 */
 .modal-height-limit {
-    max-height: 65vh !important;
-    max-height: 65dvh !important;
+    max-height: 65vh;
+    max-height: 65dvh;
+}
+
+.keyboard-safe-modal-scroll {
+    overscroll-behavior: contain;
+    scroll-padding-bottom: 6rem;
+}
+
+.auth-keyboard-modal {
+    will-change: transform, max-height;
+}
+
+.auth-keyboard-scroll {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scroll-padding-top: 1rem;
+    scroll-padding-bottom: calc(2rem + var(--keyboard-inset-height, 0px));
+}
+
+.auth-keyboard-active {
+    animation: none !important;
+}
+
+.auth-keyboard-sticky-fallback {
+    position: sticky;
+    top: 0;
+}
+
+.auth-error-message {
+    line-height: 1.25;
+}
+
+@media (max-width: 639px) {
+    .keyboard-safe-modal input,
+    .keyboard-safe-modal textarea,
+    .keyboard-safe-modal select {
+        font-size: 16px !important;
+    }
+
+    .keyboard-safe-modal select {
+        -webkit-appearance: none;
+        appearance: none;
+    }
+
+    .auth-keyboard-modal input::-webkit-contacts-auto-fill-button,
+    .auth-keyboard-modal input::-webkit-credentials-auto-fill-button,
+    .auth-keyboard-modal input::-webkit-strong-password-auto-fill-button,
+    .auth-keyboard-modal input::-webkit-clear-button {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+        position: absolute;
+        right: 0;
+    }
+
+    .keyboard-safe-modal {
+        max-height: calc(100dvh - 0.5rem);
+    }
+
+    .keyboard-safe-modal-footer {
+        padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1.5rem);
+    }
+
+    .auth-keyboard-active .auth-error-message {
+        margin-top: 0.125rem;
+        font-size: 0.7rem;
+    }
+}
+
+@media (max-width: 639px) and (max-height: 520px) {
+    .auth-keyboard-active {
+        border-top-left-radius: 1.25rem;
+        border-top-right-radius: 1.25rem;
+    }
 }
 
 /* 底部样式 */

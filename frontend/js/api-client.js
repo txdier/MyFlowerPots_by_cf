@@ -873,6 +873,13 @@ class APIClient {
         return this.request(`/api/viewers/${potId}/${userId}`, { method: 'DELETE' });
     }
 
+    async updatePotMemberRole(potId, userId, role) {
+        return this.request(`/api/pots/${potId}/members/${userId}/role`, {
+            method: 'PATCH',
+            body: { role }
+        });
+    }
+
     async leaveViewer(potId) {
         return this.request(`/api/viewers/${potId}`, { method: 'DELETE' });
     }

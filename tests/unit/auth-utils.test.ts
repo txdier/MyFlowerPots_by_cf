@@ -13,7 +13,8 @@ describe('auth utilities', () => {
     expect(isValidEmail('user@example.com')).toBe(true);
     expect(isValidEmail('bad-email')).toBe(false);
     expect(isPasswordValid('1234567').valid).toBe(false);
-    expect(isPasswordValid('12345678').valid).toBe(true);
+    expect(isPasswordValid('12345678').valid).toBe(false);
+    expect(isPasswordValid('Password123').valid).toBe(true);
   });
 
   it('hashes and verifies PBKDF2 passwords', async () => {

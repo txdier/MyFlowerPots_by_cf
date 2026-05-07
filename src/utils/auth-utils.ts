@@ -131,9 +131,11 @@ export function isValidEmail(email: string): boolean {
  */
 export function isPasswordValid(password: string): { valid: boolean; message?: string } {
   if (password.length < 8) {
-    return { valid: false, message: 'Password must be at least 8 characters long' };
+    return { valid: false, message: '密码至少 8 位' };
   }
-  // Optional: add more complexity requirements if needed
+  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+    return { valid: false, message: '密码需同时包含字母和数字' };
+  }
   return { valid: true };
 }
 
