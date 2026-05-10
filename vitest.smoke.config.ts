@@ -1,6 +1,10 @@
-import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-pool-workers';
+import { mkdirSync } from 'node:fs';
 import { defineConfig } from 'vitest/config';
 
+mkdirSync('Temp/wrangler-logs', { recursive: true });
+process.env.WRANGLER_LOG_PATH ??= 'Temp/wrangler-logs';
+
+const { cloudflareTest, readD1Migrations } = await import('@cloudflare/vitest-pool-workers');
 const d1Migrations = await readD1Migrations('./migrations');
 
 export default defineConfig({

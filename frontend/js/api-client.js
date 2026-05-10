@@ -21,6 +21,7 @@ const API_CONFIG = {
 const AUTH_KEYS = {
     token: 'flowerpots_token',
     userId: 'flowerpots_user_id',
+    remember: 'flowerpots_auth_remember',
 };
 
 const D1_BOOKMARK_HEADER = 'x-d1-bookmark';
@@ -83,12 +84,21 @@ const AUTH_STORAGE = {
             || safeStorageGet(AUTH_LEGACY_STORAGE, AUTH_KEYS.userId);
     },
 
-    setAuth(token, userId) {
+    getRemember() {
+        const value = safeStorageGet(AUTH_PERSISTENT_STORAGE, AUTH_KEYS.remember)
+            || safeStorageGet(AUTH_LEGACY_STORAGE, AUTH_KEYS.remember);
+        return value === 'true';
+    },
+
+    setAuth(token, userId, options = {}) {
         if (token && userId) {
+            const remember = options.remember === true;
             safeStorageSet(AUTH_PERSISTENT_STORAGE, AUTH_KEYS.token, token);
             safeStorageSet(AUTH_PERSISTENT_STORAGE, AUTH_KEYS.userId, userId);
+            safeStorageSet(AUTH_PERSISTENT_STORAGE, AUTH_KEYS.remember, remember ? 'true' : 'false');
             safeStorageRemove(AUTH_LEGACY_STORAGE, AUTH_KEYS.token);
             safeStorageRemove(AUTH_LEGACY_STORAGE, AUTH_KEYS.userId);
+            safeStorageRemove(AUTH_LEGACY_STORAGE, AUTH_KEYS.remember);
         } else {
             this.clear();
             return;
@@ -98,8 +108,10 @@ const AUTH_STORAGE = {
     clear() {
         safeStorageRemove(AUTH_LEGACY_STORAGE, AUTH_KEYS.token);
         safeStorageRemove(AUTH_LEGACY_STORAGE, AUTH_KEYS.userId);
+        safeStorageRemove(AUTH_LEGACY_STORAGE, AUTH_KEYS.remember);
         safeStorageRemove(AUTH_PERSISTENT_STORAGE, AUTH_KEYS.token);
         safeStorageRemove(AUTH_PERSISTENT_STORAGE, AUTH_KEYS.userId);
+        safeStorageRemove(AUTH_PERSISTENT_STORAGE, AUTH_KEYS.remember);
     }
 };
 
@@ -366,6 +378,7 @@ class APIClient {
         this.config = { ...API_CONFIG, ...config };
         this.token = AUTH_STORAGE.getToken();
         this.userId = AUTH_STORAGE.getUserId();
+        this.rememberAuth = AUTH_STORAGE.getRemember();
         this.potsCacheVersion = Number(sessionStorage.getItem('pots_cache_version') || 0);
         if (this.token && !this.userId) {
             this.clearAuth();
@@ -378,16 +391,19 @@ class APIClient {
     }
 
     // 设置认证令牌
-    setToken(token, userId) {
+    setToken(token, userId, options = {}) {
         this.token = token || null;
         this.userId = userId || null;
-        AUTH_STORAGE.setAuth(this.token, this.userId);
+        const tokenRemember = this.parseTokenPayload(this.token)?.remember === true;
+        this.rememberAuth = typeof options.remember === 'boolean' ? options.remember : tokenRemember;
+        AUTH_STORAGE.setAuth(this.token, this.userId, { remember: this.rememberAuth });
     }
 
     // 清除认证信息
     clearAuth() {
         this.token = null;
         this.userId = null;
+        this.rememberAuth = false;
         AUTH_STORAGE.clear();
     }
 
@@ -463,7 +479,6 @@ class APIClient {
     async refreshToken() {
         // 如果已有刷新操作在进行，等待它完成
         if (this._refreshPromise) {
-            console.log('Token refresh already in progress, waiting...');
             return this._refreshPromise;
         }
 
@@ -500,7 +515,6 @@ class APIClient {
                 const data = await response.json();
                 if (data.success && data.token) {
                     this.setToken(data.token, data.userId);
-                    console.log('Token refreshed successfully');
                     return true;
                 }
             }
@@ -612,7 +626,6 @@ class APIClient {
                         console.warn('Token expired or invalid, attempting refresh...');
                         const refreshed = await this.refreshToken();
                         if (refreshed) {
-                            console.log('Token refreshed, retrying request...');
                             return this.request(endpoint, options);
                         }
 
@@ -672,45 +685,45 @@ class APIClient {
     async identify() {
         const result = await this.request('/api/auth/identify', { method: 'POST' });
         if (result.success && result.userId) {
-            this.setToken(result.token, result.userId);
+            this.setToken(result.token, result.userId, { remember: false });
         }
         return result;
     }
 
-    async login(email, password) {
+    async login(email, password, remember = true) {
         const result = await this.request('/api/auth/login', {
             method: 'POST',
-            body: { email, password }
+            body: { email, password, remember: remember !== false }
         });
 
         if (result.token && result.userId) {
-            this.setToken(result.token, result.userId);
+            this.setToken(result.token, result.userId, { remember: remember !== false });
         }
 
         return result;
     }
 
-    async register(email, password, displayName, turnstileToken) {
+    async register(email, password, displayName, turnstileToken, remember = true) {
         const result = await this.request('/api/auth/register', {
             method: 'POST',
-            body: { email, password, displayName, turnstileToken }
+            body: { email, password, displayName, turnstileToken, remember: remember !== false }
         });
 
         if (result.token && result.userId) {
-            this.setToken(result.token, result.userId);
+            this.setToken(result.token, result.userId, { remember: remember !== false });
         }
 
         return result;
     }
 
-    async upgrade(email, password, displayName, anonymousUserId, turnstileToken) {
+    async upgrade(email, password, displayName, anonymousUserId, turnstileToken, remember = true) {
         const result = await this.request('/api/auth/upgrade', {
             method: 'POST',
-            body: { email, password, displayName, anonymousUserId, turnstileToken }
+            body: { email, password, displayName, anonymousUserId, turnstileToken, remember: remember !== false }
         });
 
         if (result.token && result.userId) {
-            this.setToken(result.token, result.userId);
+            this.setToken(result.token, result.userId, { remember: remember !== false });
         }
 
         return result;
@@ -1578,4 +1591,3 @@ window.APIClient = APIClient;
 window.APIError = APIError;
 
 // 控制台日志
-// console.log('API客户端已加载，baseUrl:', apiClient.config.baseUrl);

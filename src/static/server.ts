@@ -59,7 +59,6 @@ export async function servePotDetailWithMeta(
     }
 
     if (!pot) {
-      console.log('servePotDetailWithMeta: 未找到对应的公开花盆数据');
       return response;
     }
 
@@ -75,8 +74,6 @@ export async function servePotDetailWithMeta(
     const title = pot.meta_prefix
       ? `${pot.meta_prefix}：${pot.name} - 我的花盆`
       : `${pot.name} - 我的花盆`;
-
-    console.log('servePotDetailWithMeta: 成功获取数据，准备注入:', title, '图片:', fullImageUrl);
 
     // 2. 使用 HTMLRewriter 动态修改 Meta 标签
     const rewriter = new (globalThis as any).HTMLRewriter()

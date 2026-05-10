@@ -66,8 +66,10 @@ const unitTestSourceFiles = new Set([
   "frontend/js/care-utils.js",
   "frontend/js/date-utils.js",
   "frontend/js/form-utils.js",
+  "frontend/js/pwa-diagnostics.js",
   "frontend/js/pot-permissions.js",
   "src/utils/auth-utils.ts",
+  "scripts/check-static-routes.js",
 ]);
 const smokeTestSourceFiles = new Set([
   "src/index.ts",
@@ -128,8 +130,17 @@ const needsApiTests = apiTestFiles.length > 0 ||
     file.startsWith("migrations/") ||
     apiTestSourceFiles.has(file)
   );
+const needsRouteCheck = files.some((file) =>
+  file === "src/index.ts" ||
+  file === "wrangler.toml" ||
+  file === "scripts/check-static-routes.js"
+);
 
 run("git", ["diff", "--check"]);
+
+if (needsRouteCheck) {
+  run(process.execPath, ["scripts/check-static-routes.js"]);
+}
 
 if (frontendFiles.length > 0) {
   run(process.execPath, ["scripts/check-frontend.js", "--files", ...frontendFiles]);

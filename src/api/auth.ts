@@ -5,7 +5,9 @@ import {
   isValidEmail,
   isPasswordValid,
   generateJWT,
-  getJwtSecret
+  getJwtSecret,
+  AUTH_TOKEN_TTL_SECONDS,
+  REMEMBERED_AUTH_TOKEN_TTL_SECONDS
 } from '../utils/auth-utils';
 
 import {
@@ -409,10 +411,24 @@ function getClientSafeAuthErrorMessage(error: unknown, fallback: string): string
 
 async function issueAuthToken(
   env: any,
-  payload: { userId: string; email?: string | null; type: string }
+  payload: { userId: string; email?: string | null; type: string },
+  options: { remember?: boolean } = {}
 ): Promise<string> {
   const secret = getJwtSecret(env);
-  return generateJWT(payload, secret);
+  const remember = options.remember === true;
+  return generateJWT(
+    { ...payload, remember },
+    secret,
+    { ttlSeconds: remember ? REMEMBERED_AUTH_TOKEN_TTL_SECONDS : AUTH_TOKEN_TTL_SECONDS }
+  );
+}
+
+function shouldRememberLogin(value: unknown): boolean {
+  return value !== false;
+}
+
+function isRememberedAuthPayload(payload: any): boolean {
+  return payload?.remember === true;
 }
 
 export async function handleAuthRequest(
@@ -420,7 +436,8 @@ export async function handleAuthRequest(
   env: any,
   path: string,
   url: URL,
-  userId: string | null
+  userId: string | null,
+  authPayload: any | null = null
 ): Promise<Response> {
   // 1️⃣ 邮箱注册
   if (request.method === 'POST' && path === '/api/auth/register') {
@@ -489,7 +506,7 @@ export async function handleAuthRequest(
 
   // 1️⃣4️⃣ 刷新 JWT 令牌
   if (request.method === 'POST' && path === '/api/auth/refresh') {
-    return handleRefreshToken(env, userId);
+    return handleRefreshToken(env, userId, authPayload);
   }
 
   return errorResponse('Not Found', 404);
@@ -573,13 +590,15 @@ function renderVerificationSuccessPage(
 async function handleRegister(request: Request, env: any): Promise<Response> {
   let requestEmail: string | null = null;
   try {
-	    const body = (await request.json()) as {
-	      email?: string;
-	      password?: string;
-	      displayName?: string;
-	      turnstileToken?: string;
-	    };
-	    const { email, password, displayName, turnstileToken } = body;
+    const body = (await request.json()) as {
+      email?: string;
+      password?: string;
+      displayName?: string;
+      turnstileToken?: string;
+      remember?: boolean;
+    };
+    const { email, password, displayName, turnstileToken } = body;
+    const remember = shouldRememberLogin(body.remember);
     requestEmail = typeof email === 'string' ? email : null;
 
     if (!email || !password) {
@@ -599,13 +618,13 @@ async function handleRegister(request: Request, env: any): Promise<Response> {
     if (displayNameResult.error) {
       return errorResponse(displayNameResult.error, 400);
     }
-	    const normalizedDisplayName = displayNameResult.value;
+    const normalizedDisplayName = displayNameResult.value;
 
-	    if (!await verifyTurnstileToken(turnstileToken, env, request, 'register')) {
-	      return turnstileFailedResponse();
-	    }
+    if (!await verifyTurnstileToken(turnstileToken, env, request, 'register')) {
+      return turnstileFailedResponse();
+    }
 
-	    // 检查邮箱是否已存在
+    // 检查邮箱是否已存在
     const existingUser = await env.DB
       .prepare('SELECT id FROM users WHERE email = ?')
       .bind(email)
@@ -618,7 +637,7 @@ async function handleRegister(request: Request, env: any): Promise<Response> {
     // 创建新用户
     const userId = crypto.randomUUID();
     const passwordHash = await hashPassword(password, userId);
-    const jwtToken = await issueAuthToken(env, { userId, email, type: 'email' });
+    const jwtToken = await issueAuthToken(env, { userId, email, type: 'email' }, { remember });
     const verificationToken = generateToken();
     const verificationTokenExpires = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS).toISOString();
 
@@ -681,8 +700,10 @@ async function handleLogin(request: Request, env: any): Promise<Response> {
     const body = (await request.json()) as {
       email?: string;
       password?: string;
+      remember?: boolean;
     };
     const { email, password } = body;
+    const remember = shouldRememberLogin(body.remember);
 
     if (!email || !password) {
       return errorResponse('Email and password are required', 400);
@@ -709,7 +730,7 @@ async function handleLogin(request: Request, env: any): Promise<Response> {
       return errorResponse('Invalid email or password', 401);
     }
 
-    const jwtToken = await issueAuthToken(env, { userId: user.id, email, type: 'email' });
+    const jwtToken = await issueAuthToken(env, { userId: user.id, email, type: 'email' }, { remember });
 
     // 更新最后登录时间
     await env.DB
@@ -735,7 +756,7 @@ async function handleLogin(request: Request, env: any): Promise<Response> {
 async function handleIdentify(env: any): Promise<Response> {
   try {
     const userId = crypto.randomUUID();
-    const jwtToken = await issueAuthToken(env, { userId, type: 'anonymous' });
+    const jwtToken = await issueAuthToken(env, { userId, type: 'anonymous' }, { remember: false });
 
     await env.DB
       .prepare(`INSERT INTO users (id, user_type) VALUES (?, 'anonymous')`)
@@ -884,14 +905,16 @@ async function handleUpgrade(request: Request, env: any): Promise<Response> {
   let requestEmail: string | null = null;
   let requestAnonymousUserId: string | null = null;
   try {
-	    const body = (await request.json()) as {
-	      anonymousUserId?: string;
-	      email?: string;
-	      password?: string;
-	      displayName?: string;
-	      turnstileToken?: string;
-	    };
-	    const { anonymousUserId, email, password, displayName, turnstileToken } = body;
+    const body = (await request.json()) as {
+      anonymousUserId?: string;
+      email?: string;
+      password?: string;
+      displayName?: string;
+      turnstileToken?: string;
+      remember?: boolean;
+    };
+    const { anonymousUserId, email, password, displayName, turnstileToken } = body;
+    const remember = shouldRememberLogin(body.remember);
     requestEmail = typeof email === 'string' ? email : null;
     requestAnonymousUserId = typeof anonymousUserId === 'string' ? anonymousUserId : null;
 
@@ -912,13 +935,13 @@ async function handleUpgrade(request: Request, env: any): Promise<Response> {
     if (displayNameResult.error) {
       return errorResponse(displayNameResult.error, 400);
     }
-	    const normalizedDisplayName = displayNameResult.value;
+    const normalizedDisplayName = displayNameResult.value;
 
-	    if (!await verifyTurnstileToken(turnstileToken, env, request, 'upgrade')) {
-	      return turnstileFailedResponse();
-	    }
+    if (!await verifyTurnstileToken(turnstileToken, env, request, 'upgrade')) {
+      return turnstileFailedResponse();
+    }
 
-	    // 检查匿名用户是否存在（兼容 'device' 类型）
+    // 检查匿名用户是否存在（兼容 'device' 类型）
     const anonymousUser = await env.DB
       .prepare('SELECT id FROM users WHERE id = ? AND (user_type = "anonymous" OR user_type = "device")')
       .bind(anonymousUserId)
@@ -941,7 +964,7 @@ async function handleUpgrade(request: Request, env: any): Promise<Response> {
     // 创建新的邮箱用户
     const newUserId = crypto.randomUUID();
     const passwordHash = await hashPassword(password, newUserId);
-    const jwtToken = await issueAuthToken(env, { userId: newUserId, email, type: 'email' });
+    const jwtToken = await issueAuthToken(env, { userId: newUserId, email, type: 'email' }, { remember });
 
     await env.DB
       .prepare(`
@@ -1466,7 +1489,11 @@ async function handleSendVerificationEmail(request: Request, env: any, userId: s
  * 处理刷新 JWT 令牌请求
  * 仅允许已通过当前 JWT 认证的用户续发令牌
  */
-async function handleRefreshToken(env: any, userId: string | null): Promise<Response> {
+async function handleRefreshToken(
+  env: any,
+  userId: string | null,
+  authPayload: any | null
+): Promise<Response> {
   try {
     if (!userId) {
       return errorResponse('Authentication required', 401);
@@ -1492,7 +1519,7 @@ async function handleRefreshToken(env: any, userId: string | null): Promise<Resp
       userId: user.id,
       email: user.email || null,
       type: user.user_type
-    });
+    }, { remember: isRememberedAuthPayload(authPayload) });
 
     return jsonResponse({
       success: true,

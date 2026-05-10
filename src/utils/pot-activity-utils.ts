@@ -23,6 +23,13 @@ function buildPlaceholders(count: number): string {
   return Array.from({ length: count }, () => '?').join(', ');
 }
 
+function isRetryableD1NetworkError(error: unknown): boolean {
+  const message = error instanceof Error
+    ? `${error.name} ${error.message}`
+    : String(error || '');
+  return /D1_ERROR|Network connection lost/i.test(message);
+}
+
 export async function recordPotActivity(
   env: any,
   potId: string,
@@ -52,26 +59,34 @@ export async function markPotActivityRead(
   potId: string,
   userId: string
 ): Promise<number> {
-  const latest: any = await env.DB.prepare(`
-    SELECT COALESCE(MAX(id), 0) as latest_event_id
-    FROM pot_activity_events
-    WHERE pot_id = ?
-  `).bind(potId).first();
+  const runOnce = async (): Promise<number> => {
+    const row: any = await env.DB.prepare(`
+      INSERT INTO pot_activity_reads (user_id, pot_id, last_read_event_id, read_at)
+      SELECT ?, ?, COALESCE(MAX(id), 0), ?
+      FROM pot_activity_events
+      WHERE pot_id = ?
+      ON CONFLICT(user_id, pot_id) DO UPDATE SET
+        last_read_event_id = CASE
+          WHEN excluded.last_read_event_id > pot_activity_reads.last_read_event_id
+          THEN excluded.last_read_event_id
+          ELSE pot_activity_reads.last_read_event_id
+        END,
+        read_at = excluded.read_at
+      RETURNING last_read_event_id
+    `).bind(userId, potId, new Date().toISOString(), potId).first();
 
-  const latestEventId = Number(latest?.latest_event_id || 0);
-  await env.DB.prepare(`
-    INSERT INTO pot_activity_reads (user_id, pot_id, last_read_event_id, read_at)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(user_id, pot_id) DO UPDATE SET
-      last_read_event_id = CASE
-        WHEN excluded.last_read_event_id > pot_activity_reads.last_read_event_id
-        THEN excluded.last_read_event_id
-        ELSE pot_activity_reads.last_read_event_id
-      END,
-      read_at = excluded.read_at
-  `).bind(userId, potId, latestEventId, new Date().toISOString()).run();
+    return Number(row?.last_read_event_id || 0);
+  };
 
-  return latestEventId;
+  try {
+    return await runOnce();
+  } catch (error) {
+    if (!isRetryableD1NetworkError(error)) {
+      throw error;
+    }
+    console.warn('Retrying pot activity read marker after transient D1 error:', error);
+    return runOnce();
+  }
 }
 
 export async function loadPotActivityStates(

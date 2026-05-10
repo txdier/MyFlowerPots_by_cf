@@ -47,7 +47,6 @@ export async function deleteFileFromR2(
     }
     
     await env.STATIC_BUCKET.delete(objectKey);
-    console.log('成功删除R2文件:', objectKey);
     return true;
   } catch (error) {
     console.error('删除R2文件失败:', error, 'objectKey:', objectKey);
@@ -73,7 +72,6 @@ export async function deleteFilesFromR2(
     try {
       await env.STATIC_BUCKET.delete(objectKey);
       success++;
-      console.log('成功删除R2文件:', objectKey);
     } catch (error) {
       failed++;
       console.error('删除R2文件失败:', error, 'objectKey:', objectKey);
@@ -121,6 +119,11 @@ export function getRemovedImageUrls(oldValue: unknown, newValue: unknown): strin
 }
 
 export async function deleteImagesFromR2(env: any, value: unknown): Promise<{ success: number; failed: number }> {
+  const objectKeys = extractObjectKeysFromUrls(normalizeImageUrls(value));
+  return deleteFilesFromR2(env, objectKeys);
+}
+
+export async function deleteMediaFromR2(env: any, value: unknown): Promise<{ success: number; failed: number }> {
   const objectKeys = extractObjectKeysFromUrls(normalizeImageUrls(value));
   return deleteFilesFromR2(env, objectKeys);
 }

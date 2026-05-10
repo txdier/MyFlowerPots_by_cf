@@ -67,6 +67,7 @@
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
     <script src="js/config.js?v=20260429-turnstile"></script>
     <script src="js/api-client.js?v=20260429-turnstile"></script>
+    <script src="js/pwa-diagnostics.js?v=20260508-pwa-diagnostics"></script>
     <script src="js/media-utils.js?v=20260507-image-cache"></script>
     <script src="js/pot-permissions.js?v=20260421-refactor"></script>
     <script src="js/archive-utils.js?v=20260421-refactor"></script>
@@ -101,7 +102,7 @@
                         class="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-blue-500 transition active:scale-90">
                         <i class="fa fa-list-check text-xl"></i>
                     </button>
-                    <button v-if="pots.length > 0 && !isEditMode" @click="openPotSearch" type="button"
+                    <button v-if="pots.length > 0 && !isEditMode && !isPotSearchActive" @click="openPotSearch" type="button"
                         class="w-10 h-10 flex items-center justify-center transition active:scale-90"
                         :class="isPotSearchActive ? 'text-green-600' : 'text-gray-400 hover:text-green-600'"
                         aria-label="搜索花盆" title="搜索花盆">
@@ -110,7 +111,7 @@
                 </div>
 
                 <div v-if="isPotSearchActive && !isEditMode"
-                    class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[48vw] min-w-[170px] max-w-[280px] pointer-events-none animate-fade-in">
+                    class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[48vw] min-w-[170px] max-w-[280px] pointer-events-none animate-header-search-in">
                     <div
                         class="pointer-events-auto h-10 w-full flex items-center gap-2 rounded-full border border-green-100 bg-white px-3 shadow-sm shadow-green-50">
                         <input ref="potSearchInput" v-model="potSearchQuery" @keydown.esc="closePotSearch" type="text"
@@ -148,7 +149,8 @@
                     <!-- 用户信息 -->
                     <div class="relative user-menu-container">
                         <button @click="showUserMenu = !showUserMenu"
-                            class="relative flex items-center gap-2 bg-white border border-gray-100 p-1 pr-3 rounded-full shadow-sm hover:shadow-md transition active:scale-95 overflow-visible">
+                            class="relative flex items-center gap-2 bg-white border border-gray-100 p-1 rounded-full shadow-sm hover:shadow-md transition active:scale-95 overflow-visible"
+                            :class="isPotSearchActive ? 'pr-1' : 'pr-3'">
                             <div class="relative w-8 h-8 overflow-visible">
                                 <img :src="imgUrl(user?.avatarUrl, 32, 32) || 'assets/images/icons/profile.png'"
                                     decoding="async" class="w-full h-full rounded-full shadow-sm object-cover">
@@ -156,7 +158,8 @@
                             <div v-show="notificationBadgeCount > 0"
                                 class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-600 border-2 border-white rounded-full z-[100] shadow-sm pointer-events-none flex-none aspect-square">
                             </div>
-                            <span class="text-[10px] font-black text-gray-700 max-w-[80px] truncate"
+                            <span v-show="!isPotSearchActive"
+                                class="text-[10px] font-black text-gray-700 max-w-[80px] truncate"
                                 :title="userDisplayName">{{ navUserDisplayName }}</span>
                         </button>
                         <!-- 透明遮罩层，点击关闭下拉菜单 -->
@@ -266,7 +269,7 @@
             </div>
         </div>
 
-        <div v-if="activePotStatus === 'active' && careReminders.length > 0" class="container mt-2"
+        <div v-if="activePotStatus === 'active' && careReminders.length > 0 && !isEditMode && !isPotSearchActive" class="container mt-2"
             :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <button @click="showRemindersExpanded = !showRemindersExpanded"
                 class="w-full py-1.5 text-center text-gray-700 transition active:scale-95">
@@ -278,7 +281,7 @@
             </button>
         </div>
 
-        <div v-if="activePotStatus === 'active' && careReminders.length > 0 && showRemindersExpanded"
+        <div v-if="activePotStatus === 'active' && careReminders.length > 0 && showRemindersExpanded && !isEditMode && !isPotSearchActive"
             class="container mt-2 animate-fade-in"
             :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -345,7 +348,7 @@
         </div>
 
         <main class="container home-pots-main" :class="{
-            'home-pots-main--expanded-reminders': activePotStatus === 'active' && careReminders.length > 0 && showRemindersExpanded,
+            'home-pots-main--expanded-reminders': activePotStatus === 'active' && careReminders.length > 0 && showRemindersExpanded && !isEditMode && !isPotSearchActive,
             'home-pots-main--with-bottom-action': pots.length > 0 && (activePotStatus === 'active' || isEditMode)
         }" @touchstart="handlePotStatusSwipeStart" @touchmove="handlePotStatusSwipeMove"
             @touchend="handlePotStatusSwipeEnd" @touchcancel="handlePotStatusSwipeCancel">
@@ -607,6 +610,12 @@
                                         :class="loginErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
                                     <p v-if="loginErrors.password" class="auth-error-message text-xs text-red-500 px-1">{{ loginErrors.password }}</p>
                                 </div>
+                                <label for="loginRemember"
+                                    class="flex items-center gap-2 text-xs font-bold text-gray-500 px-1">
+                                    <input id="loginRemember" type="checkbox" v-model="loginForm.remember"
+                                        class="w-4 h-4 rounded border-gray-300 text-green-500 focus:ring-green-500">
+                                    <span>30天内保持登录</span>
+                                </label>
                                 <div v-if="loginStatus.message" class="rounded-2xl px-4 py-3 text-xs"
                                     :class="loginStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
                                     <i class="fa mr-1"
@@ -706,6 +715,12 @@
                                         {{ registerErrors.confirmPassword }}
                                     </p>
                                 </div>
+                                <label for="registerRemember"
+                                    class="flex items-center gap-2 text-xs font-bold text-gray-500 px-1">
+                                    <input id="registerRemember" type="checkbox" v-model="registerForm.remember"
+                                        class="w-4 h-4 rounded border-gray-300 text-green-500 focus:ring-green-500">
+                                    <span>30天内保持登录</span>
+                                </label>
                                 <div v-if="registerStatus.message" class="rounded-2xl px-4 py-3 text-xs"
                                     :class="registerStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
                                     <i class="fa mr-1"
@@ -1191,61 +1206,74 @@
         </div>
 
         <div v-if="showPotActionSheet && activePotAction"
-            class="fixed inset-0 z-[71] flex items-end justify-center p-4">
+            class="fixed inset-0 z-[71] flex items-end justify-center p-2 sm:p-4">
             <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click.stop.prevent="closePotActionSheet"></div>
-            <div class="relative w-full max-w-[500px] bg-white rounded-[2rem] shadow-2xl overflow-hidden animate-slide-up"
+            <div class="relative w-full max-w-[500px] max-h-[calc(100vh-1rem)] bg-white rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl overflow-y-auto overscroll-contain animate-slide-up"
                 @click.stop @mousedown.stop @touchstart.stop>
-                <div class="px-6 pt-6 pb-4 border-b border-gray-50 flex items-start justify-between gap-4">
+                <div class="px-5 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b border-gray-50 flex items-start justify-between gap-4">
                     <div class="min-w-0">
-                        <h3 class="text-xl font-black text-gray-800">花盆操作</h3>
-                        <p class="text-sm text-gray-500 mt-1 truncate">{{ activePotAction.name }}</p>
+                        <h3 class="text-lg sm:text-xl font-black text-gray-800">花盆操作</h3>
+                        <p class="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1 truncate">{{ activePotAction.name }}</p>
                     </div>
                     <button type="button" @click.stop.prevent="closePotActionSheet"
                         class="shrink-0 text-gray-400 hover:text-gray-600 transition">
-                        <i class="fa fa-times text-xl"></i>
+                        <i class="fa fa-times text-lg sm:text-xl"></i>
                     </button>
                 </div>
 
                 <div v-if="(activePotStatus === 'active' && !activePotAction.is_viewer) || isOwnedPot(activePotAction)"
-                    class="px-4 py-4 bg-gray-50/70">
-                    <div class="px-2 text-[11px] font-black text-gray-400 tracking-wide">常用操作</div>
-                    <div class="mt-3 bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
+                    class="px-3 py-2.5 sm:px-4 sm:py-4 bg-gray-50/70">
+                    <div class="px-2 text-[10px] sm:text-[11px] font-black text-gray-400 tracking-wide">常用操作</div>
+                    <div class="mt-2 sm:mt-3 bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
                         <button v-if="activePotStatus === 'active' && !activePotAction.is_viewer"
                             @click="goAddCareForPot(activePotAction.id)"
-                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition"
-                            :class="isOwnedPot(activePotAction) ? 'border-b border-gray-50' : ''">
+                            class="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 sm:py-4 text-left active:scale-[0.99] transition border-b border-gray-50">
                             <div
-                                class="w-11 h-11 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
+                                class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-tint"></i>
                             </div>
                             <div class="min-w-0">
-                                <div class="text-sm font-black text-gray-800">记录养护</div>
-                                <div class="text-[11px] text-gray-400 mt-1">快速添加这盆植物的养护记录</div>
+                                <div class="text-[13px] sm:text-sm font-black text-gray-800">记录养护</div>
+                                <div class="text-[11px] text-gray-400 mt-0.5 sm:mt-1">快速添加这盆植物的养护记录</div>
+                            </div>
+                        </button>
+
+                        <button v-if="activePotStatus === 'active' && !activePotAction.is_viewer"
+                            @click="goAddTimelineForPot(activePotAction.id)"
+                            class="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 sm:py-4 text-left active:scale-[0.99] transition"
+                            :class="isOwnedPot(activePotAction) ? 'border-b border-gray-50' : ''">
+                            <div
+                                class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
+                                <i class="fa fa-chart-line"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="text-[13px] sm:text-sm font-black text-gray-800">记录成长</div>
+                                <div class="text-[11px] text-gray-400 mt-0.5 sm:mt-1">快速添加这盆植物的成长轨迹</div>
                             </div>
                         </button>
 
                         <button v-if="isOwnedPot(activePotAction) && activePotStatus === 'active'"
                             @click="goEditPotFromSheet(activePotAction.id)"
-                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition border-b border-gray-50">
+                            class="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 sm:py-4 text-left active:scale-[0.99] transition border-b border-gray-50">
                             <div
-                                class="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center shrink-0">
+                                class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-edit"></i>
                             </div>
                             <div class="min-w-0">
-                                <div class="text-sm font-black text-gray-800">编辑花盆</div>
-                                <div class="text-[11px] text-gray-400 mt-1">修改名称、图片和植物资料</div>
+                                <div class="text-[13px] sm:text-sm font-black text-gray-800">编辑花盆</div>
+                                <div class="text-[11px] text-gray-400 mt-0.5 sm:mt-1">修改名称、图片和植物资料</div>
                             </div>
                         </button>
 
                         <button v-if="isOwnedPot(activePotAction)" @click="openShareSettingsForPot(activePotAction.id)"
-                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition">
+                            class="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 sm:py-4 text-left active:scale-[0.99] transition">
                             <div
-                                class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
+                                class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-share-alt"></i>
                             </div>
                             <div class="min-w-0">
-                                <div class="text-sm font-black text-gray-800">分享与邀请</div>
-                                <div class="text-[11px] text-gray-400 mt-1">
+                                <div class="text-[13px] sm:text-sm font-black text-gray-800">分享与邀请</div>
+                                <div class="text-[11px] text-gray-400 mt-0.5 sm:mt-1">
                                     {{ activePotStatus === 'archived' ? '管理公开分享和仅查看成员' : '管理公开分享、成员权限和邀请' }}
                                 </div>
                             </div>
@@ -1253,79 +1281,79 @@
                     </div>
                 </div>
 
-                <div v-if="isOwnedPot(activePotAction)" class="px-4 py-4">
-                    <div class="px-2 text-[11px] font-black text-gray-400 tracking-wide">归档操作</div>
-                    <div class="mt-3 bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
+                <div v-if="isOwnedPot(activePotAction)" class="px-3 py-2.5 sm:px-4 sm:py-4">
+                    <div class="px-2 text-[10px] sm:text-[11px] font-black text-gray-400 tracking-wide">归档操作</div>
+                    <div class="mt-2 sm:mt-3 bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
                         <button v-if="isOwnedPot(activePotAction) && activePotStatus === 'active'"
                             @click="openSingleArchiveFromSheet(activePotAction)"
-                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition">
+                            class="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 sm:py-4 text-left active:scale-[0.99] transition">
                             <div
-                                class="w-11 h-11 rounded-2xl bg-gray-100 text-gray-500 flex items-center justify-center shrink-0">
+                                class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gray-100 text-gray-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-archive"></i>
                             </div>
                             <div class="min-w-0">
-                                <div class="text-sm font-black text-gray-800">归档花盆</div>
-                                <div class="text-[11px] text-gray-400 mt-1">停止养护并保留历史记录</div>
+                                <div class="text-[13px] sm:text-sm font-black text-gray-800">归档花盆</div>
+                                <div class="text-[11px] text-gray-400 mt-0.5 sm:mt-1">停止养护并保留历史记录</div>
                             </div>
                         </button>
 
                         <button v-if="isOwnedPot(activePotAction) && activePotStatus === 'archived'"
                             @click="restorePotFromSheet(activePotAction)"
-                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition">
+                            class="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 sm:py-4 text-left active:scale-[0.99] transition">
                             <div
-                                class="w-11 h-11 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center shrink-0">
+                                class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-green-50 text-green-600 flex items-center justify-center shrink-0">
                                 <i class="fa fa-undo"></i>
                             </div>
                             <div class="min-w-0">
-                                <div class="text-sm font-black text-gray-800">恢复养护</div>
-                                <div class="text-[11px] text-gray-400 mt-1">恢复到养护中，重新出现在首页列表</div>
+                                <div class="text-[13px] sm:text-sm font-black text-gray-800">恢复养护</div>
+                                <div class="text-[11px] text-gray-400 mt-0.5 sm:mt-1">恢复到养护中，重新出现在首页列表</div>
                             </div>
                         </button>
                     </div>
                 </div>
 
-                <div v-if="activePotAction.is_collaborator || activePotAction.is_viewer" class="px-4 py-4">
-                    <div class="px-2 text-[11px] font-black text-gray-400 tracking-wide">列表操作</div>
-                    <div class="mt-3 bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
+                <div v-if="activePotAction.is_collaborator || activePotAction.is_viewer" class="px-3 py-2.5 sm:px-4 sm:py-4">
+                    <div class="px-2 text-[10px] sm:text-[11px] font-black text-gray-400 tracking-wide">列表操作</div>
+                    <div class="mt-2 sm:mt-3 bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
                         <button v-if="activePotAction.is_collaborator"
                             @click="leaveCollaborationFromSheet(activePotAction)"
-                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition">
+                            class="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 sm:py-4 text-left active:scale-[0.99] transition">
                             <div
-                                class="w-11 h-11 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
+                                class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-sign-out-alt"></i>
                             </div>
                             <div class="min-w-0">
-                                <div class="text-sm font-black text-gray-800">退出共同照料</div>
-                                <div class="text-[11px] text-gray-400 mt-1">把这盆植物从你的共同照料列表中移除</div>
+                                <div class="text-[13px] sm:text-sm font-black text-gray-800">退出共同照料</div>
+                                <div class="text-[11px] text-gray-400 mt-0.5 sm:mt-1">把这盆植物从你的共同照料列表中移除</div>
                             </div>
                         </button>
 
                         <button v-else-if="activePotAction.is_viewer" @click="removeViewerPotFromSheet(activePotAction)"
-                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition">
+                            class="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 sm:py-4 text-left active:scale-[0.99] transition">
                             <div
-                                class="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
+                                class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-eye-slash"></i>
                             </div>
                             <div class="min-w-0">
-                                <div class="text-sm font-black text-gray-800">从列表移除</div>
-                                <div class="text-[11px] text-gray-400 mt-1">把这盆植物从好友分享列表中移除</div>
+                                <div class="text-[13px] sm:text-sm font-black text-gray-800">从列表移除</div>
+                                <div class="text-[11px] text-gray-400 mt-0.5 sm:mt-1">把这盆植物从好友分享列表中移除</div>
                             </div>
                         </button>
                     </div>
                 </div>
 
-                <div v-if="isOwnedPot(activePotAction)" class="px-4 py-4">
-                    <div class="px-2 text-[11px] font-black text-red-300 tracking-wide">危险操作</div>
-                    <div class="mt-3 bg-white rounded-3xl overflow-hidden border border-red-100 shadow-sm">
+                <div v-if="isOwnedPot(activePotAction)" class="px-3 py-2.5 sm:px-4 sm:py-4">
+                    <div class="px-2 text-[10px] sm:text-[11px] font-black text-red-300 tracking-wide">危险操作</div>
+                    <div class="mt-2 sm:mt-3 bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-red-100 shadow-sm">
                         <button @click="deletePotFromSheet(activePotAction.id)"
-                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition">
+                            class="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 sm:py-4 text-left active:scale-[0.99] transition">
                             <div
-                                class="w-11 h-11 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                                class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-red-50 text-red-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-trash-alt"></i>
                             </div>
                             <div class="min-w-0">
-                                <div class="text-sm font-black text-gray-800">删除花盆</div>
-                                <div class="text-[11px] text-gray-400 mt-1">
+                                <div class="text-[13px] sm:text-sm font-black text-gray-800">删除花盆</div>
+                                <div class="text-[11px] text-gray-400 mt-0.5 sm:mt-1">
                                     {{ activePotStatus === 'archived' ? '永久删除归档花盆及其记录' : '删除花盆及其养护记录' }}
                                 </div>
                             </div>
@@ -1336,24 +1364,24 @@
             </div>
         </div>
 
-        <div v-if="showBatchActionSheet" class="fixed inset-0 z-[72] flex items-end justify-center p-4">
+        <div v-if="showBatchActionSheet" class="fixed inset-0 z-[72] flex items-end justify-center p-2 sm:p-4">
             <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click.stop.prevent="closeBatchActionSheet">
             </div>
-            <div class="relative w-full max-w-[500px] bg-white rounded-[2rem] shadow-2xl overflow-hidden animate-slide-up"
+            <div class="relative w-full max-w-[500px] max-h-[calc(100vh-1rem)] bg-white rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl overflow-y-auto overscroll-contain animate-slide-up"
                 @click.stop @mousedown.stop @touchstart.stop>
-                <div class="px-6 pt-6 pb-4 border-b border-gray-50 flex items-start justify-between gap-4">
+                <div class="px-5 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b border-gray-50 flex items-start justify-between gap-4">
                     <div class="min-w-0">
-                        <h3 class="text-xl font-black text-gray-800">批量操作</h3>
-                        <p class="text-xs text-gray-400 mt-1">已选 {{ selectedCount }} 个花盆</p>
-                        <p class="text-[11px] text-gray-400 mt-2">
+                        <h3 class="text-lg sm:text-xl font-black text-gray-800">批量操作</h3>
+                        <p class="text-xs text-gray-400 mt-0.5 sm:mt-1">已选 {{ selectedCount }} 个花盆</p>
+                        <p class="text-[11px] text-gray-400 mt-1 sm:mt-2 leading-snug">
                             {{ activePotStatus === 'archived' ? '恢复和删除仅对自有花盆生效，好友分享花盆可从列表移除。' :
                             '批量养护可作用于自有和共同照料花盆，归档、邀请和删除仅对自有花盆生效。' }}
                         </p>
                         <p v-if="activePotStatus === 'active' && selectedCareExcludedCount > 0"
-                            class="text-[11px] text-amber-600 mt-1.5 font-bold">
+                            class="text-[11px] text-amber-600 mt-1 sm:mt-1.5 font-bold leading-snug">
                             当前有 {{ selectedCareExcludedCount }} 个仅查看花盆，批量养护会自动排除。
                         </p>
-                        <p v-if="selectedExcludedCount > 0" class="text-[11px] text-amber-600 mt-1.5 font-bold">
+                        <p v-if="selectedExcludedCount > 0" class="text-[11px] text-amber-600 mt-1 sm:mt-1.5 font-bold leading-snug">
                             {{ activePotStatus === 'archived'
                             ? `当前有 ${selectedExcludedCount} 个非本人拥有的花盆，恢复和删除会自动排除。`
                             : `归档、邀请和删除会自动排除 ${selectedExcludedCount} 个非本人拥有的花盆。` }}
@@ -1361,87 +1389,87 @@
                     </div>
                     <button type="button" @click.stop.prevent="exitBatchMode"
                         class="shrink-0 text-gray-400 hover:text-gray-600 transition">
-                        <i class="fa fa-times text-xl"></i>
+                        <i class="fa fa-times text-lg sm:text-xl"></i>
                     </button>
                 </div>
 
-                <div class="px-4 py-4 bg-gray-50/70">
-                    <div class="px-2 text-[11px] font-black text-gray-400 tracking-wide">常用操作</div>
-                    <div class="mt-3 bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
+                <div class="px-3 py-2.5 sm:px-4 sm:py-4 bg-gray-50/70">
+                    <div class="px-2 text-[10px] sm:text-[11px] font-black text-gray-400 tracking-wide">常用操作</div>
+                    <div class="mt-2 sm:mt-3 bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
                         <button v-if="activePotStatus === 'active'" @click="openBatchCareFromSheet"
                             :disabled="selectedCareManageableCount === 0"
-                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition border-b border-gray-50 disabled:opacity-40">
+                            class="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 sm:py-4 text-left active:scale-[0.99] transition border-b border-gray-50 disabled:opacity-40">
                             <div
-                                class="w-11 h-11 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
+                                class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-tint"></i>
                             </div>
                             <div class="min-w-0">
-                                <div class="text-sm font-black text-gray-800">批量养护</div>
-                                <div class="text-[11px] text-gray-400 mt-1">为选中的花盆记录同一养护动作</div>
+                                <div class="text-[13px] sm:text-sm font-black text-gray-800">批量养护</div>
+                                <div class="text-[11px] text-gray-400 mt-0.5 sm:mt-1">为选中的花盆记录同一养护动作</div>
                             </div>
                         </button>
                         <button v-if="activePotStatus === 'active'" @click="openBatchArchiveFromSheet"
                             :disabled="selectedOwnedCount === 0"
-                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition border-b border-gray-50 disabled:opacity-40">
+                            class="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 sm:py-4 text-left active:scale-[0.99] transition border-b border-gray-50 disabled:opacity-40">
                             <div
-                                class="w-11 h-11 rounded-2xl bg-gray-100 text-gray-500 flex items-center justify-center shrink-0">
+                                class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gray-100 text-gray-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-archive"></i>
                             </div>
                             <div class="min-w-0">
-                                <div class="text-sm font-black text-gray-800">批量归档</div>
-                                <div class="text-[11px] text-gray-400 mt-1">保留记录，停止提醒，并从养护列表隐藏</div>
+                                <div class="text-[13px] sm:text-sm font-black text-gray-800">批量归档</div>
+                                <div class="text-[11px] text-gray-400 mt-0.5 sm:mt-1">保留记录，停止提醒，并从养护列表隐藏</div>
                             </div>
                         </button>
                         <button v-if="activePotStatus === 'active'" @click="openBatchInviteFromSheet"
                             :disabled="selectedOwnedCount === 0"
-                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition disabled:opacity-40">
+                            class="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 sm:py-4 text-left active:scale-[0.99] transition disabled:opacity-40">
                             <div
-                                class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
+                                class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-user-plus"></i>
                             </div>
                             <div class="min-w-0">
-                                <div class="text-sm font-black text-gray-800">批量邀请</div>
-                                <div class="text-[11px] text-gray-400 mt-1">邀请好友仅查看或共同照料</div>
+                                <div class="text-[13px] sm:text-sm font-black text-gray-800">批量邀请</div>
+                                <div class="text-[11px] text-gray-400 mt-0.5 sm:mt-1">邀请好友仅查看或共同照料</div>
                             </div>
                         </button>
                         <button v-if="activePotStatus === 'archived'" @click="restoreSelectedFromSheet"
                             :disabled="selectedOwnedCount === 0"
-                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition disabled:opacity-40">
+                            class="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 sm:py-4 text-left active:scale-[0.99] transition disabled:opacity-40">
                             <div
-                                class="w-11 h-11 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center shrink-0">
+                                class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-green-50 text-green-600 flex items-center justify-center shrink-0">
                                 <i class="fa fa-undo"></i>
                             </div>
                             <div class="min-w-0">
-                                <div class="text-sm font-black text-gray-800">批量恢复</div>
-                                <div class="text-[11px] text-gray-400 mt-1">恢复到养护中，重新出现在首页列表</div>
+                                <div class="text-[13px] sm:text-sm font-black text-gray-800">批量恢复</div>
+                                <div class="text-[11px] text-gray-400 mt-0.5 sm:mt-1">恢复到养护中，重新出现在首页列表</div>
                             </div>
                         </button>
                         <button @click="leaveSelectedViewersFromSheet" :disabled="selectedViewerCount === 0"
-                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition disabled:opacity-40">
+                            class="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 sm:py-4 text-left active:scale-[0.99] transition disabled:opacity-40">
                             <div
-                                class="w-11 h-11 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
+                                class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-sign-out-alt"></i>
                             </div>
                             <div class="min-w-0">
-                                <div class="text-sm font-black text-gray-800">批量从列表移除</div>
-                                <div class="text-[11px] text-gray-400 mt-1">把选中的好友分享花盆从列表中移除</div>
+                                <div class="text-[13px] sm:text-sm font-black text-gray-800">批量从列表移除</div>
+                                <div class="text-[11px] text-gray-400 mt-0.5 sm:mt-1">把选中的好友分享花盆从列表中移除</div>
                             </div>
                         </button>
                     </div>
                 </div>
 
-                <div class="px-4 py-4">
-                    <div class="px-2 text-[11px] font-black text-red-300 tracking-wide">危险操作</div>
-                    <div class="mt-3 bg-white rounded-3xl overflow-hidden border border-red-100 shadow-sm">
+                <div class="px-3 py-2.5 sm:px-4 sm:py-4">
+                    <div class="px-2 text-[10px] sm:text-[11px] font-black text-red-300 tracking-wide">危险操作</div>
+                    <div class="mt-2 sm:mt-3 bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-red-100 shadow-sm">
                         <button @click="deleteSelectedFromSheet" :disabled="selectedOwnedCount === 0"
-                            class="w-full flex items-center gap-4 px-5 py-4 text-left active:scale-[0.99] transition disabled:opacity-40">
+                            class="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 sm:py-4 text-left active:scale-[0.99] transition disabled:opacity-40">
                             <div
-                                class="w-11 h-11 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                                class="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-red-50 text-red-500 flex items-center justify-center shrink-0">
                                 <i class="fa fa-trash-alt"></i>
                             </div>
                             <div class="min-w-0">
-                                <div class="text-sm font-black text-gray-800">删除</div>
-                                <div class="text-[11px] text-gray-400 mt-1">
+                                <div class="text-[13px] sm:text-sm font-black text-gray-800">删除</div>
+                                <div class="text-[11px] text-gray-400 mt-0.5 sm:mt-1">
                                     {{ activePotStatus === 'archived' ? '永久删除选中的归档花盆' : '删除选中的花盆' }}
                                 </div>
                             </div>
@@ -1857,7 +1885,7 @@
                     return pool[index];
                 });
                 const hasTopReminderBlock = computed(() =>
-                    activePotStatus.value === 'active' && careReminders.value.length > 0
+                    activePotStatus.value === 'active' && careReminders.value.length > 0 && !isEditMode.value && !isPotSearchActive.value
                 );
                 let overlayCloseTimer = null;
                 let seasonalHeaderRotationTimer = null;
@@ -2287,7 +2315,6 @@
                         const res = await apiClient.getUnreadMessageCount();
                         if (res.success) {
                             unreadCount.value = Number(res.count) || 0;
-                            console.log('Unread messages count:', unreadCount.value);
                         }
                     } catch (e) {
                         console.error('Failed to fetch unread count:', e);
@@ -2581,6 +2608,7 @@
                 const openPotSearch = () => {
                     if (isEditMode.value || pots.value.length === 0) return;
                     isPotSearchActive.value = true;
+                    showRemindersExpanded.value = false;
                     showUserMenu.value = false;
                     nextTick(() => potSearchInput.value?.focus?.());
                     if (hasMorePots.value && !isLoadingMore.value) {
@@ -2864,7 +2892,7 @@
                         isAuthLoading.value = true;
                         clearStatus(loginStatus);
                         loginForm.email = formUtils.normalizeEmail(loginForm.email);
-                        const res = await apiClient.login(loginForm.email, loginForm.password);
+                        const res = await apiClient.login(loginForm.email, loginForm.password, loginForm.remember);
                         if (res.token) await completeAuthSuccess(buildUserFromAuthResponse(res));
                     } catch (e) {
                         loginStatus.type = 'error';
@@ -2927,9 +2955,9 @@
 
                         let res;
                         if (isAnonymous && anonymousUserId) {
-                            res = await apiClient.upgrade(registerForm.email, registerForm.password, registerForm.displayName, anonymousUserId, registerTurnstileToken.value);
+                            res = await apiClient.upgrade(registerForm.email, registerForm.password, registerForm.displayName, anonymousUserId, registerTurnstileToken.value, registerForm.remember);
                         } else {
-                            res = await apiClient.register(registerForm.email, registerForm.password, registerForm.displayName, registerTurnstileToken.value);
+                            res = await apiClient.register(registerForm.email, registerForm.password, registerForm.displayName, registerTurnstileToken.value, registerForm.remember);
                         }
 
                         if (res.success || res.token) {
@@ -2951,14 +2979,15 @@
                 };
 
                 // 切换管理模式
-                const toggleEditMode = async () => {
-                    closePotActionSheet();
-                    closePotSearch();
-                    isEditMode.value = !isEditMode.value;
-                    if (isEditMode.value) {
-                        if (activePotStatus.value === 'active' || activePotStatus.value === 'archived') {
-                            await loadAllRemainingPots();
-                            await nextTick();
+	                const toggleEditMode = async () => {
+	                    closePotActionSheet();
+	                    closePotSearch();
+	                    isEditMode.value = !isEditMode.value;
+	                    if (isEditMode.value) {
+	                        showRemindersExpanded.value = false;
+	                        if (activePotStatus.value === 'active' || activePotStatus.value === 'archived') {
+	                            await loadAllRemainingPots();
+	                            await nextTick();
                             initSortable();
                         }
                     } else {
@@ -3087,6 +3116,10 @@
                 const goAddCareForPot = (potId) => {
                     closePotActionSheet();
                     window.location.href = `care-record?potId=${potId}`;
+                };
+                const goAddTimelineForPot = (potId) => {
+                    closePotActionSheet();
+                    window.location.href = `pot-detail?id=${potId}&openTimeline=1`;
                 };
                 const openShareSettingsForPot = (potId) => {
                     closePotActionSheet();
@@ -3610,9 +3643,10 @@
                     showBatchInviteModal.value = false;
                 };
 
-                const openBatchActionSheet = () => {
-                    showBatchActionSheet.value = true;
-                };
+	                const openBatchActionSheet = () => {
+	                    showRemindersExpanded.value = false;
+	                    showBatchActionSheet.value = true;
+	                };
 
                 const closeBatchActionSheet = () => {
                     if (showBatchActionSheet.value) {
@@ -4024,7 +4058,7 @@
                     normalizeRegisterDisplayName,
                     handleLogin, handleRegister, handleForgotPassword, toggleSelectAll, toggleEditMode, deleteSelectedPots,
                     handleCardClick, restoreArchivedPot, restorePotFromSheet, confirmDeleteSingle, showPotActionSheet, activePotAction, openPotActionSheet, closePotActionSheet,
-                    isOwnedPot, goEditPotFromSheet, goAddCareForPot, openShareSettingsForPot, openSingleArchiveFromSheet, deletePotFromSheet,
+                    isOwnedPot, goEditPotFromSheet, goAddCareForPot, goAddTimelineForPot, openShareSettingsForPot, openSingleArchiveFromSheet, deletePotFromSheet,
                     leaveCollaborationFromSheet, removeViewerPotFromSheet,
                     confirmLeaveCollaboration, confirmLeaveViewer,
                     logout, closeAuthModals, switchToRegister, switchToLogin, switchToForgotPassword,
@@ -4094,6 +4128,10 @@
             animation: fade-in 0.2s ease-out;
         }
 
+        .animate-header-search-in {
+            animation: header-search-in 0.16s ease-out;
+        }
+
         @keyframes slide-up {
             from {
                 transform: translateY(20px);
@@ -4115,6 +4153,16 @@
             to {
                 opacity: 1;
                 transform: scale(1);
+            }
+        }
+
+        @keyframes header-search-in {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
             }
         }
 

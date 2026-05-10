@@ -1,3 +1,4 @@
+import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   api,
@@ -103,6 +104,37 @@ describe('api regression: care records, timelines, and schedules', () => {
     expect(batch.count).toBe(2);
     expect(batch.recordCount).toBe(4);
     expect(batch.skipped).toBe(1);
+  });
+
+  it('deletes timeline video objects from R2 when a timeline is deleted', async () => {
+    const owner = await registerUser('timeline-video');
+    const potId = await createPot(owner, { name: 'Video Pot', createInitialTimeline: false });
+    const videoKey = `timeline/${owner.userId}/${potId}/clip.mp4`;
+    const videoUrl = `https://img.kaside365.com/${videoKey}`;
+
+    await (env as any).STATIC_BUCKET.put(videoKey, 'video-bytes');
+
+    await expectOk(await api('/api/timelines', {
+      method: 'POST',
+      token: owner.token,
+      body: {
+        potId,
+        date: '2026-04-22',
+        description: 'video timeline',
+        video: videoUrl,
+      },
+    }));
+
+    const timelines = await expectOk(await api(`/api/pots/${potId}/timelines`, { token: owner.token }));
+    const timeline = timelines.data.find((item: any) => item.description === 'video timeline');
+    expect(timeline).toBeTruthy();
+
+    await expectOk(await api(`/api/timelines/${timeline.id}`, {
+      method: 'DELETE',
+      token: owner.token,
+    }));
+
+    await expect((env as any).STATIC_BUCKET.get(videoKey)).resolves.toBeNull();
   });
 
   it('covers schedule duplicate rules, reminders, updates, and deletion', async () => {

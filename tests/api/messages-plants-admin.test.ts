@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  addCollaborator,
   addTestPlant,
   addViewer,
   api,
   apiForm,
   createPot,
+  enableShare,
   expectOk,
   expectStatus,
   identifyAnonymousUser,
@@ -20,8 +22,10 @@ describe('api regression: comments, messages, plants, upload, analytics headers,
 
   it('covers member comments, replies, unread counts, read markers, and deletion', async () => {
     const owner = await registerUser('comment-owner');
+    const collaborator = await registerUser('comment-collab');
     const viewer = await registerUser('comment-viewer');
     const potId = await createPot(owner, { name: 'Comment Pot' });
+    await addCollaborator(owner, potId, collaborator);
     await addViewer(owner, potId, viewer);
 
     const comment = await expectOk(await api('/api/messages/pot-comment', {
@@ -36,6 +40,15 @@ describe('api regression: comments, messages, plants, upload, analytics headers,
 
     const ownerUnread = await expectOk(await api('/api/messages/unread-count', { token: owner.token }));
     expect(ownerUnread.count).toBeGreaterThan(0);
+    const collaboratorUnread = await expectOk(await api('/api/messages/unread-count', { token: collaborator.token }));
+    expect(collaboratorUnread.count).toBeGreaterThan(0);
+
+    const viewerOwnMessages = await expectOk(await api('/api/messages', { token: viewer.token }));
+    const selfCopy = viewerOwnMessages.data.find((message: any) => {
+      const extra = JSON.parse(message.extra_data || '{}');
+      return extra.selfCopy === true && extra.commentId === comment.data.commentId;
+    });
+    expect(selfCopy?.status).toBe('read');
 
     const reply = await expectOk(await api('/api/messages/pot-comment-reply', {
       method: 'POST',
@@ -46,6 +59,7 @@ describe('api regression: comments, messages, plants, upload, analytics headers,
       },
     }));
     expect(reply.data.commentId).toBeTruthy();
+    expect(reply.data.recipientCount).toBe(2);
 
     const comments = await expectOk(await api(`/api/messages/pot-comments/${potId}`, { token: viewer.token }));
     expect(comments.data[0].replies).toHaveLength(1);
@@ -76,6 +90,56 @@ describe('api regression: comments, messages, plants, upload, analytics headers,
     }));
     const afterDelete = await expectOk(await api(`/api/messages/pot-comments/${potId}`, { token: viewer.token }));
     expect(afterDelete.data).toHaveLength(0);
+  });
+
+  it('keeps public-share visitors out of comments and archived pots read-only', async () => {
+    const owner = await registerUser('comment-archive-owner');
+    const viewer = await registerUser('comment-archive-viewer');
+    const potId = await createPot(owner, { name: 'Archived Comment Pot' });
+    await addViewer(owner, potId, viewer);
+    const shareToken = await enableShare(owner, potId);
+
+    expectStatus(await api('/api/messages/pot-comment', {
+      method: 'POST',
+      body: {
+        potId,
+        content: 'anonymous public comment',
+        shareToken,
+      },
+    }), 401);
+
+    const comment = await expectOk(await api('/api/messages/pot-comment', {
+      method: 'POST',
+      token: viewer.token,
+      body: {
+        potId,
+        content: 'viewer before archive',
+      },
+    }));
+
+    await expectOk(await api(`/api/pots/${potId}/archive`, {
+      method: 'POST',
+      token: owner.token,
+      body: { reason: '测试归档' },
+    }));
+
+    expectStatus(await api('/api/messages/pot-comment', {
+      method: 'POST',
+      token: viewer.token,
+      body: {
+        potId,
+        content: 'viewer after archive',
+      },
+    }), 403);
+
+    expectStatus(await api('/api/messages/pot-comment-reply', {
+      method: 'POST',
+      token: viewer.token,
+      body: {
+        commentId: comment.data.commentId,
+        content: 'reply after archive',
+      },
+    }), 403);
   });
 
   it('covers plant search/detail/smart-match, upload fallback or R2 path, and D1 bookmark response header', async () => {

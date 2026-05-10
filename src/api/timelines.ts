@@ -1,6 +1,7 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
 import {
   deleteImagesFromR2,
+  deleteMediaFromR2,
   getRemovedImageUrls
 } from '../utils/storage-utils';
 import { findAccessiblePot } from '../utils/pot-access-utils';
@@ -135,6 +136,9 @@ async function handleUpdateTimeline(request: Request, env: any, id: string, toke
     if (images !== undefined) {
       await deleteImagesFromR2(env, getRemovedImageUrls(existing.images, images));
     }
+    if (video !== undefined && video !== existing.video) {
+      await deleteMediaFromR2(env, existing.video);
+    }
 
     // 构建更新 SQL
     const updates: string[] = [];
@@ -198,8 +202,7 @@ async function handleDeleteTimeline(request: Request, env: any, id: string, toke
     }
 
     await deleteImagesFromR2(env, existing.images);
-
-    // TODO: 清理视频资源
+    await deleteMediaFromR2(env, existing.video);
 
     await env.DB
       .prepare('DELETE FROM timelines WHERE id = ?')

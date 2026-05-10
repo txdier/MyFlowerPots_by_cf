@@ -89,16 +89,6 @@ async function handleImageUpload(request: Request, env: any, token: string | nul
   if (isDevelopment) {
     // 开发环境：返回站内占位图，避免依赖外部占位图服务
     imageUrl = fallbackImageUrl;
-
-    console.log('开发环境图片上传:', {
-      fileName,
-      originalName: imageFile.name,
-      size: imageFile.size,
-      type: imageFile.type,
-      uploadType,
-      potId: finalPotId,
-      imageUrl
-    });
   } else if (env.STATIC_BUCKET) {
     // 生产环境：上传到R2
     try {
@@ -114,14 +104,6 @@ async function handleImageUpload(request: Request, env: any, token: string | nul
         return errorResponse(msg, 400);
       }
 
-      console.log('上传图片到R2:', {
-        objectKey,
-        uploadType,
-        userId,
-        potId: finalPotId,
-        fileName
-      });
-
       // 上传到R2
       await env.STATIC_BUCKET.put(objectKey, imageFile.stream(), {
         httpMetadata: {
@@ -133,8 +115,6 @@ async function handleImageUpload(request: Request, env: any, token: string | nul
       // 使用自定义域名生成URL
       imageUrl = `https://img.kaside365.com/${objectKey}`;
 
-      console.log('图片上传成功:', imageUrl);
-
     } catch (uploadError) {
       console.error('R2上传失败:', uploadError);
       // 上传失败时返回站内占位图，避免前端请求外部失效域名
@@ -143,7 +123,6 @@ async function handleImageUpload(request: Request, env: any, token: string | nul
   } else {
     // 没有配置存储桶，返回站内占位图
     imageUrl = fallbackImageUrl;
-    console.log('无存储桶配置，返回站内占位图');
   }
 
   // 根据上传类型更新数据库
@@ -160,18 +139,10 @@ async function handleImageUpload(request: Request, env: any, token: string | nul
           .prepare('UPDATE pots SET image_url = ? WHERE id = ?')
           .bind(imageUrl, finalPotId)
           .run();
-        console.log(`更新花盆 ${finalPotId} 的图片URL: ${imageUrl}`);
       } else {
         console.warn(`越权上传尝试或花盆不存在: User ${userId} 尝试上传到 Pot ${finalPotId}`);
         // 这里不返回错误给前端，因为图片已经上传到 R2 了，只是不更新到别人的花盆
       }
-    } else if (uploadType === 'timeline' && finalPotId) {
-      // 时间线图片 - 需要前端处理多图逻辑
-      console.log(`时间线图片上传成功，关联花盆 ${finalPotId}: ${imageUrl}`);
-      // 注意：时间线多图需要前端维护图片数组
-    } else if (uploadType === 'care' && finalPotId) {
-      // 养护记录图片
-      console.log(`养护记录图片上传成功，关联花盆 ${finalPotId}: ${imageUrl}`);
     }
   } catch (dbError) {
     console.error('更新数据库失败:', dbError);

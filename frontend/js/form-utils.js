@@ -383,12 +383,13 @@
         };
         fieldIds.forgotPasswordEmail = fieldIds.forgotPasswordEmail || fieldIds.loginEmail;
 
-        const loginForm = reactive({ email: '', password: '' });
+        const loginForm = reactive({ email: '', password: '', remember: true });
         const registerForm = reactive({
             email: '',
             password: '',
             confirmPassword: '',
-            displayName: ''
+            displayName: '',
+            remember: true
         });
         const loginErrors = reactive({ email: '', password: '' });
         const registerErrors = reactive({ email: '', password: '', confirmPassword: '' });

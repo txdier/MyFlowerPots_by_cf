@@ -908,7 +908,6 @@ async function handlePlantSearch(request: Request, env: any, url: URL): Promise<
       return errorResponse('数据库未配置', 500);
     }
 
-    console.log('从植物索引搜索:', query);
     const plantIndex = await getPlantIndex(env);
     const results = searchPlantIndex(plantIndex, query, 20).map(toPlantSearchResult);
 

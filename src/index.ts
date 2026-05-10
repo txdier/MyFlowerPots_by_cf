@@ -170,6 +170,7 @@ export default {
 
         const rawToken = getTokenFromHeader(request);
         let userId: string | null = null;
+        let authPayload: any | null = null;
 
         // 验证 JWT 并提取 userId
         if (rawToken) {
@@ -177,6 +178,7 @@ export default {
             const secret = getJwtSecret(requestEnv);
             const payload = await verifyJWT(rawToken, secret);
             if (payload) {
+              authPayload = payload;
               userId = payload.userId;
             } else {
               // 如果提供了 token 但验证失败，可能是过期或伪造
@@ -202,7 +204,7 @@ export default {
 
         // 认证相关API
         if (path.startsWith('/api/auth/')) {
-          return respond(handleAuthRequest(request, requestEnv, path, url, userId));
+          return respond(handleAuthRequest(request, requestEnv, path, url, userId, authPayload));
         }
 
         // 首页启动聚合接口
@@ -379,12 +381,9 @@ export default {
       const attachmentMeta = [];
       const bucketExists = !!env.STATIC_BUCKET;
       
-      console.log(`正在处理新邮件: ${parsed.subject}, 原始附件数: ${parsed.attachments?.length || 0}, R2绑定: ${bucketExists}`);
-
       if (parsed.attachments && parsed.attachments.length > 0 && bucketExists) {
         for (const att of parsed.attachments) {
           const r2Key = `support-attachments/${id}/${att.filename}`;
-          console.log(`正在上传附件至 R2: ${r2Key} (${att.size} bytes)`);
           
           // Upload to R2
           await env.STATIC_BUCKET.put(r2Key, att.content, {
@@ -417,8 +416,6 @@ export default {
           attachmentsJson
         )
         .run();
-
-      console.log(`支持邮件已接收并存储: ${id} — ${parsed.subject} (成功保存附件: ${attachmentMeta.length})`);
     } catch (err) {
       console.error('处理收到的邮件时出错:', err);
     }

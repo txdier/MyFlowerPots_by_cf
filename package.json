@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "check": "npm run check:frontend && npm run check:types && npm run build-css && git diff --check && npm run check:worker",
+    "check": "npm run check:frontend && npm run check:routes && npm run check:types && npm run build-css && git diff --check && npm run check:worker",
     "check:changed": "node scripts/check-changed.js",
+    "check:routes": "node scripts/check-static-routes.js",
     "check:types": "node scripts/check-types.js",
     "check:frontend": "node scripts/check-frontend.js",
     "check:worker": "node scripts/check-worker.js",

@@ -4,7 +4,8 @@
 const PBKDF2_MAX_ITERATIONS = 100000;
 const PBKDF2_ITERATIONS = PBKDF2_MAX_ITERATIONS;
 const PBKDF2_ALGO = 'pbkdf2-sha256';
-const AUTH_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
+export const AUTH_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
+export const REMEMBERED_AUTH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
 const INVALID_JWT_SECRETS = new Set([
   '',
   'default-secret',
@@ -193,12 +194,19 @@ export function getJwtSecret(env: any): string {
 /**
  * Generate a simple JWT-like token (signed with HS256)
  */
-export async function generateJWT(payload: any, secret: string): Promise<string> {
+export async function generateJWT(
+  payload: any,
+  secret: string,
+  options: { ttlSeconds?: number } = {}
+): Promise<string> {
   const header = { alg: 'HS256', typ: 'JWT' };
   const encodedHeader = btoa(JSON.stringify(header)).replace(/=/g, '');
+  const ttlSeconds = Number.isFinite(options.ttlSeconds) && Number(options.ttlSeconds) > 0
+    ? Math.floor(Number(options.ttlSeconds))
+    : AUTH_TOKEN_TTL_SECONDS;
   const encodedPayload = btoa(JSON.stringify({
     ...payload,
-    exp: Math.floor(Date.now() / 1000) + AUTH_TOKEN_TTL_SECONDS
+    exp: Math.floor(Date.now() / 1000) + ttlSeconds
   })).replace(/=/g, '');
 
   const tokenToSign = `${encodedHeader}.${encodedPayload}`;

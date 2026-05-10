@@ -1922,6 +1922,12 @@
                                             class="auth-error-message text-xs text-red-500 px-1">{{ loginErrors.password
                                             }}</p>
                                     </div>
+                                    <label for="detailLoginRemember"
+                                        class="flex items-center gap-2 text-xs font-bold text-gray-500 px-1">
+                                        <input id="detailLoginRemember" type="checkbox" v-model="loginForm.remember"
+                                            class="w-4 h-4 rounded border-gray-300 text-green-500 focus:ring-green-500">
+                                        <span>30天内保持登录</span>
+                                    </label>
                                     <div v-if="loginStatus.message" class="rounded-2xl px-4 py-3 text-xs"
                                         :class="loginStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
                                         <i class="fa mr-1"
@@ -2035,6 +2041,12 @@
                                         class="auth-error-message text-xs text-red-500 px-1">
                                         {{ registerErrors.confirmPassword }}
                                     </p>
+                                    <label for="detailRegisterRemember"
+                                        class="flex items-center gap-2 text-xs font-bold text-gray-500 px-1">
+                                        <input id="detailRegisterRemember" type="checkbox" v-model="registerForm.remember"
+                                            class="w-4 h-4 rounded border-gray-300 text-green-500 focus:ring-green-500">
+                                        <span>30天内保持登录</span>
+                                    </label>
                                     <div v-if="registerStatus.message" class="rounded-2xl px-4 py-3 text-xs"
                                         :class="registerStatus.type === 'error' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'">
                                         <i class="fa mr-1"
@@ -2117,6 +2129,7 @@
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
     <script src="js/config.js?v=20260429-turnstile"></script>
     <script src="js/api-client.js?v=20260429-turnstile"></script>
+    <script src="js/pwa-diagnostics.js?v=20260508-pwa-diagnostics"></script>
     <script src="js/media-utils.js?v=20260507-image-cache"></script>
     <script src="js/pot-permissions.js?v=20260421-refactor"></script>
     <script src="js/care-utils.js?v=20260421-refactor"></script>
@@ -2583,6 +2596,20 @@
                     }
                 };
 
+                const maybeOpenTimelineModalFromUrl = () => {
+                    const shouldOpenTimeline = getParamWithFallback('openTimeline') === '1';
+                    if (!shouldOpenTimeline) return;
+
+                    const url = new URL(window.location.href);
+                    if (url.searchParams.has('openTimeline')) {
+                        url.searchParams.delete('openTimeline');
+                        window.history.replaceState({}, '', url.toString());
+                    }
+
+                    if (!pot.value || isReadOnly.value || showShareModal.value) return;
+                    openAddTimelineModal();
+                };
+
                 const getDirectParam = (name) => {
                     const url = new URL(window.location.href);
                     const fromSearch = url.searchParams.get(name);
@@ -2956,6 +2983,7 @@
                         // 无论成功失败，尝试同步一次 URL（如果是主人且已加载 pot）
                         syncUrlWithShareStatus();
                         maybeOpenShareModalFromUrl();
+                        maybeOpenTimelineModalFromUrl();
                     }
                 };
 
@@ -3164,7 +3192,7 @@
                         isAuthLoading.value = true;
                         clearStatus(loginStatus);
                         loginForm.email = formUtils.normalizeEmail(loginForm.email);
-                        const res = await apiClient.login(loginForm.email, loginForm.password);
+                        const res = await apiClient.login(loginForm.email, loginForm.password, loginForm.remember);
                         if (res.token) {
                             try {
                                 if (await handleInviteAuthSuccess()) return;
@@ -3234,9 +3262,9 @@
 
                         let res;
                         if (isAnonymous && anonymousUserId) {
-                            res = await apiClient.upgrade(registerForm.email, registerForm.password, registerForm.displayName, anonymousUserId, registerTurnstileToken.value);
+                            res = await apiClient.upgrade(registerForm.email, registerForm.password, registerForm.displayName, anonymousUserId, registerTurnstileToken.value, registerForm.remember);
                         } else {
-                            res = await apiClient.register(registerForm.email, registerForm.password, registerForm.displayName, registerTurnstileToken.value);
+                            res = await apiClient.register(registerForm.email, registerForm.password, registerForm.displayName, registerTurnstileToken.value, registerForm.remember);
                         }
 
                         if (res.success || res.token) {

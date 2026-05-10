@@ -1,5 +1,10 @@
-import { cloudflareTest } from '@cloudflare/vitest-pool-workers';
+import { mkdirSync } from 'node:fs';
 import { defineConfig } from 'vitest/config';
+
+mkdirSync('Temp/wrangler-logs', { recursive: true });
+process.env.WRANGLER_LOG_PATH ??= 'Temp/wrangler-logs';
+
+const { cloudflareTest } = await import('@cloudflare/vitest-pool-workers');
 
 export default defineConfig({
   plugins: [

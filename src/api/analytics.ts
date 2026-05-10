@@ -20,7 +20,7 @@ const TRACKED_PAGE_PATHS = new Set([
   '/reset-password',
 ]);
 
-const PAGE_VISIT_THROTTLE_MS = 5 * 60 * 1000;
+const DEFAULT_PAGE_VISIT_THROTTLE_MS = 30 * 60 * 1000;
 const PAGE_VISIT_THROTTLE_MAX_ENTRIES = 1000;
 let lastPageVisitThrottleCleanup = 0;
 const recentPageVisitKeys = new Map<string, number>();
@@ -37,7 +37,7 @@ export function queuePageVisit(
     return;
   }
 
-  if (request && shouldThrottlePageVisit(path, request)) {
+  if (request && shouldThrottlePageVisit(path, request, env)) {
     return;
   }
 
@@ -99,9 +99,18 @@ function normalizePagePath(path: string): string {
   return withoutHtml === '/index' ? '/' : withoutHtml;
 }
 
-function shouldThrottlePageVisit(path: string, request: Request): boolean {
+function getPageVisitThrottleMs(env: any): number {
+  const configuredSeconds = Number(env?.PAGE_VISIT_THROTTLE_SECONDS || 0);
+  if (Number.isFinite(configuredSeconds) && configuredSeconds > 0) {
+    return configuredSeconds * 1000;
+  }
+  return DEFAULT_PAGE_VISIT_THROTTLE_MS;
+}
+
+function shouldThrottlePageVisit(path: string, request: Request, env: any): boolean {
   const now = Date.now();
-  cleanupRecentPageVisits(now);
+  const throttleMs = getPageVisitThrottleMs(env);
+  cleanupRecentPageVisits(now, throttleMs);
 
   const visitorKey = [
     request.headers.get('authorization') || '',
@@ -113,7 +122,7 @@ function shouldThrottlePageVisit(path: string, request: Request): boolean {
   const key = `${path}:${hashThrottleKey(visitorKey || 'anonymous')}`;
   const lastSeen = recentPageVisitKeys.get(key) || 0;
 
-  if (lastSeen && now - lastSeen < PAGE_VISIT_THROTTLE_MS) {
+  if (lastSeen && now - lastSeen < throttleMs) {
     return true;
   }
 
@@ -121,9 +130,9 @@ function shouldThrottlePageVisit(path: string, request: Request): boolean {
   return false;
 }
 
-function cleanupRecentPageVisits(now: number): void {
+function cleanupRecentPageVisits(now: number, throttleMs: number): void {
   if (
-    now - lastPageVisitThrottleCleanup < PAGE_VISIT_THROTTLE_MS
+    now - lastPageVisitThrottleCleanup < throttleMs
     && recentPageVisitKeys.size <= PAGE_VISIT_THROTTLE_MAX_ENTRIES
   ) {
     return;
@@ -131,7 +140,7 @@ function cleanupRecentPageVisits(now: number): void {
 
   lastPageVisitThrottleCleanup = now;
   for (const [key, timestamp] of recentPageVisitKeys) {
-    if (now - timestamp >= PAGE_VISIT_THROTTLE_MS) {
+    if (now - timestamp >= throttleMs) {
       recentPageVisitKeys.delete(key);
     }
   }

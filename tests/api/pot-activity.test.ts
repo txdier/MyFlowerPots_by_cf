@@ -10,6 +10,7 @@ import {
   registerUser,
   resetWorkerTestDatabase,
 } from '../helpers/worker-api';
+import { markPotActivityRead } from '../../src/utils/pot-activity-utils';
 
 function findPot(list: any, potId: string) {
   return list.data.find((pot: any) => pot.id === potId);
@@ -147,5 +148,47 @@ describe('api regression: pot activity markers', () => {
     }));
     const viewerAfterRead = await expectOk(await api('/api/pots', { token: viewer.token }));
     expect(findPot(viewerAfterRead, potId).has_new_activity).toBe(0);
+  });
+
+  it('keeps activity read markers idempotent when a pot has no activity', async () => {
+    const owner = await registerUser('activity-empty-owner');
+    const potId = await createPot(owner, { createInitialTimeline: false });
+
+    const firstRead = await expectOk(await api(`/api/pots/${potId}/activity/read`, {
+      method: 'POST',
+      token: owner.token
+    }));
+    expect(firstRead.data.latestEventId).toBe(0);
+
+    const secondRead = await expectOk(await api(`/api/pots/${potId}/activity/read`, {
+      method: 'POST',
+      token: owner.token
+    }));
+    expect(secondRead.data.latestEventId).toBe(0);
+
+    const ownerList = await expectOk(await api('/api/pots', { token: owner.token }));
+    expect(findPot(ownerList, potId).has_new_activity).toBe(0);
+  });
+
+  it('retries transient D1 network failures when marking activity read', async () => {
+    let attempts = 0;
+    const fakeEnv = {
+      DB: {
+        prepare: () => ({
+          bind: () => ({
+            first: async () => {
+              attempts += 1;
+              if (attempts === 1) {
+                throw new Error('D1_ERROR: Network connection lost.');
+              }
+              return { last_read_event_id: 7 };
+            }
+          })
+        })
+      }
+    };
+
+    await expect(markPotActivityRead(fakeEnv, 'pot-test', 'user-test')).resolves.toBe(7);
+    expect(attempts).toBe(2);
   });
 });

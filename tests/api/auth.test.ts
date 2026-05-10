@@ -12,6 +12,25 @@ import {
   TEST_TURNSTILE_TOKEN,
   testDb,
 } from '../helpers/worker-api';
+import { generateJWT } from '../../src/utils/auth-utils';
+
+const DAY_SECONDS = 24 * 60 * 60;
+
+function decodeJwtPayload(token: string): any {
+  const parts = token.split('.');
+  expect(parts).toHaveLength(3);
+  const encodedPayload = parts[1];
+  const padded = encodedPayload + '='.repeat((4 - encodedPayload.length % 4) % 4);
+  return JSON.parse(atob(padded));
+}
+
+function expectTokenLifetimeDays(token: string, expectedDays: number) {
+  const payload = decodeJwtPayload(token);
+  const ttlSeconds = Number(payload.exp) - Math.floor(Date.now() / 1000);
+  expect(ttlSeconds).toBeGreaterThanOrEqual(expectedDays * DAY_SECONDS - 120);
+  expect(ttlSeconds).toBeLessThanOrEqual(expectedDays * DAY_SECONDS + 120);
+  return payload;
+}
 
 describe('api regression: authentication and account rules', () => {
   beforeEach(async () => {
@@ -82,6 +101,70 @@ describe('api regression: authentication and account rules', () => {
     }), 429);
   });
 
+  it('issues 30-day remembered tokens by default and 7-day tokens when opted out', async () => {
+    const registered = await registerUser('remember-default');
+    const registerPayload = expectTokenLifetimeDays(registered.token, 30);
+    expect(registerPayload.remember).toBe(true);
+
+    const defaultLogin = await expectOk(await api('/api/auth/login', {
+      method: 'POST',
+      body: {
+        email: registered.email,
+        password: registered.password,
+      },
+    }));
+    const defaultLoginPayload = expectTokenLifetimeDays(defaultLogin.token, 30);
+    expect(defaultLoginPayload.remember).toBe(true);
+
+    const shortLogin = await expectOk(await api('/api/auth/login', {
+      method: 'POST',
+      body: {
+        email: registered.email,
+        password: registered.password,
+        remember: false,
+      },
+    }));
+    const shortLoginPayload = expectTokenLifetimeDays(shortLogin.token, 7);
+    expect(shortLoginPayload.remember).toBe(false);
+  });
+
+  it('preserves remember mode during refresh and treats legacy tokens as short sessions', async () => {
+    const user = await registerUser('refresh-remember');
+
+    const refreshedRemembered = await expectOk(await api('/api/auth/refresh', {
+      method: 'POST',
+      token: user.token,
+    }));
+    const rememberedPayload = expectTokenLifetimeDays(refreshedRemembered.token, 30);
+    expect(rememberedPayload.remember).toBe(true);
+
+    const shortLogin = await expectOk(await api('/api/auth/login', {
+      method: 'POST',
+      body: {
+        email: user.email,
+        password: user.password,
+        remember: false,
+      },
+    }));
+    const refreshedShort = await expectOk(await api('/api/auth/refresh', {
+      method: 'POST',
+      token: shortLogin.token,
+    }));
+    const shortPayload = expectTokenLifetimeDays(refreshedShort.token, 7);
+    expect(shortPayload.remember).toBe(false);
+
+    const legacyToken = await generateJWT(
+      { userId: user.userId, email: user.email, type: 'email' },
+      (env as any).JWT_SECRET
+    );
+    const refreshedLegacy = await expectOk(await api('/api/auth/refresh', {
+      method: 'POST',
+      token: legacyToken,
+    }));
+    const legacyPayload = expectTokenLifetimeDays(refreshedLegacy.token, 7);
+    expect(legacyPayload.remember).toBe(false);
+  });
+
   it('covers disabled account rejection', async () => {
     const user = await registerUser('disabled');
     await testDb()
@@ -112,6 +195,8 @@ describe('api regression: authentication and account rules', () => {
 
   it('covers anonymous upgrade and pot limit boundaries', async () => {
     const anonymous = await identifyAnonymousUser();
+    const anonymousPayload = expectTokenLifetimeDays(anonymous.token, 7);
+    expect(anonymousPayload.remember).toBe(false);
     const potIds: string[] = [];
     for (let index = 0; index < 3; index += 1) {
       potIds.push(await createPot(anonymous, {
@@ -140,6 +225,8 @@ describe('api regression: authentication and account rules', () => {
         turnstileToken: TEST_TURNSTILE_TOKEN,
       },
     }));
+    const upgradedPayload = expectTokenLifetimeDays(upgraded.token, 30);
+    expect(upgradedPayload.remember).toBe(true);
 
     const list = await expectOk(await api('/api/pots', { token: upgraded.token }));
     expect(list.data.map((pot: any) => pot.id)).toEqual(expect.arrayContaining(potIds));
