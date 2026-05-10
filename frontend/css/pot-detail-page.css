@@ -1,0 +1,220 @@
+        [v-cloak] {
+            display: none !important;
+        }
+
+        .animate-slide-up {
+            animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .animate-fade-in {
+            animation: fade-in 0.2s ease-out;
+        }
+
+        @keyframes slide-up {
+            from {
+                transform: translateY(100%);
+            }
+
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes detailAutofillDetect {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        input:-webkit-autofill {
+            animation-name: detailAutofillDetect;
+            animation-duration: 0.001s;
+        }
+
+        /* Bottom Sheet 动画 */
+        .bottom-sheet-enter-active,
+        .bottom-sheet-leave-active {
+            transition: all 0.4s cubic-bezier(0.32, 1, 0.23, 1);
+        }
+
+        .bottom-sheet-enter-from,
+        .bottom-sheet-leave-to {
+            transform: translateY(100%);
+        }
+
+        .backdrop-enter-active,
+        .backdrop-leave-active {
+            transition: opacity 0.3s ease;
+        }
+
+        .backdrop-enter-from,
+        .backdrop-leave-to {
+            opacity: 0;
+        }
+
+        /* 隐藏滚动条但保留功能 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .comment-fab {
+            top: 58%;
+            transform: translateY(-50%);
+            z-index: 96;
+            right: max(4px, calc(50vw - 325px - 6px));
+            background: linear-gradient(180deg, #ea580c, #c2410c);
+            border: 3px solid rgba(255, 255, 255, 0.92);
+            box-shadow: 0 16px 34px rgba(194, 65, 12, 0.28);
+        }
+
+        .comment-modal-shell {
+            width: min(100%, 34rem);
+        }
+
+        .comment-thread-area {
+            overscroll-behavior: contain;
+        }
+
+        .comment-composer-panel {
+            padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.1rem);
+        }
+
+        .comment-textarea {
+            min-height: 3.25rem;
+            font-size: 16px;
+            line-height: 1.55;
+            -webkit-appearance: none;
+        }
+
+        .comment-textarea:focus {
+            outline: none;
+            box-shadow: inset 0 0 0 2px rgba(245, 158, 11, 0.18);
+        }
+
+        .comment-barrage-item {
+            position: absolute;
+            left: 100%;
+            white-space: nowrap;
+            animation-name: comment-barrage;
+            animation-timing-function: linear;
+            animation-iteration-count: infinite;
+        }
+
+        .comment-barrage-chip {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.3rem;
+            max-width: min(78vw, 26rem);
+            padding: 0.55rem 0.85rem;
+            border-radius: 1.1rem;
+            background: rgba(17, 24, 39, 0.62);
+            color: #fff7ed;
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+            font-size: 0.75rem;
+            line-height: 1.2;
+            backdrop-filter: blur(8px);
+        }
+
+        .comment-barrage-chip--two-line {
+            border-radius: 1.2rem;
+        }
+
+        .comment-barrage-line {
+            display: flex;
+            align-items: center;
+            gap: 0.38rem;
+            min-width: 0;
+            max-width: 100%;
+        }
+
+        .comment-barrage-reply {
+            padding-left: 2em;
+        }
+
+        .comment-barrage-chip strong {
+            color: #fde68a;
+            font-weight: 800;
+            flex: none;
+        }
+
+        .comment-barrage-text {
+            display: inline-block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        @keyframes comment-barrage {
+            0% {
+                transform: translateX(0);
+            }
+
+            100% {
+                transform: translateX(calc(-100vw - 32rem));
+            }
+        }
+
+        @media (max-width: 650px) {
+            .comment-fab {
+                right: 0.35rem;
+            }
+
+            .comment-modal-shell {
+                width: 100%;
+                border-bottom-left-radius: 0;
+                border-bottom-right-radius: 0;
+            }
+
+            .comment-compact-button {
+                min-height: 2.4rem;
+                padding-inline: 0.85rem;
+            }
+
+            .comment-delete-button {
+                width: 2rem;
+                height: 2rem;
+            }
+
+            .comment-thread-area {
+                padding-bottom: 0.5rem;
+            }
+        }
