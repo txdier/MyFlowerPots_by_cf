@@ -288,10 +288,170 @@ describe('api regression: comments, messages, plants, upload, analytics headers,
       },
     }));
 
-    const plants = await expectOk(await api('/api/admin/plants?search=admin-plant', { token: admin.token }));
-    expect(plants.data).toHaveLength(1);
+	    const plants = await expectOk(await api('/api/admin/plants?search=admin-plant', { token: admin.token }));
+	    expect(plants.data).toHaveLength(1);
+	    expect(plants.data[0].quality_flags).toEqual(expect.arrayContaining([
+	      '缺拉丁名',
+	      '缺核心养护字段',
+	    ]));
+	    expect(plants.data[0].quality_flags).not.toContain('缺图片');
 
-    await expectOk(await api('/api/admin/plants/admin-plant', {
+	    const synonymSearch = await expectOk(await api('/api/admin/plants?search=Admin%20Synonym', { token: admin.token }));
+	    expect(synonymSearch.data.map((plant: any) => plant.id)).toContain('admin-plant');
+
+	    const importPayload = [
+	      {
+	        id: 'batch-camel',
+	        name: '批量月季',
+	        category: '灌木',
+	        care_difficulty: '中等',
+	        image_url: 'https://example.test/batch-camel.jpg',
+	        basicInfo: {
+	          name: '批量月季',
+	          standard_name: '批量月季花',
+	          latinName: 'Rosa chinensis',
+	          synonyms: ['月月红', ' 月月红 ', '', '长春花'],
+	          family: '蔷薇科蔷薇属',
+	          origin: '中国',
+	        },
+	        ornamentalFeatures: {
+	          growthHabit: '直立或攀援',
+	          flowerColor: '红、粉、白',
+	          potSuitable: true,
+	        },
+	        careGuide: {
+	          lightRequirement: '全日照',
+	          watering: '见干见湿',
+	        },
+	      },
+	      {
+	        id: 'batch-snake',
+	        name: '批量栀子',
+	        category: '灌木',
+	        care_difficulty: '较高',
+	        basic_info: {
+	          standard_name: '栀子',
+	          latinName: 'Gardenia jasminoides',
+	          synonyms: ['黄栀子'],
+	        },
+	        ornamental_features: {
+	          fragrance: '浓郁芳香',
+	          potSuitable: true,
+	        },
+	        care_guide: {
+	          waterRequirement: '喜湿润，忌干旱',
+	          watering: '保持土壤湿润',
+	        },
+	        synonyms: ['山栀', '黄栀子'],
+	      },
+	      {
+	        id: 'batch-missing-name',
+	        basicInfo: {},
+	      },
+	    ];
+
+	    const preview = await expectOk(await api('/api/admin/plants/batch/preview', {
+	      method: 'POST',
+	      token: admin.token,
+	      body: importPayload,
+	    }));
+	    expect(preview.summary).toMatchObject({
+	      total: 3,
+	      create: 2,
+	      overwrite: 0,
+	      failed: 1,
+	      valid: 2,
+	      synonymCount: 4,
+	    });
+	    expect(preview.items.find((item: any) => item.id === 'batch-missing-name')?.errors).toContain('缺少名称');
+	    const previewNoWrite = await testDb().prepare('SELECT id FROM plants WHERE id = ?').bind('batch-camel').first();
+	    expect(previewNoWrite).toBeNull();
+
+	    const importResult = await expectOk(await api('/api/admin/plants/batch', {
+	      method: 'POST',
+	      token: admin.token,
+	      body: importPayload,
+	    }));
+    expect(importResult.results.success).toBe(2);
+    expect(importResult.results.failed).toBe(1);
+
+    const camelRow: any = await testDb()
+      .prepare('SELECT name, category, care_difficulty, basic_info, ornamental_features, care_guide, image_url FROM plants WHERE id = ?')
+      .bind('batch-camel')
+      .first();
+    expect(camelRow.name).toBe('批量月季');
+    expect(camelRow.category).toBe('灌木');
+    expect(camelRow.care_difficulty).toBe('中等');
+    expect(camelRow.image_url).toBe('https://example.test/batch-camel.jpg');
+    const camelBasic = JSON.parse(camelRow.basic_info);
+    const camelFeatures = JSON.parse(camelRow.ornamental_features);
+    const camelCare = JSON.parse(camelRow.care_guide);
+    expect(camelBasic.name).toBe('批量月季');
+    expect(camelBasic.synonyms).toEqual(['月月红', '长春花']);
+    expect(camelFeatures.category).toBe('灌木');
+    expect(camelFeatures.potSuitable).toBe(true);
+    expect(camelCare.careDifficulty).toBe('中等');
+    expect(camelCare.watering).toBe('见干见湿');
+
+    const snakeRow: any = await testDb()
+      .prepare('SELECT name, category, care_difficulty, basic_info, ornamental_features, care_guide FROM plants WHERE id = ?')
+      .bind('batch-snake')
+      .first();
+    const snakeBasic = JSON.parse(snakeRow.basic_info);
+    const snakeFeatures = JSON.parse(snakeRow.ornamental_features);
+    const snakeCare = JSON.parse(snakeRow.care_guide);
+    expect(snakeBasic.name).toBe('批量栀子');
+    expect(snakeBasic.standard_name).toBe('栀子');
+    expect(snakeBasic.synonyms).toEqual(['黄栀子', '山栀']);
+    expect(snakeFeatures.category).toBe('灌木');
+    expect(snakeCare.careDifficulty).toBe('较高');
+
+	    const synonymRows = await testDb()
+	      .prepare('SELECT synonym FROM plant_synonyms WHERE plant_id = ? ORDER BY synonym ASC')
+	      .bind('batch-snake')
+	      .all();
+	    expect(synonymRows.results.map((row: any) => row.synonym)).toEqual(['山栀', '黄栀子']);
+
+	    const overwritePreview = await expectOk(await api('/api/admin/plants/batch/preview', {
+	      method: 'POST',
+	      token: admin.token,
+	      body: importPayload.slice(0, 1),
+	    }));
+	    expect(overwritePreview.summary.overwrite).toBe(1);
+	    expect(overwritePreview.items[0].status).toBe('overwrite');
+
+	    const exported = await expectOk(await api('/api/admin/plants/export?search=%E6%9C%88%E6%9C%88%E7%BA%A2', { token: admin.token }));
+	    expect(exported.count).toBe(1);
+	    expect(exported.data[0]).toMatchObject({
+	      id: 'batch-camel',
+	      name: '批量月季',
+	      category: '灌木',
+	      care_difficulty: '中等',
+	      image_url: 'https://example.test/batch-camel.jpg',
+	      basicInfo: {
+	        name: '批量月季',
+	        latinName: 'Rosa chinensis',
+	        synonyms: ['月月红', '长春花'],
+	      },
+	      ornamentalFeatures: {
+	        category: '灌木',
+	        potSuitable: true,
+	      },
+	      careGuide: {
+	        careDifficulty: '中等',
+	        watering: '见干见湿',
+	      },
+	      synonyms: ['月月红', '长春花'],
+	    });
+	    const exportedPreview = await expectOk(await api('/api/admin/plants/batch/preview', {
+	      method: 'POST',
+	      token: admin.token,
+	      body: exported.data,
+	    }));
+	    expect(exportedPreview.summary.overwrite).toBe(1);
+	    expect(exportedPreview.summary.failed).toBe(0);
+
+	    await expectOk(await api('/api/admin/plants/admin-plant', {
       method: 'PUT',
       token: admin.token,
       body: {

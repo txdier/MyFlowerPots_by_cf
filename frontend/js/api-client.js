@@ -1408,6 +1408,10 @@ class APIClient {
         return this.request(`/api/admin/plants?page=${page}&pageSize=${pageSize}&search=${encodeURIComponent(search)}`);
     }
 
+    async adminExportPlants(search = '') {
+        return this.request(`/api/admin/plants/export?search=${encodeURIComponent(search)}`);
+    }
+
     async adminCreatePlant(plantData) {
         return this.request('/api/admin/plants', {
             method: 'POST',
@@ -1466,6 +1470,13 @@ class APIClient {
 
     async adminBatchImport(plants) {
         return this.request('/api/admin/plants/batch', {
+            method: 'POST',
+            body: plants
+        });
+    }
+
+    async adminBatchImportPreview(plants) {
+        return this.request('/api/admin/plants/batch/preview', {
             method: 'POST',
             body: plants
         });

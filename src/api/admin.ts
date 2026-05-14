@@ -33,6 +33,167 @@ function parseJsonObject(raw: any): Record<string, any> {
     }
 }
 
+function clonePlainObject(value: any): Record<string, any> {
+    return value && typeof value === 'object' && !Array.isArray(value) ? { ...value } : {};
+}
+
+function normalizePlantSynonyms(...sources: any[]): string[] {
+    const seen = new Set<string>();
+    const result: string[] = [];
+
+    for (const source of sources) {
+        const values = Array.isArray(source)
+            ? source
+            : typeof source === 'string'
+                ? source.split(',')
+                : [];
+
+        for (const value of values) {
+            const synonym = String(value || '').trim();
+            if (!synonym || seen.has(synonym)) continue;
+            seen.add(synonym);
+            result.push(synonym);
+        }
+    }
+
+    return result;
+}
+
+function normalizePlantImportData(data: any = {}) {
+    const basic_info = clonePlainObject(data.basicInfo || data.basic_info);
+    const ornamental_features = clonePlainObject(data.ornamentalFeatures || data.ornamental_features);
+    const care_guide = clonePlainObject(data.careGuide || data.care_guide);
+
+    const id = String(data.id || data._id || '').trim();
+    const name = String(data.basicInfo?.name || data.basic_info?.name || data.name || '').trim();
+    const category = String(ornamental_features.category || data.category || '').trim();
+    const careDifficulty = String(care_guide.careDifficulty || care_guide.care_difficulty || data.care_difficulty || '').trim();
+
+    if (name && !basic_info.name) {
+        basic_info.name = name;
+    }
+    if (category && !ornamental_features.category) {
+        ornamental_features.category = category;
+    }
+    if (careDifficulty && !care_guide.careDifficulty) {
+        care_guide.careDifficulty = careDifficulty;
+    }
+    if ('care_difficulty' in care_guide) {
+        delete care_guide.care_difficulty;
+    }
+
+    const synonyms = normalizePlantSynonyms(basic_info.synonyms, data.synonyms);
+    if (synonyms.length > 0) {
+        basic_info.synonyms = synonyms;
+    }
+
+    return {
+        id,
+        name,
+        category: category || null,
+        care_difficulty: careDifficulty || null,
+        basic_info,
+        ornamental_features,
+        care_guide,
+        image_url: data.image_url || null,
+        synonyms
+    };
+}
+
+function parsePlantJsonObject(value: any): Record<string, any> {
+    if (!value) return {};
+    if (typeof value === 'object' && !Array.isArray(value)) return value;
+    try {
+        const parsed = JSON.parse(String(value));
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+        return {};
+    }
+}
+
+function getPlantQualityFlags(plant: any, synonyms: string[]): string[] {
+    const basicInfo = parsePlantJsonObject(plant.basic_info);
+    const ornamentalFeatures = parsePlantJsonObject(plant.ornamental_features);
+    const careGuide = parsePlantJsonObject(plant.care_guide);
+    const flags: string[] = [];
+
+    if (synonyms.length === 0) flags.push('缺别名');
+    if (!String(basicInfo.latinName || '').trim()) flags.push('缺拉丁名');
+    if (!String(basicInfo.family || '').trim()) flags.push('缺科属');
+    if (!String(plant.category || ornamentalFeatures.category || '').trim()) flags.push('缺分类');
+    if (!String(plant.care_difficulty || careGuide.careDifficulty || '').trim()) flags.push('缺养护难度');
+    if (!String(careGuide.lightRequirement || '').trim() || !String(careGuide.watering || careGuide.waterRequirement || '').trim()) {
+        flags.push('缺核心养护字段');
+    }
+    if (typeof ornamentalFeatures.potSuitable !== 'boolean') flags.push('未填写是否适合盆栽');
+
+    return flags;
+}
+
+function buildAdminPlantResponse(plant: any, synonyms: string[]) {
+    const basic_info = parsePlantJsonObject(plant.basic_info);
+    const ornamental_features = parsePlantJsonObject(plant.ornamental_features);
+    const care_guide = parsePlantJsonObject(plant.care_guide);
+
+    return {
+        ...plant,
+        basic_info,
+        ornamental_features,
+        care_guide,
+        synonyms,
+        quality_flags: getPlantQualityFlags({ ...plant, basic_info, ornamental_features, care_guide }, synonyms)
+    };
+}
+
+function buildPlantExportRecord(plant: any, synonyms: string[]) {
+    const normalizedSynonyms = normalizePlantSynonyms(plant.basic_info?.synonyms, synonyms);
+    return {
+        id: plant.id,
+        name: plant.name,
+        category: plant.category || '',
+        care_difficulty: plant.care_difficulty || '',
+        image_url: plant.image_url || '',
+        basicInfo: {
+            ...(plant.basic_info || {}),
+            name: plant.basic_info?.name || plant.name,
+            synonyms: normalizedSynonyms
+        },
+        ornamentalFeatures: {
+            ...(plant.ornamental_features || {}),
+            category: plant.ornamental_features?.category || plant.category || ''
+        },
+        careGuide: {
+            ...(plant.care_guide || {}),
+            careDifficulty: plant.care_guide?.careDifficulty || plant.care_difficulty || ''
+        },
+        synonyms: normalizedSynonyms
+    };
+}
+
+function buildPlantImportPreviewItem(data: any, index: number, existingIds: Set<string>, seenIds: Set<string>) {
+    const normalized = normalizePlantImportData(data);
+    const errors: string[] = [];
+    const duplicateInBatch = normalized.id ? seenIds.has(normalized.id) : false;
+    if (normalized.id) seenIds.add(normalized.id);
+
+    if (!normalized.id) errors.push('缺少 ID');
+    if (!normalized.name) errors.push('缺少名称');
+    if (duplicateInBatch) errors.push('同批次 ID 重复');
+
+    const willOverwrite = Boolean(normalized.id && existingIds.has(normalized.id));
+    const status = errors.length > 0 ? 'failed' : (willOverwrite ? 'overwrite' : 'create');
+
+    return {
+        index,
+        id: normalized.id || null,
+        name: normalized.name || null,
+        status,
+        willOverwrite,
+        synonymCount: normalized.synonyms.length,
+        errors
+    };
+}
+
 function buildAnonymizedPotCommentMessage(extraDataRaw: any, fallbackContent: any): { content: string; extraData: string } {
     const extraData = parseJsonObject(extraDataRaw);
     const comment = typeof extraData.comment === 'string' ? extraData.comment.trim() : '';
@@ -194,9 +355,19 @@ export async function handleAdminRequest(
         return handleGetPlants(request, env, url);
     }
 
+    // GET /api/admin/plants/export - 导出植物库
+    if (path === '/api/admin/plants/export' && request.method === 'GET') {
+        return handleExportPlants(env, url);
+    }
+
     // POST /api/admin/plants - 新增植物
     if (path === '/api/admin/plants' && request.method === 'POST') {
         return handleCreatePlant(request, env);
+    }
+
+    // POST /api/admin/plants/batch/preview - 批量导入预检
+    if (path === '/api/admin/plants/batch/preview' && request.method === 'POST') {
+        return handleBatchImportPreview(request, env);
     }
 
     // POST /api/admin/plants/batch - 批量导入
@@ -330,21 +501,25 @@ async function handleGetAnalytics(env: any, url: URL): Promise<Response> {
 async function handleGetPlants(request: Request, env: any, url: URL): Promise<Response> {
     const page = parseInt(url.searchParams.get('page') || '1');
     const pageSize = parseInt(url.searchParams.get('pageSize') || '20');
-    const search = url.searchParams.get('search') || '';
+    const search = (url.searchParams.get('search') || '').trim();
     const offset = (page - 1) * pageSize;
 
     try {
-        let query = 'SELECT * FROM plants';
-        let countQuery = 'SELECT COUNT(*) as total FROM plants';
+        let query = 'SELECT * FROM plants p';
+        let countQuery = 'SELECT COUNT(*) as total FROM plants p';
         const params: any[] = [];
 
         if (search) {
-            query += ' WHERE name LIKE ? OR id LIKE ?';
-            countQuery += ' WHERE name LIKE ? OR id LIKE ?';
-            params.push(`%${search}%`, `%${search}%`);
+            const searchWhere = ` WHERE p.name LIKE ? OR p.id LIKE ? OR EXISTS (
+                SELECT 1 FROM plant_synonyms ps
+                WHERE ps.plant_id = p.id AND ps.synonym LIKE ?
+            )`;
+            query += searchWhere;
+            countQuery += searchWhere;
+            params.push(`%${search}%`, `%${search}%`, `%${search}%`);
         }
 
-        query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+        query += ' ORDER BY p.created_at DESC LIMIT ? OFFSET ?';
 
         const plants = await env.DB.prepare(query)
             .bind(...params, pageSize, offset)
@@ -354,18 +529,11 @@ async function handleGetPlants(request: Request, env: any, url: URL): Promise<Re
             .bind(...params)
             .first();
 
-        // 加载别名
         const results = await Promise.all(plants.results.map(async (p: any) => {
             const synonyms = await env.DB.prepare('SELECT synonym FROM plant_synonyms WHERE plant_id = ?')
                 .bind(p.id)
                 .all();
-            return {
-                ...p,
-                basic_info: JSON.parse(p.basic_info || '{}'),
-                ornamental_features: JSON.parse(p.ornamental_features || '{}'),
-                care_guide: JSON.parse(p.care_guide || '{}'),
-                synonyms: synonyms.results.map((s: any) => s.synonym)
-            };
+            return buildAdminPlantResponse(p, synonyms.results.map((s: any) => s.synonym));
         }));
 
         return jsonResponse({
@@ -380,6 +548,45 @@ async function handleGetPlants(request: Request, env: any, url: URL): Promise<Re
     } catch (error) {
         console.error('Get plants error:', error);
         return errorResponse('Failed to fetch plants', 500);
+    }
+}
+
+async function loadPlantRowsForExport(env: any, search: string) {
+    let query = 'SELECT * FROM plants p';
+    const params: any[] = [];
+
+    if (search) {
+        query += ` WHERE p.name LIKE ? OR p.id LIKE ? OR EXISTS (
+            SELECT 1 FROM plant_synonyms ps
+            WHERE ps.plant_id = p.id AND ps.synonym LIKE ?
+        )`;
+        params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    }
+
+    query += ' ORDER BY p.created_at DESC';
+    return env.DB.prepare(query).bind(...params).all();
+}
+
+async function handleExportPlants(env: any, url: URL): Promise<Response> {
+    const search = (url.searchParams.get('search') || '').trim();
+
+    try {
+        const plants = await loadPlantRowsForExport(env, search);
+        const results = await Promise.all((plants.results || []).map(async (p: any) => {
+            const synonyms = await env.DB.prepare('SELECT synonym FROM plant_synonyms WHERE plant_id = ? ORDER BY synonym ASC')
+                .bind(p.id)
+                .all();
+            return buildPlantExportRecord(buildAdminPlantResponse(p, synonyms.results.map((s: any) => s.synonym)), synonyms.results.map((s: any) => s.synonym));
+        }));
+
+        return jsonResponse({
+            success: true,
+            data: results,
+            count: results.length
+        });
+    } catch (error) {
+        console.error('Export plants error:', error);
+        return errorResponse('Failed to export plants', 500);
     }
 }
 
@@ -490,46 +697,39 @@ async function handleBatchImport(request: Request, env: any): Promise<Response> 
 
         for (const data of plants) {
             try {
-                const id = data.id || data._id; // 兼容导入格式
-                const name = data.basicInfo?.name || data.name;
+                const normalized = normalizePlantImportData(data);
 
-                if (!id || !name) {
+                if (!normalized.id || !normalized.name) {
                     results.failed++;
                     results.errors.push(`Missing ID or Name for a plant`);
                     continue;
                 }
 
-                const basic_info = data.basicInfo || data.basic_info || {};
-                const ornamental_features = data.ornamentalFeatures || data.ornamental_features || {};
-                const care_guide = data.careGuide || data.care_guide || {};
-                const synonyms = basic_info.synonyms || data.synonyms || [];
-                const image_url = data.image_url || null;
-
                 await env.DB.prepare(`
           INSERT OR REPLACE INTO plants (id, name, category, care_difficulty, basic_info, ornamental_features, care_guide, image_url)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(
-                    id,
-                    name,
-                    ornamental_features.category || data.category || null,
-                    care_guide.careDifficulty || data.care_difficulty || null,
-                    JSON.stringify(basic_info),
-                    JSON.stringify(ornamental_features),
-                    JSON.stringify(care_guide),
-                    image_url
+                    normalized.id,
+                    normalized.name,
+                    normalized.category,
+                    normalized.care_difficulty,
+                    JSON.stringify(normalized.basic_info),
+                    JSON.stringify(normalized.ornamental_features),
+                    JSON.stringify(normalized.care_guide),
+                    normalized.image_url
                 ).run();
 
                 // 更新别名
-                await env.DB.prepare('DELETE FROM plant_synonyms WHERE plant_id = ?').bind(id).run();
-                if (Array.isArray(synonyms) && synonyms.length > 0) {
+                await env.DB.prepare('DELETE FROM plant_synonyms WHERE plant_id = ?').bind(normalized.id).run();
+                if (normalized.synonyms.length > 0) {
                     const stmt = env.DB.prepare('INSERT INTO plant_synonyms (plant_id, synonym) VALUES (?, ?)');
-                    const batch = synonyms.map((s: string) => stmt.bind(id, s));
+                    const batch = normalized.synonyms.map((s: string) => stmt.bind(normalized.id, s));
                     await env.DB.batch(batch);
                 }
                 results.success++;
             } catch (err: any) {
                 results.failed++;
-                results.errors.push(`Error importing ${data.id}: ${err.message}`);
+                results.errors.push(`Error importing ${data?.id || data?._id || 'unknown'}: ${err.message}`);
             }
         }
 
@@ -540,6 +740,48 @@ async function handleBatchImport(request: Request, env: any): Promise<Response> 
     } catch (error) {
         console.error('Batch import error:', error);
         return errorResponse('Failed to process batch import', 500);
+    }
+}
+
+async function handleBatchImportPreview(request: Request, env: any): Promise<Response> {
+    try {
+        const plants = await request.json() as any[];
+        if (!Array.isArray(plants)) return errorResponse('Invalid data format', 400);
+
+        const normalizedItems = plants.map((data, index) => ({ index, normalized: normalizePlantImportData(data) }));
+        const existingIds = new Set<string>();
+
+        for (const item of normalizedItems) {
+            if (!item.normalized.id || existingIds.has(item.normalized.id)) continue;
+            const existing = await env.DB.prepare('SELECT id FROM plants WHERE id = ?')
+                .bind(item.normalized.id)
+                .first();
+            if (existing) existingIds.add(item.normalized.id);
+        }
+
+        const seenIds = new Set<string>();
+        const items = plants.map((data, index) => buildPlantImportPreviewItem(data, index, existingIds, seenIds));
+        const summary = {
+            total: items.length,
+            create: items.filter((item) => item.status === 'create').length,
+            overwrite: items.filter((item) => item.status === 'overwrite').length,
+            failed: items.filter((item) => item.status === 'failed').length,
+            duplicate: items.filter((item) => item.errors.includes('同批次 ID 重复')).length,
+            valid: items.filter((item) => item.status !== 'failed').length,
+            synonymCount: items.reduce((sum, item) => sum + item.synonymCount, 0)
+        };
+
+        return jsonResponse({
+            success: true,
+            summary,
+            items,
+            errors: items
+                .filter((item) => item.errors.length > 0)
+                .map((item) => ({ index: item.index, id: item.id, errors: item.errors }))
+        });
+    } catch (error) {
+        console.error('Batch import preview error:', error);
+        return errorResponse('Failed to preview batch import', 500);
     }
 }
 
