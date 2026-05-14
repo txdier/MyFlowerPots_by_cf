@@ -1,4 +1,4 @@
-import { getJwtSecret, getTokenFromHeader, verifyJWT } from './utils/auth-utils';
+import { getJwtSecret, getTokenFromHeader, verifyJWT, verifyJWTAllowExpired } from './utils/auth-utils';
 import { corsResponse, errorResponse } from './utils/response-utils';
 import { handleAuthRequest } from './api/auth';
 import { handlePotsRequest } from './api/pots';
@@ -180,6 +180,14 @@ export default {
             if (payload) {
               authPayload = payload;
               userId = payload.userId;
+            } else if (path === '/api/auth/refresh') {
+              const expiredPayload = await verifyJWTAllowExpired(rawToken, secret);
+              if (expiredPayload) {
+                authPayload = expiredPayload;
+                userId = expiredPayload.userId;
+              } else {
+                console.warn('Token verification failed for path:', path);
+              }
             } else {
               // 如果提供了 token 但验证失败，可能是过期或伪造
               // 注意：有些路由可能允许匿名访问，所以这里不直接报错，由具体处理程序决定

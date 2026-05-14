@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { env } from 'cloudflare:test';
 import {
   api,
@@ -32,9 +32,28 @@ function expectTokenLifetimeDays(token: string, expectedDays: number) {
   return payload;
 }
 
+async function generateJwtIssuedDaysAgo(payload: any, issuedDaysAgo: number, ttlDays = 7): Promise<string> {
+  const now = Date.now();
+  vi.useFakeTimers();
+  try {
+    vi.setSystemTime(now - issuedDaysAgo * DAY_SECONDS * 1000);
+    return await generateJWT(
+      payload,
+      (env as any).JWT_SECRET,
+      { ttlSeconds: ttlDays * DAY_SECONDS }
+    );
+  } finally {
+    vi.useRealTimers();
+  }
+}
+
 describe('api regression: authentication and account rules', () => {
   beforeEach(async () => {
     await resetWorkerTestDatabase();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('covers register, login, me, profile, password change, refresh, and duplicate email', async () => {
@@ -163,6 +182,77 @@ describe('api regression: authentication and account rules', () => {
     }));
     const legacyPayload = expectTokenLifetimeDays(refreshedLegacy.token, 7);
     expect(legacyPayload.remember).toBe(false);
+  });
+
+  it('refreshes recently expired remembered email sessions within the compatibility window', async () => {
+    const user = await registerUser('expired-remember');
+    const expiredLegacyToken = await generateJwtIssuedDaysAgo(
+      { userId: user.userId, email: user.email, type: 'email' },
+      8
+    );
+
+    expectStatus(await api('/api/auth/me', { token: expiredLegacyToken }), 401);
+
+    const refreshed = await expectOk(await api('/api/auth/refresh', {
+      method: 'POST',
+      token: expiredLegacyToken,
+      body: { remember: true },
+    }));
+    const payload = expectTokenLifetimeDays(refreshed.token, 30);
+    expect(payload.remember).toBe(true);
+  });
+
+  it('rejects expired refresh outside the compatibility rules', async () => {
+    const user = await registerUser('expired-refresh-rules');
+    const tooOldToken = await generateJwtIssuedDaysAgo(
+      { userId: user.userId, email: user.email, type: 'email' },
+      15
+    );
+
+    expectStatus(await api('/api/auth/refresh', {
+      method: 'POST',
+      token: tooOldToken,
+      body: { remember: true },
+    }), 401);
+
+    const recentlyExpiredToken = await generateJwtIssuedDaysAgo(
+      { userId: user.userId, email: user.email, type: 'email' },
+      8
+    );
+
+    expectStatus(await api('/api/auth/refresh', {
+      method: 'POST',
+      token: recentlyExpiredToken,
+      body: { remember: false },
+    }), 401);
+
+    const tamperedToken = `${recentlyExpiredToken.slice(0, -1)}${recentlyExpiredToken.endsWith('a') ? 'b' : 'a'}`;
+    expectStatus(await api('/api/auth/refresh', {
+      method: 'POST',
+      token: tamperedToken,
+      body: { remember: true },
+    }), 401);
+
+    await testDb()
+      .prepare('UPDATE users SET is_disabled = 1 WHERE id = ?')
+      .bind(user.userId)
+      .run();
+    expectStatus(await api('/api/auth/refresh', {
+      method: 'POST',
+      token: recentlyExpiredToken,
+      body: { remember: true },
+    }), 403);
+
+    const anonymous = await identifyAnonymousUser();
+    const expiredAnonymousToken = await generateJwtIssuedDaysAgo(
+      { userId: anonymous.userId, type: 'anonymous', remember: false },
+      8
+    );
+    expectStatus(await api('/api/auth/refresh', {
+      method: 'POST',
+      token: expiredAnonymousToken,
+      body: { remember: true },
+    }), 401);
   });
 
   it('covers disabled account rejection', async () => {

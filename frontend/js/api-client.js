@@ -506,7 +506,7 @@ class APIClient {
                     'Authorization': `Bearer ${this.token}`,
                     ...(this.getD1Bookmark() && { [D1_BOOKMARK_HEADER]: this.getD1Bookmark() })
                 },
-                body: JSON.stringify({})
+                body: JSON.stringify({ remember: this.rememberAuth === true })
             });
 
             this.captureD1Bookmark(response);
@@ -621,7 +621,8 @@ class APIClient {
                 if (response.status === 401) {
                     const canRefresh = endpoint !== '/api/auth/refresh' &&
                         !isPublicAuthEndpoint(endpoint) &&
-                        !!(this.token && this.userId && !this.isTokenExpired());
+                        !!(this.token && this.userId) &&
+                        (!this.isTokenExpired() || this.rememberAuth === true);
                     if (canRefresh) {
                         console.warn('Token expired or invalid, attempting refresh...');
                         const refreshed = await this.refreshToken();

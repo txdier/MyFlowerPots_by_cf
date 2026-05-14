@@ -27,6 +27,7 @@ const DISPLAY_NAME_MAX_LENGTH = 12;
 const VERIFICATION_EMAIL_COOLDOWN_MS = 60 * 1000;
 const VERIFICATION_EMAIL_WINDOW_MS = 24 * 60 * 60 * 1000;
 const VERIFICATION_EMAIL_WINDOW_LIMIT = 5;
+const EXPIRED_REMEMBER_REFRESH_GRACE_SECONDS = 7 * 24 * 60 * 60;
 const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 const TURNSTILE_TEST_BYPASS_TOKEN = 'test-turnstile-token';
 const TURNSTILE_DUMMY_PASS_SECRET = '1x0000000000000000000000000000000AA';
@@ -431,6 +432,15 @@ function isRememberedAuthPayload(payload: any): boolean {
   return payload?.remember === true;
 }
 
+function isRecentlyExpiredEmailAuthPayload(payload: any): boolean {
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const exp = Number(payload?.exp);
+  return payload?.type === 'email'
+    && Number.isFinite(exp)
+    && exp < nowSeconds
+    && exp >= nowSeconds - EXPIRED_REMEMBER_REFRESH_GRACE_SECONDS;
+}
+
 export async function handleAuthRequest(
   request: Request,
   env: any,
@@ -506,7 +516,7 @@ export async function handleAuthRequest(
 
   // 1️⃣4️⃣ 刷新 JWT 令牌
   if (request.method === 'POST' && path === '/api/auth/refresh') {
-    return handleRefreshToken(env, userId, authPayload);
+    return handleRefreshToken(request, env, userId, authPayload);
   }
 
   return errorResponse('Not Found', 404);
@@ -1490,6 +1500,7 @@ async function handleSendVerificationEmail(request: Request, env: any, userId: s
  * 仅允许已通过当前 JWT 认证的用户续发令牌
  */
 async function handleRefreshToken(
+  request: Request,
   env: any,
   userId: string | null,
   authPayload: any | null
@@ -1514,12 +1525,35 @@ async function handleRefreshToken(
       return errorResponse('Account disabled', 403);
     }
 
+    const isExpiredPayload = Number(authPayload?.exp || 0) < Math.floor(Date.now() / 1000);
+    if (isExpiredPayload && !isRecentlyExpiredEmailAuthPayload(authPayload)) {
+      return errorResponse('Authentication required', 401);
+    }
+
+    if (isExpiredPayload && user.user_type !== 'email') {
+      return errorResponse('Authentication required', 401);
+    }
+
+    let requestedRemember = false;
+    try {
+      const body = await request.json() as { remember?: boolean };
+      requestedRemember = body?.remember === true;
+    } catch {
+      requestedRemember = false;
+    }
+
+    if (isExpiredPayload && !requestedRemember && !isRememberedAuthPayload(authPayload)) {
+      return errorResponse('Authentication required', 401);
+    }
+
+    const remember = isExpiredPayload ? true : isRememberedAuthPayload(authPayload);
+
     // 生成新的 JWT 令牌
     const jwtToken = await issueAuthToken(env, {
       userId: user.id,
       email: user.email || null,
       type: user.user_type
-    }, { remember: isRememberedAuthPayload(authPayload) });
+    }, { remember });
 
     return jsonResponse({
       success: true,

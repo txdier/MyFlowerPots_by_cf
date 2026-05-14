@@ -219,6 +219,21 @@ export async function generateJWT(
  * Verify a JWT-like token
  */
 export async function verifyJWT(token: string, secret: string): Promise<any | null> {
+  const decodedPayload = await verifyJWTPayload(token, secret);
+  if (!decodedPayload) return null;
+
+  if (decodedPayload.exp && decodedPayload.exp < Math.floor(Date.now() / 1000)) {
+    return null;
+  }
+
+  return decodedPayload;
+}
+
+export async function verifyJWTAllowExpired(token: string, secret: string): Promise<any | null> {
+  return verifyJWTPayload(token, secret);
+}
+
+async function verifyJWTPayload(token: string, secret: string): Promise<any | null> {
   const parts = token.split('.');
   if (parts.length !== 3) return null;
 
@@ -229,10 +244,8 @@ export async function verifyJWT(token: string, secret: string): Promise<any | nu
   if (signature !== expectedSignature) return null;
 
   try {
-    const decodedPayload = JSON.parse(atob(payload));
-    if (decodedPayload.exp && decodedPayload.exp < Math.floor(Date.now() / 1000)) {
-      return null;
-    }
+    const paddedPayload = payload + '='.repeat((4 - payload.length % 4) % 4);
+    const decodedPayload = JSON.parse(atob(paddedPayload));
     return decodedPayload;
   } catch (e) {
     return null;

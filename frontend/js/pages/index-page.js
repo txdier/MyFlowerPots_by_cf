@@ -991,6 +991,17 @@
                         }
                     } catch (error) {
                         if (error?.status === 401 || error?.status === 404) {
+                            const refreshed = error?.status === 401 ? await apiClient.refreshToken() : false;
+                            if (refreshed) {
+                                try {
+                                    const bootUser = await refreshBootstrapData();
+                                    if (bootUser) {
+                                        return bootUser;
+                                    }
+                                } catch (refreshError) {
+                                    console.warn('Failed to reload login status after token refresh:', refreshError);
+                                }
+                            }
                             apiClient.clearAuth();
                         } else {
                             console.warn('Failed to check login status:', error);
