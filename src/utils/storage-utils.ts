@@ -123,6 +123,87 @@ export async function deleteImagesFromR2(env: any, value: unknown): Promise<{ su
   return deleteFilesFromR2(env, objectKeys);
 }
 
+type ReferencedImageOptions = {
+  excludeTimelineId?: string | number | null;
+  excludeCareRecordId?: string | number | null;
+};
+
+async function getReferencedImageUrlsForPot(
+  env: any,
+  potId: string,
+  value: unknown,
+  options: ReferencedImageOptions = {}
+): Promise<Set<string>> {
+  const candidateUrls = normalizeImageUrls(value);
+  const candidateSet = new Set(candidateUrls);
+  const referencedUrls = new Set<string>();
+  if (!env.DB || !potId || candidateSet.size === 0) return referencedUrls;
+
+  const addReferenced = (source: unknown) => {
+    for (const url of normalizeImageUrls(source)) {
+      if (candidateSet.has(url)) referencedUrls.add(url);
+    }
+  };
+
+  const pot: any = await env.DB
+    .prepare('SELECT image_url FROM pots WHERE id = ?')
+    .bind(potId)
+    .first();
+  addReferenced(pot?.image_url);
+
+  const timelineRows = await env.DB
+    .prepare('SELECT id, images FROM timelines WHERE pot_id = ?')
+    .bind(potId)
+    .all();
+  for (const row of ((timelineRows.results || []) as any[])) {
+    if (
+      options.excludeTimelineId !== undefined &&
+      options.excludeTimelineId !== null &&
+      String(row.id) === String(options.excludeTimelineId)
+    ) {
+      continue;
+    }
+    addReferenced(row.images);
+  }
+
+  const careRows = await env.DB
+    .prepare('SELECT id, image_url FROM care_records WHERE pot_id = ?')
+    .bind(potId)
+    .all();
+  for (const row of ((careRows.results || []) as any[])) {
+    if (
+      options.excludeCareRecordId !== undefined &&
+      options.excludeCareRecordId !== null &&
+      String(row.id) === String(options.excludeCareRecordId)
+    ) {
+      continue;
+    }
+    addReferenced(row.image_url);
+  }
+
+  return referencedUrls;
+}
+
+export async function deleteUnreferencedImagesFromR2(
+  env: any,
+  potId: string,
+  value: unknown,
+  options: ReferencedImageOptions = {}
+): Promise<{ success: number; failed: number; skipped: number }> {
+  const imageUrls = Array.from(new Set(normalizeImageUrls(value)));
+  if (imageUrls.length === 0) {
+    return { success: 0, failed: 0, skipped: 0 };
+  }
+
+  const referencedUrls = await getReferencedImageUrlsForPot(env, potId, imageUrls, options);
+  const deletableUrls = imageUrls.filter(url => !referencedUrls.has(url));
+  const result = await deleteImagesFromR2(env, deletableUrls);
+  return {
+    ...result,
+    skipped: imageUrls.length - deletableUrls.length
+  };
+}
+
 export async function deleteMediaFromR2(env: any, value: unknown): Promise<{ success: number; failed: number }> {
   const objectKeys = extractObjectKeysFromUrls(normalizeImageUrls(value));
   return deleteFilesFromR2(env, objectKeys);

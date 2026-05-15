@@ -68,7 +68,7 @@ npm run backup-db
 
 - 用户页：`index.html`、`pot-detail.html`、`add-pot.html`、`edit-pot.html`、`care-record.html`、`all-records.html`、`all-timelines.html`、`profile.html`、`reset-password.html`
 - 管理页：`admin-plants.html`、`admin-stats.html`、`admin-inbox.html`
-- 共享脚本：`api-client.js`、`router.js`、`media-utils.js`、`form-utils.js`、`date-utils.js`、`pot-permissions.js`、`care-utils.js`、`archive-utils.js`、`gallery-utils.js`、`timeline-utils.js`、`ui-utils.js`、`dialog-utils.js`、`batch-actions-utils.js`、`clipboard.js`
+- 共享脚本：`api-client.js`、`router.js`、`media-utils.js`、`form-utils.js`、`date-utils.js`、`pot-permissions.js`、`care-utils.js`、`archive-utils.js`、`gallery-utils.js`、`cover-utils.js`、`timeline-utils.js`、`ui-utils.js`、`dialog-utils.js`、`batch-actions-utils.js`、`clipboard.js`
 - 样式入口：`frontend/css/tailwind-input.css`，构建产物：`frontend/css/tailwind-built.css`
 
 ## API 结构

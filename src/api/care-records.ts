@@ -1,6 +1,6 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
 import {
-  deleteImagesFromR2,
+  deleteUnreferencedImagesFromR2,
   getRemovedImageUrls,
   normalizeImageUrls
 } from '../utils/storage-utils';
@@ -363,7 +363,9 @@ async function handleUpdateCareRecord(request: Request, env: any, id: string, to
       const newStorageValue = nextImageUrls.length > 0 ? JSON.stringify(nextImageUrls) : null;
       const removedImageUrls = getRemovedImageUrls(existing.image_url, newStorageValue);
       if (removedImageUrls.length > 0) {
-        await deleteImagesFromR2(env, removedImageUrls);
+        await deleteUnreferencedImagesFromR2(env, existing.pot_id, removedImageUrls, {
+          excludeCareRecordId: id
+        });
       }
 
       updates.push('image_url = ?');
@@ -406,7 +408,9 @@ async function handleDeleteCareRecord(request: Request, env: any, id: string, to
       return errorResponse('Record not found or access denied', 404);
     }
 
-    await deleteImagesFromR2(env, existing.image_url);
+    await deleteUnreferencedImagesFromR2(env, existing.pot_id, existing.image_url, {
+      excludeCareRecordId: id
+    });
 
     await env.DB
       .prepare('DELETE FROM care_records WHERE id = ?')

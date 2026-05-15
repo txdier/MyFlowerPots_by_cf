@@ -37,3 +37,5 @@ migrate-pots-to-d1.js
 
 plant_import_template.json
 expanded_plants.json
+
+.playwright-cli/

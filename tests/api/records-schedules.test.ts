@@ -137,6 +137,78 @@ describe('api regression: care records, timelines, and schedules', () => {
     await expect((env as any).STATIC_BUCKET.get(videoKey)).resolves.toBeNull();
   });
 
+  it('keeps timeline images in R2 when they are still used as the pot cover', async () => {
+    const owner = await registerUser('timeline-cover');
+    const potId = await createPot(owner, { name: 'Cover Pot', createInitialTimeline: false });
+    const coverKey = `timeline/${owner.userId}/${potId}/cover.jpg`;
+    const coverUrl = `https://img.kaside365.com/${coverKey}`;
+
+    await (env as any).STATIC_BUCKET.put(coverKey, 'cover-bytes');
+
+    await expectOk(await api('/api/timelines', {
+      method: 'POST',
+      token: owner.token,
+      body: {
+        potId,
+        date: '2026-04-23',
+        description: 'cover timeline',
+        images: [coverUrl],
+      },
+    }));
+
+    await expectOk(await api(`/api/pots/${potId}`, {
+      method: 'PUT',
+      token: owner.token,
+      body: { imageUrl: coverUrl },
+    }));
+
+    const timelines = await expectOk(await api(`/api/pots/${potId}/timelines`, { token: owner.token }));
+    const timeline = timelines.data.find((item: any) => item.description === 'cover timeline');
+    expect(timeline).toBeTruthy();
+
+    await expectOk(await api(`/api/timelines/${timeline.id}`, {
+      method: 'DELETE',
+      token: owner.token,
+    }));
+
+    const storedCover = await (env as any).STATIC_BUCKET.get(coverKey);
+    expect(storedCover).not.toBeNull();
+
+    const potDetail = await expectOk(await api(`/api/pots/${potId}`, { token: owner.token }));
+    expect(potDetail.data.image_url).toBe(coverUrl);
+  });
+
+  it('deletes unreferenced timeline image objects from R2', async () => {
+    const owner = await registerUser('timeline-image-delete');
+    const potId = await createPot(owner, { name: 'Image Delete Pot', createInitialTimeline: false });
+    const imageKey = `timeline/${owner.userId}/${potId}/unused.jpg`;
+    const imageUrl = `https://img.kaside365.com/${imageKey}`;
+
+    await (env as any).STATIC_BUCKET.put(imageKey, 'unused-image-bytes');
+
+    await expectOk(await api('/api/timelines', {
+      method: 'POST',
+      token: owner.token,
+      body: {
+        potId,
+        date: '2026-04-24',
+        description: 'unused image timeline',
+        images: [imageUrl],
+      },
+    }));
+
+    const timelines = await expectOk(await api(`/api/pots/${potId}/timelines`, { token: owner.token }));
+    const timeline = timelines.data.find((item: any) => item.description === 'unused image timeline');
+    expect(timeline).toBeTruthy();
+
+    await expectOk(await api(`/api/timelines/${timeline.id}`, {
+      method: 'DELETE',
+      token: owner.token,
+    }));
+
+    await expect((env as any).STATIC_BUCKET.get(imageKey)).resolves.toBeNull();
+  });
+
   it('covers schedule duplicate rules, reminders, updates, and deletion', async () => {
     const owner = await registerUser('schedules');
     const potId = await createPot(owner, {

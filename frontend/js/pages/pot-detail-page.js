@@ -2622,6 +2622,30 @@
                     heroImageLoaded.value = false;
                 });
 
+                const updatePotCover = async (imageUrl) => {
+                    if (!potId.value) throw new Error('缺少花盆参数');
+                    const res = await apiClient.updatePot(potId.value, { imageUrl });
+                    if (!res?.success) throw new Error(res?.error || '设置封面失败');
+                    return res;
+                };
+
+                const {
+                    coverNotice,
+                    isCoverUpdating,
+                    shouldShowCoverAction,
+                    canSetCover,
+                    isCurrentCover,
+                    setCurrentPreviewAsCover,
+                    undoCoverChange
+                } = MyFlowerPotsCover.createTimelineCoverController({ ref, computed, watch }, {
+                    pot,
+                    previewImages,
+                    previewIndex,
+                    canEditCover: () => isOwner.value && !isArchived.value,
+                    updateCover: updatePotCover,
+                    showAlert
+                });
+
                 const plantInfoGroups = computed(() => {
                     if (!plantInfo.value) return { priority: [], extended: [] };
                     const basic = plantInfo.value.basicInfo || {};
@@ -2671,6 +2695,7 @@
                     potStats, careRecords, timelineRecords, handleImageError, handleHeroImageLoad, handleHeroImageError, heroImageSrc, heroImageLoaded, showActionMenu,
                     showAddTimelineModal, showShareModal, showPublicShareModal, showPublicQrCode, isPublicShareLoading, isSavingTimeline, isEditingTimeline, fileInput, archiveFileInput,
                     previewImages, previewIndex, galleryDragOffset, galleryIsDragging,
+                    coverNotice, isCoverUpdating, shouldShowCoverAction, canSetCover, isCurrentCover, setCurrentPreviewAsCover, undoCoverChange,
                     newTimeline, sortedTimelineRecords, isTimelineDesc,
                     goBack, goEditPage, goAddCarePage, goCreatePot, confirmDeletePot, openArchiveModal, closeArchiveModal,
                     archiveCurrentPot, restoreArchivedPot, showArchiveModal, isArchiveLoading, archiveForm, archiveReasons,

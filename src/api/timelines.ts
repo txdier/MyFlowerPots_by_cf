@@ -1,6 +1,6 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
 import {
-  deleteImagesFromR2,
+  deleteUnreferencedImagesFromR2,
   deleteMediaFromR2,
   getRemovedImageUrls
 } from '../utils/storage-utils';
@@ -134,7 +134,9 @@ async function handleUpdateTimeline(request: Request, env: any, id: string, toke
 
     // 处理图片更新时的 R2 清理逻辑（比较新旧列表）
     if (images !== undefined) {
-      await deleteImagesFromR2(env, getRemovedImageUrls(existing.images, images));
+      await deleteUnreferencedImagesFromR2(env, existing.pot_id, getRemovedImageUrls(existing.images, images), {
+        excludeTimelineId: id
+      });
     }
     if (video !== undefined && video !== existing.video) {
       await deleteMediaFromR2(env, existing.video);
@@ -201,7 +203,9 @@ async function handleDeleteTimeline(request: Request, env: any, id: string, toke
       return errorResponse('Record not found', 404);
     }
 
-    await deleteImagesFromR2(env, existing.images);
+    await deleteUnreferencedImagesFromR2(env, existing.pot_id, existing.images, {
+      excludeTimelineId: id
+    });
     await deleteMediaFromR2(env, existing.video);
 
     await env.DB

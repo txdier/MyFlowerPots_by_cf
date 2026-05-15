@@ -1203,6 +1203,28 @@
                     </div>
                 </div>
                 <div class="absolute bottom-10 left-0 right-0 flex flex-col items-center gap-3 pointer-events-none">
+                    <div v-if="coverNotice.show"
+                        class="pointer-events-auto inline-flex items-center gap-3 rounded-full bg-white/95 px-4 py-2 text-xs font-bold text-gray-700 shadow-lg">
+                        <span>{{ coverNotice.message }}</span>
+                        <button v-if="coverNotice.canUndo" type="button" @click.stop="undoCoverChange"
+                            :disabled="isCoverUpdating"
+                            class="text-green-600 transition hover:text-green-700 disabled:opacity-50">
+                            撤销
+                        </button>
+                    </div>
+                    <div v-if="shouldShowCoverAction"
+                        class="pointer-events-auto inline-flex items-center rounded-full bg-black/50 px-3 py-2 text-xs font-bold text-white/90 shadow-lg backdrop-blur">
+                        <button v-if="canSetCover" type="button" @click.stop="setCurrentPreviewAsCover"
+                            :disabled="isCoverUpdating" title="设为花盆封面" aria-label="设为花盆封面"
+                            class="inline-flex items-center gap-1.5 transition hover:text-white disabled:opacity-60">
+                            <i class="fa" :class="isCoverUpdating ? 'fa-spinner fa-spin' : 'fa-image'"></i>
+                            <span>{{ isCoverUpdating ? '设置中...' : '设为封面' }}</span>
+                        </button>
+                        <span v-else-if="isCurrentCover" class="inline-flex items-center gap-1.5 text-white/80">
+                            <i class="fa fa-check-circle"></i>
+                            当前封面
+                        </span>
+                    </div>
                     <div v-if="previewImages.length > 1" class="flex gap-1.5">
                         <span v-for="(_, idx) in previewImages" :key="idx"
                             class="w-1.5 h-1.5 rounded-full transition-all duration-300"
@@ -2036,6 +2058,7 @@
     <script src="js/pot-permissions.js?v=20260421-refactor"></script>
     <script src="js/care-utils.js?v=20260421-refactor"></script>
     <script src="js/gallery-utils.js?v=20260421-refactor"></script>
+    <script src="js/cover-utils.js?v=20260514-cover"></script>
     <script src="js/timeline-utils.js?v=20260421-refactor"></script>
     <script src="js/archive-utils.js?v=20260421-refactor"></script>
     <script src="js/date-utils.js?v=20260428-growth"></script>
@@ -2044,7 +2067,7 @@
     <script src="js/clipboard.js?v=20260407-2"></script>
     <script src="js/dialog-utils.js?v=20260421-refactor"></script>
 
-    <script src="js/pages/pot-detail-page.js?v=20260510-page-split"></script>
+    <script src="js/pages/pot-detail-page.js?v=20260514-cover"></script>
 </body>
 
 </html>
