@@ -89,6 +89,44 @@ describe('api regression: pot activity markers', () => {
     expect(findPot(viewerList, potId).has_new_activity).toBe(1);
   });
 
+  it('keeps cover-only changes quiet while still notifying for real plant-info edits', async () => {
+    const owner = await registerUser('activity-cover-owner');
+    const collaborator = await registerUser('activity-cover-collab');
+    const viewer = await registerUser('activity-cover-viewer');
+    const potId = await createPot(owner, { createInitialTimeline: false });
+
+    await addCollaborator(owner, potId, collaborator);
+    await addViewer(owner, potId, viewer);
+
+    await expectOk(await api(`/api/pots/${potId}`, {
+      method: 'PUT',
+      token: owner.token,
+      body: { imageUrl: 'https://img.kaside365.com/timeline/cover-only.jpg' }
+    }));
+
+    const collaboratorAfterCover = await expectOk(await api('/api/pots', { token: collaborator.token }));
+    expect(findPot(collaboratorAfterCover, potId).has_new_activity).toBe(0);
+    const viewerAfterCover = await expectOk(await api('/api/pots', { token: viewer.token }));
+    expect(findPot(viewerAfterCover, potId).has_new_activity).toBe(0);
+
+    await expectOk(await api(`/api/pots/${potId}`, {
+      method: 'PUT',
+      token: owner.token,
+      body: {
+        imageUrl: 'https://img.kaside365.com/timeline/cover-with-note.jpg',
+        note: 'cover changed with real plant info'
+      }
+    }));
+
+    const collaboratorAfterInfo = await expectOk(await api('/api/pots', { token: collaborator.token }));
+    const collaboratorPot = findPot(collaboratorAfterInfo, potId);
+    expect(collaboratorPot.has_new_activity).toBe(1);
+    expect(collaboratorPot.latest_activity_type).toBe('pot_updated');
+
+    const viewerAfterInfo = await expectOk(await api('/api/pots', { token: viewer.token }));
+    expect(findPot(viewerAfterInfo, potId).has_new_activity).toBe(1);
+  });
+
   it('starts new viewer and collaborator permissions from the current activity baseline', async () => {
     const owner = await registerUser('activity-baseline-owner');
     const collaborator = await registerUser('activity-baseline-collab');

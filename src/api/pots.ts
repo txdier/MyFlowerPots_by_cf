@@ -1008,8 +1008,7 @@ async function handleUpdatePot(
       [name, pot.name],
       [plantType, pot.plant_type],
       [note, pot.note],
-      [plantDate, pot.plant_date],
-      [imageUrl, pot.image_url]
+      [plantDate, pot.plant_date]
     ].some(([nextValue, oldValue]) => (
       nextValue !== undefined && String(nextValue ?? '').trim() !== String(oldValue ?? '').trim()
     ));
