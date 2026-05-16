@@ -1447,6 +1447,10 @@ button:disabled {
     padding-left: 4.5rem;
 }
 
+.home-pot-card-front {
+    height: 7.5rem;
+}
+
 .home-pot-edit-rail {
     width: 4.5rem;
 }
@@ -1466,17 +1470,31 @@ button:disabled {
 }
 
 .home-pot-image {
-    width: 8rem;
-    height: 8rem;
+    width: 7rem;
+    height: 7rem;
     padding: 0.25rem;
+    align-self: center;
 }
 
 .home-pot-info {
-    padding: 1rem;
+    padding: 0.75rem 1rem;
 }
 
 .home-pot-info--normal {
     padding-right: 3rem;
+}
+
+.home-pot-detail-chevron {
+    position: absolute;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    z-index: 10;
+    display: flex;
+    width: 2.25rem;
+    height: 2.25rem;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
 }
 
 .home-pot-meta-row {
@@ -1525,10 +1543,6 @@ button:disabled {
         font-size: 1rem;
     }
 
-    .home-pot-image {
-        width: 7rem;
-    }
-
     .home-pot-info {
         padding: 0.875rem 0.75rem 0.875rem 0.875rem;
     }
@@ -1560,8 +1574,9 @@ button:disabled {
         font-size: 0.875rem;
     }
 
-    .home-pot-image {
+    .home-pot-card-front--editing .home-pot-image {
         width: 6rem;
+        height: 6rem;
     }
 
     .home-pot-info {
