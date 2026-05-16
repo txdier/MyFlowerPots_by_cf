@@ -257,6 +257,8 @@ describe('api regression: authentication and account rules', () => {
 
   it('covers disabled account rejection', async () => {
     const user = await registerUser('disabled');
+    const existingPotId = await createPot(user, { name: 'Disabled Existing Pot' });
+
     await testDb()
       .prepare('UPDATE users SET is_disabled = 1 WHERE id = ?')
       .bind(user.userId)
@@ -279,6 +281,31 @@ describe('api regression: authentication and account rules', () => {
         id: `pot-${crypto.randomUUID()}`,
         userId: user.userId,
         name: 'blocked',
+      },
+    }), 403);
+
+    expectStatus(await api('/api/bootstrap', {
+      token: user.token,
+    }), 403);
+
+    expectStatus(await api('/api/care-records', {
+      method: 'POST',
+      token: user.token,
+      body: {
+        potId: existingPotId,
+        type: 'water',
+        action: 'blocked care',
+        careDate: '2026-05-16',
+      },
+    }), 403);
+
+    expectStatus(await api('/api/timelines', {
+      method: 'POST',
+      token: user.token,
+      body: {
+        potId: existingPotId,
+        date: '2026-05-16',
+        description: 'blocked timeline',
       },
     }), 403);
   });

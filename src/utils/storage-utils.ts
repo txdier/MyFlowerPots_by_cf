@@ -1,62 +1,104 @@
-// 存储工具函数 - 用于处理R2存储操作
-
-// 默认图片保护列表
 const DEFAULT_IMAGES = [
   'icons-default-pot.png',
-  // 未来可添加其他默认图片
 ];
 
-/**
- * 检查URL是否为默认图片
- */
+const R2_MEDIA_HOSTNAME = 'img.kaside365.com';
+
+export type R2DeleteScope = {
+  userId?: string | number | null;
+  ownerId?: string | number | null;
+  potId?: string | number | null;
+  potIds?: Array<string | number | null | undefined>;
+};
+
 export function isDefaultImage(url: string): boolean {
   if (!url) return false;
   return DEFAULT_IMAGES.some(defaultImg => url.includes(defaultImg));
 }
 
-/**
- * 从R2 URL中提取对象键
- * 格式: https://img.kaside365.com/{directory}/{userId}/{entityId}/{filename}
- */
 export function extractObjectKeyFromUrl(url: string): string | null {
   if (!url) return null;
-  
+
   try {
     const urlObj = new URL(url);
-    // 移除域名部分，获取路径
-    const path = urlObj.pathname;
-    // 移除开头的斜杠
-    return path.startsWith('/') ? path.substring(1) : path;
+    if (urlObj.hostname !== R2_MEDIA_HOSTNAME) {
+      return null;
+    }
+
+    const objectKey = urlObj.pathname.replace(/^\/+/, '');
+    if (!objectKey || objectKey.includes('\\')) {
+      return null;
+    }
+
+    const parts = objectKey.split('/');
+    if (parts.some(part => !part || part === '.' || part === '..')) {
+      return null;
+    }
+
+    return objectKey;
   } catch {
-    // 如果不是有效的URL，尝试直接使用
-    return url;
+    return null;
   }
 }
 
-/**
- * 从R2删除文件
- */
+function normalizeScopeId(value: string | number | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  return text || null;
+}
+
+function buildScopeSet(values: Array<string | number | null | undefined>): Set<string> {
+  const set = new Set<string>();
+  for (const value of values) {
+    const normalized = normalizeScopeId(value);
+    if (normalized) set.add(normalized);
+  }
+  return set;
+}
+
+export function isObjectKeyAllowedForDelete(objectKey: string, scope: R2DeleteScope = {}): boolean {
+  const parts = objectKey.split('/');
+  if (parts.some(part => !part || part === '.' || part === '..')) {
+    return false;
+  }
+
+  const scopedUserIds = buildScopeSet([scope.userId, scope.ownerId]);
+  const scopedPotIds = buildScopeSet([
+    scope.potId,
+    ...(Array.isArray(scope.potIds) ? scope.potIds : [])
+  ]);
+  const [directory, objectUserId, objectPotId] = parts;
+
+  if (directory === 'pots' || directory === 'general') {
+    return !!objectUserId && scopedUserIds.has(objectUserId);
+  }
+
+  if (directory === 'timeline' || directory === 'care') {
+    return (!!objectPotId && scopedPotIds.has(objectPotId))
+      || (!!objectUserId && scopedUserIds.has(objectUserId));
+  }
+
+  return false;
+}
+
 export async function deleteFileFromR2(
-  env: any, 
+  env: any,
   objectKey: string
 ): Promise<boolean> {
   try {
     if (!env.STATIC_BUCKET) {
-      console.warn('R2存储桶未配置，跳过删除文件:', objectKey);
+      console.warn('R2 bucket is not configured; skipping file deletion', objectKey);
       return false;
     }
-    
+
     await env.STATIC_BUCKET.delete(objectKey);
     return true;
   } catch (error) {
-    console.error('删除R2文件失败:', error, 'objectKey:', objectKey);
+    console.error('Failed to delete R2 object:', error, 'objectKey:', objectKey);
     return false;
   }
 }
 
-/**
- * 批量删除R2文件
- */
 export async function deleteFilesFromR2(
   env: any,
   objectKeys: string[]
@@ -64,35 +106,33 @@ export async function deleteFilesFromR2(
   if (!env.STATIC_BUCKET || objectKeys.length === 0) {
     return { success: 0, failed: 0 };
   }
-  
+
   let success = 0;
   let failed = 0;
-  
+
   for (const objectKey of objectKeys) {
     try {
       await env.STATIC_BUCKET.delete(objectKey);
       success++;
     } catch (error) {
       failed++;
-      console.error('删除R2文件失败:', error, 'objectKey:', objectKey);
+      console.error('Failed to delete R2 object:', error, 'objectKey:', objectKey);
     }
   }
-  
+
   return { success, failed };
 }
 
-/**
- * 从图片URL数组中提取对象键
- */
-export function extractObjectKeysFromUrls(urls: string[]): string[] {
+export function extractObjectKeysFromUrls(urls: string[], scope: R2DeleteScope = {}): string[] {
   return urls
     .map(url => extractObjectKeyFromUrl(url))
-    .filter((key): key is string => key !== null && !isDefaultImage(key));
+    .filter((key): key is string => (
+      key !== null &&
+      !isDefaultImage(key) &&
+      isObjectKeyAllowedForDelete(key, scope)
+    ));
 }
 
-/**
- * 将单图 URL、JSON 字符串、多图数组统一为 URL 数组。
- */
 export function normalizeImageUrls(value: unknown): string[] {
   if (!value) return [];
   if (Array.isArray(value)) {
@@ -118,8 +158,12 @@ export function getRemovedImageUrls(oldValue: unknown, newValue: unknown): strin
   return oldUrls.filter(url => !newUrlSet.has(url));
 }
 
-export async function deleteImagesFromR2(env: any, value: unknown): Promise<{ success: number; failed: number }> {
-  const objectKeys = extractObjectKeysFromUrls(normalizeImageUrls(value));
+export async function deleteImagesFromR2(
+  env: any,
+  value: unknown,
+  scope: R2DeleteScope = {}
+): Promise<{ success: number; failed: number }> {
+  const objectKeys = extractObjectKeysFromUrls(normalizeImageUrls(value), scope);
   return deleteFilesFromR2(env, objectKeys);
 }
 
@@ -197,15 +241,19 @@ export async function deleteUnreferencedImagesFromR2(
 
   const referencedUrls = await getReferencedImageUrlsForPot(env, potId, imageUrls, options);
   const deletableUrls = imageUrls.filter(url => !referencedUrls.has(url));
-  const result = await deleteImagesFromR2(env, deletableUrls);
+  const result = await deleteImagesFromR2(env, deletableUrls, { potId });
   return {
     ...result,
     skipped: imageUrls.length - deletableUrls.length
   };
 }
 
-export async function deleteMediaFromR2(env: any, value: unknown): Promise<{ success: number; failed: number }> {
-  const objectKeys = extractObjectKeysFromUrls(normalizeImageUrls(value));
+export async function deleteMediaFromR2(
+  env: any,
+  value: unknown,
+  scope: R2DeleteScope = {}
+): Promise<{ success: number; failed: number }> {
+  const objectKeys = extractObjectKeysFromUrls(normalizeImageUrls(value), scope);
   return deleteFilesFromR2(env, objectKeys);
 }
 
@@ -255,13 +303,6 @@ export async function collectUserImageUrls(env: any, userId: string): Promise<st
   return Array.from(new Set(imageUrls.filter(Boolean)));
 }
 
-/**
- * 生成存储路径
- * @param uploadType 上传类型: 'pot' | 'timeline' | 'care'
- * @param userId 用户ID
- * @param potId 花盆ID（对于时间线和养护记录必需，对于花盆图片可选）
- * @param fileName 文件名
- */
 export function generateStoragePath(
   uploadType: string,
   userId: string,
@@ -269,43 +310,33 @@ export function generateStoragePath(
   fileName: string
 ): string {
   if (uploadType === 'pot') {
-    // 花盆图片：直接放在用户目录下，忽略potId
     return `pots/${userId}/${fileName}`;
   } else if (uploadType === 'timeline') {
-    // 时间线图片：需要potId
     if (!potId) {
-      throw new Error('时间线图片需要potId参数');
+      throw new Error('Timeline image upload requires potId');
     }
     return `timeline/${userId}/${potId}/${fileName}`;
   } else if (uploadType === 'care') {
-    // 养护记录图片：需要potId
     if (!potId) {
-      throw new Error('养护记录图片需要potId参数');
+      throw new Error('Care image upload requires potId');
     }
     return `care/${userId}/${potId}/${fileName}`;
   } else {
-    // 其他类型
     return `general/${userId}/${fileName}`;
   }
 }
 
-/**
- * 从请求中获取用户ID
- */
 export function getUserIdFromRequest(request: Request): string {
-  // 尝试从Authorization头中获取
   const authHeader = request.headers.get('Authorization');
   if (authHeader) {
-    // 移除Bearer前缀
-    const token = authHeader.startsWith('Bearer ') 
-      ? authHeader.substring(7) 
+    const token = authHeader.startsWith('Bearer ')
+      ? authHeader.substring(7)
       : authHeader;
     return token;
   }
-  
-  // 尝试从自定义头中获取
+
   const userId = request.headers.get('x-user-id');
   if (userId) return userId;
-  
+
   return 'anonymous';
 }

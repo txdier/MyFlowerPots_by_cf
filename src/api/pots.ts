@@ -1046,14 +1046,15 @@ async function handleDeletePot(
     }
 
     const pot = await findAccessiblePot(env, potId, userId, 'owner', {
-      select: 'p.id, p.image_url'
+      select: 'p.id, p.user_id, p.image_url'
     });
 
     if (!pot) {
       return errorResponse('Pot not found or access denied', 404);
     }
 
-    const imageDeleteResult = await deleteImagesFromR2(env, pot.image_url);
+    const mediaDeleteScope = { userId: pot.user_id, potId };
+    const imageDeleteResult = await deleteImagesFromR2(env, pot.image_url, mediaDeleteScope);
     const imageDeleted = imageDeleteResult.success > 0;
 
     // 2. 获取记录图片（用于后续删除）
@@ -1079,12 +1080,12 @@ async function handleDeletePot(
         try {
           for (const timeline of (timelines.results as any[])) {
             if (timeline.images) {
-              await deleteImagesFromR2(env, timeline.images);
+              await deleteImagesFromR2(env, timeline.images, mediaDeleteScope);
             }
           }
           for (const record of (careRecords.results as any[])) {
             if (record.image_url) {
-              await deleteImagesFromR2(env, record.image_url);
+              await deleteImagesFromR2(env, record.image_url, mediaDeleteScope);
             }
           }
         } catch (asyncError) {

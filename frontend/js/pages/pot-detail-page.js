@@ -290,8 +290,7 @@
                         !!pot.value.is_collaborator ||
                         !!pot.value.is_viewer ||
                         !!viewerIsCollaborator.value ||
-                        !!viewerIsViewer.value ||
-                        !!shareToken.value
+                        !!viewerIsViewer.value
                     )
                 ));
                 const canManageCommentDanmaku = computed(() => !!(isOwner.value && hasCommentAudience.value && !isArchived.value));
@@ -351,7 +350,6 @@
                 const canViewCommentDanmaku = computed(() => !!(
                     hasCommentAudience.value && (
                         showCommentEntry.value ||
-                        !!shareToken.value ||
                         !!pot.value?.is_viewer ||
                         !!viewerIsViewer.value ||
                         !!pot.value?.is_collaborator ||
@@ -2428,13 +2426,13 @@
                 };
 
                 const loadPotComments = async () => {
-                    if (!potId.value || (!currentUser.value && !shareToken.value)) {
+                    if (!potId.value || !canCommentAsMember.value) {
                         potComments.value = [];
                         return;
                     }
                     isCommentsLoading.value = true;
                     try {
-                        const res = await apiClient.getPotComments(potId.value, shareToken.value);
+                        const res = await apiClient.getPotComments(potId.value);
                         if (res.success) {
                             potComments.value = res.data || [];
                         }

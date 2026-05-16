@@ -139,7 +139,7 @@ async function handleUpdateTimeline(request: Request, env: any, id: string, toke
       });
     }
     if (video !== undefined && video !== existing.video) {
-      await deleteMediaFromR2(env, existing.video);
+      await deleteMediaFromR2(env, existing.video, { potId: existing.pot_id });
     }
 
     // 构建更新 SQL
@@ -206,7 +206,7 @@ async function handleDeleteTimeline(request: Request, env: any, id: string, toke
     await deleteUnreferencedImagesFromR2(env, existing.pot_id, existing.images, {
       excludeTimelineId: id
     });
-    await deleteMediaFromR2(env, existing.video);
+    await deleteMediaFromR2(env, existing.video, { potId: existing.pot_id });
 
     await env.DB
       .prepare('DELETE FROM timelines WHERE id = ?')

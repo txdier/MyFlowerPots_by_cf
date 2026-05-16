@@ -339,7 +339,7 @@ export async function handleMessagesRequest(
       const shareToken = url.searchParams.get('shareToken')?.trim();
       if (!potId) return errorResponse('Pot ID required', 400);
 
-      const accessResult = await getPotWithAccess(env, potId, userId, shareToken, { allowPublicShare: true, allowViewer: true });
+      const accessResult = await getPotWithAccess(env, potId, userId, shareToken, { allowPublicShare: false, allowViewer: true });
       if (accessResult.error) return accessResult.error;
 
       const { results } = await env.DB.prepare(`

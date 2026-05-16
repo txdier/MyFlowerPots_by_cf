@@ -117,6 +117,11 @@ describe('api regression: comments, messages, plants, upload, analytics headers,
       },
     }));
 
+    expectStatus(await api(`/api/messages/pot-comments/${potId}?shareToken=${encodeURIComponent(shareToken)}`), 403);
+
+    const viewerComments = await expectOk(await api(`/api/messages/pot-comments/${potId}`, { token: viewer.token }));
+    expect(viewerComments.data).toHaveLength(1);
+
     await expectOk(await api(`/api/pots/${potId}/archive`, {
       method: 'POST',
       token: owner.token,

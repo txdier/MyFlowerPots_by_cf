@@ -1008,7 +1008,7 @@ async function handleDeleteUser(env: any, id: string): Promise<Response> {
         console.log(`Collecting R2 objects to delete. Collection size: ${imageUrls.length}`);
         if (imageUrls.length > 0) {
             try {
-                await deleteImagesFromR2(env, imageUrls);
+                await deleteImagesFromR2(env, imageUrls, { userId: id });
             } catch (e) {
                 console.warn('Error during R2 deletion, proceeding with DB cleanup:', e);
             }

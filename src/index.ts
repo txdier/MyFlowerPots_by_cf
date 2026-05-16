@@ -119,6 +119,15 @@ function textResponse(body: string, contentType: string): Response {
   });
 }
 
+async function isDisabledAuthenticatedUser(env: any, userId: string): Promise<boolean> {
+  if (!env?.DB || !userId) return false;
+  const user = await env.DB
+    .prepare('SELECT is_disabled FROM users WHERE id = ?')
+    .bind(userId)
+    .first();
+  return user?.is_disabled === 1 || user?.is_disabled === true;
+}
+
 function serveRobotsTxt(request: Request, env: any): Response {
   const sitemapUrl = buildAbsoluteUrl(request, env, '/sitemap.xml');
   return textResponse([
@@ -211,6 +220,10 @@ export default {
         }
 
         // 认证相关API
+        if (userId && await isDisabledAuthenticatedUser(requestEnv, userId)) {
+          return respond(errorResponse('Account disabled', 403));
+        }
+
         if (path.startsWith('/api/auth/')) {
           return respond(handleAuthRequest(request, requestEnv, path, url, userId, authPayload));
         }

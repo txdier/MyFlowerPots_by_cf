@@ -209,6 +209,52 @@ describe('api regression: care records, timelines, and schedules', () => {
     await expect((env as any).STATIC_BUCKET.get(imageKey)).resolves.toBeNull();
   });
 
+  it('does not delete media objects outside the current pot scope', async () => {
+    const victim = await registerUser('r2-victim');
+    const attacker = await registerUser('r2-attacker');
+    const victimKey = `pots/${victim.userId}/victim-cover.webp`;
+    const victimUrl = `https://img.kaside365.com/${victimKey}`;
+
+    await (env as any).STATIC_BUCKET.put(victimKey, 'victim-image-bytes', {
+      httpMetadata: { contentType: 'image/webp' },
+    });
+
+    const victimPotId = await createPot(victim, {
+      name: 'Victim R2 Pot',
+      imageUrl: victimUrl,
+    });
+    const attackerPotId = await createPot(attacker, {
+      name: 'Attacker Pot',
+      createInitialTimeline: false,
+    });
+
+    await expectOk(await api('/api/timelines', {
+      method: 'POST',
+      token: attacker.token,
+      body: {
+        potId: attackerPotId,
+        date: '2026-04-25',
+        description: 'reference victim object',
+        images: [victimUrl],
+      },
+    }));
+
+    const timelines = await expectOk(await api(`/api/pots/${attackerPotId}/timelines`, { token: attacker.token }));
+    const timeline = timelines.data.find((item: any) => item.description === 'reference victim object');
+    expect(timeline).toBeTruthy();
+
+    await expectOk(await api(`/api/timelines/${timeline.id}`, {
+      method: 'DELETE',
+      token: attacker.token,
+    }));
+
+    const storedVictimCover = await (env as any).STATIC_BUCKET.get(victimKey);
+    expect(storedVictimCover).not.toBeNull();
+
+    const victimPot = await expectOk(await api(`/api/pots/${victimPotId}`, { token: victim.token }));
+    expect(victimPot.data.image_url).toBe(victimUrl);
+  });
+
   it('covers schedule duplicate rules, reminders, updates, and deletion', async () => {
     const owner = await registerUser('schedules');
     const potId = await createPot(owner, {
