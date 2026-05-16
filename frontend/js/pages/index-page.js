@@ -11,6 +11,8 @@
                 const pots = ref([]);
                 const isPotSearchActive = ref(false);
                 const potSearchQuery = ref('');
+                const searchFilter = ref('');
+                const showSearchFilterMenu = ref(false);
                 const potSearchInput = ref(null);
                 const POT_PAGE_SIZE = 20;
                 const isLoadingMore = ref(false);
@@ -287,8 +289,8 @@
                     });
                 });
                 const dueCarePotIds = computed(() => new Set(careReminders.value.map(item => String(item.potId))));
-                const getBatchFilteredPots = (source, filter = batchFilter.value) => {
-                    if (!isEditMode.value || !filter) return source;
+                const getPotsFilteredByType = (source, filter) => {
+                    if (!filter) return source;
                     if (filter === 'due') {
                         return source.filter(pot => dueCarePotIds.value.has(String(pot.id)));
                     }
@@ -303,6 +305,14 @@
                     }
                     return source;
                 };
+                const getBatchFilteredPots = (source, filter = batchFilter.value) => {
+                    if (!isEditMode.value) return source;
+                    return getPotsFilteredByType(source, filter);
+                };
+                const hasActiveSearchFilter = computed(() => !!searchFilter.value);
+                const searchFilteredPots = computed(() => (
+                    isPotSearchActive.value ? getPotsFilteredByType(searchMatchedPots.value, searchFilter.value) : searchMatchedPots.value
+                ));
                 const batchFilterTerms = computed(() => batchFilterQuery.value.trim().toLowerCase().split(/\s+/).filter(Boolean));
                 const hasActiveBatchFilter = computed(() => !!batchFilter.value || batchFilterTerms.value.length > 0);
                 const getBatchQueryFilteredPots = (source) => {
@@ -315,9 +325,14 @@
                 };
                 const visibleBatchPots = computed(() => getBatchQueryFilteredPots(getBatchFilteredPots(pots.value)));
                 const displayedPots = computed(() => (
-                    isEditMode.value ? visibleBatchPots.value : searchMatchedPots.value
+                    isEditMode.value ? visibleBatchPots.value : searchFilteredPots.value
                 ));
-                const isPotSearchEmpty = computed(() => !isEditMode.value && hasPotSearchQuery.value && searchMatchedPots.value.length === 0);
+                const isPotSearchEmpty = computed(() => (
+                    !isEditMode.value &&
+                    isPotSearchActive.value &&
+                    (hasPotSearchQuery.value || hasActiveSearchFilter.value) &&
+                    displayedPots.value.length === 0
+                ));
                 const isBatchFilterEmpty = computed(() => (
                     isEditMode.value &&
                     hasActiveBatchFilter.value &&
@@ -351,6 +366,31 @@
                         batchFilter.value = filter;
                         showBatchFilterMenu.value = false;
                     }
+                };
+                const clearBatchFilterFromMenu = () => {
+                    batchFilter.value = '';
+                    batchFilterQuery.value = '';
+                    showBatchFilterMenu.value = false;
+                };
+                const searchFilterOptions = computed(() => batchFilterOptions.value);
+                const setSearchFilter = (filter) => {
+                    if (searchFilter.value === filter) {
+                        searchFilter.value = '';
+                        showSearchFilterMenu.value = false;
+                        return;
+                    }
+                    if (searchFilterOptions.value.some(option => option.value === filter)) {
+                        searchFilter.value = filter;
+                        showSearchFilterMenu.value = false;
+                    }
+                };
+                const clearSearchFilterFromMenu = () => {
+                    searchFilter.value = '';
+                    showSearchFilterMenu.value = false;
+                };
+                const toggleSearchFilterMenu = () => {
+                    showSearchFilterMenu.value = !showSearchFilterMenu.value;
+                    showUserMenu.value = false;
                 };
                 const selectedOwnedPots = computed(() => pots.value.filter(p => p.selected && isOwnedPotData(p)));
                 const selectedCareManageablePots = computed(() => pots.value.filter(p => p.selected && isBatchCareManageablePot(p)));
@@ -419,6 +459,9 @@
                 watch(batchFilterOptions, (options) => {
                     if (!options.some(option => option.value === batchFilter.value)) {
                         batchFilter.value = '';
+                    }
+                    if (!options.some(option => option.value === searchFilter.value)) {
+                        searchFilter.value = '';
                     }
                 });
 
@@ -1213,6 +1256,7 @@
                 const openPotSearch = () => {
                     if (isEditMode.value || pots.value.length === 0) return;
                     isPotSearchActive.value = true;
+                    showSearchFilterMenu.value = false;
                     showRemindersExpanded.value = false;
                     showUserMenu.value = false;
                     nextTick(() => potSearchInput.value?.focus?.());
@@ -1224,6 +1268,8 @@
                 const closePotSearch = () => {
                     isPotSearchActive.value = false;
                     potSearchQuery.value = '';
+                    searchFilter.value = '';
+                    showSearchFilterMenu.value = false;
                 };
 
                 const clearPotSearch = () => {
@@ -2677,7 +2723,7 @@
 	                });
 
                 return {
-                    isLoading, pots, displayedPots, isPotSearchEmpty, isBatchFilterEmpty, batchFilter, batchFilterQuery, showBatchFilterMenu, hasActiveBatchFilter, batchFilterOptions, setBatchFilter, isPotSearchActive, potSearchQuery, potSearchInput, hasPotSearchQuery, openPotSearch, closePotSearch, clearPotSearch,
+                    isLoading, pots, displayedPots, isPotSearchEmpty, isBatchFilterEmpty, batchFilter, batchFilterQuery, showBatchFilterMenu, hasActiveBatchFilter, batchFilterOptions, setBatchFilter, clearBatchFilterFromMenu, searchFilter, showSearchFilterMenu, hasActiveSearchFilter, searchFilterOptions, setSearchFilter, clearSearchFilterFromMenu, toggleSearchFilterMenu, isPotSearchActive, potSearchQuery, potSearchInput, hasPotSearchQuery, openPotSearch, closePotSearch, clearPotSearch,
                     isLoadingMore, hasMorePots, loadMorePots, activePotStatus, potStatusTabs, potStatusCounts, showPotStatusSwitch, setPotStatus,
                     getPotStatusTabButtonClass, getPotStatusTabFillStyle, getPotStatusTabTextClass,
                     handlePotStatusSwipeStart, handlePotStatusSwipeMove, handlePotStatusSwipeEnd, handlePotStatusSwipeCancel,

@@ -37,7 +37,7 @@
 
     <!-- Tailwind CSS & Custom Styles (Optimized) -->
     <link rel="stylesheet" href="css/tailwind-built.css?v=20260421-search">
-    <link rel="stylesheet" href="css/app.css?v=20260516-batch-filter-menu">
+    <link rel="stylesheet" href="css/app.css?v=20260516-search-filter">
 
     <!-- 图标库 -->
     <link rel="stylesheet" href="css/icons.css?v=20260516-batch-filter-menu">
@@ -93,6 +93,14 @@
                             <div v-if="showBatchFilterMenu" class="batch-filter-menu">
                                 <div class="batch-filter-menu__title">筛选</div>
                                 <div class="batch-filter-menu__list">
+                                    <button type="button" @click="clearBatchFilterFromMenu" class="batch-filter-menu__item"
+                                        :class="!hasActiveBatchFilter ? 'batch-filter-menu__item--active' : ''">
+                                        <span class="batch-filter-menu__item-main">
+                                            <i class="fa fa-list-check text-xs"></i>
+                                            <span>全部</span>
+                                        </span>
+                                        <span class="batch-filter-menu__count">{{ pots.length }}</span>
+                                    </button>
                                     <button v-for="option in batchFilterOptions" :key="option.value" type="button"
                                         @click="setBatchFilter(option.value)" class="batch-filter-menu__item"
                                         :class="batchFilter === option.value ? 'batch-filter-menu__item--active' : ''">
@@ -139,9 +147,9 @@
                 </div>
 
                 <div v-if="isPotSearchActive && !isEditMode"
-                    class="absolute left-1/2 top-1/2 w-[48vw] min-w-[170px] max-w-[280px] -translate-x-1/2 -translate-y-1/2 pointer-events-none animate-header-search-in">
+                    class="absolute left-1/2 top-1/2 flex w-[56vw] min-w-[200px] max-w-[320px] -translate-x-1/2 -translate-y-1/2 items-center gap-2 pointer-events-none animate-header-search-in">
                     <div
-                        class="pointer-events-auto h-10 w-full flex items-center gap-2 rounded-full border border-green-100 bg-white px-3 shadow-sm shadow-green-50">
+                        class="pointer-events-auto h-10 min-w-0 flex flex-1 items-center gap-2 rounded-full border border-green-100 bg-white px-3 shadow-sm shadow-green-50">
                         <input ref="potSearchInput" v-model="potSearchQuery" @keydown.esc="closePotSearch" type="text"
                             enterkeyhint="search" placeholder="搜索花盆名称、备注"
                             class="min-w-0 flex-1 bg-transparent text-sm font-semibold text-gray-700 placeholder:text-gray-300 outline-none">
@@ -151,10 +159,42 @@
                             <i class="fa fa-delete-left text-xs"></i>
                         </button>
                         <button @click="closePotSearch" type="button"
-                            class="w-7 h-7 shrink-0 flex items-center justify-center rounded-full text-gray-400 transition active:scale-90 hover:bg-gray-50 hover:text-gray-600"
+                            class="w-7 h-7 shrink-0 flex items-center justify-center rounded-full text-red-400 transition active:scale-90 hover:bg-red-50 hover:text-red-500"
                             aria-label="关闭搜索" title="关闭搜索">
                             <i class="fa fa-times text-xs"></i>
                         </button>
+                    </div>
+                    <div class="relative pointer-events-auto shrink-0">
+                        <button @click="toggleSearchFilterMenu" type="button"
+                            class="batch-filter-trigger batch-filter-trigger--icon"
+                            :class="hasActiveSearchFilter ? 'batch-filter-trigger--active' : ''"
+                            aria-label="筛选搜索结果" title="筛选搜索结果">
+                            <i class="fa fa-filter text-sm"></i>
+                        </button>
+                        <div v-if="showSearchFilterMenu" class="fixed inset-0 z-40"
+                            @click="showSearchFilterMenu = false"></div>
+                        <div v-if="showSearchFilterMenu" class="batch-filter-menu batch-filter-menu--right">
+                            <div class="batch-filter-menu__title">筛选</div>
+                            <div class="batch-filter-menu__list">
+                                <button type="button" @click="clearSearchFilterFromMenu" class="batch-filter-menu__item"
+                                    :class="!hasActiveSearchFilter ? 'batch-filter-menu__item--active' : ''">
+                                    <span class="batch-filter-menu__item-main">
+                                        <i class="fa fa-list-check text-xs"></i>
+                                        <span>全部</span>
+                                    </span>
+                                    <span class="batch-filter-menu__count">{{ pots.length }}</span>
+                                </button>
+                                <button v-for="option in searchFilterOptions" :key="option.value" type="button"
+                                    @click="setSearchFilter(option.value)" class="batch-filter-menu__item"
+                                    :class="searchFilter === option.value ? 'batch-filter-menu__item--active' : ''">
+                                    <span class="batch-filter-menu__item-main">
+                                        <i class="fa text-xs" :class="option.icon"></i>
+                                        <span>{{ option.label }}</span>
+                                    </span>
+                                    <span class="batch-filter-menu__count">{{ option.count }}</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1555,7 +1595,7 @@
         </div>
     </div>
 
-    <script src="js/pages/index-page.js?v=20260516-batch-filter-menu"></script>
+    <script src="js/pages/index-page.js?v=20260516-search-filter"></script>
 
 </body>
 

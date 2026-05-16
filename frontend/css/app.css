@@ -202,18 +202,30 @@ body.auth-modal-open {
     color: #4b5563;
 }
 
+.batch-filter-trigger--icon {
+    width: 36px;
+    min-width: 36px;
+    padding: 0;
+    background: transparent;
+}
+
 .batch-filter-menu {
     position: absolute;
     top: calc(100% + 10px);
     left: 0;
     z-index: 60;
-    width: min(130px, calc(100vw - 32px));
+    width: min(160px, calc(100vw - 32px));
     padding: 10px;
     border-radius: 18px;
     background: rgba(255, 255, 255, 0.98);
     box-shadow: 0 18px 45px rgba(15, 23, 42, 0.14);
     border: 1px solid rgba(229, 231, 235, 0.8);
     animation: batchFilterMenuFade 0.14s ease-out;
+}
+
+.batch-filter-menu--right {
+    right: 0;
+    left: auto;
 }
 
 @keyframes batchFilterMenuFade {
