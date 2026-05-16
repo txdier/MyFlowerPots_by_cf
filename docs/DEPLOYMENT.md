@@ -154,6 +154,76 @@ npm run deploy
 2. 执行 `wrangler deploy`
 3. 通过 Workers Assets 发布 `frontend/` 中的前端文件
 
+### 8.1 轻量 release 规则
+
+这个项目的 release 只代表“已经成功部署到生产的代码快照”，用于标记线上版本、辅助回滚定位、记录数据库和配置变更；它不是 npm 包版本，也不要求每次部署都创建 GitHub Release。
+
+- 普通小修复：提交并部署即可，不单独做 release。
+- 生产可见的一组功能、权限/auth、分享、上传、后台或性能改动：做 release。
+- 涉及 D1 migration、数据修复、删除/归档、R2 文件处理或环境变量变更：必须做 release，并在 release notes 写清楚。
+- tag 使用 CalVer：`v2026.05.15`；同一天多次发布使用 `v2026.05.15.2`。
+- 暂不跟随修改 `package.json` 的 `version`，除非以后需要在页面或 API 暴露应用版本。
+
+### 8.2 发布前确认范围
+
+如果已经有历史 tag：
+
+```bash
+git status --short
+git log <last-tag>..HEAD --oneline
+git diff --name-only <last-tag>..HEAD
+```
+
+如果还没有任何 tag，第一次 release 直接以当前准备发布的提交作为基线，从下一次 release 开始再对比上一个 tag。
+
+### 8.3 发布前验证
+
+- 常规 release：执行 `npm run verify`。
+- 涉及 API、auth、权限、D1、R2、公共分享或较大改动：执行 `npm run verify:full`。
+- 涉及数据库结构或生产数据：先备份生产 D1，再执行远端 migration，并在 release notes 标明 migration 文件和回滚方式。
+
+### 8.4 部署、线上 smoke 与 tag
+
+推荐顺序：
+
+1. 完成发布前验证。
+2. 如有数据库变更，先执行生产 D1 备份，再应用远端 migration。
+3. 执行 `npm run deploy`。
+4. 线上检查首页、登录/刷新令牌、花盆详情、图片上传、公开分享、管理后台。
+5. 确认 `/api/auth/me` 可达；未登录返回未授权是正常的，不能是 404。
+6. 部署成功后打 tag 并推送：
+
+```bash
+git tag -a v2026.05.15 -m "发布 v2026.05.15"
+git push origin v2026.05.15
+```
+
+7. 在 GitHub 创建 Release，notes 使用中文，记录发布摘要、用户可见变化、数据库/配置变化、验证命令、线上 smoke 结果和回滚说明。
+
+### 8.5 Release notes 模板
+
+```md
+## 发布摘要
+- 待填写
+
+## 主要变化
+- 待填写
+
+## 数据库 / 配置
+- D1 migration：无 / 有，文件：
+- 环境变量：无 / 有：
+- R2/上传影响：无 / 有：
+
+## 验证
+- npm run verify / npm run verify:full
+- npm run deploy
+- 线上 smoke：
+
+## 回滚说明
+- Worker 可回到上一 tag 对应代码重新部署。
+- D1 变更不依赖 Git tag 回滚，必要时使用发布前备份或写 forward fix。
+```
+
 ## 9. 上线后验证
 
 建议至少检查：

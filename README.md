@@ -44,6 +44,8 @@ npm install
 npm run dev
 npm run build-css
 npm run watch-css
+npm run verify
+npm run verify:full
 npm run deploy
 npm run backup-db
 ```
@@ -51,8 +53,12 @@ npm run backup-db
 - `npm run dev`：启动本地 Worker 开发环境，并通过 `[assets]` 直接读取 `frontend/`
 - `npm run build-css`：重新生成 `frontend/css/tailwind-built.css`
 - `npm run watch-css`：开发时监听 Tailwind 输入文件并持续生成 CSS
+- `npm run verify`：发布前常规验证，执行 `check` 和 `test:smoke`
+- `npm run verify:full`：发布前完整验证，覆盖 check、unit/worker、smoke 和 API 回归
 - `npm run deploy`：构建 CSS 后部署 Worker；前端静态资源通过 Workers Assets 随部署发布
 - `npm run backup-db`：运行 `scripts/backup-d1.js` 备份数据库
+
+Release 采用轻量策略：不是每次部署都创建 GitHub Release；生产可见的一组功能、权限/auth、分享、上传、后台、性能改动，或涉及 D1/R2/环境变量的变更，按 [部署指南](./docs/DEPLOYMENT.md) 的 release 流程打 CalVer tag 并记录 release notes。
 
 ## 仓库结构
 

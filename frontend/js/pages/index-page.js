@@ -58,6 +58,9 @@
                 const isCareRemindersLoading = ref(false);
                 const showRemindersExpanded = ref(false); // 默认折叠
                 const isEditMode = ref(false); // 统一管理模式
+                const batchFilter = ref('');
+                const batchFilterQuery = ref('');
+                const showBatchFilterMenu = ref(false);
                 const potsGrid = ref(null);    // 列表容器Ref
                 let sortableInstance = null;   // Sortable实例
                 let sortableLibraryPromise = null;
@@ -266,23 +269,89 @@
                         .filter(Boolean)
                 ));
                 const hasPotSearchQuery = computed(() => potSearchTerms.value.length > 0);
-                const displayedPots = computed(() => {
+                const getPotSearchableText = (pot) => [
+                    pot.name,
+                    pot.plant_type,
+                    pot.note
+                ]
+                    .filter(Boolean)
+                    .join(' ')
+                    .toLowerCase();
+                const searchMatchedPots = computed(() => {
                     const terms = potSearchTerms.value;
                     if (terms.length === 0) return pots.value;
 
                     return pots.value.filter(pot => {
-                        const searchableText = [
-                            pot.name,
-                            pot.plant_type,
-                            pot.note
-                        ]
-                            .filter(Boolean)
-                            .join(' ')
-                            .toLowerCase();
-
+                        const searchableText = getPotSearchableText(pot);
                         return terms.every(term => searchableText.includes(term));
                     });
                 });
+                const dueCarePotIds = computed(() => new Set(careReminders.value.map(item => String(item.potId))));
+                const getBatchFilteredPots = (source, filter = batchFilter.value) => {
+                    if (!isEditMode.value || !filter) return source;
+                    if (filter === 'due') {
+                        return source.filter(pot => dueCarePotIds.value.has(String(pot.id)));
+                    }
+                    if (filter === 'owned') {
+                        return source.filter(isOwnedPotData);
+                    }
+                    if (filter === 'collaborator') {
+                        return source.filter(pot => pot.is_collaborator);
+                    }
+                    if (filter === 'viewer') {
+                        return source.filter(isViewerOnlyPot);
+                    }
+                    return source;
+                };
+                const batchFilterTerms = computed(() => batchFilterQuery.value.trim().toLowerCase().split(/\s+/).filter(Boolean));
+                const hasActiveBatchFilter = computed(() => !!batchFilter.value || batchFilterTerms.value.length > 0);
+                const getBatchQueryFilteredPots = (source) => {
+                    const terms = batchFilterTerms.value;
+                    if (terms.length === 0) return source;
+                    return source.filter(pot => {
+                        const searchableText = getPotSearchableText(pot);
+                        return terms.every(term => searchableText.includes(term));
+                    });
+                };
+                const visibleBatchPots = computed(() => getBatchQueryFilteredPots(getBatchFilteredPots(pots.value)));
+                const displayedPots = computed(() => (
+                    isEditMode.value ? visibleBatchPots.value : searchMatchedPots.value
+                ));
+                const isPotSearchEmpty = computed(() => !isEditMode.value && hasPotSearchQuery.value && searchMatchedPots.value.length === 0);
+                const isBatchFilterEmpty = computed(() => (
+                    isEditMode.value &&
+                    hasActiveBatchFilter.value &&
+                    displayedPots.value.length === 0 &&
+                    !isPotSearchEmpty.value
+                ));
+                const batchFilterOptions = computed(() => {
+                    const source = pots.value;
+                    const options = [];
+                    const dueCount = activePotStatus.value === 'active'
+                        ? source.filter(pot => dueCarePotIds.value.has(String(pot.id))).length
+                        : 0;
+                    const ownedCount = source.filter(isOwnedPotData).length;
+                    const collaboratorCount = source.filter(pot => pot.is_collaborator).length;
+                    const viewerCount = source.filter(isViewerOnlyPot).length;
+
+                    if (dueCount > 0 && dueCount < source.length) options.push({ value: 'due', label: '待养护', count: dueCount, icon: 'fa-tint' });
+                    if (ownedCount > 0 && ownedCount < source.length) options.push({ value: 'owned', label: '我的', count: ownedCount, icon: 'fa-user' });
+                    if (collaboratorCount > 0 && collaboratorCount < source.length) options.push({ value: 'collaborator', label: '共同照料', count: collaboratorCount, icon: 'fa-users' });
+                    if (viewerCount > 0 && viewerCount < source.length) options.push({ value: 'viewer', label: '仅查看', count: viewerCount, icon: 'fa-eye' });
+
+                    return options;
+                });
+                const setBatchFilter = (filter) => {
+                    if (batchFilter.value === filter) {
+                        batchFilter.value = '';
+                        showBatchFilterMenu.value = false;
+                        return;
+                    }
+                    if (batchFilterOptions.value.some(option => option.value === filter)) {
+                        batchFilter.value = filter;
+                        showBatchFilterMenu.value = false;
+                    }
+                };
                 const selectedOwnedPots = computed(() => pots.value.filter(p => p.selected && isOwnedPotData(p)));
                 const selectedCareManageablePots = computed(() => pots.value.filter(p => p.selected && isBatchCareManageablePot(p)));
                 const selectedViewerPots = computed(() => pots.value.filter(p => p.selected && isViewerOnlyPot(p)));
@@ -336,12 +405,20 @@
                     potStatusCounts.archived > 0 || activePotStatus.value === 'archived'
                 );
 
-                const allSelected = computed(() => pots.value.length > 0 && pots.value.every(p => p.selected));
+                const allSelected = computed(() => {
+                    const selectablePots = isEditMode.value ? displayedPots.value : pots.value;
+                    return selectablePots.length > 0 && selectablePots.every(p => p.selected);
+                });
                 const selectedCount = computed(() => pots.value.filter(p => p.selected).length);
 
                 watch(selectedCount, (val) => {
                     if (val === 0) {
                         showBatchActionSheet.value = false;
+                    }
+                });
+                watch(batchFilterOptions, (options) => {
+                    if (!options.some(option => option.value === batchFilter.value)) {
+                        batchFilter.value = '';
                     }
                 });
 
@@ -1503,7 +1580,19 @@
 
                 const toggleSelectAll = () => {
                     const target = !allSelected.value;
-                    pots.value.forEach(p => p.selected = target);
+                    const targetPots = isEditMode.value ? displayedPots.value : pots.value;
+                    targetPots.forEach(p => p.selected = target);
+                };
+
+                const invertVisibleBatchSelection = () => {
+                    if (!isEditMode.value || displayedPots.value.length === 0) return;
+                    displayedPots.value.forEach(p => p.selected = !p.selected);
+                };
+
+                const resetBatchFilters = () => {
+                    batchFilter.value = '';
+                    batchFilterQuery.value = '';
+                    showBatchFilterMenu.value = false;
                 };
 
                 // 切换管理模式
@@ -1512,6 +1601,7 @@
 	                    closePotSearch();
 	                    isEditMode.value = !isEditMode.value;
 	                    if (isEditMode.value) {
+                            resetBatchFilters();
 	                        showRemindersExpanded.value = false;
 	                        if (activePotStatus.value === 'active' || activePotStatus.value === 'archived') {
 	                            await loadAllRemainingPots();
@@ -1555,8 +1645,21 @@
                             },
                             onEnd: async (evt) => {
                                 if (navigator.vibrate) navigator.vibrate(15);
-                                const item = pots.value.splice(evt.oldIndex, 1)[0];
-                                pots.value.splice(evt.newIndex, 0, item);
+                                const visibleBeforeMove = displayedPots.value.slice();
+                                const item = visibleBeforeMove[evt.oldIndex];
+                                const targetItem = visibleBeforeMove[evt.newIndex];
+                                if (!item || !targetItem || item.id === targetItem.id) return;
+
+                                const nextPots = pots.value.slice();
+                                const fromIndex = nextPots.findIndex(p => p.id === item.id);
+                                if (fromIndex < 0) return;
+                                nextPots.splice(fromIndex, 1);
+
+                                const targetIndex = nextPots.findIndex(p => p.id === targetItem.id);
+                                if (targetIndex < 0) return;
+                                const insertIndex = evt.newIndex > evt.oldIndex ? targetIndex + 1 : targetIndex;
+                                nextPots.splice(insertIndex, 0, item);
+                                pots.value = nextPots;
                                 persistLocalPotOrder(activePotStatus.value);
                                 try {
                                     await apiClient.reorderPots(ownedPots.value.map(p => p.id));
@@ -1572,6 +1675,16 @@
                         sortableInstance = null;
                     }
                 };
+
+                watch([batchFilter, batchFilterQuery], async () => {
+                    if (!isEditMode.value) return;
+                    await nextTick();
+                    if (displayedPots.value.length > 0) {
+                        initSortable();
+                    } else {
+                        destroySortable();
+                    }
+                });
 
                 const requireSelectedOwnedPots = (emptyMessage) => batchActions.requireSelected({
                     items: selectedOwnedPots,
@@ -1591,11 +1704,15 @@
                     emptyMessage
                 });
 
-                const clearBatchSelection = () => batchActions.clearEditSelection({
-                    pots,
-                    isEditMode,
-                    destroySortable
-                });
+                const clearBatchSelection = () => {
+                    resetBatchFilters();
+                    closePotSearch();
+                    batchActions.clearEditSelection({
+                        pots,
+                        isEditMode,
+                        destroySortable
+                    });
+                };
 
                 // 移除原有的 isBatchMode 监听
 
@@ -2560,7 +2677,7 @@
 	                });
 
                 return {
-                    isLoading, pots, displayedPots, isPotSearchActive, potSearchQuery, potSearchInput, hasPotSearchQuery, openPotSearch, closePotSearch, clearPotSearch,
+                    isLoading, pots, displayedPots, isPotSearchEmpty, isBatchFilterEmpty, batchFilter, batchFilterQuery, showBatchFilterMenu, hasActiveBatchFilter, batchFilterOptions, setBatchFilter, isPotSearchActive, potSearchQuery, potSearchInput, hasPotSearchQuery, openPotSearch, closePotSearch, clearPotSearch,
                     isLoadingMore, hasMorePots, loadMorePots, activePotStatus, potStatusTabs, potStatusCounts, showPotStatusSwitch, setPotStatus,
                     getPotStatusTabButtonClass, getPotStatusTabFillStyle, getPotStatusTabTextClass,
                     handlePotStatusSwipeStart, handlePotStatusSwipeMove, handlePotStatusSwipeEnd, handlePotStatusSwipeCancel,
@@ -2584,7 +2701,7 @@
                     handleLoginEmailInput, handleLoginPasswordInput, handleForgotPasswordEmailInput,
                     handleRegisterEmailInput, handleRegisterDisplayNameInput, handleRegisterPasswordInput, handleRegisterConfirmPasswordInput,
                     normalizeRegisterDisplayName,
-                    handleLogin, handleRegister, handleForgotPassword, toggleSelectAll, toggleEditMode, deleteSelectedPots,
+                    handleLogin, handleRegister, handleForgotPassword, toggleSelectAll, invertVisibleBatchSelection, toggleEditMode, deleteSelectedPots,
                     handleCardClick, restoreArchivedPot, restorePotFromSheet, confirmDeleteSingle, showPotActionSheet, activePotAction, openPotActionSheet, closePotActionSheet,
                     isOwnedPot, goEditPotFromSheet, goAddCareForPot, goAddTimelineForPot, openShareSettingsForPot, openSingleArchiveFromSheet, deletePotFromSheet,
                     leaveCollaborationFromSheet, removeViewerPotFromSheet,

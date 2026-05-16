@@ -37,10 +37,10 @@
 
     <!-- Tailwind CSS & Custom Styles (Optimized) -->
     <link rel="stylesheet" href="css/tailwind-built.css?v=20260421-search">
-    <link rel="stylesheet" href="css/app.css?v=20260505-auth-keyboard">
+    <link rel="stylesheet" href="css/app.css?v=20260516-batch-filter-menu">
 
     <!-- 图标库 -->
-    <link rel="stylesheet" href="css/icons.css?v=20260421-search">
+    <link rel="stylesheet" href="css/icons.css?v=20260516-batch-filter-menu">
     <link rel="stylesheet" href="css/index-page.css?v=20260510-page-split">
 
     <!-- 配置脚本 -->
@@ -65,25 +65,73 @@
         <!-- 顶部导航栏 (全宽分布) -->
         <header class="header bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-50 h-16 w-full"
             :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
-            <div class="container relative flex justify-between items-center h-full">
+            <div class="container header-main-row relative flex justify-between items-center h-full">
                 <!-- 1. 左侧：管理模式 -->
                 <div class="flex items-center gap-2">
                     <template v-if="isEditMode">
-                        <button @click="toggleSelectAll"
-                            class="bg-green-50 text-green-600 px-3 py-1.5 rounded-full font-black text-xs transition active:scale-95">
-                            {{ allSelected ? '取消全选' : '全选' }}
+                        <button @click="toggleSelectAll" class="batch-nav-text-button">
+                            <i class="fa text-[11px]" :class="allSelected ? 'fa-times' : 'fa-check'"></i>
+                            <span>{{ allSelected ? '清空' : '全选' }}</span>
                         </button>
-                        <button @click="toggleEditMode"
-                            class="bg-blue-500 text-white px-3 py-1.5 rounded-full font-black text-xs transition active:scale-95 shadow-sm shadow-blue-200">
-                            完成
+                        <button @click="invertVisibleBatchSelection" :disabled="displayedPots.length === 0"
+                            class="batch-nav-text-button batch-nav-text-button--blue">
+                            <i class="fa fa-exchange-alt text-[11px]"></i>
+                            <span>反选</span>
+                        </button>
+                        <div class="relative">
+                            <button @click="showBatchFilterMenu = !showBatchFilterMenu" type="button"
+                                class="batch-filter-trigger"
+                                :class="hasActiveBatchFilter ? 'batch-filter-trigger--active' : ''" aria-label="筛选花盆"
+                                title="筛选花盆">
+                                <i class="fa fa-filter text-xs"></i>
+                                <span>筛选</span>
+                                <i class="fa fa-chevron-down text-[9px] transition"
+                                    :class="showBatchFilterMenu ? 'rotate-180' : ''"></i>
+                            </button>
+                            <div v-if="showBatchFilterMenu" class="fixed inset-0 z-40"
+                                @click="showBatchFilterMenu = false"></div>
+                            <div v-if="showBatchFilterMenu" class="batch-filter-menu">
+                                <div class="batch-filter-menu__title">筛选</div>
+                                <div class="batch-filter-menu__list">
+                                    <button v-for="option in batchFilterOptions" :key="option.value" type="button"
+                                        @click="setBatchFilter(option.value)" class="batch-filter-menu__item"
+                                        :class="batchFilter === option.value ? 'batch-filter-menu__item--active' : ''">
+                                        <span class="batch-filter-menu__item-main">
+                                            <i class="fa text-xs" :class="option.icon"></i>
+                                            <span>{{ option.label }}</span>
+                                        </span>
+                                        <span class="batch-filter-menu__count">{{ option.count }}</span>
+                                    </button>
+                                    <div v-if="batchFilterOptions.length === 0" class="batch-filter-menu__empty">
+                                        暂无可用筛选
+                                    </div>
+                                </div>
+                                <div class="batch-filter-menu__custom">
+                                    <label class="batch-filter-menu__label" for="batch-filter-query">自定义</label>
+                                    <div class="batch-filter-menu__input-wrap">
+                                        <i class="fa fa-search text-[11px] text-gray-300"></i>
+                                        <input id="batch-filter-query" v-model="batchFilterQuery"
+                                            @keydown.esc="showBatchFilterMenu = false" type="text"
+                                            class="batch-filter-menu__input" placeholder="输入名称、品种或备注">
+                                        <button v-if="batchFilterQuery" @click="batchFilterQuery = ''" type="button"
+                                            class="batch-filter-menu__clear" aria-label="清空自定义筛选" title="清空">
+                                            <i class="fa fa-times text-[10px]"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <button @click="toggleEditMode" class="batch-nav-text-button batch-nav-text-button--muted">
+                            <i class="fa fa-times text-[11px]"></i>
+                            <span>关闭</span>
                         </button>
                     </template>
                     <button v-else-if="batchManageablePots.length > 0" @click="toggleEditMode"
                         class="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-blue-500 transition active:scale-90">
                         <i class="fa fa-list-check text-xl"></i>
                     </button>
-                    <button v-if="pots.length > 0 && !isEditMode && !isPotSearchActive" @click="openPotSearch" type="button"
-                        class="w-10 h-10 flex items-center justify-center transition active:scale-90"
+                    <button v-if="pots.length > 0 && !isEditMode && !isPotSearchActive" @click="openPotSearch"
+                        type="button" class="w-10 h-10 flex items-center justify-center transition active:scale-90"
                         :class="isPotSearchActive ? 'text-green-600' : 'text-gray-400 hover:text-green-600'"
                         aria-label="搜索花盆" title="搜索花盆">
                         <i class="fa fa-search text-lg"></i>
@@ -91,7 +139,7 @@
                 </div>
 
                 <div v-if="isPotSearchActive && !isEditMode"
-                    class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[48vw] min-w-[170px] max-w-[280px] pointer-events-none animate-header-search-in">
+                    class="absolute left-1/2 top-1/2 w-[48vw] min-w-[170px] max-w-[280px] -translate-x-1/2 -translate-y-1/2 pointer-events-none animate-header-search-in">
                     <div
                         class="pointer-events-auto h-10 w-full flex items-center gap-2 rounded-full border border-green-100 bg-white px-3 shadow-sm shadow-green-50">
                         <input ref="potSearchInput" v-model="potSearchQuery" @keydown.esc="closePotSearch" type="text"
@@ -130,7 +178,7 @@
                     <div class="relative user-menu-container">
                         <button @click="showUserMenu = !showUserMenu"
                             class="relative flex items-center gap-2 bg-white border border-gray-100 p-1 rounded-full shadow-sm hover:shadow-md transition active:scale-95 overflow-visible"
-                            :class="isPotSearchActive ? 'pr-1' : 'pr-3'">
+                            :class="isPotSearchActive || isEditMode ? 'pr-1' : 'pr-3'">
                             <div class="relative w-8 h-8 overflow-visible">
                                 <img :src="imgUrl(user?.avatarUrl, 32, 32) || 'assets/images/icons/profile.png'"
                                     decoding="async" class="w-full h-full rounded-full shadow-sm object-cover">
@@ -138,7 +186,7 @@
                             <div v-show="notificationBadgeCount > 0"
                                 class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-600 border-2 border-white rounded-full z-[100] shadow-sm pointer-events-none flex-none aspect-square">
                             </div>
-                            <span v-show="!isPotSearchActive"
+                            <span v-show="!isPotSearchActive && !isEditMode"
                                 class="text-[10px] font-black text-gray-700 max-w-[80px] truncate"
                                 :title="userDisplayName">{{ navUserDisplayName }}</span>
                         </button>
@@ -249,8 +297,8 @@
             </div>
         </div>
 
-        <div v-if="activePotStatus === 'active' && careReminders.length > 0 && !isEditMode && !isPotSearchActive" class="container mt-2"
-            :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
+        <div v-if="activePotStatus === 'active' && careReminders.length > 0 && !isEditMode && !isPotSearchActive"
+            class="container mt-2" :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <button @click="showRemindersExpanded = !showRemindersExpanded"
                 class="w-full py-1.5 text-center text-gray-700 transition active:scale-95">
                 <span class="inline-flex items-center gap-2">
@@ -339,12 +387,14 @@
 
             <div v-else-if="pots.length === 0" class="home-empty-state">
                 <div class="home-empty-state__content">
-                    <div class="home-empty-state__icon bg-gray-100 rounded-full flex items-center justify-center text-gray-300">
+                    <div
+                        class="home-empty-state__icon bg-gray-100 rounded-full flex items-center justify-center text-gray-300">
                         <i class="fa fa-seedling"></i>
                     </div>
                     <h3 class="text-lg font-bold text-gray-800">{{ emptyStateTitle }}</h3>
                     <p class="text-gray-400 text-sm mt-2 px-10">{{ emptyStateMessage }}</p>
-                    <div v-if="activePotStatus === 'active'" class="home-empty-state__actions flex flex-col sm:flex-row gap-3">
+                    <div v-if="activePotStatus === 'active'"
+                        class="home-empty-state__actions flex flex-col sm:flex-row gap-3">
                         <button @click="goAddPot"
                             class="bg-green-500 text-white px-8 py-3 rounded-2xl shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95">
                             添加我的花盆
@@ -500,7 +550,7 @@
                         </button>
                     </div>
                 </section>
-                <div v-else-if="hasPotSearchQuery" class="flex flex-col items-center justify-center py-16 text-center">
+                <div v-else-if="isPotSearchEmpty" class="flex flex-col items-center justify-center py-16 text-center">
                     <div
                         class="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center text-green-300 mb-5">
                         <i class="fa fa-search text-3xl"></i>
@@ -509,6 +559,13 @@
                     <p class="text-gray-400 text-xs mt-2 px-10">
                         {{ isLoadingMore ? '正在加载更多花盆继续查找...' : '试试搜索花盆名称或备注' }}
                     </p>
+                </div>
+                <div v-else-if="isBatchFilterEmpty" class="flex flex-col items-center justify-center py-16 text-center">
+                    <div class="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center text-blue-300 mb-5">
+                        <i class="fa fa-list-check text-3xl"></i>
+                    </div>
+                    <h3 class="text-base font-bold text-gray-800">当前筛选下没有花盆</h3>
+                    <p class="text-gray-400 text-xs mt-2 px-10">切换到其他筛选范围继续选择</p>
                 </div>
             </div>
         </main>
@@ -547,9 +604,9 @@
                 <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeAuthModals"></div>
                 <div class="relative bg-white w-full max-w-[500px] rounded-t-3xl sm:rounded-3xl shadow-2xl keyboard-safe-modal auth-keyboard-modal overflow-hidden flex flex-col min-h-0"
                     :class="[isAuthKeyboardActive ? 'auth-keyboard-active' : 'animate-slide-up', authKeyboardMode === 'sticky' ? 'auth-keyboard-sticky-fallback' : '']"
-                    :style="authKeyboardModalStyle" @focusin="handleAuthKeyboardFieldFocus" @focusout="handleAuthFocusOut"
-                    @compositionstart="handleAuthCompositionStart" @compositionend="handleAuthCompositionEnd"
-                    @click.stop @mousedown.stop @touchstart.stop>
+                    :style="authKeyboardModalStyle" @focusin="handleAuthKeyboardFieldFocus"
+                    @focusout="handleAuthFocusOut" @compositionstart="handleAuthCompositionStart"
+                    @compositionend="handleAuthCompositionEnd" @click.stop @mousedown.stop @touchstart.stop>
                     <div v-if="showLoginModal" class="flex flex-col min-h-0 flex-1">
                         <div class="shrink-0"
                             :class="isAuthKeyboardActive ? 'px-7 pt-4 pb-3 sm:p-8 sm:pb-6' : 'px-7 pt-7 pb-5 sm:p-8 sm:pb-6'">
@@ -560,35 +617,42 @@
                             <h3 class="text-2xl font-black text-gray-800 mb-2">欢迎回来</h3>
                             <p v-show="!isAuthKeyboardActive" class="text-gray-400 text-sm">{{ loginModalLead }}</p>
                         </div>
-                        <div class="px-7 sm:px-8 overflow-y-auto flex-1 min-h-0 keyboard-safe-modal-scroll auth-keyboard-scroll">
+                        <div
+                            class="px-7 sm:px-8 overflow-y-auto flex-1 min-h-0 keyboard-safe-modal-scroll auth-keyboard-scroll">
                             <form id="homeLoginForm" @submit.prevent="handleLogin" @focusin="scheduleLoginAutofillSync"
-                                @click="scheduleLoginAutofillSync" autocomplete="on" class="space-y-3.5 pb-7 sm:pb-8" novalidate>
+                                @click="scheduleLoginAutofillSync" autocomplete="on" class="space-y-3.5 pb-7 sm:pb-8"
+                                novalidate>
                                 <div class="space-y-1.5">
                                     <label for="loginEmail"
                                         class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
-                                    <input type="email" id="loginEmail" name="email" autocomplete="username" inputmode="email"
-                                        enterkeyhint="next" @keydown.enter="submitAuthFormFromEnter($event, { formId: 'homeLoginForm', nextFieldId: 'loginPassword' })"
-                                        autocapitalize="none" spellcheck="false" maxlength="120" @input="handleLoginEmailInput"
-                                        @change="syncLoginFormFromDom" @blur="validateLoginEmail(true)"
-                                        @animationstart="syncLoginFormFromDom" v-model="loginForm.email"
-                                        placeholder="name@example.com" required
+                                    <input type="email" id="loginEmail" name="email" autocomplete="username"
+                                        inputmode="email" enterkeyhint="next"
+                                        @keydown.enter="submitAuthFormFromEnter($event, { formId: 'homeLoginForm', nextFieldId: 'loginPassword' })"
+                                        autocapitalize="none" spellcheck="false" maxlength="120"
+                                        @input="handleLoginEmailInput" @change="syncLoginFormFromDom"
+                                        @blur="validateLoginEmail(true)" @animationstart="syncLoginFormFromDom"
+                                        v-model="loginForm.email" placeholder="name@example.com" required
                                         :aria-invalid="loginErrors.email ? 'true' : 'false'"
                                         class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
                                         :class="loginErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                                    <p v-if="loginErrors.email" class="auth-error-message text-xs text-red-500 px-1">{{ loginErrors.email }}</p>
+                                    <p v-if="loginErrors.email" class="auth-error-message text-xs text-red-500 px-1">{{
+                                        loginErrors.email }}</p>
                                 </div>
                                 <div class="space-y-1.5">
                                     <label for="loginPassword"
                                         class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">密码</label>
-                                    <input type="password" id="loginPassword" name="password" autocomplete="current-password"
-                                        enterkeyhint="done" @keydown.enter="submitAuthFormFromEnter($event, { formId: 'homeLoginForm' })"
+                                    <input type="password" id="loginPassword" name="password"
+                                        autocomplete="current-password" enterkeyhint="done"
+                                        @keydown.enter="submitAuthFormFromEnter($event, { formId: 'homeLoginForm' })"
                                         autocapitalize="none" spellcheck="false" @input="handleLoginPasswordInput"
                                         @change="syncLoginFormFromDom" @blur="validateLoginPassword(true)"
-                                        @animationstart="syncLoginFormFromDom" v-model="loginForm.password" placeholder="请输入密码"
-                                        required :aria-invalid="loginErrors.password ? 'true' : 'false'"
+                                        @animationstart="syncLoginFormFromDom" v-model="loginForm.password"
+                                        placeholder="请输入密码" required
+                                        :aria-invalid="loginErrors.password ? 'true' : 'false'"
                                         class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
                                         :class="loginErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                                    <p v-if="loginErrors.password" class="auth-error-message text-xs text-red-500 px-1">{{ loginErrors.password }}</p>
+                                    <p v-if="loginErrors.password" class="auth-error-message text-xs text-red-500 px-1">
+                                        {{ loginErrors.password }}</p>
                                 </div>
                                 <label for="loginRemember"
                                     class="flex items-center gap-2 text-xs font-bold text-gray-500 px-1">
@@ -629,13 +693,16 @@
                             <h3 class="text-2xl font-black text-gray-800 mb-2">创建账号</h3>
                             <p v-show="!isAuthKeyboardActive" class="text-gray-400 text-sm">{{ registerModalLead }}</p>
                         </div>
-                        <div class="px-7 sm:px-8 overflow-y-auto flex-1 min-h-0 keyboard-safe-modal-scroll auth-keyboard-scroll">
-                            <form id="homeRegisterForm" @submit.prevent="handleRegister" class="space-y-3.5 pb-7 sm:pb-8" novalidate>
+                        <div
+                            class="px-7 sm:px-8 overflow-y-auto flex-1 min-h-0 keyboard-safe-modal-scroll auth-keyboard-scroll">
+                            <form id="homeRegisterForm" @submit.prevent="handleRegister"
+                                class="space-y-3.5 pb-7 sm:pb-8" novalidate>
                                 <div class="space-y-1.5">
                                     <label for="registerEmail"
                                         class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
-                                    <input type="email" id="registerEmail" name="email" autocomplete="email" inputmode="email"
-                                        enterkeyhint="next" @keydown.enter="submitAuthFormFromEnter($event, { formId: 'homeRegisterForm', nextFieldId: 'registerNickname' })"
+                                    <input type="email" id="registerEmail" name="email" autocomplete="email"
+                                        inputmode="email" enterkeyhint="next"
+                                        @keydown.enter="submitAuthFormFromEnter($event, { formId: 'homeRegisterForm', nextFieldId: 'registerNickname' })"
                                         autocapitalize="none" spellcheck="false" maxlength="120"
                                         @input="handleRegisterEmailInput" @blur="validateRegisterEmail(true)"
                                         @animationstart="syncRegisterFormFromDom" v-model="registerForm.email"
@@ -643,12 +710,14 @@
                                         :aria-invalid="registerErrors.email ? 'true' : 'false'"
                                         class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
                                         :class="registerErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                                    <p v-if="registerErrors.email" class="auth-error-message text-xs text-red-500 px-1">{{ registerErrors.email }}</p>
+                                    <p v-if="registerErrors.email" class="auth-error-message text-xs text-red-500 px-1">
+                                        {{ registerErrors.email }}</p>
                                 </div>
                                 <div class="space-y-1.5">
                                     <label for="registerNickname"
                                         class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">昵称
-                                        <span class="font-medium normal-case tracking-normal text-gray-300">(选填)</span></label>
+                                        <span
+                                            class="font-medium normal-case tracking-normal text-gray-300">(选填)</span></label>
                                     <input type="text" id="registerNickname" name="nickname" autocomplete="nickname"
                                         enterkeyhint="next" autocapitalize="none" spellcheck="false"
                                         @keydown.enter="submitAuthFormFromEnter($event, { formId: 'homeRegisterForm', nextFieldId: 'registerPassword' })"
@@ -660,15 +729,18 @@
                                 <div class="space-y-1.5">
                                     <label for="registerPassword"
                                         class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">密码</label>
-                                    <input type="password" id="registerPassword" name="password" autocomplete="new-password"
-                                        enterkeyhint="next" @keydown.enter="submitAuthFormFromEnter($event, { formId: 'homeRegisterForm', nextFieldId: 'registerConfirmPassword' })"
+                                    <input type="password" id="registerPassword" name="password"
+                                        autocomplete="new-password" enterkeyhint="next"
+                                        @keydown.enter="submitAuthFormFromEnter($event, { formId: 'homeRegisterForm', nextFieldId: 'registerConfirmPassword' })"
                                         minlength="8" @input="handleRegisterPasswordInput"
                                         @blur="validateRegisterPassword(true)" @animationstart="syncRegisterFormFromDom"
                                         v-model="registerForm.password" placeholder="至少 8 位，含字母和数字" required
                                         :aria-invalid="registerErrors.password ? 'true' : 'false'"
                                         class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
                                         :class="registerErrors.password ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                                    <p v-if="registerErrors.password" class="auth-error-message text-xs text-red-500 px-1">{{ registerErrors.password }}</p>
+                                    <p v-if="registerErrors.password"
+                                        class="auth-error-message text-xs text-red-500 px-1">{{ registerErrors.password
+                                        }}</p>
                                 </div>
                                 <div class="relative space-y-1.5">
                                     <label for="registerConfirmPassword"
@@ -677,21 +749,25 @@
                                         autocomplete="new-password" minlength="8" enterkeyhint="done"
                                         @keydown.enter="submitAuthFormFromEnter($event, { formId: 'homeRegisterForm' })"
                                         @input="handleRegisterConfirmPasswordInput"
-                                        @blur="validateRegisterConfirmPassword(true)" @animationstart="syncRegisterFormFromDom"
-                                        v-model="registerForm.confirmPassword" placeholder="再次输入密码" required
+                                        @blur="validateRegisterConfirmPassword(true)"
+                                        @animationstart="syncRegisterFormFromDom" v-model="registerForm.confirmPassword"
+                                        placeholder="再次输入密码" required
                                         :aria-invalid="registerErrors.confirmPassword ? 'true' : 'false'"
                                         class="w-full bg-gray-50 border rounded-2xl py-3 pl-4 pr-10 focus:outline-none focus:ring-2 transition"
                                         :class="registerErrors.confirmPassword ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
                                     <div v-if="registerForm.password && registerForm.confirmPassword"
                                         class="absolute right-2 top-1/2 transform -translate-y-1/2">
-                                        <i v-if="passwordsMatch" class="fa fa-check text-green-500 pointer-events-none"></i>
-                                        <button v-else type="button" @pointerdown.prevent @click="clearRegisterConfirmPassword"
+                                        <i v-if="passwordsMatch"
+                                            class="fa fa-check text-green-500 pointer-events-none"></i>
+                                        <button v-else type="button" @pointerdown.prevent
+                                            @click="clearRegisterConfirmPassword"
                                             class="w-8 h-8 flex items-center justify-center text-red-500 hover:text-red-600 transition"
                                             title="清空确认密码" aria-label="清空确认密码">
                                             <i class="fa fa-times"></i>
                                         </button>
                                     </div>
-                                    <p v-if="registerErrors.confirmPassword" class="auth-error-message text-xs text-red-500 px-1">
+                                    <p v-if="registerErrors.confirmPassword"
+                                        class="auth-error-message text-xs text-red-500 px-1">
                                         {{ registerErrors.confirmPassword }}
                                     </p>
                                 </div>
@@ -707,7 +783,8 @@
                                         :class="registerStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
                                     {{ registerStatus.message }}
                                 </div>
-                                <div v-if="isTurnstileEnabled" id="registerTurnstile" class="auth-turnstile-slot w-full"></div>
+                                <div v-if="isTurnstileEnabled" id="registerTurnstile"
+                                    class="auth-turnstile-slot w-full"></div>
                                 <button type="submit" :disabled="isAuthLoading || !isRegisterValid"
                                     class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                                     {{ isAuthLoading ? '注册并合并数据' : '完成注册' }}
@@ -731,21 +808,25 @@
                             <h3 class="text-2xl font-black text-gray-800 mb-2">重置您的密码</h3>
                             <p v-show="!isAuthKeyboardActive" class="text-gray-400 text-sm">我们将向您的邮箱发送重置链接</p>
                         </div>
-                        <div class="px-7 sm:px-8 overflow-y-auto flex-1 min-h-0 keyboard-safe-modal-scroll auth-keyboard-scroll">
-                            <form id="homeForgotPasswordForm" @submit.prevent="handleForgotPassword" class="space-y-3.5 pb-7 sm:pb-8" novalidate>
+                        <div
+                            class="px-7 sm:px-8 overflow-y-auto flex-1 min-h-0 keyboard-safe-modal-scroll auth-keyboard-scroll">
+                            <form id="homeForgotPasswordForm" @submit.prevent="handleForgotPassword"
+                                class="space-y-3.5 pb-7 sm:pb-8" novalidate>
                                 <div class="space-y-1.5">
                                     <label
                                         class="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">邮箱</label>
-                                    <input type="email" id="forgotPasswordEmail" name="email" autocomplete="email" inputmode="email"
-                                        enterkeyhint="send" @keydown.enter="submitAuthFormFromEnter($event, { formId: 'homeForgotPasswordForm' })"
-                                        autocapitalize="none" spellcheck="false" maxlength="120" v-model="loginForm.email"
-                                        @input="handleForgotPasswordEmailInput" @change="syncLoginFormFromDom"
-                                        @animationstart="syncLoginFormFromDom" @blur="validateForgotPasswordEmail(true)"
-                                        placeholder="name@example.com" required
-                                        :aria-invalid="forgotPasswordErrors.email ? 'true' : 'false'"
+                                    <input type="email" id="forgotPasswordEmail" name="email" autocomplete="email"
+                                        inputmode="email" enterkeyhint="send"
+                                        @keydown.enter="submitAuthFormFromEnter($event, { formId: 'homeForgotPasswordForm' })"
+                                        autocapitalize="none" spellcheck="false" maxlength="120"
+                                        v-model="loginForm.email" @input="handleForgotPasswordEmailInput"
+                                        @change="syncLoginFormFromDom" @animationstart="syncLoginFormFromDom"
+                                        @blur="validateForgotPasswordEmail(true)" placeholder="name@example.com"
+                                        required :aria-invalid="forgotPasswordErrors.email ? 'true' : 'false'"
                                         class="w-full bg-gray-50 border rounded-2xl py-3 px-4 focus:outline-none focus:ring-2 transition"
                                         :class="forgotPasswordErrors.email ? 'border-red-200 focus:ring-red-200' : 'border-gray-100 focus:ring-green-500'">
-                                    <p v-if="forgotPasswordErrors.email" class="auth-error-message text-red-500 text-xs px-1">
+                                    <p v-if="forgotPasswordErrors.email"
+                                        class="auth-error-message text-red-500 text-xs px-1">
                                         {{ forgotPasswordErrors.email }}
                                     </p>
                                 </div>
@@ -755,13 +836,15 @@
                                         :class="forgotPasswordStatus.type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'"></i>
                                     {{ forgotPasswordStatus.message }}
                                 </div>
-                                <div v-if="isTurnstileEnabled" id="forgotPasswordTurnstile" class="auth-turnstile-slot w-full"></div>
+                                <div v-if="isTurnstileEnabled" id="forgotPasswordTurnstile"
+                                    class="auth-turnstile-slot w-full"></div>
                                 <button type="submit" :disabled="isAuthLoading || !isForgotPasswordEmailValid"
                                     class="w-full bg-green-500 text-white py-3.5 rounded-2xl text-base font-bold shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
                                     {{ isAuthLoading ? '发送中...' : '发送重置邮件' }}
                                 </button>
                                 <div class="text-center pt-1">
-                                    <button type="button" @pointerdown.prevent @click="switchToLogin" class="text-green-500 text-sm font-bold">返回登录</button>
+                                    <button type="button" @pointerdown.prevent @click="switchToLogin"
+                                        class="text-green-500 text-sm font-bold">返回登录</button>
                                 </div>
                             </form>
                         </div>
@@ -908,8 +991,8 @@
         <div v-if="showBatchCareModal" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click.stop.prevent="closeBatchCareModal"></div>
             <div class="relative bg-white w-full max-w-[500px] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col keyboard-safe-modal"
-                :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus"
-                @click.stop @mousedown.stop @touchstart.stop>
+                :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus" @click.stop @mousedown.stop
+                @touchstart.stop>
                 <!-- 标题栏 -->
                 <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 shrink-0">
                     <div class="flex items-center gap-3 min-w-0">
@@ -919,7 +1002,8 @@
                         </button>
                         <div class="min-w-0">
                             <h3 class="text-xl font-black text-gray-800">批量养护</h3>
-                            <p class="text-xs text-gray-400 mt-0.5">将对选中的 {{ selectedCareManageableCount }} 个自有/共同照料花盆记录同一养护动作</p>
+                            <p class="text-xs text-gray-400 mt-0.5">将对选中的 {{ selectedCareManageableCount }}
+                                个自有/共同照料花盆记录同一养护动作</p>
                         </div>
                     </div>
                     <button type="button" @click.stop.prevent="closeBatchCareModal"
@@ -982,8 +1066,8 @@
             <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click.stop.prevent="closeBatchArchiveModal">
             </div>
             <div class="relative bg-white w-full max-w-[500px] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col keyboard-safe-modal"
-                :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus"
-                @click.stop @mousedown.stop @touchstart.stop>
+                :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus" @click.stop @mousedown.stop
+                @touchstart.stop>
                 <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 shrink-0">
                     <div class="flex items-center gap-3 min-w-0">
                         <button type="button" @click.stop.prevent="returnToBatchActionSheetFromArchive"
@@ -1190,10 +1274,12 @@
             <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click.stop.prevent="closePotActionSheet"></div>
             <div class="relative w-full max-w-[500px] max-h-[calc(100vh-1rem)] bg-white rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl overflow-y-auto overscroll-contain animate-slide-up"
                 @click.stop @mousedown.stop @touchstart.stop>
-                <div class="px-5 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b border-gray-50 flex items-start justify-between gap-4">
+                <div
+                    class="px-5 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b border-gray-50 flex items-start justify-between gap-4">
                     <div class="min-w-0">
                         <h3 class="text-lg sm:text-xl font-black text-gray-800">花盆操作</h3>
-                        <p class="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1 truncate">{{ activePotAction.name }}</p>
+                        <p class="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1 truncate">{{ activePotAction.name }}
+                        </p>
                     </div>
                     <button type="button" @click.stop.prevent="closePotActionSheet"
                         class="shrink-0 text-gray-400 hover:text-gray-600 transition">
@@ -1204,7 +1290,8 @@
                 <div v-if="(activePotStatus === 'active' && !activePotAction.is_viewer) || isOwnedPot(activePotAction)"
                     class="px-3 py-2.5 sm:px-4 sm:py-4 bg-gray-50/70">
                     <div class="px-2 text-[10px] sm:text-[11px] font-black text-gray-400 tracking-wide">常用操作</div>
-                    <div class="mt-2 sm:mt-3 bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
+                    <div
+                        class="mt-2 sm:mt-3 bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
                         <button v-if="activePotStatus === 'active' && !activePotAction.is_viewer"
                             @click="goAddCareForPot(activePotAction.id)"
                             class="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 sm:py-4 text-left active:scale-[0.99] transition border-b border-gray-50">
@@ -1263,7 +1350,8 @@
 
                 <div v-if="isOwnedPot(activePotAction)" class="px-3 py-2.5 sm:px-4 sm:py-4">
                     <div class="px-2 text-[10px] sm:text-[11px] font-black text-gray-400 tracking-wide">归档操作</div>
-                    <div class="mt-2 sm:mt-3 bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
+                    <div
+                        class="mt-2 sm:mt-3 bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
                         <button v-if="isOwnedPot(activePotAction) && activePotStatus === 'active'"
                             @click="openSingleArchiveFromSheet(activePotAction)"
                             class="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 sm:py-4 text-left active:scale-[0.99] transition">
@@ -1292,9 +1380,11 @@
                     </div>
                 </div>
 
-                <div v-if="activePotAction.is_collaborator || activePotAction.is_viewer" class="px-3 py-2.5 sm:px-4 sm:py-4">
+                <div v-if="activePotAction.is_collaborator || activePotAction.is_viewer"
+                    class="px-3 py-2.5 sm:px-4 sm:py-4">
                     <div class="px-2 text-[10px] sm:text-[11px] font-black text-gray-400 tracking-wide">列表操作</div>
-                    <div class="mt-2 sm:mt-3 bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
+                    <div
+                        class="mt-2 sm:mt-3 bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
                         <button v-if="activePotAction.is_collaborator"
                             @click="leaveCollaborationFromSheet(activePotAction)"
                             class="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 sm:py-4 text-left active:scale-[0.99] transition">
@@ -1324,7 +1414,8 @@
 
                 <div v-if="isOwnedPot(activePotAction)" class="px-3 py-2.5 sm:px-4 sm:py-4">
                     <div class="px-2 text-[10px] sm:text-[11px] font-black text-red-300 tracking-wide">危险操作</div>
-                    <div class="mt-2 sm:mt-3 bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-red-100 shadow-sm">
+                    <div
+                        class="mt-2 sm:mt-3 bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-red-100 shadow-sm">
                         <button @click="deletePotFromSheet(activePotAction.id)"
                             class="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 sm:py-4 text-left active:scale-[0.99] transition">
                             <div
@@ -1349,7 +1440,8 @@
             </div>
             <div class="relative w-full max-w-[500px] max-h-[calc(100vh-1rem)] bg-white rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl overflow-y-auto overscroll-contain animate-slide-up"
                 @click.stop @mousedown.stop @touchstart.stop>
-                <div class="px-5 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b border-gray-50 flex items-start justify-between gap-4">
+                <div
+                    class="px-5 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b border-gray-50 flex items-start justify-between gap-4">
                     <div class="min-w-0">
                         <h3 class="text-lg sm:text-xl font-black text-gray-800">批量操作</h3>
                         <p class="text-xs text-gray-400 mt-0.5 sm:mt-1">已选 {{ selectedCount }} 个花盆</p>
@@ -1361,7 +1453,8 @@
                             class="text-[11px] text-amber-600 mt-1 sm:mt-1.5 font-bold leading-snug">
                             当前有 {{ selectedCareExcludedCount }} 个仅查看花盆，批量养护会自动排除。
                         </p>
-                        <p v-if="selectedExcludedCount > 0" class="text-[11px] text-amber-600 mt-1 sm:mt-1.5 font-bold leading-snug">
+                        <p v-if="selectedExcludedCount > 0"
+                            class="text-[11px] text-amber-600 mt-1 sm:mt-1.5 font-bold leading-snug">
                             {{ activePotStatus === 'archived'
                             ? `当前有 ${selectedExcludedCount} 个非本人拥有的花盆，恢复和删除会自动排除。`
                             : `归档、邀请和删除会自动排除 ${selectedExcludedCount} 个非本人拥有的花盆。` }}
@@ -1375,7 +1468,8 @@
 
                 <div class="px-3 py-2.5 sm:px-4 sm:py-4 bg-gray-50/70">
                     <div class="px-2 text-[10px] sm:text-[11px] font-black text-gray-400 tracking-wide">常用操作</div>
-                    <div class="mt-2 sm:mt-3 bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
+                    <div
+                        class="mt-2 sm:mt-3 bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-gray-100 shadow-sm">
                         <button v-if="activePotStatus === 'active'" @click="openBatchCareFromSheet"
                             :disabled="selectedCareManageableCount === 0"
                             class="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 sm:py-4 text-left active:scale-[0.99] transition border-b border-gray-50 disabled:opacity-40">
@@ -1440,7 +1534,8 @@
 
                 <div class="px-3 py-2.5 sm:px-4 sm:py-4">
                     <div class="px-2 text-[10px] sm:text-[11px] font-black text-red-300 tracking-wide">危险操作</div>
-                    <div class="mt-2 sm:mt-3 bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-red-100 shadow-sm">
+                    <div
+                        class="mt-2 sm:mt-3 bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-red-100 shadow-sm">
                         <button @click="deleteSelectedFromSheet" :disabled="selectedOwnedCount === 0"
                             class="w-full flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-2.5 sm:py-4 text-left active:scale-[0.99] transition disabled:opacity-40">
                             <div
@@ -1460,7 +1555,7 @@
         </div>
     </div>
 
-    <script src="js/pages/index-page.js?v=20260510-page-split"></script>
+    <script src="js/pages/index-page.js?v=20260516-batch-filter-menu"></script>
 
 </body>
 
