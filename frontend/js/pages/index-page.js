@@ -288,11 +288,105 @@
                         return terms.every(term => searchableText.includes(term));
                     });
                 });
+                const builtInCareFilterOrder = ['water', 'fertilize', 'prune', 'repot', 'pest'];
+                const builtInCareFilterLabels = {
+                    water: '待浇水',
+                    fertilize: '待施肥',
+                    prune: '待修剪',
+                    repot: '待换盆',
+                    pest: '待病虫害处理'
+                };
+                const builtInCareFilterIcons = {
+                    water: 'fa-tint',
+                    fertilize: 'fa-seedling',
+                    prune: 'fa-cut',
+                    repot: 'fa-exchange-alt',
+                    pest: 'fa-bug'
+                };
+                const getCareIconName = (icon) => {
+                    const parts = String(icon || '').split(/\s+/).filter(Boolean);
+                    return parts.filter(part => part !== 'fa').pop() || 'fa-clipboard-check';
+                };
+                const normalizeCareFilterType = (careType, customAction = '') => {
+                    const careUtils = window.MyFlowerPotsCare;
+                    if (careUtils?.normalizeCareType) {
+                        return careUtils.normalizeCareType(careType, customAction);
+                    }
+
+                    const raw = String(careType || '').trim().toLowerCase();
+                    if (['water', 'watering', 'change_water', 'water_change', 'changewater', '换水', '浇水'].includes(raw)) return 'water';
+                    if (['fertilize', 'fertilizer', 'feed', '施肥'].includes(raw)) return 'fertilize';
+                    if (['trim', 'prune', 'pruning', '修剪'].includes(raw)) return 'prune';
+                    if (['repot', 're-pot', '换盆'].includes(raw)) return 'repot';
+                    if (['pest', 'pests', '除虫', '病虫害'].includes(raw)) return 'pest';
+
+                    const action = String(customAction || '').trim();
+                    if (/换水|浇水|补水/.test(action)) return 'water';
+                    if (/施肥|追肥/.test(action)) return 'fertilize';
+                    if (/修剪|打顶|摘心/.test(action)) return 'prune';
+                    if (/换盆|翻盆/.test(action)) return 'repot';
+                    if (/除虫|病虫害|杀虫/.test(action)) return 'pest';
+                    return 'custom';
+                };
+                const getCareReminderFilterMeta = (reminder) => {
+                    const customAction = String(reminder?.customAction || '').trim();
+                    const careType = String(reminder?.careType || '').trim();
+                    const careUtils = window.MyFlowerPotsCare;
+                    const isCustom = careType.toLowerCase() === 'custom';
+                    const normalized = normalizeCareFilterType(careType, customAction);
+                    const icon = getCareIconName(careUtils?.getCareTypeIcon?.(careType, customAction)) ||
+                        builtInCareFilterIcons[normalized] ||
+                        'fa-clipboard-check';
+
+                    if (isCustom && customAction) {
+                        return {
+                            value: `care:custom:${encodeURIComponent(customAction)}`,
+                            label: `待${customAction}`,
+                            icon: builtInCareFilterIcons[normalized] || icon,
+                            order: 1000
+                        };
+                    }
+
+                    if (builtInCareFilterOrder.includes(normalized)) {
+                        return {
+                            value: `care:${normalized}`,
+                            label: builtInCareFilterLabels[normalized],
+                            icon: builtInCareFilterIcons[normalized] || icon,
+                            order: builtInCareFilterOrder.indexOf(normalized)
+                        };
+                    }
+
+                    const fallbackLabel = customAction || careUtils?.getCareTypeLabel?.(careType, customAction) || careType || '养护';
+                    return {
+                        value: `care:custom:${encodeURIComponent(fallbackLabel)}`,
+                        label: `待${fallbackLabel}`,
+                        icon,
+                        order: 1000
+                    };
+                };
                 const dueCarePotIds = computed(() => new Set(careReminders.value.map(item => String(item.potId))));
+                const dueCareFilterEntries = computed(() => {
+                    const entries = new Map();
+                    careReminders.value.forEach((reminder) => {
+                        const potId = String(reminder?.potId || '');
+                        if (!potId) return;
+                        const meta = getCareReminderFilterMeta(reminder);
+                        if (!meta?.value) return;
+                        if (!entries.has(meta.value)) {
+                            entries.set(meta.value, { ...meta, potIds: new Set() });
+                        }
+                        entries.get(meta.value).potIds.add(potId);
+                    });
+                    return entries;
+                });
                 const getPotsFilteredByType = (source, filter) => {
                     if (!filter) return source;
                     if (filter === 'due') {
                         return source.filter(pot => dueCarePotIds.value.has(String(pot.id)));
+                    }
+                    if (String(filter).startsWith('care:')) {
+                        const potIds = dueCareFilterEntries.value.get(filter)?.potIds || new Set();
+                        return source.filter(pot => potIds.has(String(pot.id)));
                     }
                     if (filter === 'owned') {
                         return source.filter(isOwnedPotData);
@@ -345,11 +439,25 @@
                     const dueCount = activePotStatus.value === 'active'
                         ? source.filter(pot => dueCarePotIds.value.has(String(pot.id))).length
                         : 0;
+                    const sourcePotIds = new Set(source.map(pot => String(pot.id)));
                     const ownedCount = source.filter(isOwnedPotData).length;
                     const collaboratorCount = source.filter(pot => pot.is_collaborator).length;
                     const viewerCount = source.filter(isViewerOnlyPot).length;
 
-                    if (dueCount > 0 && dueCount < source.length) options.push({ value: 'due', label: '待养护', count: dueCount, icon: 'fa-tint' });
+                    if (dueCount > 0) {
+                        options.push({ value: 'due', label: '待养护', count: dueCount, icon: 'fa-tint' });
+                        Array.from(dueCareFilterEntries.value.values())
+                            .map(entry => ({
+                                value: entry.value,
+                                label: entry.label,
+                                icon: entry.icon,
+                                count: Array.from(entry.potIds).filter(potId => sourcePotIds.has(potId)).length,
+                                order: entry.order
+                            }))
+                            .filter(option => option.count > 0)
+                            .sort((a, b) => a.order - b.order || a.label.localeCompare(b.label, 'zh-Hans-CN'))
+                            .forEach(({ order, ...option }) => options.push(option));
+                    }
                     if (ownedCount > 0 && ownedCount < source.length) options.push({ value: 'owned', label: '我的', count: ownedCount, icon: 'fa-user' });
                     if (collaboratorCount > 0 && collaboratorCount < source.length) options.push({ value: 'collaborator', label: '共同照料', count: collaboratorCount, icon: 'fa-users' });
                     if (viewerCount > 0 && viewerCount < source.length) options.push({ value: 'viewer', label: '仅查看', count: viewerCount, icon: 'fa-eye' });

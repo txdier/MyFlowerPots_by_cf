@@ -278,6 +278,7 @@ body.auth-modal-open {
     align-items: center;
     gap: 9px;
     min-width: 0;
+    white-space: nowrap;
 }
 
 .batch-filter-menu__count {
