@@ -365,6 +365,20 @@
                     };
                 };
                 const dueCarePotIds = computed(() => new Set(careReminders.value.map(item => String(item.potId))));
+                const potDueTypeIconsMap = computed(() => {
+                    const grouped = new Map();
+                    careReminders.value.forEach((reminder) => {
+                        const potId = String(reminder?.potId || '');
+                        if (!potId) return;
+                        if (!grouped.has(potId)) grouped.set(potId, []);
+                        grouped.get(potId).push({
+                            icon: getReminderTypeIcon(reminder.careType, reminder.customAction),
+                            colorClass: getReminderDueStageColorClass(reminder),
+                            title: reminder.customAction || getReminderTypeLabel(reminder.careType, reminder.customAction) || '养护提醒'
+                        });
+                    });
+                    return grouped;
+                });
                 const dueCareFilterEntries = computed(() => {
                     const entries = new Map();
                     careReminders.value.forEach((reminder) => {
@@ -1637,10 +1651,13 @@
                     });
                 };
 
-                const goToPotDetail = (potId) => {
+                const goToPotDetail = (potId, options = {}) => {
                     const pot = pots.value.find(item => item.id === potId);
                     markPotActivityReadBeforeOpen(pot);
-                    window.location.href = `pot-detail?id=${potId}`;
+                    const params = new URLSearchParams({ id: String(potId) });
+                    if (options.openSection) params.set('openSection', String(options.openSection));
+                    if (options.careTab) params.set('careTab', String(options.careTab));
+                    window.location.href = `pot-detail?${params.toString()}`;
                 };
 
                 const handleLogin = async () => {
@@ -2087,6 +2104,12 @@
                         pest: '病虫害',
                         custom: '养护'
                     }[type] || '养护';
+                };
+                const getReminderDueStageColorClass = (reminder) => {
+                    const intervalDays = Number(reminder?.intervalDays || 0);
+                    const daysSinceCare = Number(reminder?.daysSinceCare || 0);
+                    const overdueDays = daysSinceCare - intervalDays;
+                    return overdueDays > 0 ? 'home-pot-due-icon--overdue' : 'home-pot-due-icon--due';
                 };
                 const formatDate = MyFlowerPotsDate.formatZhDate;
                 const formatGrowthDuration = (pot) => MyFlowerPotsDate.formatGrowthDuration({
@@ -2836,7 +2859,7 @@
                     getPotStatusTabButtonClass, getPotStatusTabFillStyle, getPotStatusTabTextClass,
                     handlePotStatusSwipeStart, handlePotStatusSwipeMove, handlePotStatusSwipeEnd, handlePotStatusSwipeCancel,
                     emptyStateTitle, emptyStateMessage,
-                    user, isLoggedIn, userDisplayName, navUserDisplayName, careReminders, isCareRemindersLoading, hasTopReminderBlock, groupedReminders, navSeasonalReminder, showRemindersExpanded,
+                    user, isLoggedIn, userDisplayName, navUserDisplayName, careReminders, isCareRemindersLoading, hasTopReminderBlock, groupedReminders, navSeasonalReminder, showRemindersExpanded, potDueTypeIconsMap,
                     ownedPots, collaborativePots, viewerPots, batchManageablePots,
                     isEditMode, potsGrid, showUserMenu, showLoginModal, showRegisterModal, showForgotPasswordModal, isAuthLoading,
                     entryNotice, entryNoticeClass, dismissEntryNotice,
@@ -2873,7 +2896,7 @@
                     formatSeasonalReminderText,
                     getSeasonalTextClass,
                     toggleSeasonalHeaderReminder,
-                    getReminderTypeColor, getReminderTypeIcon, getReminderTypeLabel,
+                    getReminderTypeColor, getReminderTypeIcon, getReminderTypeLabel, getReminderDueStageColorClass,
                     loadSeasonalTips,
                     unreadCount,
                     supportUnreadCount,

@@ -211,19 +211,29 @@
                 const carePanelActiveTab = ref('records');
                 const showScheduleExpanded = ref(true);
                 const showAddScheduleModal = ref(false);
+                const editingScheduleId = ref(null);
                 const newSchedule = reactive({
                     careType: 'water',
                     customAction: '',
                     intervalDays: 7
                 });
+                const isEditingSchedule = computed(() => !!editingScheduleId.value);
+                const scheduleModalTitle = computed(() => isEditingSchedule.value ? '修改养护提醒' : '设置养护提醒');
+                const scheduleModalConfirmLabel = computed(() => isEditingSchedule.value ? '保存修改' : '确认添加');
 
                 const scheduleTypeOptions = [
-                    { value: 'water', icon: '💧', label: '浇水' },
-                    { value: 'fertilize', icon: '🌿', label: '施肥' },
-                    { value: 'trim', icon: '✂️', label: '修剪' },
-                    { value: 'repot', icon: '🪴', label: '换盆' },
-                    { value: 'pest', icon: '🐛', label: '除虫' },
-                    { value: 'custom', icon: '⚙️', label: '自定义' }
+                    { value: 'water', iconClass: 'fa-tint', label: '浇水' },
+                    { value: 'fertilize', iconClass: 'fa-seedling', label: '施肥' },
+                    { value: 'trim', iconClass: 'fa-cut', label: '修剪' },
+                    { value: 'repot', iconClass: 'fa-exchange-alt', label: '换盆' },
+                    { value: 'pest', iconClass: 'fa-bug', label: '除虫' },
+                    { value: 'custom', iconClass: 'fa-sliders-h', label: '自定义' }
+                ];
+                const scheduleIntervalPresets = [
+                    { days: 3, label: '每 3 天' },
+                    { days: 7, label: '每 7 天' },
+                    { days: 14, label: '每 14 天' },
+                    { days: 30, label: '每月' }
                 ];
 
                 const sectionTabs = computed(() => {
@@ -463,6 +473,37 @@
 
                     if (!pot.value || isReadOnly.value || showShareModal.value) return;
                     openAddTimelineModal();
+                };
+
+                const maybeFocusCareSectionFromUrl = () => {
+                    const openSection = getParamWithFallback('openSection');
+                    const careTab = getParamWithFallback('careTab');
+                    const shouldFocusRecords = openSection === 'records';
+                    const shouldOpenSchedules = careTab === 'schedules';
+
+                    if (!shouldFocusRecords && !shouldOpenSchedules) return;
+
+                    const url = new URL(window.location.href);
+                    if (url.searchParams.has('openSection')) {
+                        url.searchParams.delete('openSection');
+                        window.history.replaceState({}, '', url.toString());
+                    }
+                    if (url.searchParams.has('careTab')) {
+                        url.searchParams.delete('careTab');
+                        window.history.replaceState({}, '', url.toString());
+                    }
+
+                    if (!pot.value) return;
+
+                    if (shouldOpenSchedules && canShowCareSchedules.value) {
+                        carePanelActiveTab.value = 'schedules';
+                    } else if (shouldFocusRecords) {
+                        carePanelActiveTab.value = 'records';
+                    }
+
+                    nextTick(() => {
+                        scrollToSection('section-records', 'records');
+                    });
                 };
 
                 const getDirectParam = (name) => {
@@ -839,6 +880,7 @@
                         syncUrlWithShareStatus();
                         maybeOpenShareModalFromUrl();
                         maybeOpenTimelineModalFromUrl();
+                        maybeFocusCareSectionFromUrl();
                     }
                 };
 
@@ -1214,11 +1256,167 @@
                     }
                 };
 
+                const normalizeScheduleInterval = (value) => {
+                    const days = Number(value);
+                    if (!Number.isFinite(days)) return 7;
+                    return Math.max(1, Math.min(365, Math.round(days)));
+                };
+
                 const normalizeCareSchedules = (items = []) => items.map(s => ({
                     ...s,
-                    intervalDays: s.interval_days,
+                    intervalDays: normalizeScheduleInterval(s.interval_days ?? s.intervalDays),
+                    scheduleLastCare: s.schedule_last_care ?? s.scheduleLastCare ?? s.lastCare ?? s.last_care ?? null,
                     enabled: s.enabled === 1 || s.enabled === true
                 }));
+
+                const setNewScheduleInterval = (days) => {
+                    newSchedule.intervalDays = normalizeScheduleInterval(days);
+                };
+
+                const adjustNewScheduleInterval = (delta) => {
+                    setNewScheduleInterval(Number(newSchedule.intervalDays || 7) + delta);
+                };
+
+                const resetNewScheduleForm = () => {
+                    newSchedule.careType = 'water';
+                    newSchedule.customAction = '';
+                    newSchedule.intervalDays = 7;
+                };
+
+                const mapScheduleCareTypeToOption = (type, customAction = '') => {
+                    const normalized = normalizeCareType(type, customAction);
+                    if (normalized === 'prune') return 'trim';
+                    if (['water', 'fertilize', 'trim', 'repot', 'pest'].includes(normalized)) return normalized;
+                    return 'custom';
+                };
+
+                const closeScheduleModal = () => {
+                    showAddScheduleModal.value = false;
+                    editingScheduleId.value = null;
+                    resetNewScheduleForm();
+                };
+
+                const openAddScheduleModal = () => {
+                    if (isReadOnly.value) return;
+                    editingScheduleId.value = null;
+                    resetNewScheduleForm();
+                    showAddScheduleModal.value = true;
+                };
+
+                const openEditScheduleModal = (schedule) => {
+                    if (isReadOnly.value || !schedule?.id) return;
+                    editingScheduleId.value = schedule.id;
+                    newSchedule.careType = mapScheduleCareTypeToOption(schedule.care_type, schedule.custom_action);
+                    newSchedule.customAction = String(schedule.custom_action || '').trim();
+                    newSchedule.intervalDays = normalizeScheduleInterval(schedule.intervalDays ?? schedule.interval_days);
+                    showAddScheduleModal.value = true;
+                };
+
+                const getScheduleStartDate = (schedule = null) => {
+                    const parseCalendarDay = MyFlowerPotsDate?.parseCalendarDay;
+                    const scheduleCreatedDate = parseCalendarDay?.(schedule?.created_at ?? schedule?.createdAt);
+                    const scheduleLastCareDate = parseCalendarDay?.(
+                        schedule?.scheduleLastCare
+                        ?? schedule?.schedule_last_care
+                        ?? schedule?.lastCare
+                        ?? schedule?.last_care
+                    );
+                    return scheduleLastCareDate
+                        || scheduleCreatedDate
+                        || parseCalendarDay?.(pot.value?.plant_date)
+                        || parseCalendarDay?.(new Date())
+                        || new Date();
+                };
+
+                const getCalendarDayDiff = (startDate, endDate) => {
+                    const dayMs = 24 * 60 * 60 * 1000;
+                    return Math.floor((endDate.getTime() - startDate.getTime()) / dayMs);
+                };
+
+                const formatScheduleStatusLabel = (daysUntilDue, overdueDays) => {
+                    if (daysUntilDue < 0) return `逾期 ${overdueDays} 天`;
+                    if (daysUntilDue === 0) return '今天';
+                    if (daysUntilDue === 1) return '明天';
+                    if (daysUntilDue === 2) return '后天';
+                    return `${daysUntilDue} 天后`;
+                };
+
+                const getScheduleProgressMeta = (schedule) => {
+                    const intervalDays = normalizeScheduleInterval(schedule?.intervalDays ?? schedule?.interval_days);
+                    const today = MyFlowerPotsDate?.parseCalendarDay?.(new Date()) || new Date();
+                    const startDate = getScheduleStartDate(schedule);
+                    const elapsedDays = getCalendarDayDiff(startDate, today);
+                    const daysUntilDue = intervalDays - elapsedDays;
+                    const overdueDays = Math.max(0, Math.abs(daysUntilDue));
+                    const remainingRatio = daysUntilDue > 0 ? Math.min(1, daysUntilDue / intervalDays) : 0;
+                    const isPaused = !schedule?.enabled;
+
+                    if (isPaused) {
+                        return {
+                            label: '已暂停',
+                            progress: 0,
+                            urgencyKey: 'comfortable',
+                            fillClass: 'care-schedule-fill--muted',
+                            statusClass: 'care-schedule-status--muted',
+                            sortValue: Number.POSITIVE_INFINITY,
+                            isPaused
+                        };
+                    }
+
+                    const urgencyKey = daysUntilDue <= 0 || remainingRatio < 0.25
+                        ? 'urgent'
+                        : remainingRatio <= 0.5
+                            ? 'soon'
+                            : 'comfortable';
+                    const fillClass = {
+                        urgent: 'care-schedule-fill--red',
+                        soon: 'care-schedule-fill--amber',
+                        comfortable: 'care-schedule-fill--green'
+                    }[urgencyKey];
+                    const statusClass = {
+                        urgent: 'care-schedule-status--urgent',
+                        soon: 'care-schedule-status--soon',
+                        comfortable: 'care-schedule-status--comfortable'
+                    }[urgencyKey];
+
+                    return {
+                        label: formatScheduleStatusLabel(daysUntilDue, overdueDays),
+                        progress: daysUntilDue <= 0 ? 8 : Math.max(10, Math.round(remainingRatio * 100)),
+                        urgencyKey,
+                        fillClass,
+                        statusClass,
+                        sortValue: daysUntilDue,
+                        isPaused
+                    };
+                };
+
+                const groupedCareScheduleCards = computed(() => {
+                    const groupDefinitions = [
+                        { key: 'urgent', label: '紧急' },
+                        { key: 'soon', label: '临近' },
+                        { key: 'comfortable', label: '充裕' }
+                    ];
+                    const groups = new Map(groupDefinitions.map(group => [group.key, []]));
+
+                    careSchedules.value.forEach(schedule => {
+                        const meta = getScheduleProgressMeta(schedule);
+                        const typeStyle = getScheduleTypeStyle(schedule.care_type, schedule.custom_action);
+                        const card = {
+                            schedule,
+                            meta,
+                            typeStyle,
+                            name: getScheduleTypeName(schedule.care_type, schedule.custom_action)
+                        };
+                        groups.get(meta.urgencyKey)?.push(card);
+                    });
+
+                    return groupDefinitions
+                        .map(group => ({
+                            ...group,
+                            items: (groups.get(group.key) || []).sort((a, b) => a.meta.sortValue - b.meta.sortValue)
+                        }))
+                        .filter(group => group.items.length > 0);
+                });
 
                 const applyDetailBundleData = (data = {}) => {
                     if (data.careRecords) {
@@ -1708,12 +1906,12 @@
                 // --- 养护提醒逻辑 ---
                 const getScheduleTypeStyle = (type, customAction = '') => {
                     const styles = {
-                        water: { bg: 'bg-blue-50 text-blue-500', icon: '💧' },
-                        fertilize: { bg: 'bg-green-50 text-green-500', icon: '🌿' },
-                        prune: { bg: 'bg-orange-50 text-orange-500', icon: '✂️' },
-                        repot: { bg: 'bg-purple-50 text-purple-500', icon: '🪴' },
-                        pest: { bg: 'bg-red-50 text-red-500', icon: '🐛' },
-                        custom: { bg: 'bg-gray-50 text-gray-500', icon: '⚙️' }
+                        water: { bg: 'bg-blue-50 text-blue-500', iconClass: 'fa-tint', iconWrap: 'care-schedule-icon-wrap--blue' },
+                        fertilize: { bg: 'bg-green-50 text-green-500', iconClass: 'fa-seedling', iconWrap: 'care-schedule-icon-wrap--green' },
+                        prune: { bg: 'bg-orange-50 text-orange-500', iconClass: 'fa-cut', iconWrap: 'care-schedule-icon-wrap--coral' },
+                        repot: { bg: 'bg-purple-50 text-purple-500', iconClass: 'fa-exchange-alt', iconWrap: 'care-schedule-icon-wrap--purple' },
+                        pest: { bg: 'bg-red-50 text-red-500', iconClass: 'fa-bug', iconWrap: 'care-schedule-icon-wrap--red' },
+                        custom: { bg: 'bg-gray-50 text-gray-500', iconClass: 'fa-sliders-h', iconWrap: 'care-schedule-icon-wrap--gray' }
                     };
                     return styles[normalizeCareType(type, customAction)] || styles.custom;
                 };
@@ -1730,19 +1928,25 @@
                         showAlert('请输入自定义名称');
                         return;
                     }
+                    const intervalDays = normalizeScheduleInterval(newSchedule.intervalDays);
+                    newSchedule.intervalDays = intervalDays;
                     try {
-                        const res = await apiClient.createCareSchedule({
-                            potId: potId.value,
-                            careType: newSchedule.careType,
-                            customAction,
-                            intervalDays: newSchedule.intervalDays
-                        });
+                        const res = isEditingSchedule.value
+                            ? await apiClient.updateCareSchedule(editingScheduleId.value, {
+                                intervalDays,
+                                ...(newSchedule.careType === 'custom' ? { customAction } : {})
+                            })
+                            : await apiClient.createCareSchedule({
+                                potId: potId.value,
+                                careType: newSchedule.careType,
+                                customAction,
+                                intervalDays
+                            });
                         if (res.success) {
-                            showAddScheduleModal.value = false;
-                            newSchedule.customAction = '';
+                            closeScheduleModal();
                             await loadCareSchedules();
                         }
-                    } catch (e) { showAlert(e?.message || '添加失败'); }
+                    } catch (e) { showAlert(e?.message || (isEditingSchedule.value ? '修改失败' : '添加失败')); }
                 };
 
                 const toggleScheduleEnabled = async (schedule) => {
@@ -1767,7 +1971,7 @@
 
                 const updateScheduleInterval = async (schedule) => {
                     if (isReadOnly.value) return;
-                    if (schedule.intervalDays < 1) schedule.intervalDays = 1;
+                    schedule.intervalDays = normalizeScheduleInterval(schedule.intervalDays);
                     try {
                         await apiClient.updateCareSchedule(schedule.id, {
                             intervalDays: schedule.intervalDays
@@ -1838,7 +2042,7 @@
                 const handleCarePanelAdd = () => {
                     if (!showCarePanelAddButton.value) return;
                     if (carePanelActiveTab.value === 'schedules') {
-                        showAddScheduleModal.value = true;
+                        openAddScheduleModal();
                         return;
                     }
                     goAddCarePage();
@@ -2710,10 +2914,12 @@
                     plantInfoActiveTab, showFullPlantInfo, showFullCareTips, plantInfoGroups, careTipsGroups,
                     statsWaterCount, statsFertilizeCount, statsCareCount, growthDurationDays, growthDurationText,
                     careSchedules, carePanelActiveTab, showCarePanelAddButton, carePanelAddLabel, handleCarePanelAdd,
-                    showScheduleExpanded, showAddScheduleModal, newSchedule,
-                    scheduleTypeOptions,
+                    groupedCareScheduleCards, showScheduleExpanded, showAddScheduleModal, newSchedule,
+                    isEditingSchedule, scheduleModalTitle, scheduleModalConfirmLabel,
+                    scheduleTypeOptions, scheduleIntervalPresets, setNewScheduleInterval, adjustNewScheduleInterval,
                     loadCareSchedules, saveNewSchedule, toggleScheduleEnabled, deleteSchedule, updateScheduleInterval,
-                    getScheduleTypeStyle, getScheduleTypeName, scrollToSection, sectionTabs, activeSection,
+                    openAddScheduleModal, openEditScheduleModal, closeScheduleModal,
+                    getScheduleTypeStyle, getScheduleTypeName, getScheduleProgressMeta, scrollToSection, sectionTabs, activeSection,
                     editRecord, deleteRecord, viewAllRecords, viewAllTimelines, confirmingDeleteId,
                     cancelTransfer, rejectTransfer, acceptTransfer,
                     // 分享与协作

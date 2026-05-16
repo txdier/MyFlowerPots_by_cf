@@ -9,6 +9,7 @@ import {
   markPotActivityRead,
   recordPotActivity
 } from '../utils/pot-activity-utils';
+import { getPotCareSchedulesWithLastCare } from './care-schedules';
 
 export async function handlePotsRequest(
   request: Request,
@@ -1238,11 +1239,7 @@ async function getPotStatsForBundle(env: any, potId: string): Promise<any> {
 }
 
 async function getCareSchedulesForBundle(env: any, potId: string): Promise<any[]> {
-  const { results } = await env.DB.prepare(`
-    SELECT * FROM care_schedules WHERE pot_id = ? ORDER BY care_type ASC
-  `).bind(potId).all();
-
-  return (results || []) as any[];
+  return getPotCareSchedulesWithLastCare(env, potId);
 }
 
 async function getPotCommentsForBundle(env: any, potId: string): Promise<any[]> {

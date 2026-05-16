@@ -468,25 +468,25 @@
                             }">
 
                             <!-- 前景内容层 -->
-                            <div class="relative bg-white flex h-32 transition-all duration-300 ease-out"
-                                :class="[isEditMode && !hasOverlayModalOpen ? 'pl-[4.5rem]' : '']"
+                            <div class="home-pot-card-front relative bg-white flex h-32 transition-all duration-300 ease-out"
+                                :class="{ 'home-pot-card-front--editing': isEditMode && !hasOverlayModalOpen }"
                                 @click="handleCardClick(pot)">
 
                                 <!-- 侧边操作台 (仅在管理模式显示) -->
                                 <div v-if="isEditMode && !hasOverlayModalOpen"
-                                    class="absolute inset-y-0 left-0 w-[4.5rem] flex flex-col items-center bg-gray-50 border-r border-gray-100 z-30 animate-fade-in">
-                                    <div class="flex-1 w-full flex items-center justify-center cursor-pointer"
+                                    class="home-pot-edit-rail absolute inset-y-0 left-0 flex flex-col items-center bg-gray-50 border-r border-gray-100 z-30 animate-fade-in">
+                                    <div class="home-pot-edit-rail__select flex-1 w-full flex items-center justify-center cursor-pointer"
                                         @click.stop="pot.selected = !pot.selected">
-                                        <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all"
+                                        <div class="home-pot-edit-checkbox rounded-full border-2 flex items-center justify-center transition-all"
                                             :class="pot.selected ? 'border-green-500 bg-green-500 shadow-sm shadow-green-200' : 'border-gray-300 bg-white'">
                                             <i class="fa fa-check text-white text-[10px]" v-show="pot.selected"></i>
                                         </div>
                                     </div>
                                     <div v-if="activePotStatus === 'active' || activePotStatus === 'archived'"
-                                        class="w-1 h-1 rounded-full bg-gray-200"></div>
+                                        class="home-pot-edit-rail__divider rounded-full bg-gray-200"></div>
                                     <div v-if="activePotStatus === 'active' || activePotStatus === 'archived'"
-                                        class="flex-1 w-full flex items-center justify-center text-gray-300 handle cursor-move active:text-blue-500 transition hover:bg-gray-100">
-                                        <i class="fa fa-grip-vertical text-lg"></i>
+                                        class="home-pot-edit-rail__handle flex-1 w-full flex items-center justify-center text-gray-300 handle cursor-move active:text-blue-500 transition hover:bg-gray-100">
+                                        <i class="fa fa-grip-vertical"></i>
                                     </div>
                                 </div>
 
@@ -495,7 +495,7 @@
                                     <i class="fa fa-ellipsis-h text-sm"></i>
                                 </button>
 
-                                <div class="w-32 h-32 shrink-0 relative p-1">
+                                <div class="home-pot-image shrink-0 relative">
                                     <img :src="imgUrl(pot.image_url, 128, 128) || 'assets/images/icons/icons-default-pot.png'"
                                         :loading="index < 4 ? 'eager' : 'lazy'"
                                         :fetchpriority="index < 2 ? 'high' : 'auto'" decoding="async"
@@ -509,17 +509,36 @@
                                         <i class="fa fa-book-open mr-0.5"></i> 仅查看
                                     </div>
                                 </div>
-                                <div class="flex-1 p-4 flex flex-col justify-between min-w-0">
+                                <div class="home-pot-info flex-1 flex flex-col justify-between min-w-0"
+                                    :class="{ 'home-pot-info--normal': !isEditMode }">
                                     <div>
-                                        <div class="flex items-center gap-1.5">
-                                            <h3 class="font-bold text-gray-800 truncate min-w-0">{{ pot.name }}</h3>
-                                            <span v-if="pot.has_new_activity"
-                                                class="shrink-0 inline-flex items-center gap-1 rounded-full bg-sky-50 px-1.5 py-0.5 text-[9px] font-black text-sky-600">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
-                                                {{ getPotActivityLabel(pot) }}
-                                            </span>
-                                            <span v-if="activePotStatus === 'archived'"
-                                                class="shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[9px] font-black text-gray-400">已归档</span>
+                                        <div class="flex items-center gap-2 min-w-0">
+                                            <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                                                <h3 class="font-bold text-gray-800 truncate min-w-0">{{ pot.name }}</h3>
+                                                <span v-if="pot.has_new_activity"
+                                                    class="shrink-0 inline-flex items-center gap-1 rounded-full bg-sky-50 px-1.5 py-0.5 text-[9px] font-black text-sky-600">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+                                                    {{ getPotActivityLabel(pot) }}
+                                                </span>
+                                                <span v-if="activePotStatus === 'archived'"
+                                                    class="shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[9px] font-black text-gray-400">已归档</span>
+                                            </div>
+                                            <div v-if="!isEditMode" class="shrink-0 flex items-center gap-1.5">
+                                                <button
+                                                    v-if="activePotStatus === 'active' && (potDueTypeIconsMap.get(String(pot.id)) || []).length > 0"
+                                                    type="button"
+                                                    @click.stop="goToPotDetail(pot.id, { openSection: 'records', careTab: 'schedules' })"
+                                                    class="inline-flex items-center gap-1 text-xs"
+                                                    title="查看待养护提醒" aria-label="查看待养护提醒">
+                                                    <i v-for="(dueIcon, dueIdx) in (potDueTypeIconsMap.get(String(pot.id)) || [])"
+                                                        :key="`${pot.id}-due-${dueIdx}`"
+                                                        class="fa home-pot-due-icon shrink-0"
+                                                        :class="[dueIcon.icon, dueIcon.colorClass]"
+                                                        :title="dueIcon.title"
+                                                        :aria-label="dueIcon.title"
+                                                        aria-hidden="true"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                         <p class="text-[11px] text-gray-400 mt-1 flex items-center gap-1.5 min-w-0">
                                             <span class="shrink-0">
@@ -533,15 +552,15 @@
                                     </div>
                                     <div class="flex justify-between items-end">
                                         <div class="text-xs text-gray-500 flex-1 min-w-0 space-y-1">
-                                            <div class="flex items-center gap-2">
+                                            <div class="home-pot-meta-row flex items-center gap-2">
                                                 <span class="text-gray-400 shrink-0">种植</span>
-                                                <span class="font-medium">{{ formatDate(pot.plant_date) }}</span>
+                                                <span class="home-pot-meta-value font-medium">{{ formatDate(pot.plant_date) }}</span>
                                             </div>
-                                            <div class="flex items-center gap-2">
+                                            <div class="home-pot-meta-row flex items-center gap-2">
                                                 <span class="text-gray-400 shrink-0">已养</span>
-                                                <span class="font-medium">{{ formatGrowthDuration(pot) }}</span>
+                                                <span class="home-pot-meta-value font-medium">{{ formatGrowthDuration(pot) }}</span>
                                             </div>
-                                            <div v-if="activePotStatus === 'active'" class="flex items-center gap-2">
+                                            <div v-if="activePotStatus === 'active'" class="home-pot-meta-row flex items-center gap-2">
                                                 <span class="text-gray-400 shrink-0">养护</span>
                                                 <div
                                                     class="flex items-center min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
@@ -558,7 +577,7 @@
                                                     </template>
                                                 </div>
                                             </div>
-                                            <div v-else class="flex items-center gap-2">
+                                            <div v-else class="home-pot-meta-row flex items-center gap-2">
                                                 <span class="text-gray-400 shrink-0">归档</span>
                                                 <div
                                                     class="flex items-center min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">

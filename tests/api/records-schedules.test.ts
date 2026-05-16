@@ -260,8 +260,75 @@ describe('api regression: care records, timelines, and schedules', () => {
       },
     }), 409);
 
+    const monthly = await expectOk(await api('/api/care-schedules', {
+      method: 'POST',
+      token: owner.token,
+      body: {
+        potId,
+        careType: 'fertilize',
+        intervalDays: 30,
+      },
+    }));
+
+    const remindersAfterMonthly = await expectOk(await api('/api/care-schedules/reminders', { token: owner.token }));
+    expect(remindersAfterMonthly.data.some((item: any) => item.scheduleId === monthly.id)).toBe(false);
+
+    const trimSchedule = await expectOk(await api('/api/care-schedules', {
+      method: 'POST',
+      token: owner.token,
+      body: {
+        potId,
+        careType: 'trim',
+        intervalDays: 5,
+      },
+    }));
+
+    await expectOk(await api('/api/care-records', {
+      method: 'POST',
+      token: owner.token,
+      body: {
+        potId,
+        types: ['prune'],
+        actions: ['Pruned'],
+        careDate: '2026-03-05',
+      },
+    }));
+
+    await expectOk(await api('/api/care-records', {
+      method: 'POST',
+      token: owner.token,
+      body: {
+        potId,
+        types: ['fertilize'],
+        actions: ['Fertilized'],
+        careDate: '2026-03-10',
+      },
+    }));
+
+    await expectOk(await api('/api/care-records', {
+      method: 'POST',
+      token: owner.token,
+      body: {
+        potId,
+        types: ['other'],
+        actions: ['Mist leaves'],
+        careDate: '2026-03-12',
+      },
+    }));
+
+    const remindersAfterMatchedCare = await expectOk(await api('/api/care-schedules/reminders', { token: owner.token }));
+    expect(remindersAfterMatchedCare.data.some((item: any) => item.scheduleId === monthly.id)).toBe(true);
+    expect(remindersAfterMatchedCare.data.some((item: any) => item.scheduleId === custom.id)).toBe(true);
+    expect(remindersAfterMatchedCare.data.some((item: any) => item.scheduleId === trimSchedule.id)).toBe(true);
+
     const byPot = await expectOk(await api(`/api/care-schedules/pot/${potId}`, { token: owner.token }));
-    expect(byPot.data).toHaveLength(2);
+    expect(byPot.data).toHaveLength(4);
+    const trimFromList = byPot.data.find((item: any) => item.id === trimSchedule.id);
+    expect(trimFromList?.schedule_last_care).toBe('2026-03-05');
+    const monthlyFromList = byPot.data.find((item: any) => item.id === monthly.id);
+    expect(monthlyFromList?.schedule_last_care).toBe('2026-03-10');
+    const customFromList = byPot.data.find((item: any) => item.id === custom.id);
+    expect(customFromList?.schedule_last_care).toBe('2026-03-12');
 
     const reminders = await expectOk(await api('/api/care-schedules/reminders', { token: owner.token }));
     expect(Array.isArray(reminders.data)).toBe(true);
@@ -281,6 +348,6 @@ describe('api regression: care records, timelines, and schedules', () => {
     }));
 
     const afterDelete = await expectOk(await api(`/api/care-schedules/pot/${potId}`, { token: owner.token }));
-    expect(afterDelete.data).toHaveLength(1);
+    expect(afterDelete.data).toHaveLength(3);
   });
 });

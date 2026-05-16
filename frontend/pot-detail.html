@@ -27,7 +27,7 @@
 
     <!-- 图标库 -->
     <link rel="stylesheet" href="css/icons.css">
-    <link rel="stylesheet" href="css/pot-detail-page.css?v=20260510-page-split">
+    <link rel="stylesheet" href="css/pot-detail-page.css?v=20260516-reminder-redesign">
 
 
 </head>
@@ -583,75 +583,83 @@
                             </button>
                         </div>
                         -->
-                        <div class="p-6 space-y-4 animate-fade-in">
+                        <div class="care-schedule-panel animate-fade-in">
                             <template v-if="isCareSchedulesLoading && careSchedules.length === 0">
-                                <div
-                                    class="flex items-center justify-between gap-3 p-3 bg-gray-50/50 rounded-2xl animate-pulse">
-                                    <div class="flex items-center gap-3 flex-1">
-                                        <div class="w-10 h-10 rounded-2xl bg-gray-200 shrink-0"></div>
-                                        <div class="flex-1 space-y-2">
-                                            <div class="h-4 bg-gray-200 rounded w-28"></div>
-                                            <div class="h-3 bg-gray-100 rounded w-20"></div>
+                                <div class="care-schedule-list-wrap animate-pulse" aria-hidden="true">
+                                    <div class="care-schedule-card">
+                                        <div class="care-schedule-icon-skeleton"></div>
+                                        <div class="care-schedule-body">
+                                            <div class="care-schedule-line-skeleton care-schedule-line-skeleton--title">
+                                            </div>
+                                            <div class="care-schedule-track">
+                                                <div class="care-schedule-fill care-schedule-fill--skeleton"
+                                                    style="width: 68%"></div>
+                                            </div>
+                                            <div class="care-schedule-line-skeleton care-schedule-line-skeleton--meta">
+                                            </div>
                                         </div>
+                                        <div class="care-schedule-actions-skeleton"></div>
                                     </div>
-                                    <div class="w-12 h-7 rounded-full bg-gray-200"></div>
-                                </div>
-                                <div
-                                    class="flex items-center justify-between gap-3 p-3 bg-gray-50/50 rounded-2xl animate-pulse">
-                                    <div class="flex items-center gap-3 flex-1">
-                                        <div class="w-10 h-10 rounded-2xl bg-gray-200 shrink-0"></div>
-                                        <div class="flex-1 space-y-2">
-                                            <div class="h-4 bg-gray-200 rounded w-24"></div>
-                                            <div class="h-3 bg-gray-100 rounded w-24"></div>
+                                    <div class="care-schedule-card">
+                                        <div class="care-schedule-icon-skeleton"></div>
+                                        <div class="care-schedule-body">
+                                            <div class="care-schedule-line-skeleton care-schedule-line-skeleton--title">
+                                            </div>
+                                            <div class="care-schedule-track">
+                                                <div class="care-schedule-fill care-schedule-fill--skeleton"
+                                                    style="width: 38%"></div>
+                                            </div>
+                                            <div class="care-schedule-line-skeleton care-schedule-line-skeleton--meta">
+                                            </div>
                                         </div>
+                                        <div class="care-schedule-actions-skeleton"></div>
                                     </div>
-                                    <div class="w-12 h-7 rounded-full bg-gray-200"></div>
                                 </div>
                             </template>
                             <template v-else-if="careSchedules.length > 0">
-                                <template v-for="schedule in careSchedules" :key="schedule.id">
-                                    <div class="flex items-center justify-between gap-3 p-3 bg-gray-50/50 rounded-2xl">
-                                        <div class="flex items-center gap-3 min-w-0">
-                                            <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-lg shrink-0"
-                                                :class="getScheduleTypeStyle(schedule.care_type, schedule.custom_action).bg">
-                                                {{ getScheduleTypeStyle(schedule.care_type, schedule.custom_action).icon
-                                                }}
+                                <div class="care-schedule-list-wrap">
+                                    <section v-for="group in groupedCareScheduleCards" :key="group.key"
+                                        class="care-schedule-group">
+                                        <div class="care-schedule-section-label">{{ group.label }}</div>
+                                        <div v-for="card in group.items" :key="card.schedule.id"
+                                            class="care-schedule-card"
+                                            :class="{ 'care-schedule-card--disabled': card.meta.isPaused, 'care-schedule-card--editable': !isReadOnly }"
+                                            @click="openEditScheduleModal(card.schedule)">
+                                            <div class="care-schedule-icon-wrap" :class="card.typeStyle.iconWrap">
+                                                <i class="fa" :class="card.typeStyle.iconClass" aria-hidden="true"></i>
                                             </div>
-                                            <div class="min-w-0">
-                                                <div class="text-sm font-bold text-gray-800">
-                                                    {{ getScheduleTypeName(schedule.care_type, schedule.custom_action)
-                                                    }}
+                                            <div class="care-schedule-body">
+                                                <div class="care-schedule-row">
+                                                    <span class="care-schedule-title">{{ card.name }}</span>
+                                                    <span class="care-schedule-status"
+                                                        :class="card.meta.statusClass">{{ card.meta.label }}</span>
                                                 </div>
-                                                <div class="flex items-center gap-1 mt-0.5" @click.stop>
-                                                    <span class="text-[10px] text-gray-400">每</span>
-                                                    <input v-if="!isReadOnly" type="number"
-                                                        v-model.lazy.number="schedule.intervalDays"
-                                                        class="w-14 min-w-[3.5rem] h-5 shrink-0 text-center text-[10px] font-bold bg-white border border-gray-200 rounded px-1 py-0 focus:ring-1 focus:ring-purple-200"
-                                                        @change="updateScheduleInterval(schedule)">
-                                                    <span v-else
-                                                        class="inline-block min-w-[1.75rem] shrink-0 text-right text-[10px] font-bold text-gray-600">{{
-                                                        schedule.intervalDays }}</span>
-                                                    <span class="shrink-0 text-[10px] text-gray-400">天提醒</span>
+                                                <div class="care-schedule-track" aria-hidden="true">
+                                                    <div class="care-schedule-fill" :class="card.meta.fillClass"
+                                                        :style="{ width: card.meta.progress + '%' }"></div>
                                                 </div>
                                             </div>
+                                            <div v-if="!isReadOnly" class="care-schedule-actions">
+                                                <button type="button" @click.stop="toggleScheduleEnabled(card.schedule)"
+                                                    class="care-schedule-toggle"
+                                                    :class="{ 'care-schedule-toggle--on': card.schedule.enabled }"
+                                                    :title="card.schedule.enabled ? '停用提醒' : '启用提醒'"
+                                                    :aria-label="card.schedule.enabled ? '停用提醒' : '启用提醒'">
+                                                    <span></span>
+                                                </button>
+                                                <button type="button" @click.stop="deleteSchedule(card.schedule)"
+                                                    class="care-schedule-delete" title="删除提醒" aria-label="删除提醒">
+                                                    <i class="fa fa-trash-alt" aria-hidden="true"></i>
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div v-if="!isReadOnly" class="flex items-center gap-2">
-                                            <button @click="toggleScheduleEnabled(schedule)"
-                                                class="w-12 h-7 rounded-full transition-all duration-300 relative"
-                                                :class="schedule.enabled ? 'bg-green-500' : 'bg-gray-200'">
-                                                <span
-                                                    class="absolute w-5 h-5 bg-white rounded-full top-1 transition-all duration-300 shadow-sm"
-                                                    :class="schedule.enabled ? 'right-1' : 'left-1'"></span>
-                                            </button>
-                                            <button @click="deleteSchedule(schedule)"
-                                                class="w-8 h-8 rounded-xl text-gray-300 hover:text-red-400 hover:bg-red-50 transition">
-                                                <i class="fa fa-trash-alt text-xs"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </template>
+                                    </section>
+                                </div>
                             </template>
-                            <div v-else class="py-8 text-center text-gray-400">暂未设置养护提醒</div>
+                            <div v-else class="care-schedule-empty">
+                                <i class="fa fa-clock" aria-hidden="true"></i>
+                                <span>暂未设置养护提醒</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1103,57 +1111,63 @@
             <!-- 弹窗：添加养护提醒 -->
             <div v-if="showAddScheduleModal"
                 class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4">
-                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showAddScheduleModal = false"></div>
-                <div class="relative bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit keyboard-safe-modal"
+                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeScheduleModal"></div>
+                <div class="add-schedule-sheet relative w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col modal-height-limit keyboard-safe-modal"
                     :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus">
                     <!-- 固定头部 -->
-                    <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
-                        <div class="flex justify-between items-center">
-                            <h3 class="text-xl font-black text-gray-800">设置养护提醒</h3>
-                            <button @click="showAddScheduleModal = false"
-                                class="text-gray-300 hover:text-gray-500 transition active:scale-95">
-                                <i class="fa fa-times text-xl"></i>
-                            </button>
-                        </div>
+                    <div class="add-schedule-sheet__header shrink-0">
+                        <h3 class="add-schedule-sheet__title">{{ scheduleModalTitle }}</h3>
+                        <button type="button" @click="closeScheduleModal"
+                            class="add-schedule-sheet__close" aria-label="关闭">
+                            <i class="fa fa-times" aria-hidden="true"></i>
+                        </button>
                     </div>
                     <!-- 可滚动内容区 -->
-                    <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar keyboard-safe-modal-scroll">
-                        <div class="space-y-6">
-                            <div>
-                                <label
-                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">提醒类型</label>
-                                <div class="grid grid-cols-3 gap-2">
-                                    <button v-for="opt in scheduleTypeOptions" :key="opt.value"
-                                        @click="newSchedule.careType = opt.value"
-                                        class="flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition"
-                                        :class="newSchedule.careType === opt.value ? 'border-purple-500 bg-purple-50' : 'border-gray-50 bg-gray-50'">
-                                        <span class="text-xl mb-1">{{ opt.icon }}</span>
-                                        <span class="text-[10px] font-bold text-gray-600">{{ opt.label }}</span>
-                                    </button>
+                    <div
+                        class="add-schedule-sheet__body overflow-y-auto flex-1 no-scrollbar keyboard-safe-modal-scroll">
+                        <section class="add-schedule-sheet__section">
+                            <div class="add-schedule-sheet__label">提醒类型</div>
+                            <div class="add-schedule-type-grid">
+                                <button v-for="opt in scheduleTypeOptions" :key="opt.value" type="button"
+                                    @click="newSchedule.careType = opt.value" class="add-schedule-type-cell"
+                                    :disabled="isEditingSchedule"
+                                    :class="{ 'add-schedule-type-cell--selected': newSchedule.careType === opt.value, 'add-schedule-type-cell--disabled': isEditingSchedule }">
+                                    <i class="fa" :class="opt.iconClass" aria-hidden="true"></i>
+                                    <span>{{ opt.label }}</span>
+                                </button>
+                            </div>
+                        </section>
+                        <section v-if="newSchedule.careType === 'custom'" class="add-schedule-sheet__section">
+                            <label class="add-schedule-sheet__label" for="customScheduleAction">自定义名称</label>
+                            <input id="customScheduleAction" type="text" v-model="newSchedule.customAction"
+                                placeholder="例：检查叶片情况" class="add-schedule-custom-input">
+                        </section>
+                        <section class="add-schedule-sheet__section add-schedule-sheet__section--separated">
+                            <div class="add-schedule-sheet__label">提醒频率</div>
+                            <div class="add-schedule-frequency-row">
+                                <span class="add-schedule-frequency-label">每隔</span>
+                                <div class="add-schedule-stepper">
+                                    <button type="button" @click="adjustNewScheduleInterval(-1)"
+                                        :disabled="newSchedule.intervalDays <= 1" aria-label="减少提醒间隔">-</button>
+                                    <span>{{ newSchedule.intervalDays }}</span>
+                                    <button type="button" @click="adjustNewScheduleInterval(1)"
+                                        aria-label="增加提醒间隔">+</button>
                                 </div>
+                                <span class="add-schedule-frequency-label">天提醒我</span>
                             </div>
-                            <div v-if="newSchedule.careType === 'custom'">
-                                <label
-                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">自定义名称</label>
-                                <input type="text" v-model="newSchedule.customAction" placeholder="例：检查叶片情况"
-                                    class="w-full bg-gray-50 border-none rounded-2xl py-4 px-6 font-bold text-gray-800">
+                            <div class="add-schedule-presets">
+                                <button v-for="preset in scheduleIntervalPresets" :key="preset.days" type="button"
+                                    @click="setNewScheduleInterval(preset.days)" class="add-schedule-preset"
+                                    :class="{ 'add-schedule-preset--active': newSchedule.intervalDays === preset.days }">
+                                    {{ preset.label }}
+                                </button>
                             </div>
-                            <div>
-                                <label
-                                    class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">提醒频率</label>
-                                <div class="flex items-center gap-4 bg-gray-50 rounded-2xl p-4">
-                                    <span class="text-sm font-bold text-gray-500">每隔</span>
-                                    <input type="number" v-model.number="newSchedule.intervalDays"
-                                        class="w-24 min-w-[6rem] shrink-0 bg-white border border-gray-100 rounded-xl py-2 px-3 text-center font-black text-purple-600">
-                                    <span class="text-sm font-bold text-gray-500">天提醒我</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mt-10">
-                            <button @click="saveNewSchedule"
-                                class="w-full bg-purple-500 text-white py-4 rounded-2xl text-lg font-black shadow-xl shadow-purple-100 transition active:scale-[0.98]">
-                                确认添加
-                            </button>
+                        </section>
+                        <div class="add-schedule-sheet__footer">
+                            <button type="button" @click="closeScheduleModal"
+                                class="add-schedule-btn add-schedule-btn--cancel">取消</button>
+                            <button type="button" @click="saveNewSchedule"
+                                class="add-schedule-btn add-schedule-btn--confirm">{{ scheduleModalConfirmLabel }}</button>
                         </div>
                     </div>
                 </div>
@@ -2067,7 +2081,7 @@
     <script src="js/clipboard.js?v=20260407-2"></script>
     <script src="js/dialog-utils.js?v=20260421-refactor"></script>
 
-    <script src="js/pages/pot-detail-page.js?v=20260514-cover"></script>
+    <script src="js/pages/pot-detail-page.js?v=20260516-reminder-redesign"></script>
 </body>
 
 </html>
