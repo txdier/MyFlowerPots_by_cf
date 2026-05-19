@@ -63,6 +63,8 @@ describe('api regression: comments, messages, plants, upload, analytics headers,
 
     const comments = await expectOk(await api(`/api/messages/pot-comments/${potId}`, { token: viewer.token }));
     expect(comments.data[0].replies).toHaveLength(1);
+    expect(comments.data[0].createdAt).toBeTruthy();
+    expect(comments.data[0].replies[0].createdAt).toBeTruthy();
 
     const viewerMessages = await expectOk(await api('/api/messages', { token: viewer.token }));
     const unreadMessage = viewerMessages.data.find((message: any) => message.status === 'unread');

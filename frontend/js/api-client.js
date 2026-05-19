@@ -32,6 +32,13 @@ const SMART_MATCH_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const AUTH_PERSISTENT_STORAGE = window.localStorage;
 const AUTH_LEGACY_STORAGE = window.sessionStorage;
 
+const getLocalDateString = (date = new Date()) => {
+    if (window.MyFlowerPotsDate?.getLocalDateString) {
+        return window.MyFlowerPotsDate.getLocalDateString(date);
+    }
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
 const safeStorageGet = (storage, key) => {
     try {
         return storage?.getItem(key) ?? null;
@@ -1497,8 +1504,8 @@ class APIClient {
             {
                 name: '示例：虎皮兰',
                 note: '这是一款非常适合新手的植物，耐阴且净化空气。',
-                plantDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30天前
-                imageUrl: 'assets/images/demo/snake-plant.png',
+                plantDate: getLocalDateString(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)), // 30天前
+                imageUrl: 'assets/images/demo/snake-plant.webp',
                 plantType: '虎皮兰',
                 careSchedules: [
                     { careType: 'water', intervalDays: 14 } // 每两周浇水一次
@@ -1507,8 +1514,8 @@ class APIClient {
             {
                 name: '示例：薄荷',
                 note: '放在窗台边，叶子可以用来泡茶。保持土壤湿润。',
-                plantDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 15天前
-                imageUrl: 'assets/images/demo/mint.png',
+                plantDate: getLocalDateString(new Date(Date.now() - 15 * 24 * 60 * 60 * 1000)), // 15天前
+                imageUrl: 'assets/images/demo/mint.webp',
                 plantType: '薄荷',
                 careSchedules: [
                     { careType: 'water', intervalDays: 3 } // 每3天浇水一次
@@ -1564,7 +1571,7 @@ class APIClient {
                         type: 'fertilize',
                         action: '施肥',
                         description: '补充生长所需养分',
-                        careDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                        careDate: getLocalDateString(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)),
                         imageUrl: ''
                     });
                 }

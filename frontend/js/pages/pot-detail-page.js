@@ -199,7 +199,7 @@
                 const fallbackPotImage = 'assets/images/icons/icons-default-pot.png';
 
                 const newTimeline = reactive({
-                    date: new Date().toISOString().split('T')[0],
+                    date: MyFlowerPotsDate.getLocalDateString(),
                     description: '',
                     existingImages: [],
                     tempImages: []
@@ -1685,7 +1685,7 @@
 
                 const triggerFileInput = () => fileInput.value?.click();
 
-                const getTodayString = () => new Date().toISOString().split('T')[0];
+                const getTodayString = () => MyFlowerPotsDate.getLocalDateString();
 
                 const timelineImageCount = () => newTimeline.existingImages.length + newTimeline.tempImages.length;
 
@@ -2000,7 +2000,7 @@
                     MyFlowerPotsDate.formatGrowthDuration(pot.value, '无', { includeExactDays: true })
                 );
 
-                const formatCommentTime = (dateStr) => MyFlowerPotsDate.formatDate(dateStr, 'datetime');
+                const formatCommentTime = (dateStr) => MyFlowerPotsDate.formatUtcDateTime(dateStr);
 
                 const handleHeroImageLoad = () => {
                     heroImageLoaded.value = true;
