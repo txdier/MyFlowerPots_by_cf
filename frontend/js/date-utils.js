@@ -20,6 +20,12 @@
         return parseDate(text);
     };
 
+    const getLocalDateString = (value = new Date()) => {
+        const date = value instanceof Date ? value : parseDate(value);
+        if (!date) return '';
+        return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+    };
+
     const parseCalendarDay = (value) => {
         if (!value) return null;
         if (value instanceof Date) {
@@ -78,6 +84,11 @@
 
         return formatDate(date, 'datetime');
     };
+
+    const formatUtcDateTime = (value, options = {}) => formatDateTime(value, {
+        ...options,
+        assumeUtc: true
+    });
 
     const formatRelativeTime = (value, options = {}) => {
         const date = parseDateTime(value, options);
@@ -140,10 +151,12 @@
         parseDate,
         parseDateTime,
         parseCalendarDay,
+        getLocalDateString,
         formatDate,
         formatIsoDate,
         formatZhDate,
         formatDateTime,
+        formatUtcDateTime,
         formatRelativeTime,
         getGrowthDurationDays,
         formatGrowthDuration,

@@ -98,6 +98,28 @@ const needsCssBuild = files.some((file) =>
   file === "frontend/css/tailwind-input.css" ||
   file.startsWith("frontend/") && file.endsWith(".html")
 );
+const needsFrontendAssetCheck = files.some((file) =>
+  [
+    "frontend/index.html",
+    "frontend/pot-detail.html",
+    "frontend/admin-plants.html",
+    "frontend/admin-users.html",
+    "frontend/admin-cache.html",
+    "frontend/admin-stats.html",
+    "frontend/admin-inbox.html",
+    "frontend/css/icons.css",
+    "frontend/css/icons-home.css",
+    "frontend/css/icons-pot-detail.css",
+    "frontend/css/icons-admin.css",
+    "frontend/js/api-client.js",
+    "frontend/js/api-client.min.js",
+    "frontend/js/pages/index-page.js",
+    "frontend/js/pages/index-page.min.js",
+    "frontend/js/pages/pot-detail-page.js",
+    "frontend/js/pages/pot-detail-page.min.js",
+    "scripts/build-frontend-assets.js",
+  ].includes(file)
+);
 const needsWorkerDryRun = files.some((file) =>
   file === "wrangler.toml" ||
   file === "package.json" ||
@@ -144,6 +166,10 @@ if (needsRouteCheck) {
 
 if (frontendFiles.length > 0) {
   run(process.execPath, ["scripts/check-frontend.js", "--files", ...frontendFiles]);
+}
+
+if (needsFrontendAssetCheck) {
+  run(process.execPath, ["scripts/build-frontend-assets.js", "--check"]);
 }
 
 if (tsFiles.length > 0) {

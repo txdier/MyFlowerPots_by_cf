@@ -11,7 +11,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="stylesheet" href="css/tailwind-built.css">
     <script src="js/vue.global.prod.js"></script>
-    <link rel="stylesheet" href="css/icons.css">
+    <link rel="stylesheet" href="css/icons-admin.css?v=20260518-pagespeed">
     <style>
         * {
             touch-action: manipulation;
@@ -454,10 +454,10 @@
     </div>
 
     <!-- Scripts -->
-    <script src="js/api-client.js?v=20260514-auth-refresh"></script>
+    <script src="js/api-client.min.js?v=20260519-local-time"></script>
     <script src="js/dialog-utils.js?v=20260421-refactor"></script>
     <script src="js/ui-utils.js?v=20260421-refactor"></script>
-    <script src="js/date-utils.js?v=20260421-refactor"></script>
+    <script src="js/date-utils.js?v=20260519-local-time"></script>
     <script src="js/form-utils.js?v=20260421-refactor"></script>
     <script>
         const { createApp, ref, computed, onMounted } = Vue;
@@ -662,7 +662,7 @@
                     }
                 };
 
-                const formatDateTime = (dateStr) => MyFlowerPotsDate.formatDateTime(dateStr);
+                const formatDateTime = (dateStr) => MyFlowerPotsDate.formatUtcDateTime(dateStr);
 
                 const checkAccess = async () => {
                     try {

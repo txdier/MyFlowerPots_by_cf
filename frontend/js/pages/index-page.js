@@ -203,7 +203,7 @@
                     type: 'water',
                     types: ['water'],
                     action: '',
-                    careDate: new Date().toISOString().split('T')[0],
+                    careDate: MyFlowerPotsDate.getLocalDateString(),
                     description: ''
                 });
                 const batchCareTypeOptions = [
@@ -2112,6 +2112,7 @@
                     return overdueDays > 0 ? 'home-pot-due-icon--overdue' : 'home-pot-due-icon--due';
                 };
                 const formatDate = MyFlowerPotsDate.formatZhDate;
+                const formatUtcDate = (dateStr) => MyFlowerPotsDate.formatUtcDateTime(dateStr, { fallback: '' });
                 const formatGrowthDuration = (pot) => MyFlowerPotsDate.formatGrowthDuration({
                     ...pot,
                     status: pot?.status || activePotStatus.value || 'active'
@@ -2435,7 +2436,7 @@
                     batchCareForm.type = 'water';
                     batchCareForm.types = ['water'];
                     batchCareForm.action = '';
-                    batchCareForm.careDate = new Date().toISOString().split('T')[0];
+                    batchCareForm.careDate = MyFlowerPotsDate.getLocalDateString();
                     showBatchCareModal.value = true;
                 };
 
@@ -2884,7 +2885,7 @@
                     leaveCollaborationFromSheet, removeViewerPotFromSheet,
                     confirmLeaveCollaboration, confirmLeaveViewer,
                     logout, closeAuthModals, switchToRegister, switchToLogin, switchToForgotPassword,
-                    formatDate, formatGrowthDuration, getPotActivityLabel, handleImageError, imgUrl, seedDemoData, goToPotDetail,
+                    formatDate, formatUtcDate, formatGrowthDuration, getPotActivityLabel, handleImageError, imgUrl, seedDemoData, goToPotDetail,
                     goEditPot: (id) => window.location.href = `edit-pot?id=${id}`,
                     goAddPot: () => window.location.href = 'add-pot',
                     goProfile: () => window.location.href = 'profile',

@@ -152,6 +152,15 @@ describe('frontend shared utilities', () => {
     )).toBe('约 3 个月（共 92 天）');
   });
 
+  it('formats UTC SQL timestamps as local date time', () => {
+    expect(dateUtils.formatUtcDateTime('2026-05-19 12:00:00')).toBe('2026-05-19 20:00');
+    expect(dateUtils.formatUtcDateTime('2026-05-19T12:00:00.000Z')).toBe('2026-05-19 20:00');
+  });
+
+  it('builds local calendar dates without UTC truncation', () => {
+    expect(dateUtils.getLocalDateString(new Date(2026, 4, 19, 0, 30))).toBe('2026-05-19');
+  });
+
   it('normalizes care type aliases and Chinese actions', () => {
     expect(careUtils.normalizeCareType('watering')).toBe('water');
     expect(careUtils.normalizeCareType('', '翻盆检查')).toBe('repot');

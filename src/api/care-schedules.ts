@@ -1,5 +1,6 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
 import { findAccessiblePot } from '../utils/pot-access-utils';
+import { getAnalyticsDateString } from './analytics';
 
 interface CareSchedule {
     id: number;
@@ -51,6 +52,39 @@ CASE
   ELSE 'custom'
 END
 `;
+
+function getSqlTimeZoneModifier(env: any): string {
+    const timeZone = env?.ANALYTICS_TIMEZONE || 'Asia/Shanghai';
+    const date = new Date();
+    try {
+        const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone,
+            hourCycle: 'h23',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        }).formatToParts(date);
+        const pick = (type: string) => parts.find((part) => part.type === type)?.value || '0';
+        const zonedAsUtc = Date.UTC(
+            Number(pick('year')),
+            Number(pick('month')) - 1,
+            Number(pick('day')),
+            Number(pick('hour')),
+            Number(pick('minute')),
+            Number(pick('second'))
+        );
+        const offsetMinutes = Math.round((zonedAsUtc - date.getTime()) / 60000);
+        if (!Number.isFinite(offsetMinutes) || offsetMinutes === 0) {
+            return '+0 minutes';
+        }
+        return `${offsetMinutes > 0 ? '+' : ''}${offsetMinutes} minutes`;
+    } catch {
+        return '+480 minutes';
+    }
+}
 
 export async function getPotCareSchedulesWithLastCare(env: any, potId: string): Promise<any[]> {
     const { results } = await env.DB.prepare(`
@@ -173,6 +207,8 @@ async function handleGetReminders(env: any, userId: string): Promise<Response> {
 }
 
 export async function getCareRemindersData(env: any, userId: string): Promise<any[]> {
+    const today = getAnalyticsDateString(env);
+    const createdAtDateModifier = getSqlTimeZoneModifier(env);
     const { results } = await env.DB.prepare(`
     WITH schedule_base AS (
       SELECT
@@ -231,8 +267,8 @@ export async function getCareRemindersData(env: any, userId: string): Promise<an
         schedule_last_care,
         COALESCE(
           date(NULLIF(schedule_last_care, '')),
-          date(NULLIF(created_at, ''), 'localtime'),
-          date('now', 'localtime')
+          date(NULLIF(created_at, ''), ?),
+          date(?)
         ) AS reminder_start_date
       FROM schedule_with_last
     )
@@ -246,11 +282,11 @@ export async function getCareRemindersData(env: any, userId: string): Promise<an
       pot_image,
       schedule_last_care,
       reminder_start_date,
-      julianday(date('now', 'localtime')) - julianday(reminder_start_date) AS days_since_care
+      julianday(date(?)) - julianday(reminder_start_date) AS days_since_care
     FROM due_schedules
-    WHERE julianday(date('now', 'localtime')) - julianday(reminder_start_date) >= interval_days
+    WHERE julianday(date(?)) - julianday(reminder_start_date) >= interval_days
     ORDER BY days_since_care DESC
-  `).bind(userId, userId).all();
+  `).bind(userId, userId, createdAtDateModifier, today, today, today).all();
 
     return (results || []).map((r: any) => ({
         scheduleId: r.schedule_id,
