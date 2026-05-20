@@ -37,6 +37,9 @@ describe('api regression: pot activity markers', () => {
       date: '2026-05-01',
       description: 'collaborator new leaf'
     });
+    const timelines = await expectOk(await api(`/api/pots/${potId}/timelines`, { token: owner.token }));
+    const newTimeline = timelines.data.find((item: any) => item.description === 'collaborator new leaf');
+    expect(newTimeline).toBeTruthy();
 
     const ownerList = await expectOk(await api('/api/pots', { token: owner.token }));
     const ownerPot = findPot(ownerList, potId);
@@ -54,10 +57,18 @@ describe('api regression: pot activity markers', () => {
     const unreadAfter = await expectOk(await api('/api/messages/unread-count', { token: owner.token }));
     expect(Number(unreadAfter.count || 0)).toBe(0);
 
-    await expectOk(await api(`/api/pots/${potId}/activity/read`, {
+    const readResult = await expectOk(await api(`/api/pots/${potId}/activity/read`, {
       method: 'POST',
       token: owner.token
     }));
+    expect(readResult.data.latestEventId).toBeGreaterThan(0);
+    expect(readResult.data.unreadEvents).toEqual([
+      expect.objectContaining({
+        type: 'timeline_created',
+        targetType: 'timeline',
+        targetId: String(newTimeline.id)
+      })
+    ]);
     const ownerAfterRead = await expectOk(await api('/api/pots', { token: owner.token }));
     expect(findPot(ownerAfterRead, potId).has_new_activity).toBe(0);
   });
@@ -84,6 +95,18 @@ describe('api regression: pot activity markers', () => {
     const collaboratorPot = findPot(collaboratorList, potId);
     expect(collaboratorPot.has_new_activity).toBe(1);
     expect(collaboratorPot.latest_activity_type).toBe('pot_updated');
+
+    const readResult = await expectOk(await api(`/api/pots/${potId}/activity/read`, {
+      method: 'POST',
+      token: collaborator.token
+    }));
+    expect(readResult.data.unreadEvents).toEqual([
+      expect.objectContaining({
+        type: 'pot_updated',
+        targetType: null,
+        targetId: null
+      })
+    ]);
 
     const viewerList = await expectOk(await api('/api/pots', { token: viewer.token }));
     expect(findPot(viewerList, potId).has_new_activity).toBe(1);

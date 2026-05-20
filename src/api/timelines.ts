@@ -76,7 +76,7 @@ async function handleCreateTimeline(request: Request, env: any, token: string | 
     // 处理图片：如果是数组，转为 JSON 字符串
     const imagesStr = Array.isArray(images) ? JSON.stringify(images) : images;
 
-    await env.DB
+    const result = await env.DB
       .prepare(`
         INSERT INTO timelines (
           pot_id,
@@ -98,7 +98,10 @@ async function handleCreateTimeline(request: Request, env: any, token: string | 
         token
       )
       .run();
-    await recordPotActivity(env, potId, token, 'timeline_created', '新增成长轨迹', createdAt || null);
+    await recordPotActivity(env, potId, token, 'timeline_created', '新增成长轨迹', createdAt || null, {
+      targetType: 'timeline',
+      targetId: result.meta?.last_row_id
+    });
 
     return jsonResponse({ success: true });
 
@@ -172,7 +175,10 @@ async function handleUpdateTimeline(request: Request, env: any, id: string, toke
       .prepare(`UPDATE timelines SET ${updates.join(', ')} WHERE id = ?`)
       .bind(...values)
       .run();
-    await recordPotActivity(env, existing.pot_id, token, 'timeline_updated', '更新成长轨迹');
+    await recordPotActivity(env, existing.pot_id, token, 'timeline_updated', '更新成长轨迹', null, {
+      targetType: 'timeline',
+      targetId: id
+    });
 
     return jsonResponse({ success: true });
 

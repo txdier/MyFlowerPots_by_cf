@@ -14,6 +14,7 @@
                 const currentUser = ref(null);
                 const careRecords = ref([]);
                 const timelineRecords = ref([]);
+                const unreadActivityEvents = ref([]);
                 const confirmingDeleteId = ref(null);
                 const collaborators = ref([]);
                 const plantInfo = ref(null);
@@ -702,11 +703,28 @@
                     showAlert(`${message}\n${text}`);
                 };
 
-                const markCurrentPotActivityRead = () => {
+                const normalizeUnreadActivityEvents = (events) => {
+                    if (!Array.isArray(events)) return [];
+                    return events.map(event => ({
+                        id: Number(event?.id || 0),
+                        type: String(event?.type || ''),
+                        summary: event?.summary || '',
+                        createdAt: event?.createdAt || event?.created_at || null,
+                        targetType: event?.targetType || event?.target_type || null,
+                        targetId: event?.targetId == null && event?.target_id == null
+                            ? null
+                            : String(event?.targetId ?? event?.target_id)
+                    })).filter(event => event.type);
+                };
+
+                const markCurrentPotActivityRead = async () => {
                     if (!potId.value || shareToken.value || !apiClient.token || !apiClient.userId) return;
-                    apiClient.markPotActivityRead(potId.value).catch(error => {
+                    try {
+                        const res = await apiClient.markPotActivityRead(potId.value);
+                        unreadActivityEvents.value = normalizeUnreadActivityEvents(res?.data?.unreadEvents);
+                    } catch (error) {
                         console.debug('标记花盆动态已读失败:', error);
-                    });
+                    }
                 };
 
                 const goHome = () => {
@@ -763,6 +781,7 @@
                     collabToken.value = getParamWithFallback('collabToken');
                     viewerToken.value = getParamWithFallback('viewerToken');
                     transferToken.value = getParamWithFallback('transferToken');
+                    unreadActivityEvents.value = [];
 
                     if (collabToken.value) {
                         sessionStorage.setItem('pending_collab_token', collabToken.value);
@@ -900,7 +919,7 @@
                         pot.value = res.data;
                         syncCommentDanmakuStateFromPot();
                         syncShareMetadata();
-                        markCurrentPotActivityRead();
+                        await markCurrentPotActivityRead();
                     }
                 };
 
@@ -916,6 +935,7 @@
                 };
 
                 const applyPublicPotDetail = (data) => {
+                    unreadActivityEvents.value = [];
                     pot.value = data.pot;
                     if (pot.value?.share_token) {
                         shareToken.value = pot.value.share_token;
@@ -1612,6 +1632,57 @@
                         const dateB = new Date(b.date);
                         return isTimelineDesc.value ? dateB - dateA : dateA - dateB;
                     });
+                });
+
+                const unreadTimelineEvents = computed(() => (
+                    unreadActivityEvents.value.filter(event => event.targetType === 'timeline' && event.targetId)
+                ));
+
+                const unreadTimelineEventMap = computed(() => {
+                    const map = new Map();
+                    unreadTimelineEvents.value.forEach(event => {
+                        if (!map.has(event.targetId)) map.set(event.targetId, event);
+                    });
+                    return map;
+                });
+
+                const visibleTimelineRecords = computed(() => {
+                    const sorted = sortedTimelineRecords.value;
+                    const visible = sorted.slice(0, 3);
+                    const visibleIds = new Set(visible.map(record => String(record.id)));
+                    unreadTimelineEvents.value.forEach(event => {
+                        if (visibleIds.has(event.targetId)) return;
+                        const record = sorted.find(item => String(item.id) === event.targetId);
+                        if (!record) return;
+                        visible.push(record);
+                        visibleIds.add(event.targetId);
+                    });
+                    return visible;
+                });
+
+                const isTimelineActivityNew = (record) => unreadTimelineEventMap.value.has(String(record?.id));
+
+                const getTimelineActivityLabel = (record) => {
+                    const event = unreadTimelineEventMap.value.get(String(record?.id));
+                    if (!event) return '';
+                    return event.summary || (event.type === 'timeline_updated' ? '更新成长轨迹' : '新动态');
+                };
+
+                const detailActivityNoticeEvents = computed(() => (
+                    unreadActivityEvents.value.filter(event => (
+                        !(event.targetType === 'timeline' && event.targetId)
+                    ))
+                ));
+
+                const hasDetailActivityNotice = computed(() => detailActivityNoticeEvents.value.length > 0);
+
+                const detailActivityNoticeText = computed(() => {
+                    if (detailActivityNoticeEvents.value.some(event => event.type === 'pot_updated')) {
+                        return '有新的花盆信息更新';
+                    }
+                    return detailActivityNoticeEvents.value.length > 1
+                        ? `${detailActivityNoticeEvents.value.length} 条新动态已更新`
+                        : (detailActivityNoticeEvents.value[0]?.summary || '有新的动态更新');
                 });
 
                 const toggleTimelineSort = () => isTimelineDesc.value = !isTimelineDesc.value;
@@ -2898,7 +2969,8 @@
                     showAddTimelineModal, showShareModal, showPublicShareModal, showPublicQrCode, isPublicShareLoading, isSavingTimeline, isEditingTimeline, fileInput, archiveFileInput,
                     previewImages, previewIndex, galleryDragOffset, galleryIsDragging,
                     coverNotice, isCoverUpdating, shouldShowCoverAction, canSetCover, isCurrentCover, setCurrentPreviewAsCover, undoCoverChange,
-                    newTimeline, sortedTimelineRecords, isTimelineDesc,
+                    newTimeline, sortedTimelineRecords, visibleTimelineRecords, isTimelineDesc,
+                    hasDetailActivityNotice, detailActivityNoticeText, isTimelineActivityNew, getTimelineActivityLabel,
                     goBack, goEditPage, goAddCarePage, goCreatePot, confirmDeletePot, openArchiveModal, closeArchiveModal,
                     archiveCurrentPot, restoreArchivedPot, showArchiveModal, isArchiveLoading, archiveForm, archiveReasons,
                     archiveImageCount, triggerArchiveFileInput, onArchiveFilesSelected, removeArchiveImage,

@@ -12,6 +12,20 @@ export type PotActivityState = {
   latestActivityAt: string | null;
 };
 
+export type PotActivityTarget = {
+  targetType?: string | null;
+  targetId?: string | number | null;
+};
+
+export type UnreadPotActivityEvent = {
+  id: number;
+  type: string;
+  summary: string | null;
+  createdAt: string | null;
+  targetType: string | null;
+  targetId: string | null;
+};
+
 const DEFAULT_ACTIVITY_SUMMARY: Record<PotActivityType, string> = {
   timeline_created: '新增成长轨迹',
   timeline_updated: '更新成长轨迹',
@@ -36,22 +50,66 @@ export async function recordPotActivity(
   actorId: string | null,
   type: PotActivityType,
   summary?: string | null,
-  createdAt?: string | null
+  createdAt?: string | null,
+  target?: PotActivityTarget | null
 ): Promise<void> {
   try {
     await env.DB.prepare(`
-      INSERT INTO pot_activity_events (pot_id, actor_id, type, summary, created_at)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO pot_activity_events (
+        pot_id,
+        actor_id,
+        type,
+        summary,
+        created_at,
+        target_type,
+        target_id
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `).bind(
       potId,
       actorId || null,
       type,
       summary || DEFAULT_ACTIVITY_SUMMARY[type],
-      createdAt || new Date().toISOString()
+      createdAt || new Date().toISOString(),
+      target?.targetType || null,
+      target?.targetId == null ? null : String(target.targetId)
     ).run();
   } catch (error) {
     console.error('Failed to record pot activity:', error);
   }
+}
+
+export async function loadUnreadPotActivityEvents(
+  env: any,
+  potId: string,
+  userId: string
+): Promise<UnreadPotActivityEvent[]> {
+  const { results } = await env.DB.prepare(`
+    SELECT
+      e.id,
+      e.type,
+      e.summary,
+      e.created_at,
+      e.target_type,
+      e.target_id
+    FROM pot_activity_events e
+    LEFT JOIN pot_activity_reads r
+      ON r.pot_id = e.pot_id AND r.user_id = ?
+    WHERE e.pot_id = ?
+      AND e.id > COALESCE(r.last_read_event_id, 0)
+      AND (e.actor_id IS NULL OR e.actor_id <> ?)
+    ORDER BY e.id ASC
+    LIMIT 50
+  `).bind(userId, potId, userId).all();
+
+  return ((results || []) as any[]).map(row => ({
+    id: Number(row.id || 0),
+    type: String(row.type || ''),
+    summary: row.summary || null,
+    createdAt: row.created_at || null,
+    targetType: row.target_type || null,
+    targetId: row.target_id == null ? null : String(row.target_id)
+  }));
 }
 
 export async function markPotActivityRead(
