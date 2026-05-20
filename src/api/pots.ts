@@ -6,6 +6,7 @@ import { findAccessiblePot } from '../utils/pot-access-utils';
 import {
   getEmptyPotActivityState,
   loadPotActivityStates,
+  loadUnreadPotActivityEvents,
   markPotActivityRead,
   recordPotActivity
 } from '../utils/pot-activity-utils';
@@ -246,12 +247,14 @@ async function handleMarkPotActivityRead(
     return errorResponse('Pot not found or access denied', 404);
   }
 
+  const unreadEvents = await loadUnreadPotActivityEvents(env, potId, userId);
   const latestEventId = await markPotActivityRead(env, potId, userId);
   return jsonResponse({
     success: true,
     data: {
       potId,
-      latestEventId
+      latestEventId,
+      unreadEvents
     }
   });
 }
@@ -583,6 +586,23 @@ function buildArchiveTimelineStatement(
   );
 }
 
+async function findArchiveTimelineTargetId(
+  env: any,
+  potId: string,
+  userId: string,
+  archivedAt: string
+): Promise<string | null> {
+  const row: any = await env.DB.prepare(`
+    SELECT id
+    FROM timelines
+    WHERE pot_id = ? AND user_id = ? AND created_at = ?
+    ORDER BY id DESC
+    LIMIT 1
+  `).bind(potId, userId, archivedAt).first();
+
+  return row?.id == null ? null : String(row.id);
+}
+
 async function sealArchivedPotAccess(env: any, potId: string, ownerId: string, potName: string): Promise<void> {
   const { results: collaborators } = await env.DB.prepare(`
     SELECT c.user_id
@@ -781,7 +801,11 @@ async function handleArchivePot(
 
     await sealArchivedPotAccess(env, potId, userId, pot.name || '未命名');
     if (timelineStatement) {
-      await recordPotActivity(env, potId, userId, 'archive_timeline_created', '归档时留下新轨迹', archivedAt);
+      const targetId = await findArchiveTimelineTargetId(env, potId, userId, archivedAt);
+      await recordPotActivity(env, potId, userId, 'archive_timeline_created', '归档时留下新轨迹', archivedAt, {
+        targetType: targetId ? 'timeline' : null,
+        targetId
+      });
     }
 
     return jsonResponse({
@@ -896,7 +920,11 @@ async function handleBatchArchivePots(
       await sealArchivedPotAccess(env, pot.id, userId, pot.name || '未命名');
     }
     for (const potId of activityPotIds) {
-      await recordPotActivity(env, potId, userId, 'archive_timeline_created', '归档时留下新轨迹', archivedAt);
+      const targetId = await findArchiveTimelineTargetId(env, potId, userId, archivedAt);
+      await recordPotActivity(env, potId, userId, 'archive_timeline_created', '归档时留下新轨迹', archivedAt, {
+        targetType: targetId ? 'timeline' : null,
+        targetId
+      });
     }
 
     return jsonResponse({

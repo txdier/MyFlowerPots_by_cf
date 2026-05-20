@@ -1646,9 +1646,6 @@
                 const markPotActivityReadBeforeOpen = (pot) => {
                     if (!pot?.id || !pot.has_new_activity) return;
                     clearPotActivityMarker(pot);
-                    apiClient.markPotActivityRead(pot.id).catch(e => {
-                        console.debug('标记花盆动态已读失败:', e);
-                    });
                 };
 
                 const goToPotDetail = (potId, options = {}) => {
