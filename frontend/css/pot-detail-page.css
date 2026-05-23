@@ -113,6 +113,122 @@
             overscroll-behavior: contain;
         }
 
+        .comment-thread-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+        }
+
+        .comment-message-group {
+            position: relative;
+        }
+
+        .comment-message-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.65rem;
+        }
+
+        .comment-avatar {
+            flex: 0 0 auto;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(180deg, #fef3c7, #fed7aa);
+            color: #c2410c;
+            font-size: 0.8rem;
+            font-weight: 900;
+            box-shadow: 0 8px 20px rgba(251, 146, 60, 0.18);
+        }
+
+        .comment-message-main {
+            min-width: 0;
+            max-width: 100%;
+            flex: 1 1 0%;
+        }
+
+        .comment-message-bubble {
+            max-width: 100%;
+            border: 1px solid rgba(243, 244, 246, 0.95);
+            border-radius: 1.25rem;
+            border-top-left-radius: 0.55rem;
+            background: rgba(255, 255, 255, 0.96);
+            padding: 0.8rem 0.9rem;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+            overflow-wrap: anywhere;
+        }
+
+        .comment-message-meta,
+        .comment-reply-meta {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.75rem;
+        }
+
+        .comment-message-actions {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.35rem;
+        }
+
+        .comment-action-button {
+            min-height: 1.9rem;
+            padding: 0 0.65rem;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.3rem;
+            font-size: 0.68rem;
+            font-weight: 900;
+            transition: transform 0.18s ease, background 0.18s ease, color 0.18s ease;
+        }
+
+        .comment-action-button:active {
+            transform: scale(0.96);
+        }
+
+        .comment-action-button--reply {
+            background: #fffbeb;
+            color: #d97706;
+        }
+
+        .comment-action-button--delete {
+            width: 1.9rem;
+            padding: 0;
+            background: #fef2f2;
+            color: #ef4444;
+        }
+
+        .comment-reply-stack {
+            margin-top: 0.65rem;
+            padding-left: 0.65rem;
+            border-left: 2px solid #fed7aa;
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+        }
+
+        .comment-reply-message {
+            border-radius: 1rem;
+            background: #f9fafb;
+            padding: 0.65rem 0.75rem;
+            overflow-wrap: anywhere;
+        }
+
+        .comment-reply-banner-text {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            overflow: hidden;
+        }
+
         .comment-composer-panel {
             padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.1rem);
         }
@@ -786,6 +902,46 @@
 
             .comment-thread-area {
                 padding-bottom: 0.5rem;
+            }
+
+            .comment-thread-list {
+                gap: 0.7rem;
+            }
+
+            .comment-message-row {
+                gap: 0.5rem;
+            }
+
+            .comment-avatar {
+                width: 1.8rem;
+                height: 1.8rem;
+                font-size: 0.72rem;
+            }
+
+            .comment-message-bubble {
+                padding: 0.72rem 0.78rem;
+                border-radius: 1.05rem;
+                border-top-left-radius: 0.45rem;
+            }
+
+            .comment-action-button {
+                min-height: 1.75rem;
+                padding-inline: 0.55rem;
+            }
+
+            .comment-action-button--delete {
+                width: 1.75rem;
+                padding: 0;
+            }
+
+            .comment-reply-stack {
+                gap: 0.45rem;
+                margin-top: 0.55rem;
+                padding-left: 0.55rem;
+            }
+
+            .comment-reply-message {
+                padding: 0.55rem 0.65rem;
             }
 
             .care-schedule-panel {

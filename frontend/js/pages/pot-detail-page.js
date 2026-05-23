@@ -77,6 +77,8 @@
                 const replyTargetComment = ref(null);
                 const pendingInvitePrompt = ref(null);
                 const commentSortOrder = ref('asc');
+                const barrageRotationSlot = ref(0);
+                let barrageRotationTimer = null;
                 const viewers = ref([]);
                 const isPlantInfoLoading = ref(false);
                 const isCareRecordsLoading = ref(false);
@@ -282,18 +284,21 @@
                         viewerIsViewer.value
                     )
                 ));
-                const canReplyComment = computed(() => !!(canCommentAsMember.value && !shareToken.value && !isArchived.value));
-                const hasCommentAudience = computed(() => !!(
-                    pot.value && (
-                        !!pot.value.is_shared ||
-                        Number(pot.value.collaborator_count || 0) > 0 ||
-                        Number(pot.value.viewer_count || 0) > 0 ||
-                        !!pot.value.is_collaborator ||
-                        !!pot.value.is_viewer ||
-                        !!viewerIsCollaborator.value ||
-                        !!viewerIsViewer.value
-                    )
-                ));
+                const canReplyComment = computed(() =>
+                    MyFlowerPotsCommentBarrage.canReplyComment({
+                        canCommentAsMember: canCommentAsMember.value,
+                        isPublicVisitor: isPublicVisitor.value,
+                        isArchived: isArchived.value
+                    })
+                );
+                const hasCommentAudience = computed(() =>
+                    MyFlowerPotsCommentBarrage.hasCommentAudience({
+                        pot: pot.value,
+                        comments: potComments.value,
+                        viewerIsCollaborator: viewerIsCollaborator.value,
+                        viewerIsViewer: viewerIsViewer.value
+                    })
+                );
                 const canManageCommentDanmaku = computed(() => !!(isOwner.value && hasCommentAudience.value && !isArchived.value));
                 const canUseNativeShare = computed(() => !!(
                     typeof window !== 'undefined' &&
@@ -376,45 +381,12 @@
                     });
                     return commentSortOrder.value === 'asc' ? sorted.slice(-12) : sorted.slice(0, 12);
                 });
-                const trimComment = (content, maxLength) => {
-                    const normalized = (content || '').replace(/\s+/g, ' ').trim();
-                    if (normalized.length <= maxLength) return normalized;
-                    return `${normalized.slice(0, maxLength)}...`;
-                };
-                const hashCommentSeed = (value) => {
-                    let hash = 0;
-                    const input = String(value || '');
-                    for (let i = 0; i < input.length; i++) {
-                        hash = ((hash << 5) - hash) + input.charCodeAt(i);
-                        hash |= 0;
-                    }
-                    return Math.abs(hash);
-                };
-                const buildBarrageStyle = (item, idx) => {
-                    const seed = hashCommentSeed(`${item.id || idx}-${item.createdAt || idx}`);
-                    const lane = seed % 4;
-                    const top = 12 + lane * 17 + (seed % 5);
-                    const duration = 12 + (seed % 9);
-                    // Use a negative delay so some barrages are already in-flight
-                    // when the header enters view instead of waiting several seconds.
-                    const delay = -((seed % 5) * (duration / 6));
-                    return {
-                        top: `${top}%`,
-                        animationDelay: `${delay}s`,
-                        animationDuration: `${duration}s`
-                    };
-                };
                 const barrageComments = computed(() => {
-                    return (potComments.value || []).slice(-8).map((item, idx) => ({
-                        ...item,
-                        key: `${item.id || idx}-${item.createdAt || idx}`,
-                        commentPreview: trimComment(item.comment, 18),
-                        latestReply: item.latestReply ? {
-                            ...item.latestReply,
-                            commentPreview: trimComment(item.latestReply.comment, 14)
-                        } : null,
-                        style: buildBarrageStyle(item, idx)
-                    }));
+                    return (potComments.value || []).slice(-8).map((item, idx) =>
+                        MyFlowerPotsCommentBarrage.buildBarrageComment(item, idx, {
+                            rotationSlot: barrageRotationSlot.value
+                        })
+                    );
                 });
 
                 const syncUrlWithShareStatus = () => {
@@ -1689,7 +1661,7 @@
 
                 const {
                     preloadNearbyGalleryImages,
-                    openGallery,
+                    openGallery: openRawGallery,
                     closeGallery,
                     prevImg,
                     nextImg
@@ -1702,6 +1674,19 @@
                 });
 
                 watch(previewIndex, preloadNearbyGalleryImages);
+
+                const currentPreviewItem = computed(() => previewImages.value?.[previewIndex.value] || null);
+
+                const timelineGalleryItems = computed(() =>
+                    MyFlowerPotsGallery.buildTimelineGalleryItems(sortedTimelineRecords.value)
+                );
+
+                const openGallery = (img, allImages = null, previewSrc = '') => {
+                    if (allImages) return openRawGallery(img, allImages, previewSrc);
+                    const items = timelineGalleryItems.value;
+                    const target = items.find(item => item.fullSrc === img);
+                    openRawGallery(target || img, items.length ? items : [img], previewSrc);
+                };
 
                 const handleGalleryTouchStart = (e) => {
                     touchStartX.value = e.changedTouches[0].screenX;
@@ -1743,10 +1728,17 @@
                 onMounted(() => {
                     init();
                     window.addEventListener('keydown', handleKeydown);
+                    barrageRotationTimer = window.setInterval(() => {
+                        barrageRotationSlot.value += 1;
+                    }, MyFlowerPotsCommentBarrage.REPLY_ROTATION_INTERVAL_MS);
                 });
 
                 onUnmounted(() => {
                     window.removeEventListener('keydown', handleKeydown);
+                    if (barrageRotationTimer) {
+                        window.clearInterval(barrageRotationTimer);
+                        barrageRotationTimer = null;
+                    }
                     setAuthModalBodyLock(false);
                 });
 
@@ -2514,16 +2506,36 @@
                     }
                 };
 
-                const focusCommentInput = () => {
-                    if (isCompactCommentViewport.value) return;
-                    nextTick(() => commentInputRef.value?.focus());
+                const scrollCommentInputIntoView = (delay = 120) => {
+                    if (!isCompactCommentViewport.value) return;
+                    window.setTimeout(() => {
+                        const target = commentInputRef.value?.closest?.('.comment-composer-panel') || commentInputRef.value;
+                        target?.scrollIntoView({ block: 'end', behavior: 'smooth' });
+                    }, delay);
+                };
+
+                const focusCommentInput = ({ force = false } = {}) => {
+                    if (isCompactCommentViewport.value && !force) return;
+
+                    const focusInput = () => {
+                        const input = commentInputRef.value;
+                        if (!input) return;
+                        try {
+                            input.focus({ preventScroll: isCompactCommentViewport.value });
+                        } catch (_) {
+                            input.focus();
+                        }
+                        scrollCommentInputIntoView(160);
+                    };
+
+                    if (force && commentInputRef.value) {
+                        focusInput();
+                    }
+                    nextTick(focusInput);
                 };
 
                 const handleCommentInputFocus = () => {
-                    if (!isCompactCommentViewport.value) return;
-                    window.setTimeout(() => {
-                        commentInputRef.value?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-                    }, 180);
+                    scrollCommentInputIntoView(180);
                 };
 
                 const openCommentModal = () => {
@@ -2540,7 +2552,7 @@
                 const beginReply = (comment) => {
                     replyTargetComment.value = comment;
                     showCommentModal.value = true;
-                    focusCommentInput();
+                    focusCommentInput({ force: true });
                 };
 
                 const cancelReply = () => {
@@ -2967,7 +2979,7 @@
                     isPlantInfoLoading, isCareRecordsLoading, isTimelineRecordsLoading, isPotStatsLoading, isCareSchedulesLoading, isCommentsLoading,
                     potStats, careRecords, timelineRecords, handleImageError, handleHeroImageLoad, handleHeroImageError, heroImageSrc, heroImageLoaded, showActionMenu,
                     showAddTimelineModal, showShareModal, showPublicShareModal, showPublicQrCode, isPublicShareLoading, isSavingTimeline, isEditingTimeline, fileInput, archiveFileInput,
-                    previewImages, previewIndex, galleryDragOffset, galleryIsDragging,
+                    previewImages, previewIndex, currentPreviewItem, galleryDragOffset, galleryIsDragging,
                     coverNotice, isCoverUpdating, shouldShowCoverAction, canSetCover, isCurrentCover, setCurrentPreviewAsCover, undoCoverChange,
                     newTimeline, sortedTimelineRecords, visibleTimelineRecords, isTimelineDesc,
                     hasDetailActivityNotice, detailActivityNoticeText, isTimelineActivityNew, getTimelineActivityLabel,
