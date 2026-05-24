@@ -77,6 +77,8 @@
                 const replyTargetComment = ref(null);
                 const pendingInvitePrompt = ref(null);
                 const commentSortOrder = ref('asc');
+                const barrageRotationSlot = ref(0);
+                let barrageRotationTimer = null;
                 const viewers = ref([]);
                 const isPlantInfoLoading = ref(false);
                 const isCareRecordsLoading = ref(false);
@@ -87,6 +89,7 @@
                 const newCollaboratorEmail = ref('');
                 const newViewerEmail = ref('');
                 const memberInviteRole = ref('viewer');
+                const activeMemberRole = ref('viewer');
                 const memberInviteEmail = ref('');
                 const isMemberInviteLoading = ref(false);
                 const activeMemberMenuId = ref(null);
@@ -103,6 +106,8 @@
 
                 const activeSection = ref('');
                 const showActionMenu = ref(false);
+                const actionMenuButton = ref(null);
+                const actionMenuPanel = ref(null);
                 const previewImages = ref([]);
                 const previewIndex = ref(0);
                 const galleryImageLoadToken = ref(0);
@@ -282,18 +287,21 @@
                         viewerIsViewer.value
                     )
                 ));
-                const canReplyComment = computed(() => !!(canCommentAsMember.value && !shareToken.value && !isArchived.value));
-                const hasCommentAudience = computed(() => !!(
-                    pot.value && (
-                        !!pot.value.is_shared ||
-                        Number(pot.value.collaborator_count || 0) > 0 ||
-                        Number(pot.value.viewer_count || 0) > 0 ||
-                        !!pot.value.is_collaborator ||
-                        !!pot.value.is_viewer ||
-                        !!viewerIsCollaborator.value ||
-                        !!viewerIsViewer.value
-                    )
-                ));
+                const canReplyComment = computed(() =>
+                    MyFlowerPotsCommentBarrage.canReplyComment({
+                        canCommentAsMember: canCommentAsMember.value,
+                        isPublicVisitor: isPublicVisitor.value,
+                        isArchived: isArchived.value
+                    })
+                );
+                const hasCommentAudience = computed(() =>
+                    MyFlowerPotsCommentBarrage.hasCommentAudience({
+                        pot: pot.value,
+                        comments: potComments.value,
+                        viewerIsCollaborator: viewerIsCollaborator.value,
+                        viewerIsViewer: viewerIsViewer.value
+                    })
+                );
                 const canManageCommentDanmaku = computed(() => !!(isOwner.value && hasCommentAudience.value && !isArchived.value));
                 const canUseNativeShare = computed(() => !!(
                     typeof window !== 'undefined' &&
@@ -301,15 +309,54 @@
                     typeof navigator !== 'undefined' &&
                     typeof navigator.share === 'function'
                 ));
+                const collaboratorCount = computed(() => {
+                    const loadedCount = Number(collaborators.value?.length || 0);
+                    return loadedCount || Number(pot.value?.collaborator_count || 0);
+                });
+                const viewerCount = computed(() => {
+                    const loadedCount = Number(viewers.value?.length || 0);
+                    return loadedCount || Number(pot.value?.viewer_count || 0);
+                });
                 const memberTotalCount = computed(() => {
                     if (isArchived.value) {
-                        const loadedViewerCount = Number(viewers.value?.length || 0);
-                        return loadedViewerCount || Number(pot.value?.viewer_count || 0);
+                        return viewerCount.value;
                     }
-                    const loadedCount = Number(collaborators.value?.length || 0) + Number(viewers.value?.length || 0);
-                    const knownCount = Number(pot.value?.collaborator_count || 0) + Number(pot.value?.viewer_count || 0);
-                    return loadedCount || knownCount;
+                    return collaboratorCount.value + viewerCount.value;
                 });
+                const shareAccessIconClassMap = {
+                    public: 'fa-link',
+                    viewer: 'fa-book-open',
+                    collaborator: 'fa-handshake'
+                };
+                const shareAccessStates = computed(() => MyFlowerPotsPotPermissions.getShareAccessStates({
+                    isShared: !!pot.value?.is_shared,
+                    isArchived: isArchived.value,
+                    viewerCount: viewerCount.value,
+                    collaboratorCount: collaboratorCount.value
+                }).map((state) => ({
+                    ...state,
+                    icon: shareAccessIconClassMap[state.key] || state.icon
+                })));
+                const activeMembers = computed(() => (
+                    activeMemberRole.value === 'collaborator' ? collaborators.value : viewers.value
+                ));
+                const activeMemberRoleLabel = computed(() => (
+                    activeMemberRole.value === 'collaborator' ? '共同照料成员' : '仅查看成员'
+                ));
+                const activeMemberRoleShortLabel = computed(() => (
+                    activeMemberRole.value === 'collaborator' ? '共同照料' : '仅查看'
+                ));
+                const activeMemberDescription = computed(() => (
+                    activeMemberRole.value === 'collaborator'
+                        ? '可新增和编辑养护、时间线、提醒'
+                        : (isArchived.value ? '可查看归档记录，不能编辑' : '可查看记录和留言，不能编辑')
+                ));
+                const activeMemberEmptyText = computed(() => (
+                    activeMemberRole.value === 'collaborator' ? '暂无共同照料成员' : '暂无仅查看成员'
+                ));
+                const activeMemberInviteButtonLabel = computed(() => (
+                    activeMemberRole.value === 'collaborator' ? '邀请或添加共同照料' : '邀请或添加仅查看'
+                ));
                 const isMemberInviteEmailValid = computed(() => formUtils.isValidEmail(memberInviteEmail.value));
                 const memberInviteDescription = computed(() => {
                     if (memberInviteRole.value === 'collaborator') {
@@ -318,7 +365,7 @@
                     return isArchived.value ? '可查看归档记录，不能编辑' : '可查看记录，不能编辑';
                 });
                 const memberInviteEmailButtonLabel = computed(() => (
-                    memberInviteRole.value === 'collaborator' ? '发送协作邀请' : '发送查看邀请'
+                    memberInviteRole.value === 'collaborator' ? '添加共同照料' : '添加仅查看'
                 ));
                 const memberInviteLinkButtonLabel = computed(() => (
                     memberInviteRole.value === 'collaborator' ? '分享协作链接' : '分享查看链接'
@@ -342,7 +389,6 @@
                     showMemberInviteModal.value ||
                     showCommentModal.value ||
                     showTransferModal.value ||
-                    showArchiveModal.value ||
                     showAcceptTransferModal.value
                 ));
                 const showCommentEntry = computed(() => !!(hasCommentAudience.value && canReplyComment.value));
@@ -376,45 +422,12 @@
                     });
                     return commentSortOrder.value === 'asc' ? sorted.slice(-12) : sorted.slice(0, 12);
                 });
-                const trimComment = (content, maxLength) => {
-                    const normalized = (content || '').replace(/\s+/g, ' ').trim();
-                    if (normalized.length <= maxLength) return normalized;
-                    return `${normalized.slice(0, maxLength)}...`;
-                };
-                const hashCommentSeed = (value) => {
-                    let hash = 0;
-                    const input = String(value || '');
-                    for (let i = 0; i < input.length; i++) {
-                        hash = ((hash << 5) - hash) + input.charCodeAt(i);
-                        hash |= 0;
-                    }
-                    return Math.abs(hash);
-                };
-                const buildBarrageStyle = (item, idx) => {
-                    const seed = hashCommentSeed(`${item.id || idx}-${item.createdAt || idx}`);
-                    const lane = seed % 4;
-                    const top = 12 + lane * 17 + (seed % 5);
-                    const duration = 12 + (seed % 9);
-                    // Use a negative delay so some barrages are already in-flight
-                    // when the header enters view instead of waiting several seconds.
-                    const delay = -((seed % 5) * (duration / 6));
-                    return {
-                        top: `${top}%`,
-                        animationDelay: `${delay}s`,
-                        animationDuration: `${duration}s`
-                    };
-                };
                 const barrageComments = computed(() => {
-                    return (potComments.value || []).slice(-8).map((item, idx) => ({
-                        ...item,
-                        key: `${item.id || idx}-${item.createdAt || idx}`,
-                        commentPreview: trimComment(item.comment, 18),
-                        latestReply: item.latestReply ? {
-                            ...item.latestReply,
-                            commentPreview: trimComment(item.latestReply.comment, 14)
-                        } : null,
-                        style: buildBarrageStyle(item, idx)
-                    }));
+                    return (potComments.value || []).slice(-8).map((item, idx) =>
+                        MyFlowerPotsCommentBarrage.buildBarrageComment(item, idx, {
+                            rotationSlot: barrageRotationSlot.value
+                        })
+                    );
                 });
 
                 const syncUrlWithShareStatus = () => {
@@ -1689,7 +1702,7 @@
 
                 const {
                     preloadNearbyGalleryImages,
-                    openGallery,
+                    openGallery: openRawGallery,
                     closeGallery,
                     prevImg,
                     nextImg
@@ -1702,6 +1715,23 @@
                 });
 
                 watch(previewIndex, preloadNearbyGalleryImages);
+
+                const currentPreviewItem = computed(() => previewImages.value?.[previewIndex.value] || null);
+
+                const timelineGalleryItems = computed(() =>
+                    MyFlowerPotsGallery.buildTimelineGalleryItems(visibleTimelineRecords.value)
+                );
+
+                const galleryIndicatorIndexes = computed(() =>
+                    MyFlowerPotsGallery.buildGalleryIndicatorIndexes(previewImages.value.length, previewIndex.value)
+                );
+
+                const openGallery = (img, allImages = null, previewSrc = '') => {
+                    if (allImages) return openRawGallery(img, allImages, previewSrc);
+                    const items = timelineGalleryItems.value;
+                    const target = items.find(item => item.fullSrc === img);
+                    openRawGallery(target || img, items.length ? items : [img], previewSrc);
+                };
 
                 const handleGalleryTouchStart = (e) => {
                     touchStartX.value = e.changedTouches[0].screenX;
@@ -1740,13 +1770,31 @@
                     }
                 };
 
+                const closeActionMenuOnOutsidePointer = (event) => {
+                    if (!showActionMenu.value) return;
+                    const target = event?.target;
+                    const isInsideButton = actionMenuButton.value?.contains?.(target);
+                    const isInsidePanel = actionMenuPanel.value?.contains?.(target);
+                    if (isInsideButton || isInsidePanel) return;
+                    showActionMenu.value = false;
+                };
+
                 onMounted(() => {
                     init();
                     window.addEventListener('keydown', handleKeydown);
+                    document.addEventListener('pointerdown', closeActionMenuOnOutsidePointer, true);
+                    barrageRotationTimer = window.setInterval(() => {
+                        barrageRotationSlot.value += 1;
+                    }, MyFlowerPotsCommentBarrage.REPLY_ROTATION_INTERVAL_MS);
                 });
 
                 onUnmounted(() => {
                     window.removeEventListener('keydown', handleKeydown);
+                    document.removeEventListener('pointerdown', closeActionMenuOnOutsidePointer, true);
+                    if (barrageRotationTimer) {
+                        window.clearInterval(barrageRotationTimer);
+                        barrageRotationTimer = null;
+                    }
                     setAuthModalBodyLock(false);
                 });
 
@@ -2514,16 +2562,36 @@
                     }
                 };
 
-                const focusCommentInput = () => {
-                    if (isCompactCommentViewport.value) return;
-                    nextTick(() => commentInputRef.value?.focus());
+                const scrollCommentInputIntoView = (delay = 120) => {
+                    if (!isCompactCommentViewport.value) return;
+                    window.setTimeout(() => {
+                        const target = commentInputRef.value?.closest?.('.comment-composer-panel') || commentInputRef.value;
+                        target?.scrollIntoView({ block: 'end', behavior: 'smooth' });
+                    }, delay);
+                };
+
+                const focusCommentInput = ({ force = false } = {}) => {
+                    if (isCompactCommentViewport.value && !force) return;
+
+                    const focusInput = () => {
+                        const input = commentInputRef.value;
+                        if (!input) return;
+                        try {
+                            input.focus({ preventScroll: isCompactCommentViewport.value });
+                        } catch (_) {
+                            input.focus();
+                        }
+                        scrollCommentInputIntoView(160);
+                    };
+
+                    if (force && commentInputRef.value) {
+                        focusInput();
+                    }
+                    nextTick(focusInput);
                 };
 
                 const handleCommentInputFocus = () => {
-                    if (!isCompactCommentViewport.value) return;
-                    window.setTimeout(() => {
-                        commentInputRef.value?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-                    }, 180);
+                    scrollCommentInputIntoView(180);
                 };
 
                 const openCommentModal = () => {
@@ -2540,7 +2608,7 @@
                 const beginReply = (comment) => {
                     replyTargetComment.value = comment;
                     showCommentModal.value = true;
-                    focusCommentInput();
+                    focusCommentInput({ force: true });
                 };
 
                 const cancelReply = () => {
@@ -2671,6 +2739,41 @@
                     if (fallback) fallback.classList.remove('hidden');
                 };
 
+                const getShareAccessStateClass = (state) => {
+                    if (state?.disabled) return 'bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed opacity-75';
+                    if (state?.key === 'public') return 'bg-green-50 text-green-700 border-green-100 hover:bg-green-100';
+                    if (state?.key === 'viewer') return 'bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100';
+                    return 'bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-100';
+                };
+
+                const getShareAccessIconClass = (state) => {
+                    if (state?.disabled) return 'bg-gray-100 text-gray-400';
+                    if (state?.key === 'public') return 'bg-green-100 text-green-600';
+                    if (state?.key === 'viewer') return 'bg-emerald-100 text-emerald-600';
+                    return 'bg-blue-100 text-blue-600';
+                };
+
+                const getShareAccessStatusClass = (state) => {
+                    if (state?.disabled) return 'bg-gray-100 text-gray-400';
+                    if (state?.key === 'public') {
+                        return pot.value?.is_shared ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400';
+                    }
+                    if (state?.key === 'viewer') return 'bg-emerald-100 text-emerald-600';
+                    return 'bg-blue-100 text-blue-600';
+                };
+
+                const normalizeMemberRole = (role) => (
+                    role === 'collaborator' && !isArchived.value ? 'collaborator' : 'viewer'
+                );
+
+                const setActiveMemberRole = (role) => {
+                    const nextRole = normalizeMemberRole(role);
+                    if (activeMemberRole.value !== nextRole) {
+                        activeMemberMenuId.value = null;
+                    }
+                    activeMemberRole.value = nextRole;
+                };
+
                 const getMemberMenuKey = (member, role = member?.role) => `${role}:${member?.id || ''}`;
 
                 const toggleMemberMenu = (member, role) => {
@@ -2678,8 +2781,9 @@
                     activeMemberMenuId.value = activeMemberMenuId.value === key ? null : key;
                 };
 
-                const openMembersModal = async () => {
+                const openMembersModal = async (role = 'viewer') => {
                     if (!isOwner.value) return;
+                    setActiveMemberRole(role);
                     showShareModal.value = false;
                     showMembersModal.value = true;
                     activeMemberMenuId.value = null;
@@ -2696,6 +2800,15 @@
                     showShareModal.value = true;
                 };
 
+                const handleShareAccessStateClick = async (state) => {
+                    if (!state || state.disabled) return;
+                    if (state.key === 'public') {
+                        openPublicShareModal();
+                        return;
+                    }
+                    await openMembersModal(state.key);
+                };
+
                 const setMemberInviteRole = (role) => {
                     if (role === 'collaborator' && isArchived.value) return;
                     memberInviteRole.value = role === 'collaborator' ? 'collaborator' : 'viewer';
@@ -2704,6 +2817,7 @@
                 const openMemberInvite = (role = 'viewer') => {
                     setMemberInviteRole(role);
                     if (isArchived.value) memberInviteRole.value = 'viewer';
+                    setActiveMemberRole(memberInviteRole.value);
                     memberInviteEmail.value = '';
                     isMemberInviteLoading.value = false;
                     activeMemberMenuId.value = null;
@@ -2719,6 +2833,7 @@
 
                 const returnToMembersFromInvite = () => {
                     closeMemberInviteModal();
+                    setActiveMemberRole(memberInviteRole.value);
                     showMembersModal.value = true;
                     loadMembers();
                 };
@@ -2739,13 +2854,14 @@
                             : await apiClient.addViewer(potId.value, normalizedEmail);
                         if (res.success) {
                             memberInviteEmail.value = '';
+                            setActiveMemberRole(memberInviteRole.value);
                             await loadMembers();
                             showMemberInviteModal.value = false;
                             showMembersModal.value = true;
-                            showAlert(isCollabInvite ? '协作邀请已发送，对方会在消息中心看到。' : '查看邀请已发送，对方会在消息中心看到。');
+                            showAlert(isCollabInvite ? '已直接添加为共同照料成员。' : '已直接添加为仅查看成员。');
                         }
                     } catch (e) {
-                        showAlert('邀请失败: ' + e.message);
+                        showAlert('添加失败: ' + e.message);
                     } finally {
                         isMemberInviteLoading.value = false;
                     }
@@ -2881,6 +2997,10 @@
                     if (transferVisible) loadCollaborators();
                 });
 
+                watch(isArchived, (archived) => {
+                    if (archived) setActiveMemberRole('viewer');
+                });
+
                 watch(transferEmail, (val) => {
                     if (val) selectedTransferUser.value = null;
                 });
@@ -2965,9 +3085,9 @@
                     isLoading, pot, potId, isOwner, isArchived, isReadOnly, isPublicVisitor, canShowCareSchedules, showOperatorName, matchedPlantName, plantInfo,
                     pendingInvitePrompt,
                     isPlantInfoLoading, isCareRecordsLoading, isTimelineRecordsLoading, isPotStatsLoading, isCareSchedulesLoading, isCommentsLoading,
-                    potStats, careRecords, timelineRecords, handleImageError, handleHeroImageLoad, handleHeroImageError, heroImageSrc, heroImageLoaded, showActionMenu,
+                    potStats, careRecords, timelineRecords, handleImageError, handleHeroImageLoad, handleHeroImageError, heroImageSrc, heroImageLoaded, showActionMenu, actionMenuButton, actionMenuPanel,
                     showAddTimelineModal, showShareModal, showPublicShareModal, showPublicQrCode, isPublicShareLoading, isSavingTimeline, isEditingTimeline, fileInput, archiveFileInput,
-                    previewImages, previewIndex, galleryDragOffset, galleryIsDragging,
+                    previewImages, previewIndex, currentPreviewItem, galleryIndicatorIndexes, galleryDragOffset, galleryIsDragging,
                     coverNotice, isCoverUpdating, shouldShowCoverAction, canSetCover, isCurrentCover, setCurrentPreviewAsCover, undoCoverChange,
                     newTimeline, sortedTimelineRecords, visibleTimelineRecords, isTimelineDesc,
                     hasDetailActivityNotice, detailActivityNoticeText, isTimelineActivityNew, getTimelineActivityLabel,
@@ -2996,8 +3116,11 @@
                     showShareModal, showMembersModal, showMemberInviteModal, showTransferModal,
                     openPublicShareModal, closePublicShareModal, returnToShareModal, togglePublicQrCode, enablePublicShare, disablePublicShare,
                     downloadQRCode, copyShareLink, sharePublicLink, copyCollaboratorInvite, copyViewerInvite,
+                    shareAccessStates, handleShareAccessStateClick, getShareAccessStateClass, getShareAccessIconClass, getShareAccessStatusClass,
                     openMembersModal, closeMembersModal, returnToShareFromMembers, openMemberInvite, closeMemberInviteModal, returnToMembersFromInvite,
-                    collaborators, viewers, memberTotalCount, memberInviteRole, memberInviteEmail, isMemberInviteEmailValid, isMemberInviteLoading,
+                    collaborators, viewers, memberTotalCount, activeMemberRole, setActiveMemberRole, activeMembers, activeMemberRoleLabel,
+                    activeMemberRoleShortLabel, activeMemberDescription, activeMemberEmptyText, activeMemberInviteButtonLabel,
+                    memberInviteRole, memberInviteEmail, isMemberInviteEmailValid, isMemberInviteLoading,
                     keyboardModalStyle, authKeyboardModalStyle, isAuthKeyboardActive, authKeyboardMode,
                     handleKeyboardFieldFocus, handleAuthKeyboardFieldFocus, handleAuthCompositionStart,
                     handleAuthCompositionEnd, handleAuthFocusOut, submitAuthFormFromEnter,

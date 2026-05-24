@@ -125,6 +125,45 @@ describe('frontend shared utilities', () => {
   const careUtils = loadBrowserUtility('frontend/js/care-utils.js', 'MyFlowerPotsCare');
   const formUtils = loadBrowserUtility('frontend/js/form-utils.js', 'MyFlowerPotsFormUtils');
   const permissionUtils = loadBrowserUtility('frontend/js/pot-permissions.js', 'MyFlowerPotsPotPermissions');
+  const commentBarrageUtils = loadBrowserUtility('frontend/js/comment-barrage-utils.js', 'MyFlowerPotsCommentBarrage');
+  const galleryUtils = (() => {
+    const context = {
+      console,
+      Date,
+      setTimeout,
+      clearTimeout,
+      MyFlowerPotsMedia: {
+        imgUrl(src, width, height) {
+          return `${src}?thumb=${width}x${height}`;
+        },
+        parseImageList(value) {
+          if (!value) return [];
+          if (Array.isArray(value)) return value.map(item => String(item || '').trim()).filter(Boolean);
+          const text = String(value || '').trim();
+          if (!text) return [];
+          try {
+            const parsed = JSON.parse(text);
+            return Array.isArray(parsed)
+              ? parsed.map(item => String(item || '').trim()).filter(Boolean)
+              : [text];
+          } catch {
+            return [text];
+          }
+        },
+      },
+      Image: class TestImage {
+        set src(value) {
+          this._src = value;
+        }
+      },
+    };
+    context.window = context;
+    vm.createContext(context);
+    vm.runInContext(readFileSync('frontend/js/gallery-utils.js', 'utf8'), context, {
+      filename: 'frontend/js/gallery-utils.js',
+    });
+    return context.MyFlowerPotsGallery;
+  })();
 
   it('formats growth duration with exact days when requested', () => {
     expect(dateUtils.formatGrowthDuration(
@@ -177,6 +216,231 @@ describe('frontend shared utilities', () => {
     expect(permissionUtils.canEditPot({ user_id: 'u1', status: 'archived' }, 'u1')).toBe(false);
     expect(permissionUtils.canManageRecords({ user_id: 'u1', is_viewer: true }, 'u2')).toBe(false);
     expect(permissionUtils.canViewPot({ user_id: 'u1', is_viewer: true }, 'u2')).toBe(true);
+  });
+
+  it('describes the three share access states and disables collaborator access for archived pots', () => {
+    const activeStates = permissionUtils.getShareAccessStates({
+      isShared: true,
+      isArchived: false,
+      viewerCount: 2,
+      collaboratorCount: 1,
+    });
+
+    expect(activeStates.map((state) => state.key)).toEqual(['public', 'viewer', 'collaborator']);
+    expect(activeStates[0]).toMatchObject({
+      label: '公开链接',
+      statusText: '已开启',
+      description: '无需登录；只能查看公开页面；不会成为成员',
+      disabled: false,
+    });
+    expect(activeStates[1]).toMatchObject({
+      label: '仅查看成员',
+      statusText: '2人',
+      description: '登录成员可查看记录和留言，不能编辑',
+      disabled: false,
+    });
+    expect(activeStates[2]).toMatchObject({
+      label: '共同照料成员',
+      statusText: '1人',
+      description: '登录成员可新增和编辑养护、时间线、提醒',
+      disabled: false,
+    });
+
+    const archivedStates = permissionUtils.getShareAccessStates({
+      isShared: false,
+      isArchived: true,
+      viewerCount: 0,
+      collaboratorCount: 3,
+    });
+
+    expect(archivedStates[0].statusText).toBe('未开启');
+    expect(archivedStates[1].statusText).toBe('0人');
+    expect(archivedStates[2]).toMatchObject({
+      statusText: '归档不可用',
+      disabled: true,
+      description: '归档后不能共同照料或编辑',
+    });
+  });
+
+  it('rotates one reply into each comment barrage slot without duplicating barrage rows', () => {
+    const item = {
+      id: 'comment-1',
+      senderName: 'Alice',
+      comment: 'main message content',
+      createdAt: '2026-05-21 08:00:00',
+      replies: [
+        { id: 'reply-1', senderName: 'Bob', comment: 'first reply', createdAt: '2026-05-21 08:01:00' },
+        { id: 'reply-2', senderName: 'Chen', comment: 'second reply', createdAt: '2026-05-21 08:02:00' },
+        { id: 'reply-3', senderName: 'Dora', comment: 'third reply', createdAt: '2026-05-21 08:03:00' },
+      ],
+      latestReply: { id: 'reply-3', senderName: 'Dora', comment: 'third reply', createdAt: '2026-05-21 08:03:00' },
+    };
+
+    expect(commentBarrageUtils.buildBarrageComment(item, 0, { rotationSlot: 0 }).barrageReply.id).toBe('reply-1');
+    expect(commentBarrageUtils.buildBarrageComment(item, 0, { rotationSlot: 1 }).barrageReply.id).toBe('reply-2');
+    expect(commentBarrageUtils.buildBarrageComment(item, 0, { rotationSlot: 2 }).barrageReply.id).toBe('reply-3');
+    expect(commentBarrageUtils.buildBarrageComment(item, 0, { rotationSlot: 3 }).barrageReply.id).toBe('reply-1');
+  });
+
+  it('keeps barrage keys stable while rotating reply content', () => {
+    const item = {
+      id: 'comment-1',
+      comment: 'main message content',
+      createdAt: '2026-05-21 08:00:00',
+      replies: [
+        { id: 'reply-1', senderName: 'Bob', comment: 'first reply' },
+        { id: 'reply-2', senderName: 'Chen', comment: 'second reply' },
+      ],
+    };
+
+    const firstSlot = commentBarrageUtils.buildBarrageComment(item, 0, { rotationSlot: 0 });
+    const secondSlot = commentBarrageUtils.buildBarrageComment(item, 0, { rotationSlot: 1 });
+
+    expect(firstSlot.key).toBe(secondSlot.key);
+    expect(firstSlot.barrageReply.id).toBe('reply-1');
+    expect(secondSlot.barrageReply.id).toBe('reply-2');
+  });
+
+  it('treats existing comments as a comment audience when member counts are unavailable', () => {
+    expect(commentBarrageUtils.hasCommentAudience({
+      pot: { id: 'pot-1' },
+      comments: [
+        { id: 'comment-1', comment: 'existing discussion' },
+      ],
+    })).toBe(true);
+  });
+
+  it('keeps comment audience hidden for a private pot without members or comments', () => {
+    expect(commentBarrageUtils.hasCommentAudience({
+      pot: { id: 'pot-1' },
+      comments: [],
+    })).toBe(false);
+  });
+
+  it('allows authenticated members to comment from a token URL but blocks public visitors', () => {
+    expect(commentBarrageUtils.canReplyComment({
+      canCommentAsMember: true,
+      isPublicVisitor: false,
+      isArchived: false,
+    })).toBe(true);
+
+    expect(commentBarrageUtils.canReplyComment({
+      canCommentAsMember: true,
+      isPublicVisitor: true,
+      isArchived: false,
+    })).toBe(false);
+  });
+
+  it('uses a 5 second reply rotation interval for comment barrages', () => {
+    expect(commentBarrageUtils.REPLY_ROTATION_INTERVAL_MS).toBe(5000);
+  });
+
+  it('keeps barrage reply empty or stable for comments with zero or one reply', () => {
+    expect(commentBarrageUtils.buildBarrageComment({
+      id: 'comment-1',
+      comment: 'no reply',
+      replies: [],
+    }, 0, { rotationSlot: 10 }).barrageReply).toBeNull();
+
+    const singleReply = commentBarrageUtils.buildBarrageComment({
+      id: 'comment-2',
+      comment: 'one reply',
+      replies: [
+        { id: 'reply-1', senderName: 'Bob', comment: 'only reply' },
+      ],
+    }, 0, { rotationSlot: 10 }).barrageReply;
+
+    expect(singleReply).toMatchObject({ id: 'reply-1', commentPreview: 'only reply' });
+  });
+
+  it('trims barrage comment and reply previews', () => {
+    const barrage = commentBarrageUtils.buildBarrageComment({
+      id: 'comment-1',
+      comment: 'abcdefghijklmnopqrstuvwxyz',
+      replies: [
+        { id: 'reply-1', senderName: 'Bob', comment: '12345678901234567890' },
+      ],
+    }, 0, { rotationSlot: 0 });
+
+    expect(barrage.commentPreview).toBe('abcdefghijklmnopqr...');
+    expect(barrage.barrageReply.commentPreview).toBe('12345678901234...');
+  });
+
+  it('keeps gallery metadata when opening object-based images', () => {
+    const previewImages = { value: [] };
+    const previewIndex = { value: 0 };
+    const loadToken = { value: 0 };
+    const gallery = galleryUtils.createGallery({ previewImages, previewIndex, loadToken });
+
+    gallery.openGallery(
+      { fullSrc: '/img/b.jpg' },
+      [
+        { fullSrc: '/img/a.jpg', description: 'first bloom', date: '2026-05-01', timelineId: 1 },
+        { fullSrc: '/img/b.jpg', description: 'new leaf', date: '2026-05-02', timelineId: 2 },
+      ]
+    );
+
+    expect(previewIndex.value).toBe(1);
+    expect(previewImages.value[1]).toMatchObject({
+      fullSrc: '/img/b.jpg',
+      previewSrc: '/img/b.jpg?thumb=100x100',
+      description: 'new leaf',
+      date: '2026-05-02',
+      timelineId: 2,
+    });
+  });
+
+  it('builds a flat timeline gallery with descriptions for every image', () => {
+    const items = galleryUtils.buildTimelineGalleryItems([
+      {
+        id: 10,
+        date: '2026-05-01',
+        description: 'first bloom',
+        operatorName: 'Alice',
+        images: ['/img/a.jpg', '/img/b.jpg'],
+      },
+      {
+        id: 11,
+        date: '2026-05-03',
+        description: '',
+        operator_name: 'Bob',
+        images: JSON.stringify(['/img/c.jpg']),
+      },
+    ]);
+
+    expect(items).toEqual([
+      {
+        fullSrc: '/img/a.jpg',
+        previewSrc: '/img/a.jpg?thumb=100x100',
+        timelineId: 10,
+        date: '2026-05-01',
+        description: 'first bloom',
+        operatorName: 'Alice',
+      },
+      {
+        fullSrc: '/img/b.jpg',
+        previewSrc: '/img/b.jpg?thumb=100x100',
+        timelineId: 10,
+        date: '2026-05-01',
+        description: 'first bloom',
+        operatorName: 'Alice',
+      },
+      {
+        fullSrc: '/img/c.jpg',
+        previewSrc: '/img/c.jpg?thumb=100x100',
+        timelineId: 11,
+        date: '2026-05-03',
+        description: '',
+        operatorName: 'Bob',
+      },
+    ]);
+  });
+
+  it('limits gallery indicator dots around the current image', () => {
+    expect(galleryUtils.buildGalleryIndicatorIndexes(8, 3, 12)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    expect(galleryUtils.buildGalleryIndicatorIndexes(30, 0, 7)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(galleryUtils.buildGalleryIndicatorIndexes(30, 15, 7)).toEqual([12, 13, 14, 15, 16, 17, 18]);
+    expect(galleryUtils.buildGalleryIndicatorIndexes(30, 29, 7)).toEqual([23, 24, 25, 26, 27, 28, 29]);
   });
 
   it('keeps PWA diagnostics off until explicitly enabled', () => {

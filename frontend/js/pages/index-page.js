@@ -555,6 +555,16 @@
                     showBatchArchiveModal.value ||
                     showBatchInviteModal.value
                 );
+                const shouldHideHomeChrome = computed(() =>
+                    isOverlayClosing.value ||
+                    showLoginModal.value ||
+                    showRegisterModal.value ||
+                    showForgotPasswordModal.value ||
+                    showMessageCenter.value ||
+                    showBatchActionSheet.value ||
+                    showBatchCareModal.value ||
+                    showBatchInviteModal.value
+                );
                 const emptyStateTitle = computed(() => (
                     activePotStatus.value === 'archived' ? '暂无归档植物' : '空空如也'
                 ));
@@ -2865,7 +2875,7 @@
                     passwordsMatch, isLoginValid, isRegisterValid, isForgotPasswordEmailValid,
                     isTurnstileEnabled, isRegisterTurnstileReady, isForgotPasswordTurnstileReady,
                     allSelected, selectedCount,
-                    selectedOwnedCount, selectedCareManageableCount, selectedViewerCount, selectedExcludedCount, selectedCareExcludedCount, isBatchInviteEmailValid, hasOverlayModalOpen,
+                    selectedOwnedCount, selectedCareManageableCount, selectedViewerCount, selectedExcludedCount, selectedCareExcludedCount, isBatchInviteEmailValid, hasOverlayModalOpen, shouldHideHomeChrome,
 	                    syncLoginFormFromDom, syncRegisterFormFromDom, scheduleLoginAutofillSync,
 		                    keyboardModalStyle, authKeyboardModalStyle, isAuthKeyboardActive, authKeyboardMode,
 		                    handleKeyboardFieldFocus, handleAuthKeyboardFieldFocus, handleAuthCompositionStart,

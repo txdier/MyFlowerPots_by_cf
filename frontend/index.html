@@ -64,7 +64,7 @@
     <div id="app" v-cloak>
         <!-- 顶部导航栏 (全宽分布) -->
         <header class="header bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-50 h-16 w-full"
-            :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
+            :class="shouldHideHomeChrome ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <div class="container header-main-row relative flex justify-between items-center h-full">
                 <!-- 1. 左侧：管理模式 -->
                 <div class="flex items-center gap-2">
@@ -306,7 +306,7 @@
         </header>
 
         <div v-if="entryNotice.show" class="container mt-3"
-            :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
+            :class="shouldHideHomeChrome ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <div class="flex items-start gap-3 rounded-xl border px-4 py-3 shadow-sm transition"
                 :class="entryNoticeClass">
                 <i class="fa mt-0.5 text-sm" :class="entryNotice.icon"></i>
@@ -322,7 +322,7 @@
         </div>
 
         <div v-if="showPotStatusSwitch" class="container mt-3"
-            :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
+            :class="shouldHideHomeChrome ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <div class="grid grid-cols-2 gap-1 rounded-xl bg-white p-1 border border-gray-100 shadow-sm">
                 <button v-for="tab in potStatusTabs" :key="tab.value" type="button" @click="setPotStatus(tab.value)"
                     class="relative h-8 overflow-hidden rounded-lg text-xs font-black transition active:scale-[0.99]"
@@ -338,7 +338,7 @@
         </div>
 
         <div v-if="activePotStatus === 'active' && careReminders.length > 0 && !isEditMode && !isPotSearchActive"
-            class="container mt-2" :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
+            class="container mt-2" :class="shouldHideHomeChrome ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <button @click="showRemindersExpanded = !showRemindersExpanded"
                 class="w-full py-1.5 text-center text-gray-700 transition active:scale-95">
                 <span class="inline-flex items-center gap-2">
@@ -351,7 +351,7 @@
 
         <div v-if="activePotStatus === 'active' && careReminders.length > 0 && showRemindersExpanded && !isEditMode && !isPotSearchActive"
             class="container mt-2 animate-fade-in"
-            :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
+            :class="shouldHideHomeChrome ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div class="divide-y divide-gray-50 max-h-60 overflow-y-auto">
                     <div v-for="group in groupedReminders" :key="group.potId" @click.stop="goToPotDetail(group.potId)"
@@ -632,7 +632,7 @@
         <!-- 底部悬浮操作栏 -->
         <div v-if="pots.length > 0 && (activePotStatus === 'active' || isEditMode)"
             class="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[650px] z-40 px-6 pointer-events-none"
-            :class="hasOverlayModalOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'">
+            :class="shouldHideHomeChrome ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <div class="flex justify-center pointer-events-auto">
                 <!-- 正常模式：添加花盆 -->
                 <button v-if="!isEditMode" @click="goAddPot"
@@ -1122,12 +1122,12 @@
 
         <div v-if="showBatchArchiveModal"
             class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click.stop.prevent="closeBatchArchiveModal">
+            <div class="absolute inset-0 bg-black/60" @click.stop.prevent="closeBatchArchiveModal">
             </div>
-            <div class="relative bg-white w-full max-w-[500px] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col keyboard-safe-modal"
+            <div class="relative bg-white w-full max-w-[500px] rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-slide-up flex flex-col keyboard-safe-modal archive-modal-shell"
                 :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus" @click.stop @mousedown.stop
                 @touchstart.stop>
-                <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 shrink-0">
+                <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 shrink-0 archive-modal-header">
                     <div class="flex items-center gap-3 min-w-0">
                         <button type="button" @click.stop.prevent="returnToBatchActionSheetFromArchive"
                             class="shrink-0 inline-flex items-center justify-center text-gray-400 transition active:scale-95">
@@ -1146,41 +1146,41 @@
                         <i class="fa fa-times text-xl"></i>
                     </button>
                 </div>
-                <div class="p-6 space-y-5 overflow-y-auto flex-1 keyboard-safe-modal-scroll">
+                <div class="p-6 space-y-5 overflow-y-auto flex-1 keyboard-safe-modal-scroll archive-modal-body">
                     <div
-                        class="rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 text-xs text-amber-700 leading-relaxed">
+                        class="rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 text-xs text-amber-700 leading-relaxed archive-modal-notice">
                         {{ archiveTargetPot ? '归档后这盆植物将不再出现在养护列表，也不会收到养护提醒。记录会保留，之后可以在已归档中查看和恢复。' :
                         '归档后这些植物将不再出现在养护列表，也不会收到养护提醒。记录会保留，之后可以在已归档中查看和恢复。' }}
                     </div>
                     <div v-if="!archiveTargetPot && selectedExcludedCount > 0"
-                        class="rounded-2xl bg-gray-50 border border-gray-100 px-4 py-3 text-xs text-gray-500 leading-relaxed">
+                        class="rounded-2xl bg-gray-50 border border-gray-100 px-4 py-3 text-xs text-gray-500 leading-relaxed archive-modal-notice">
                         已自动排除 {{ selectedExcludedCount }} 个非本人拥有的花盆，批量归档只会作用于自己的花盆。
                     </div>
-                    <div>
+                    <div class="archive-modal-section">
                         <label class="block text-sm font-bold text-gray-700 mb-3">归档原因</label>
-                        <div class="grid grid-cols-2 gap-2">
+                        <div class="grid grid-cols-2 gap-2 archive-reason-grid">
                             <button v-for="reason in batchArchiveReasons" :key="reason" type="button"
                                 @click="batchArchiveForm.reason = reason"
-                                class="rounded-2xl border px-3 py-3 text-sm font-bold transition active:scale-95"
+                                class="rounded-2xl border px-3 py-3 text-sm font-bold transition active:scale-95 archive-reason-button"
                                 :class="batchArchiveForm.reason === reason ? 'bg-green-50 border-green-300 text-green-700 shadow-sm' : 'bg-white border-gray-100 text-gray-500'">
                                 {{ reason }}
                             </button>
                         </div>
                     </div>
-                    <div>
+                    <div class="archive-modal-section">
                         <label class="block text-sm font-bold text-gray-700 mb-2">备注
                             <span class="text-gray-400 font-normal">（可选）</span>
                         </label>
-                        <textarea v-model="batchArchiveForm.note" placeholder="这次失败可能和什么有关？" rows="3"
-                            class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-green-300 resize-none transition"></textarea>
+                        <textarea v-model="batchArchiveForm.note" placeholder="这次失败可能和什么有关？" rows="2"
+                            class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-green-300 resize-none transition archive-note-input"></textarea>
                     </div>
-                    <div>
+                    <div class="archive-modal-section">
                         <label class="block text-sm font-bold text-gray-700 mb-2">归档照片
                             <span class="text-gray-400 font-normal">（可选，会加入成长轨迹）</span>
                         </label>
-                        <div class="grid grid-cols-4 gap-2">
+                        <div class="grid grid-cols-4 gap-2 archive-photo-grid">
                             <div v-for="(img, idx) in batchArchiveForm.tempImages" :key="`archive-${idx}`"
-                                class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden">
+                                class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden archive-photo-tile">
                                 <img :src="img.preview" decoding="async" class="w-full h-full object-cover">
                                 <button type="button" @click="removeArchiveImage(idx)"
                                     class="absolute top-1 right-1 bg-black/50 text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center">
@@ -1188,8 +1188,8 @@
                                 </button>
                             </div>
                             <button v-if="archiveImageCount() < 3" type="button" @click="triggerArchiveFileInput"
-                                class="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-300 hover:border-green-500 hover:text-green-500 transition active:scale-95">
-                                <i class="fa fa-camera text-xl mb-1"></i>
+                                class="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-300 hover:border-green-500 hover:text-green-500 transition active:scale-95 archive-photo-add">
+                                <i class="fa fa-camera text-xl mb-1 archive-photo-add-icon"></i>
                                 <span class="text-[8px] font-black uppercase tracking-tighter">添加</span>
                             </button>
                         </div>
@@ -1197,10 +1197,10 @@
                             accept="image/*" class="hidden">
                     </div>
                 </div>
-                <div class="px-6 pb-6 shrink-0 keyboard-safe-modal-footer">
+                <div class="px-6 pb-6 shrink-0 keyboard-safe-modal-footer archive-modal-footer">
                     <button @click="submitBatchArchive"
                         :disabled="isBatchArchiveLoading || (!archiveTargetPot && selectedOwnedCount === 0)"
-                        class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
+                        class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50 archive-submit-button">
                         {{ isBatchArchiveLoading ? '归档中...' : (archiveTargetPot ? '确认归档' : `确认归档 ${selectedOwnedCount}
                         个花盆`) }}
                     </button>
@@ -1329,8 +1329,8 @@
         </div>
 
         <div v-if="showPotActionSheet && activePotAction"
-            class="fixed inset-0 z-[71] flex items-end justify-center p-2 sm:p-4">
-            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click.stop.prevent="closePotActionSheet"></div>
+            class="viewport-modal-layer fixed inset-y-0 z-[71] flex items-end justify-center p-2 sm:p-4">
+            <div class="absolute inset-0 bg-black/60" @click.stop.prevent="closePotActionSheet"></div>
             <div class="relative w-full max-w-[500px] max-h-[calc(100vh-1rem)] bg-white rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl overflow-y-auto overscroll-contain animate-slide-up"
                 @click.stop @mousedown.stop @touchstart.stop>
                 <div
