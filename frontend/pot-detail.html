@@ -53,15 +53,14 @@
                 <div class="z-10 ml-auto flex items-center gap-1">
                     <!-- '...' 折叠菜单 (仅主人可见) -->
                     <div v-if="isOwner && !isLoading" class="relative ml-1">
-                        <button @click="showActionMenu = !showActionMenu"
+                        <button ref="actionMenuButton" @click.stop="showActionMenu = !showActionMenu"
                             class="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-gray-700 active:scale-95 transition">
                             <i class="fa fa-ellipsis-h text-xl"></i>
                         </button>
-                        <!-- 透明遮罩层 -->
-                        <div v-if="showActionMenu" class="fixed inset-0 z-40" @click="showActionMenu = false"></div>
                         <!-- 动作下拉菜单 -->
-                        <div v-if="showActionMenu"
-                            class="absolute right-0 mt-2 w-36 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-fade-in pointer-events-auto">
+                        <div v-if="showActionMenu" ref="actionMenuPanel"
+                            class="absolute right-0 mt-2 w-36 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-fade-in pointer-events-auto"
+                            @click.stop>
                             <button v-if="!isArchived" @click="goEditPage"
                                 class="w-full text-left px-4 py-3.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 border-b border-gray-50 transition active:bg-gray-100">
                                 <i class="fa fa-pen text-blue-500 w-4 text-center"></i> 编辑花盆
@@ -781,77 +780,6 @@
 
                 </div>
 
-                <div v-if="showArchiveModal"
-                    class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-4">
-                    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="closeArchiveModal"></div>
-                    <div class="relative bg-white w-full max-w-lg rounded-t-[2rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col keyboard-safe-modal"
-                        :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus">
-                        <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 shrink-0">
-                            <div>
-                                <h3 class="text-xl font-black text-gray-800">归档此花盆</h3>
-                                <p class="text-xs text-gray-400 mt-0.5">为 {{ pot?.name || '这盆植物' }} 记录归档原因</p>
-                            </div>
-                            <button type="button" @click="closeArchiveModal"
-                                class="text-gray-400 hover:text-gray-600 transition">
-                                <i class="fa fa-times text-xl"></i>
-                            </button>
-                        </div>
-                        <div class="p-6 space-y-5 overflow-y-auto flex-1 keyboard-safe-modal-scroll">
-                            <div
-                                class="rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 text-xs text-amber-700 leading-relaxed">
-                                归档后这盆植物将不再出现在养护列表，也不会收到养护提醒。记录会保留，之后可以在已归档中查看和恢复。
-                            </div>
-                            <div>
-                                <label class="block text-sm font-bold text-gray-700 mb-3">归档原因</label>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <button v-for="reason in archiveReasons" :key="reason" type="button"
-                                        @click="archiveForm.reason = reason"
-                                        class="rounded-2xl border px-3 py-3 text-sm font-bold transition active:scale-95"
-                                        :class="archiveForm.reason === reason ? 'bg-green-50 border-green-300 text-green-700 shadow-sm' : 'bg-white border-gray-100 text-gray-500'">
-                                        {{ reason }}
-                                    </button>
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-bold text-gray-700 mb-2">备注
-                                    <span class="text-gray-400 font-normal">（可选）</span>
-                                </label>
-                                <textarea v-model="archiveForm.note" placeholder="这次失败可能和什么有关？" rows="3"
-                                    class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-green-300 resize-none transition"></textarea>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-bold text-gray-700 mb-2">归档照片
-                                    <span class="text-gray-400 font-normal">（可选，会加入成长轨迹）</span>
-                                </label>
-                                <div class="grid grid-cols-4 gap-2">
-                                    <div v-for="(img, idx) in archiveForm.tempImages" :key="`archive-${idx}`"
-                                        class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden">
-                                        <img :src="img.preview" decoding="async" class="w-full h-full object-cover">
-                                        <button type="button" @click="removeArchiveImage(idx)"
-                                            class="absolute top-1 right-1 bg-black/50 text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center">
-                                            <i class="fa fa-times"></i>
-                                        </button>
-                                    </div>
-                                    <button v-if="archiveImageCount() < 3" type="button"
-                                        @click="triggerArchiveFileInput"
-                                        class="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-300 hover:border-green-500 hover:text-green-500 transition active:scale-95">
-                                        <i class="fa fa-camera text-xl mb-1"></i>
-                                        <span class="text-[8px] font-black uppercase tracking-tighter">添加</span>
-                                    </button>
-                                </div>
-                                <input type="file" ref="archiveFileInput" @change="onArchiveFilesSelected" multiple
-                                    accept="image/*" class="hidden">
-                            </div>
-                        </div>
-                        <div class="px-6 pb-6 shrink-0 keyboard-safe-modal-footer">
-                            <button @click="archiveCurrentPot" :disabled="isArchiveLoading"
-                                class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50">
-                                {{ isArchiveLoading ? '归档中...' : '确认归档' }}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- 访客转换栏 (仅外部访客可见) -->
                 <div v-if="isPublicVisitor" class="sticky bottom-4 left-0 right-0 z-50 px-4">
                     <div
@@ -867,6 +795,77 @@
                         <button @click="goCreatePot"
                             class="bg-white text-green-700 px-5 py-2.5 rounded-2xl text-xs font-black shadow-xl active:scale-95 transition">
                             我也要种
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="showArchiveModal"
+                class="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/60" @click="closeArchiveModal"></div>
+                <div class="relative bg-white w-full max-w-lg rounded-t-[2rem] sm:rounded-3xl overflow-hidden shadow-2xl animate-slide-up flex flex-col keyboard-safe-modal archive-modal-shell"
+                    :style="keyboardModalStyle" @focusin="handleKeyboardFieldFocus">
+                    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 shrink-0 archive-modal-header">
+                        <div>
+                            <h3 class="text-xl font-black text-gray-800">归档此花盆</h3>
+                            <p class="text-xs text-gray-400 mt-0.5">为 {{ pot?.name || '这盆植物' }} 记录归档原因</p>
+                        </div>
+                        <button type="button" @click="closeArchiveModal"
+                            class="text-gray-400 hover:text-gray-600 transition">
+                            <i class="fa fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    <div class="p-6 space-y-5 overflow-y-auto flex-1 keyboard-safe-modal-scroll archive-modal-body">
+                        <div
+                            class="rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 text-xs text-amber-700 leading-relaxed archive-modal-notice">
+                            归档后这盆植物将不再出现在养护列表，也不会收到养护提醒。记录会保留，之后可以在已归档中查看和恢复。
+                        </div>
+                        <div class="archive-modal-section">
+                            <label class="block text-sm font-bold text-gray-700 mb-3">归档原因</label>
+                            <div class="grid grid-cols-2 gap-2 archive-reason-grid">
+                                <button v-for="reason in archiveReasons" :key="reason" type="button"
+                                    @click="archiveForm.reason = reason"
+                                    class="rounded-2xl border px-3 py-3 text-sm font-bold transition active:scale-95 archive-reason-button"
+                                    :class="archiveForm.reason === reason ? 'bg-green-50 border-green-300 text-green-700 shadow-sm' : 'bg-white border-gray-100 text-gray-500'">
+                                    {{ reason }}
+                                </button>
+                            </div>
+                        </div>
+                        <div class="archive-modal-section">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">备注
+                                <span class="text-gray-400 font-normal">（可选）</span>
+                            </label>
+                            <textarea v-model="archiveForm.note" placeholder="这次失败可能和什么有关？" rows="2"
+                                class="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:border-green-300 resize-none transition archive-note-input"></textarea>
+                        </div>
+                        <div class="archive-modal-section">
+                            <label class="block text-sm font-bold text-gray-700 mb-2">归档照片
+                                <span class="text-gray-400 font-normal">（可选，会加入成长轨迹）</span>
+                            </label>
+                            <div class="grid grid-cols-4 gap-2 archive-photo-grid">
+                                <div v-for="(img, idx) in archiveForm.tempImages" :key="`archive-${idx}`"
+                                    class="relative aspect-square bg-gray-100 rounded-xl overflow-hidden archive-photo-tile">
+                                    <img :src="img.preview" decoding="async" class="w-full h-full object-cover">
+                                    <button type="button" @click="removeArchiveImage(idx)"
+                                        class="absolute top-1 right-1 bg-black/50 text-white w-5 h-5 rounded-full text-[10px] flex items-center justify-center">
+                                        <i class="fa fa-times"></i>
+                                    </button>
+                                </div>
+                                <button v-if="archiveImageCount() < 3" type="button"
+                                    @click="triggerArchiveFileInput"
+                                    class="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-300 hover:border-green-500 hover:text-green-500 transition active:scale-95 archive-photo-add">
+                                    <i class="fa fa-camera text-xl mb-1 archive-photo-add-icon"></i>
+                                    <span class="text-[8px] font-black uppercase tracking-tighter">添加</span>
+                                </button>
+                            </div>
+                            <input type="file" ref="archiveFileInput" @change="onArchiveFilesSelected" multiple
+                                accept="image/*" class="hidden">
+                        </div>
+                    </div>
+                    <div class="px-6 pb-6 shrink-0 keyboard-safe-modal-footer archive-modal-footer">
+                        <button @click="archiveCurrentPot" :disabled="isArchiveLoading"
+                            class="w-full bg-green-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95 disabled:opacity-50 archive-submit-button">
+                            {{ isArchiveLoading ? '归档中...' : '确认归档' }}
                         </button>
                     </div>
                 </div>
@@ -922,7 +921,10 @@
                     <!-- 固定头部 -->
                     <div class="px-6 sm:px-8 pt-8 pb-4 shrink-0">
                         <div class="flex justify-between items-center">
-                            <h3 class="text-xl font-black text-gray-800">{{ isArchived ? '分享归档花盆' : '分享此花盆' }}</h3>
+                            <div class="min-w-0">
+                                <h3 class="text-xl font-black text-gray-800">分享与权限</h3>
+                                <p class="text-xs text-gray-400 mt-1">选择谁可以看到这盆植物</p>
+                            </div>
                             <button @click="showShareModal = false"
                                 class="text-gray-300 hover:text-gray-500 transition active:scale-95">
                                 <i class="fa fa-times text-xl"></i>
@@ -933,14 +935,27 @@
                     <div class="px-6 sm:px-8 pb-8 overflow-y-auto flex-1 no-scrollbar">
 
                         <div v-if="isOwner" class="flex flex-col gap-3">
-                            <button type="button" @click="openPublicShareModal"
-                                class="w-full py-4 rounded-2xl bg-green-50 text-green-600 text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition">
-                                <i class="fa fa-link"></i> 公开分享 · {{ pot.is_shared ? '已开启' : '已关闭' }}
-                            </button>
-
-                            <button type="button" @click="openMembersModal"
-                                class="w-full py-4 rounded-2xl bg-emerald-50 text-emerald-600 text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition">
-                                <i class="fa fa-users"></i> 成员与权限 · {{ memberTotalCount }}人
+                            <button v-for="state in shareAccessStates" :key="state.key" type="button"
+                                @click="handleShareAccessStateClick(state)" :disabled="state.disabled"
+                                class="w-full rounded-2xl border p-4 text-left flex items-center gap-3 transition active:scale-[0.99] disabled:active:scale-100"
+                                :class="getShareAccessStateClass(state)">
+                                <span class="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+                                    :class="getShareAccessIconClass(state)">
+                                    <i class="fa" :class="state.icon"></i>
+                                </span>
+                                <span class="min-w-0 flex-1">
+                                    <span class="flex items-center gap-2">
+                                        <span class="text-sm font-black"
+                                            :class="state.disabled ? 'text-gray-400' : 'text-gray-800'">{{ state.label }}</span>
+                                        <span class="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black"
+                                            :class="getShareAccessStatusClass(state)">
+                                            {{ state.statusText }}
+                                        </span>
+                                    </span>
+                                    <span class="mt-1 block text-xs font-bold leading-relaxed text-gray-500">
+                                        {{ state.description }}
+                                    </span>
+                                </span>
                             </button>
                             <button v-if="!isArchived" @click="showTransferModal = true; showShareModal = false"
                                 class="w-full py-4 rounded-2xl bg-red-50 text-red-500 text-sm font-black flex items-center justify-center gap-2 active:scale-95 transition">
@@ -1259,8 +1274,8 @@
                             {{ currentPreviewItem?.description || '这一天，有了新的成长...' }}
                         </div>
                     </div>
-                    <div v-if="previewImages.length > 1" class="flex gap-1.5">
-                        <span v-for="(_, idx) in previewImages" :key="idx"
+                    <div v-if="previewImages.length > 1" class="gallery-indicator-dots">
+                        <span v-for="idx in galleryIndicatorIndexes" :key="idx"
                             class="w-1.5 h-1.5 rounded-full transition-all duration-300"
                             :class="idx === previewIndex ? 'bg-white w-4' : 'bg-white/40'"></span>
                     </div>
@@ -1350,120 +1365,93 @@
                         </div>
                     </div>
                     <div class="px-6 sm:px-8 pb-6 overflow-y-auto flex-1 no-scrollbar">
-                        <div class="space-y-6">
-                            <section v-if="!isArchived">
-                                <div class="flex items-center justify-between mb-3">
-                                    <h4 class="text-xs font-black text-gray-400 tracking-wide">共同照料 {{
-                                        collaborators.length }}人</h4>
-                                    <button v-if="!isArchived" type="button" @click="openMemberInvite('collaborator')"
-                                        class="w-9 h-9 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center transition active:scale-95"
-                                        title="邀请共同照料" aria-label="邀请共同照料">
-                                        <i class="fa fa-plus"></i>
-                                    </button>
-                                </div>
-                                <div class="space-y-3">
-                                    <div v-for="member in collaborators" :key="'collab-' + member.id"
-                                        class="relative flex items-center justify-between gap-3 p-4 bg-gray-50 rounded-2xl"
-                                        :class="memberRoleUpdatingUserId === member.id ? 'opacity-60 pointer-events-none' : ''">
-                                        <div class="flex items-center gap-3 min-w-0">
-                                            <div
-                                                class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 font-black overflow-hidden shrink-0">
-                                                <img v-if="member.avatar_url" :src="imgUrl(member.avatar_url, 40, 40)"
-                                                    :alt="memberDisplayName(member)" class="w-full h-full object-cover"
-                                                    @error="handleMemberAvatarError">
-                                                <span :class="member.avatar_url ? 'hidden' : ''">{{
-                                                    memberInitial(member) }}</span>
-                                            </div>
-                                            <div class="min-w-0">
-                                                <h5 class="text-sm font-black text-gray-800 truncate">{{
-                                                    member.display_name || '未设置昵称' }}</h5>
-                                                <p class="text-[10px] text-gray-400 truncate">{{ member.email }}</p>
-                                            </div>
-                                        </div>
-                                        <div class="flex items-center gap-2 shrink-0">
-                                            <span
-                                                class="rounded-lg bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-500">共同照料</span>
-                                            <button type="button" @click.stop="toggleMemberMenu(member, 'collaborator')"
-                                                class="w-9 h-9 text-gray-300 hover:text-gray-600 flex items-center justify-center transition active:scale-95"
-                                                title="成员操作" aria-label="成员操作">
-                                                <i class="fa fa-ellipsis-h"></i>
-                                            </button>
-                                        </div>
-                                        <div v-if="activeMemberMenuId === getMemberMenuKey(member, 'collaborator')"
-                                            class="absolute right-4 top-14 z-20 w-44 overflow-hidden rounded-2xl bg-white shadow-xl border border-gray-100">
-                                            <button v-if="!isArchived" type="button"
-                                                @click.stop="changeMemberRole(member, 'viewer')"
-                                                class="w-full px-4 py-3 text-left text-xs font-bold text-gray-700 hover:bg-gray-50">改为仅查看</button>
-                                            <button type="button" @click.stop="removeMember(member, 'collaborator')"
-                                                class="w-full px-4 py-3 text-left text-xs font-bold text-red-500 hover:bg-red-50">移除成员</button>
-                                        </div>
-                                    </div>
-                                    <div v-if="collaborators.length === 0"
-                                        class="rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 py-6 px-4 text-center text-gray-300 text-xs font-bold">
-                                        暂无共同照料成员
-                                    </div>
-                                </div>
-                            </section>
-
-                            <section>
-                                <div class="flex items-center justify-between mb-3">
-                                    <h4 class="text-xs font-black text-gray-400 tracking-wide">仅查看 {{ viewers.length }}人
-                                    </h4>
-                                    <button type="button" @click="openMemberInvite('viewer')"
-                                        class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center transition active:scale-95"
-                                        title="邀请仅查看成员" aria-label="邀请仅查看成员">
-                                        <i class="fa fa-plus"></i>
-                                    </button>
-                                </div>
-                                <div class="space-y-3">
-                                    <div v-for="member in viewers" :key="'viewer-' + member.id"
-                                        class="relative flex items-center justify-between gap-3 p-4 bg-gray-50 rounded-2xl"
-                                        :class="memberRoleUpdatingUserId === member.id ? 'opacity-60 pointer-events-none' : ''">
-                                        <div class="flex items-center gap-3 min-w-0">
-                                            <div
-                                                class="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-500 font-black overflow-hidden shrink-0">
-                                                <img v-if="member.avatar_url" :src="imgUrl(member.avatar_url, 40, 40)"
-                                                    :alt="memberDisplayName(member)" class="w-full h-full object-cover"
-                                                    @error="handleMemberAvatarError">
-                                                <span :class="member.avatar_url ? 'hidden' : ''">{{
-                                                    memberInitial(member) }}</span>
-                                            </div>
-                                            <div class="min-w-0">
-                                                <h5 class="text-sm font-black text-gray-800 truncate">{{
-                                                    member.display_name || '未设置昵称' }}</h5>
-                                                <p class="text-[10px] text-gray-400 truncate">{{ member.email }}</p>
-                                            </div>
-                                        </div>
-                                        <div class="flex items-center gap-2 shrink-0">
-                                            <span
-                                                class="rounded-lg bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-500">仅查看</span>
-                                            <button type="button" @click.stop="toggleMemberMenu(member, 'viewer')"
-                                                class="w-9 h-9 text-gray-300 hover:text-gray-600 flex items-center justify-center transition active:scale-95"
-                                                title="成员操作" aria-label="成员操作">
-                                                <i class="fa fa-ellipsis-h"></i>
-                                            </button>
-                                        </div>
-                                        <div v-if="activeMemberMenuId === getMemberMenuKey(member, 'viewer')"
-                                            class="absolute right-4 top-14 z-20 w-44 overflow-hidden rounded-2xl bg-white shadow-xl border border-gray-100">
-                                            <button v-if="!isArchived" type="button"
-                                                @click.stop="changeMemberRole(member, 'collaborator')"
-                                                class="w-full px-4 py-3 text-left text-xs font-bold text-gray-700 hover:bg-gray-50">改为共同照料</button>
-                                            <button type="button" @click.stop="removeMember(member, 'viewer')"
-                                                class="w-full px-4 py-3 text-left text-xs font-bold text-red-500 hover:bg-red-50">移除成员</button>
-                                        </div>
-                                    </div>
-                                    <div v-if="viewers.length === 0"
-                                        class="rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 py-6 px-4 text-center text-gray-300 text-xs font-bold">
-                                        暂无仅查看成员
-                                    </div>
-                                </div>
-                            </section>
+                        <div class="grid grid-cols-2 gap-2 mb-5 rounded-2xl bg-gray-100 p-1">
+                            <button type="button" @click="setActiveMemberRole('viewer')"
+                                class="py-3 rounded-xl text-sm font-black transition"
+                                :class="activeMemberRole === 'viewer' ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-400'">
+                                仅查看
+                            </button>
+                            <button type="button" @click="setActiveMemberRole('collaborator')" :disabled="isArchived"
+                                class="py-3 rounded-xl text-sm font-black transition disabled:cursor-not-allowed"
+                                :class="activeMemberRole === 'collaborator' ? 'bg-white text-blue-500 shadow-sm' : (isArchived ? 'text-gray-300' : 'text-gray-400')">
+                                共同照料
+                            </button>
                         </div>
+
+                        <div v-if="isArchived"
+                            class="mb-5 rounded-2xl bg-gray-50 px-4 py-3 text-[11px] font-bold leading-relaxed text-gray-500">
+                            <i class="fa fa-archive mr-1"></i>
+                            归档后不能共同照料或编辑，只能邀请好友查看历史记录。
+                        </div>
+
+                        <section>
+                            <div class="flex items-center justify-between gap-4 mb-3">
+                                <div class="min-w-0">
+                                    <h4 class="text-xs font-black text-gray-400 tracking-wide">{{ activeMemberRoleLabel
+                                        }} {{ activeMembers.length }}人</h4>
+                                    <p class="text-[11px] text-gray-400 mt-1 leading-relaxed">{{
+                                        activeMemberDescription }}</p>
+                                </div>
+                                <button type="button" @click="openMemberInvite(activeMemberRole)"
+                                    class="w-9 h-9 rounded-xl flex items-center justify-center transition active:scale-95 shrink-0"
+                                    :class="activeMemberRole === 'collaborator' ? 'bg-blue-50 text-blue-500' : 'bg-emerald-50 text-emerald-500'"
+                                    :title="activeMemberInviteButtonLabel" :aria-label="activeMemberInviteButtonLabel">
+                                    <i class="fa fa-plus"></i>
+                                </button>
+                            </div>
+                            <div class="space-y-3">
+                                <div v-for="member in activeMembers" :key="activeMemberRole + '-' + member.id"
+                                    class="relative flex items-center justify-between gap-3 p-4 bg-gray-50 rounded-2xl"
+                                    :class="memberRoleUpdatingUserId === member.id ? 'opacity-60 pointer-events-none' : ''">
+                                    <div class="flex items-center gap-3 min-w-0">
+                                        <div class="w-10 h-10 rounded-full flex items-center justify-center font-black overflow-hidden shrink-0"
+                                            :class="activeMemberRole === 'collaborator' ? 'bg-blue-100 text-blue-500' : 'bg-emerald-100 text-emerald-500'">
+                                            <img v-if="member.avatar_url" :src="imgUrl(member.avatar_url, 40, 40)"
+                                                :alt="memberDisplayName(member)" class="w-full h-full object-cover"
+                                                @error="handleMemberAvatarError">
+                                            <span :class="member.avatar_url ? 'hidden' : ''">{{
+                                                memberInitial(member) }}</span>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <h5 class="text-sm font-black text-gray-800 truncate">{{
+                                                member.display_name || '未设置昵称' }}</h5>
+                                            <p class="text-[10px] text-gray-400 truncate">{{ member.email }}</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <span class="rounded-lg px-2 py-1 text-[10px] font-black"
+                                            :class="activeMemberRole === 'collaborator' ? 'bg-blue-50 text-blue-500' : 'bg-emerald-50 text-emerald-500'">{{
+                                            activeMemberRoleShortLabel }}</span>
+                                        <button type="button" @click.stop="toggleMemberMenu(member, activeMemberRole)"
+                                            class="w-9 h-9 text-gray-300 hover:text-gray-600 flex items-center justify-center transition active:scale-95"
+                                            title="成员操作" aria-label="成员操作">
+                                            <i class="fa fa-ellipsis-h"></i>
+                                        </button>
+                                    </div>
+                                    <div v-if="activeMemberMenuId === getMemberMenuKey(member, activeMemberRole)"
+                                        class="absolute right-4 top-14 z-20 w-44 overflow-hidden rounded-2xl bg-white shadow-xl border border-gray-100">
+                                        <button v-if="activeMemberRole === 'collaborator'" type="button"
+                                            @click.stop="changeMemberRole(member, 'viewer')"
+                                            class="w-full px-4 py-3 text-left text-xs font-bold text-gray-700 hover:bg-gray-50">改为仅查看</button>
+                                        <button v-else-if="!isArchived" type="button"
+                                            @click.stop="changeMemberRole(member, 'collaborator')"
+                                            class="w-full px-4 py-3 text-left text-xs font-bold text-gray-700 hover:bg-gray-50">改为共同照料</button>
+                                        <button type="button" @click.stop="removeMember(member, activeMemberRole)"
+                                            class="w-full px-4 py-3 text-left text-xs font-bold text-red-500 hover:bg-red-50">移除成员</button>
+                                    </div>
+                                </div>
+                                <div v-if="activeMembers.length === 0"
+                                    class="rounded-2xl border border-dashed border-gray-200 bg-gray-50/80 py-6 px-4 text-center text-gray-300 text-xs font-bold">
+                                    {{ activeMemberEmptyText }}
+                                </div>
+                            </div>
+                        </section>
                     </div>
                     <div class="px-6 sm:px-8 pt-4 pb-6 shrink-0 border-t border-gray-50 bg-white">
-                        <button type="button" @click="openMemberInvite('viewer')"
-                            class="w-full py-4 rounded-2xl bg-green-500 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-green-100 active:scale-95 transition">
-                            <i class="fa fa-user-plus"></i> 邀请成员
+                        <button type="button" @click="openMemberInvite(activeMemberRole)"
+                            class="w-full py-4 rounded-2xl text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg active:scale-95 transition"
+                            :class="activeMemberRole === 'collaborator' ? 'bg-blue-500 shadow-blue-100 hover:bg-blue-600' : 'bg-green-500 shadow-green-100 hover:bg-green-600'">
+                            <i class="fa fa-user-plus"></i> {{ activeMemberInviteButtonLabel }}
                         </button>
                     </div>
                 </div>
@@ -1481,7 +1469,7 @@
                                 <i class="fa fa-arrow-left text-xl"></i>
                             </button>
                             <div class="flex-1 min-w-0">
-                                <h3 class="text-xl font-black text-gray-800">邀请成员</h3>
+                                <h3 class="text-xl font-black text-gray-800">邀请或添加成员</h3>
                                 <p class="text-xs text-gray-400 mt-1">{{ memberInviteDescription }}</p>
                             </div>
                             <button type="button" @click="closeMemberInviteModal"
@@ -1526,10 +1514,10 @@
                             </div>
                             <div class="rounded-3xl border border-gray-100 bg-gray-50 p-5">
                                 <h4 class="text-sm font-black text-gray-800 flex items-center gap-2">
-                                    <i class="fa fa-envelope text-green-500"></i> 邮箱邀请
+                                    <i class="fa fa-envelope text-green-500"></i> 按邮箱添加
                                 </h4>
                                 <p class="text-xs text-gray-500 mt-2 mb-4 leading-relaxed">
-                                    邀请会直接发送到对方的消息中心。
+                                    输入好友已注册邮箱后，会直接为对方添加当前权限，无需对方确认。
                                 </p>
                                 <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
                                     <input type="email" v-model="memberInviteEmail" placeholder="输入好友注册邮箱"
@@ -1540,7 +1528,7 @@
                                     <button type="button" @click="submitMemberEmailInvite"
                                         :disabled="isMemberInviteLoading || !isMemberInviteEmailValid"
                                         class="w-full sm:w-36 shrink-0 inline-flex items-center justify-center whitespace-nowrap bg-green-500 text-white px-5 py-4 rounded-2xl font-black text-sm leading-none shadow-lg shadow-green-100 hover:bg-green-600 disabled:opacity-50 active:scale-95 transition">
-                                        {{ isMemberInviteLoading ? '发送中...' : memberInviteEmailButtonLabel }}
+                                        {{ isMemberInviteLoading ? '添加中...' : memberInviteEmailButtonLabel }}
                                     </button>
                                 </div>
                             </div>
@@ -2100,7 +2088,7 @@
     <script src="js/api-client.min.js?v=20260519-local-time"></script>
     <script src="js/pwa-diagnostics.js?v=20260508-pwa-diagnostics"></script>
     <script src="js/media-utils.js?v=20260507-image-cache"></script>
-    <script src="js/pot-permissions.js?v=20260421-refactor"></script>
+    <script src="js/pot-permissions.js?v=20260523-share-permissions"></script>
     <script src="js/care-utils.js?v=20260421-refactor"></script>
     <script src="js/gallery-utils.js?v=20260421-refactor"></script>
     <script src="js/comment-barrage-utils.js?v=20260521-barrage-rotation"></script>

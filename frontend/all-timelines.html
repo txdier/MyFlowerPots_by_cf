@@ -297,8 +297,8 @@
                         {{ currentPreviewItem?.description || '这一天，有了新的成长...' }}
                     </div>
                 </div>
-                <div v-if="previewImages.length > 1" class="flex gap-1.5">
-                    <span v-for="(_, idx) in previewImages" :key="idx"
+                <div v-if="previewImages.length > 1" class="gallery-indicator-dots">
+                    <span v-for="idx in galleryIndicatorIndexes" :key="idx"
                         class="w-1.5 h-1.5 rounded-full transition-all duration-300"
                         :class="idx === previewIndex ? 'bg-white w-4' : 'bg-white/40'">
                     </span>
@@ -590,6 +590,10 @@
                     MyFlowerPotsGallery.buildTimelineGalleryItems(sortedTimelineRecords.value)
                 );
 
+                const galleryIndicatorIndexes = computed(() =>
+                    MyFlowerPotsGallery.buildGalleryIndicatorIndexes(previewImages.value.length, previewIndex.value)
+                );
+
                 const openGallery = (img, allImages = null, previewSrc = '') => {
                     if (allImages) return openRawGallery(img, allImages, previewSrc);
                     const items = timelineGalleryItems.value;
@@ -648,7 +652,7 @@
                 return {
                     isLoading, pot, isPublicSharePage, timelineRecords, sortedTimelineRecords, isTimelineDesc,
                     canManageTimelines, showEditTimelineModal, isSavingTimeline, editTimelineForm, fileInput,
-                    previewImages, previewIndex, currentPreviewItem, galleryDragOffset, galleryIsDragging,
+                    previewImages, previewIndex, currentPreviewItem, galleryIndicatorIndexes, galleryDragOffset, galleryIsDragging,
                     coverNotice, isCoverUpdating, shouldShowCoverAction, canSetCover, isCurrentCover, setCurrentPreviewAsCover, undoCoverChange,
                     toggleTimelineSort, confirmDeleteTimeline, openEditTimelineModal, closeEditTimelineModal,
                     triggerFileInput, onFilesSelected, removeExistingTimelineImage, removeNewImage,

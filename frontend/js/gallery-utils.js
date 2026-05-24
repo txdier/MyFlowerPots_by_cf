@@ -130,8 +130,23 @@
         return items;
     };
 
+    const buildGalleryIndicatorIndexes = (total, currentIndex, maxDots = 18) => {
+        const count = Math.max(0, Number(total) || 0);
+        const limit = Math.max(1, Number(maxDots) || 1);
+        if (count <= limit) {
+            return Array.from({ length: count }, (_, index) => index);
+        }
+
+        const current = Math.min(Math.max(0, Number(currentIndex) || 0), count - 1);
+        const before = Math.floor((limit - 1) / 2);
+        let start = current - before;
+        start = Math.max(0, Math.min(start, count - limit));
+        return Array.from({ length: limit }, (_, index) => start + index);
+    };
+
     global.MyFlowerPotsGallery = {
         createGallery,
-        buildTimelineGalleryItems
+        buildTimelineGalleryItems,
+        buildGalleryIndicatorIndexes
     };
 })(window);

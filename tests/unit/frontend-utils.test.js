@@ -218,6 +218,50 @@ describe('frontend shared utilities', () => {
     expect(permissionUtils.canViewPot({ user_id: 'u1', is_viewer: true }, 'u2')).toBe(true);
   });
 
+  it('describes the three share access states and disables collaborator access for archived pots', () => {
+    const activeStates = permissionUtils.getShareAccessStates({
+      isShared: true,
+      isArchived: false,
+      viewerCount: 2,
+      collaboratorCount: 1,
+    });
+
+    expect(activeStates.map((state) => state.key)).toEqual(['public', 'viewer', 'collaborator']);
+    expect(activeStates[0]).toMatchObject({
+      label: '公开链接',
+      statusText: '已开启',
+      description: '无需登录；只能查看公开页面；不会成为成员',
+      disabled: false,
+    });
+    expect(activeStates[1]).toMatchObject({
+      label: '仅查看成员',
+      statusText: '2人',
+      description: '登录成员可查看记录和留言，不能编辑',
+      disabled: false,
+    });
+    expect(activeStates[2]).toMatchObject({
+      label: '共同照料成员',
+      statusText: '1人',
+      description: '登录成员可新增和编辑养护、时间线、提醒',
+      disabled: false,
+    });
+
+    const archivedStates = permissionUtils.getShareAccessStates({
+      isShared: false,
+      isArchived: true,
+      viewerCount: 0,
+      collaboratorCount: 3,
+    });
+
+    expect(archivedStates[0].statusText).toBe('未开启');
+    expect(archivedStates[1].statusText).toBe('0人');
+    expect(archivedStates[2]).toMatchObject({
+      statusText: '归档不可用',
+      disabled: true,
+      description: '归档后不能共同照料或编辑',
+    });
+  });
+
   it('rotates one reply into each comment barrage slot without duplicating barrage rows', () => {
     const item = {
       id: 'comment-1',
@@ -390,6 +434,13 @@ describe('frontend shared utilities', () => {
         operatorName: 'Bob',
       },
     ]);
+  });
+
+  it('limits gallery indicator dots around the current image', () => {
+    expect(galleryUtils.buildGalleryIndicatorIndexes(8, 3, 12)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    expect(galleryUtils.buildGalleryIndicatorIndexes(30, 0, 7)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(galleryUtils.buildGalleryIndicatorIndexes(30, 15, 7)).toEqual([12, 13, 14, 15, 16, 17, 18]);
+    expect(galleryUtils.buildGalleryIndicatorIndexes(30, 29, 7)).toEqual([23, 24, 25, 26, 27, 28, 29]);
   });
 
   it('keeps PWA diagnostics off until explicitly enabled', () => {
