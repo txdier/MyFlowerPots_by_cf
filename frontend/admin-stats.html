@@ -267,6 +267,10 @@
                         全部
                     </button>
                 </div>
+                <div class="mt-3 text-xs text-slate-400" v-if="analyticsSource">
+                    Source: <span class="font-medium text-slate-500">{{ analyticsSourceLabel }}</span>
+                    <span v-if="analyticsRetentionDays"> · Retention: {{ analyticsRetentionDays }} days</span>
+                </div>
             </div>
 
             <!-- 汇总卡片 -->
@@ -459,6 +463,8 @@
                 const trend = ref([]);
                 const todayVisits = ref(0);
                 const yesterdayVisits = ref(0);
+                const analyticsSource = ref('');
+                const analyticsRetentionDays = ref(null);
                 const loading = ref(false);
                 const isCheckingAccess = ref(true);
                 const supportUnreadCount = ref(0);
@@ -494,6 +500,11 @@
                     if (trend.value.length === 0) return 0;
                     const sum = trend.value.reduce((s, t) => s + getVisitCount(t), 0);
                     return Math.round(sum / trend.value.length);
+                });
+                const analyticsSourceLabel = computed(() => {
+                    if (analyticsSource.value === 'analytics-engine') return 'Cloudflare Analytics Engine';
+                    if (analyticsSource.value === 'd1-fallback') return 'D1 fallback';
+                    return analyticsSource.value;
                 });
 
                 const showToast = MyFlowerPotsUi.createToast(toast, {
@@ -581,6 +592,8 @@
                             trend.value = normalizeTrend(data.trend);
                             todayVisits.value = getVisitCount(data.today);
                             yesterdayVisits.value = getVisitCount(data.yesterday);
+                            analyticsSource.value = data.source || '';
+                            analyticsRetentionDays.value = data.retentionDays || null;
                         }
                     } catch (err) {
                         showToast('加载失败: ' + err.message, 'fa fa-exclamation-circle');
@@ -624,6 +637,7 @@
 
                 return {
                     stats, trend, todayVisits, yesterdayVisits,
+                    analyticsSource, analyticsRetentionDays, analyticsSourceLabel,
                     loading, isCheckingAccess, supportUnreadCount, toast,
                     startDate, endDate, activePreset, presets,
                     hasFilter, totalVisits, todayDiff, trendMax, dailyAvg,

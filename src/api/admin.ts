@@ -1,7 +1,13 @@
 import { jsonResponse, errorResponse } from '../utils/response-utils';
 import { collectUserImageUrls, deleteImagesFromR2 } from '../utils/storage-utils';
 import { clearMemoryCache, deleteMemoryCachePrefix, getMemoryCacheStats } from '../utils/cache-utils';
-import { getAnalytics, getDailyTrend, getAnalyticsDateString } from './analytics';
+import {
+    ANALYTICS_ENGINE_RETENTION_DAYS,
+    getAnalytics,
+    getDailyTrend,
+    getAnalyticsDateString,
+    getAnalyticsResultSource
+} from './analytics';
 import { invalidatePlantCache } from './plants';
 import { hashPassword, isPasswordValid } from '../utils/auth-utils';
 import { generateAdminPasswordResetNoticeEmail, sendEmail } from '../utils/email-service';
@@ -470,6 +476,7 @@ async function handleGetAnalytics(env: any, url: URL): Promise<Response> {
 
         // 获取页面统计数据
         const data = await getAnalytics(env, startDate, endDate);
+        const source = getAnalyticsResultSource(data);
 
         // 获取趋势数据（使用筛选日期或默认近30天）
         const today = getAnalyticsDateString(env);
@@ -490,7 +497,9 @@ async function handleGetAnalytics(env: any, url: URL): Promise<Response> {
             data,
             trend,
             today: todayVisits,
-            yesterday: yesterdayVisits
+            yesterday: yesterdayVisits,
+            source,
+            ...(source === 'analytics-engine' ? { retentionDays: ANALYTICS_ENGINE_RETENTION_DAYS } : {})
         });
     } catch (error) {
         console.error('Get analytics error:', error);

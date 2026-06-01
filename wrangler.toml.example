@@ -66,6 +66,10 @@ database_id = "YOUR_D1_DATABASE_ID"
 migrations_dir = "migrations"
 migrations_table = "d1_migrations"
 
+[[analytics_engine_datasets]]
+binding = "PAGE_ANALYTICS"
+dataset = "my_flower_pots_page_visits"
+
 [[r2_buckets]]
 binding = "STATIC_BUCKET"
 bucket_name = "my-flower-pots"

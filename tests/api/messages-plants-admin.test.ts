@@ -227,6 +227,7 @@ describe('api regression: comments, messages, plants, upload, analytics headers,
     ]);
 
     const analytics = await expectOk(await api('/api/admin/analytics', { token: admin.token }));
+    expect(analytics.source).toBe('d1-fallback');
     const statsRow = analytics.data.find((item: any) => item.path === '/admin-stats');
     expect(Number(statsRow?.visit_count)).toBe(7);
 
@@ -234,6 +235,7 @@ describe('api regression: comments, messages, plants, upload, analytics headers,
       '/api/admin/analytics?startDate=2026-05-06&endDate=2026-05-07',
       { token: admin.token }
     ));
+    expect(filteredAnalytics.source).toBe('d1-fallback');
     const filteredStatsRow = filteredAnalytics.data.find((item: any) => item.path === '/admin-stats');
     expect(Number(filteredStatsRow?.visit_count)).toBe(7);
 
