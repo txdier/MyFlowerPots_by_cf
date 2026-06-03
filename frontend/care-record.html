@@ -91,7 +91,7 @@
                         <!-- 2. 养护类型 (支持多选) -->
                         <div class="mb-6">
                             <label class="block text-sm font-bold text-gray-700 mb-1">养护类型</label>
-                            <p class="text-[10px] text-gray-400 mb-3" v-if="!isEditMode">可同时选择多项，会自动带出当前植物提醒里的动态类型</p>
+                            <p class="text-[10px] text-gray-400 mb-3" v-if="!isEditMode">可同时选择多项，会自动带出当前植物的提醒和常用其他动作</p>
                             <div class="grid grid-cols-3 gap-3">
                                 <button v-for="t in careTypes" :key="t.value" type="button"
                                     @click="toggleCareType(t.value)"
@@ -201,7 +201,6 @@
                     { value: 'other', label: '其他', icon: 'fa fa-ellipsis-h' }
                 ];
                 const builtInCareTypeValues = new Set(MyFlowerPotsCare.builtInCareTypes.map(item => item.value));
-                const builtInCareTypeLabels = new Set(MyFlowerPotsCare.builtInCareTypes.map(item => item.label));
                 const dynamicCareTypes = ref([]);
                 const careTypes = computed(() => [...baseCareTypes, ...dynamicCareTypes.value]);
 
@@ -269,31 +268,27 @@
                         return;
                     }
 
+                    let schedules = [];
+                    let records = [];
                     try {
                         const res = await apiClient.getCareSchedules(pid);
                         if (res.success && Array.isArray(res.data)) {
-                            res.data.forEach((schedule) => {
-                                const rawType = canonicalCareType(schedule.care_type);
-                                if (rawType && rawType !== 'other' && builtInCareTypeValues.has(rawType)) {
-                                    return;
-                                }
-
-                                const dynamicLabel = String(schedule.custom_action || schedule.care_type || '').trim();
-                                if (!dynamicLabel || builtInCareTypeLabels.has(dynamicLabel)) {
-                                    return;
-                                }
-
-                                upsertDynamicCareType({
-                                    value: dynamicLabel,
-                                    label: dynamicLabel,
-                                    icon: 'fa fa-clipboard-check'
-                                });
-                            });
+                            schedules = res.data;
                         }
                     } catch (err) {
                         console.warn('加载动态养护类型失败:', err);
                     }
 
+                    try {
+                        const res = await apiClient.getCareRecords(pid);
+                        if (res.success && Array.isArray(res.data)) {
+                            records = res.data;
+                        }
+                    } catch (err) {
+                        console.warn('加载历史其他养护动作失败:', err);
+                    }
+
+                    MyFlowerPotsCare.buildDynamicCareTypeOptions({ schedules, records }).forEach(upsertDynamicCareType);
                     ensureRecordCareTypeOption(recordData);
                 };
 

@@ -66,6 +66,52 @@
         return meta.label || actionLabel || String(type || '').trim() || options.fallback || '其他记录';
     };
 
+    const buildDynamicCareTypeOptions = ({
+        schedules = [],
+        records = [],
+        recentRecordLimit = 5
+    } = {}) => {
+        const builtInLabels = new Set(builtInCareTypes.map(item => item.label));
+        const options = [];
+        const seenLabels = new Set();
+
+        const addOption = (label) => {
+            const normalizedLabel = String(label || '').trim();
+            if (!normalizedLabel || normalizedLabel === '其他' || builtInLabels.has(normalizedLabel) || seenLabels.has(normalizedLabel)) {
+                return;
+            }
+            seenLabels.add(normalizedLabel);
+            options.push({
+                value: normalizedLabel,
+                label: normalizedLabel,
+                icon: 'fa fa-clipboard-check',
+                dynamic: true
+            });
+        };
+
+        schedules.forEach((schedule) => {
+            const rawType = normalizeCareType(schedule?.care_type, '', { keepUnknown: true });
+            if (rawType && rawType !== 'other' && builtInCareTypes.some(item => item.value === rawType)) {
+                return;
+            }
+            addOption(schedule?.custom_action || schedule?.care_type);
+        });
+
+        let recordOptionCount = 0;
+        records.forEach((record) => {
+            if (recordOptionCount >= recentRecordLimit) return;
+            if (String(record?.type || '').trim().toLowerCase() !== 'other') return;
+
+            const beforeCount = options.length;
+            addOption(record?.action);
+            if (options.length > beforeCount) {
+                recordOptionCount += 1;
+            }
+        });
+
+        return options;
+    };
+
     global.MyFlowerPotsCare = {
         builtInCareTypes,
         normalizeCareType,
@@ -73,6 +119,7 @@
         getCareTypeMeta,
         getCareTypeIcon,
         getCareTypeColor,
-        getCareTypeLabel
+        getCareTypeLabel,
+        buildDynamicCareTypeOptions
     };
 })(window);

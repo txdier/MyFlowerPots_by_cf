@@ -206,6 +206,46 @@ describe('frontend shared utilities', () => {
     expect(careUtils.getCareTypeLabel('custom', '擦叶')).toBe('擦叶');
   });
 
+  it('builds dynamic care options from custom schedules before recent other records', () => {
+    const options = careUtils.buildDynamicCareTypeOptions({
+      schedules: [
+        { care_type: 'custom', custom_action: '擦叶' },
+        { care_type: 'custom', custom_action: '加水' },
+      ],
+      records: [
+        { type: 'other', action: '加水' },
+        { type: 'other', action: '补光' },
+        { type: 'other', action: '浇水' },
+        { type: 'water', action: '加水' },
+      ],
+    });
+
+    expect(options).toEqual([
+      { value: '擦叶', label: '擦叶', icon: 'fa fa-clipboard-check', dynamic: true },
+      { value: '加水', label: '加水', icon: 'fa fa-clipboard-check', dynamic: true },
+      { value: '补光', label: '补光', icon: 'fa fa-clipboard-check', dynamic: true },
+    ]);
+  });
+
+  it('limits recent other-record dynamic care options after de-duplicating labels', () => {
+    const options = careUtils.buildDynamicCareTypeOptions({
+      records: [
+        { type: 'other', action: '清灰' },
+        { type: 'other', action: '转盆' },
+        { type: 'other', action: '观察叶片' },
+        { type: 'other', action: '补光' },
+        { type: 'other', action: '加水' },
+        { type: 'other', action: '擦叶' },
+        { type: 'other', action: '清灰' },
+        { type: 'other', action: '其他' },
+        { type: 'other', action: '' },
+      ],
+      recentRecordLimit: 5,
+    });
+
+    expect(options.map(item => item.label)).toEqual(['清灰', '转盆', '观察叶片', '补光', '加水']);
+  });
+
   it('limits display names by visual width', () => {
     expect(formUtils.limitTextDisplayWidth('abcd中文', 4)).toBe('abcd中文');
     expect(formUtils.limitTextDisplayWidth('abcdefgh中', 4)).toBe('abcdefgh');
