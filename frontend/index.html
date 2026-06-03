@@ -434,14 +434,21 @@
                     <h3 class="text-lg font-bold text-gray-800">{{ emptyStateTitle }}</h3>
                     <p class="text-gray-400 text-sm mt-2 px-10">{{ emptyStateMessage }}</p>
                     <div v-if="activePotStatus === 'active'"
-                        class="home-empty-state__actions flex flex-col sm:flex-row gap-3">
-                        <button @click="goAddPot"
-                            class="bg-green-500 text-white px-8 py-3 rounded-2xl shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95">
-                            添加我的花盆
-                        </button>
-                        <button @click="seedDemoData" :disabled="isAuthLoading"
-                            class="bg-white text-green-600 border border-green-200 px-8 py-3 rounded-2xl shadow-sm hover:bg-green-50 transition active:scale-95 disabled:opacity-50">
-                            {{ isAuthLoading ? '正在生成...' : '体验示例数据' }}
+                        class="home-empty-state__actions flex flex-col items-stretch gap-3">
+                        <div class="flex flex-col sm:flex-row gap-3">
+                            <button @click="goAddPot"
+                                class="bg-green-500 text-white px-8 py-3 rounded-2xl shadow-lg shadow-green-100 hover:bg-green-600 transition active:scale-95">
+                                添加我的花盆
+                            </button>
+                            <button @click="seedDemoData" :disabled="isAuthLoading"
+                                class="bg-white text-green-600 border border-green-200 px-8 py-3 rounded-2xl shadow-sm hover:bg-green-50 transition active:scale-95 disabled:opacity-50">
+                                {{ isAuthLoading ? '正在生成...' : '体验示例数据' }}
+                            </button>
+                        </div>
+                        <button
+                            @click="showRegisterModal = true; showLoginModal = false; showForgotPasswordModal = false; showUserMenu = false"
+                            class="w-full bg-green-50 text-green-700 border border-green-200 px-8 py-3 rounded-2xl shadow-sm shadow-green-50 hover:bg-green-100 hover:border-green-300 transition active:scale-95">
+                            登录/注册
                         </button>
                     </div>
                 </div>
