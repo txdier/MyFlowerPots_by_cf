@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+    <title>公开分享植物成长记录 - 我的花盆</title>
+    <meta name="description" content="主动开启公开分享后，可以把植物的照片、养护记录和成长轨迹分享给朋友；关闭后公开链接会失效。">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="canonical" href="https://app.kaside365.com/public-plant-sharing">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/images/icons/pots-180.png">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="公开分享植物成长记录 - 我的花盆">
+    <meta property="og:description" content="主动开启公开分享，把植物照片、养护记录和成长轨迹发给朋友查看。">
+    <meta property="og:url" content="https://app.kaside365.com/public-plant-sharing">
+    <meta property="og:image" content="https://img.kaside365.com/assets/images/default-pot.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="公开分享植物成长记录 - 我的花盆">
+    <meta name="twitter:description" content="让朋友查看你主动公开的植物成长记录。">
+    <meta name="twitter:url" content="https://app.kaside365.com/public-plant-sharing">
+    <meta name="twitter:image" content="https://img.kaside365.com/assets/images/default-pot.png">
+    <link rel="stylesheet" href="css/tailwind-built.css?v=20260421-search">
+    <link rel="stylesheet" href="css/app.css?v=20260429-auth-validation">
+    <link rel="stylesheet" href="css/icons.css?v=20260421-search">
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": "首页", "item": "https://app.kaside365.com/" },
+            { "@type": "ListItem", "position": 2, "name": "公开分享", "item": "https://app.kaside365.com/public-plant-sharing" }
+        ]
+    }
+    </script>
+</head>
+
+<body class="bg-gray-50 text-gray-900">
+    <main class="min-h-screen">
+        <header class="header">
+            <div class="container">
+                <a href="/" class="inline-flex items-center gap-2 text-sm font-black text-gray-800">
+                    <img src="assets/images/icons/pots-192.png" alt="我的花盆图标" class="h-8 w-8 rounded-lg">
+                    <span>我的花盆</span>
+                </a>
+                <nav class="flex items-center gap-4 text-xs font-bold text-gray-500">
+                    <a href="/growth-timeline" class="hover:text-green-600">成长轨迹</a>
+                    <a href="/collaborative-plant-care" class="hover:text-green-600">协作照料</a>
+                    <a href="/" class="text-green-600 hover:text-green-700">打开应用</a>
+                </nav>
+            </div>
+        </header>
+
+        <section class="container py-8 sm:py-10">
+            <article class="space-y-6">
+                <section class="border-b border-gray-100 py-6">
+                    <p class="text-xs font-black uppercase tracking-widest text-purple-600">Public Sharing</p>
+                    <h1 class="mt-3 text-2xl font-black text-gray-900 sm:text-3xl">公开分享植物成长记录，主动开启才会生效。</h1>
+                    <p class="mt-4 text-sm leading-7 text-gray-600">
+                        当你想把一盆植物的状态发给朋友查看时，可以主动开启公开分享。分享页展示植物照片、养护记录和成长轨迹，关闭分享后原链接会失效。
+                    </p>
+                    <img src="assets/images/default-pot.png" alt="用于公开分享的植物花盆图片" class="mt-6 h-40 w-full rounded-lg object-cover sm:h-56">
+                </section>
+
+                <section class="border-b border-gray-100 py-6">
+                    <h2 class="text-sm font-black text-gray-900">公开分享和协作邀请不同</h2>
+                    <p class="mt-3 text-sm leading-7 text-gray-600">
+                        公开分享适合让朋友查看一盆植物的状态；协作邀请适合让指定成员一起照料。两者的权限边界不同，使用时可以按目的选择。
+                    </p>
+                </section>
+
+                <section class="border-b border-gray-100 py-6">
+                    <h2 class="text-sm font-black text-gray-900">隐私边界</h2>
+                    <p class="mt-3 text-sm leading-7 text-gray-600">
+                        个人花盆和账号数据默认不公开。只有你主动开启公开分享的花盆才会生成查看链接，关闭后链接失效。第一阶段我们仍让具体花盆分享页保持不被搜索引擎索引。
+                    </p>
+                    <div class="mt-4 flex flex-wrap gap-3 text-xs font-bold">
+                        <a href="/collaborative-plant-care" class="rounded-lg bg-green-50 px-3 py-2 text-green-700 hover:bg-green-100">了解协作照料</a>
+                        <a href="/privacy" class="rounded-lg bg-gray-100 px-3 py-2 text-gray-700 hover:bg-gray-200">查看隐私说明</a>
+                    </div>
+                </section>
+            </article>
+        </section>
+    </main>
+</body>
+
+</html>

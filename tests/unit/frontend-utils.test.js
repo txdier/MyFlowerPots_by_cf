@@ -549,13 +549,31 @@ describe('frontend shared utilities', () => {
 
   it('detects static route drift between Worker and Wrangler config', async () => {
     const { findStaticRouteDrift } = await import('../../scripts/check-static-routes.js');
-    const indexSource = "const STATIC_PAGE_PATHS = new Set(['/', '/about']);";
+    const indexSource = [
+      "const STATIC_PAGE_PATHS = new Set(['/', '/about']);",
+      "const SEO_PUBLIC_PAGE_PATHS = new Set(['/', '/about']);",
+      "const SITEMAP_PATHS = ['/', '/about'];",
+    ].join('\n');
     const goodWrangler = 'run_worker_first = ["/", "/about", "/about.html"]';
     const badWrangler = 'run_worker_first = ["/", "/about"]';
 
     expect(findStaticRouteDrift(indexSource, goodWrangler).errors).toEqual([]);
     expect(findStaticRouteDrift(indexSource, badWrangler).errors).toContain(
       'wrangler.toml run_worker_first is missing /about.html for static page /about'
+    );
+  });
+
+  it('detects public SEO page drift between sitemap and route config', async () => {
+    const { findStaticRouteDrift } = await import('../../scripts/check-static-routes.js');
+    const indexSource = [
+      "const STATIC_PAGE_PATHS = new Set(['/', '/about', '/plant-care-records']);",
+      "const SEO_PUBLIC_PAGE_PATHS = new Set(['/', '/about', '/plant-care-records']);",
+      "const SITEMAP_PATHS = ['/', '/about'];",
+    ].join('\n');
+    const wranglerSource = 'run_worker_first = ["/", "/about", "/about.html", "/plant-care-records", "/plant-care-records.html"]';
+
+    expect(findStaticRouteDrift(indexSource, wranglerSource).errors).toContain(
+      'src/index.ts SITEMAP_PATHS is missing public SEO page /plant-care-records'
     );
   });
 });

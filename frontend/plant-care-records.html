@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+    <title>植物养护记录工具 - 我的花盆</title>
+    <meta name="description" content="用我的花盆记录浇水、施肥、修剪、换盆、照片和备注，让每一盆植物的养护过程都有清楚的时间线。">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="canonical" href="https://app.kaside365.com/plant-care-records">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/images/icons/pots-180.png">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="植物养护记录工具 - 我的花盆">
+    <meta property="og:description" content="记录浇水、施肥、修剪、换盆、照片和成长备注，让养护过程有迹可循。">
+    <meta property="og:url" content="https://app.kaside365.com/plant-care-records">
+    <meta property="og:image" content="https://img.kaside365.com/assets/images/default-pot.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="植物养护记录工具 - 我的花盆">
+    <meta name="twitter:description" content="把植物养护动作和照片整理成可回看的记录。">
+    <meta name="twitter:url" content="https://app.kaside365.com/plant-care-records">
+    <meta name="twitter:image" content="https://img.kaside365.com/assets/images/default-pot.png">
+    <link rel="stylesheet" href="css/tailwind-built.css?v=20260421-search">
+    <link rel="stylesheet" href="css/app.css?v=20260429-auth-validation">
+    <link rel="stylesheet" href="css/icons.css?v=20260421-search">
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": "首页", "item": "https://app.kaside365.com/" },
+            { "@type": "ListItem", "position": 2, "name": "植物养护记录", "item": "https://app.kaside365.com/plant-care-records" }
+        ]
+    }
+    </script>
+</head>
+
+<body class="bg-gray-50 text-gray-900">
+    <main class="min-h-screen">
+        <header class="header">
+            <div class="container">
+                <a href="/" class="inline-flex items-center gap-2 text-sm font-black text-gray-800">
+                    <img src="assets/images/icons/pots-192.png" alt="我的花盆图标" class="h-8 w-8 rounded-lg">
+                    <span>我的花盆</span>
+                </a>
+                <nav class="flex items-center gap-4 text-xs font-bold text-gray-500">
+                    <a href="/watering-reminders" class="hover:text-green-600">浇水提醒</a>
+                    <a href="/help" class="hover:text-green-600">帮助</a>
+                    <a href="/" class="text-green-600 hover:text-green-700">打开应用</a>
+                </nav>
+            </div>
+        </header>
+
+        <section class="container py-8 sm:py-10">
+            <article class="space-y-6">
+                <section class="border-b border-gray-100 py-6">
+                    <p class="text-xs font-black uppercase tracking-widest text-green-600">Plant Care Records</p>
+                    <h1 class="mt-3 text-2xl font-black text-gray-900 sm:text-3xl">植物养护记录，不再只靠记忆。</h1>
+                    <p class="mt-4 text-sm leading-7 text-gray-600">
+                        我的花盆把每次浇水、施肥、修剪、换盆和照片记录放到同一个花盆档案里。你可以按时间回看植物状态，也能快速判断最近一次照料是什么时候。
+                    </p>
+                    <img src="assets/images/default-pot.png" alt="用于记录植物养护状态的花盆示意图" class="mt-6 h-40 w-full rounded-lg object-cover sm:h-56">
+                </section>
+
+                <section class="border-b border-gray-100 py-6">
+                    <h2 class="text-sm font-black text-gray-900">适合记录哪些内容</h2>
+                    <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                        <div class="rounded-lg bg-white p-4">
+                            <h3 class="text-sm font-black text-gray-800">日常养护动作</h3>
+                            <p class="mt-2 text-sm leading-7 text-gray-600">记录浇水、施肥、修剪、换盆、喷药等动作，避免重复照料或遗漏关键节点。</p>
+                        </div>
+                        <div class="rounded-lg bg-white p-4">
+                            <h3 class="text-sm font-black text-gray-800">照片和备注</h3>
+                            <p class="mt-2 text-sm leading-7 text-gray-600">把新叶、开花、黄叶、虫害等变化用照片和文字保存下来，后续排查更有依据。</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="border-b border-gray-100 py-6">
+                    <h2 class="text-sm font-black text-gray-900">和提醒、轨迹一起使用</h2>
+                    <p class="mt-3 text-sm leading-7 text-gray-600">
+                        养护记录会让提醒更准确，也会自然形成植物的成长轨迹。你可以先添加一盆植物，再持续记录每次照料，让后续判断不再依赖模糊印象。
+                    </p>
+                    <div class="mt-4 flex flex-wrap gap-3 text-xs font-bold">
+                        <a href="/watering-reminders" class="rounded-lg bg-green-50 px-3 py-2 text-green-700 hover:bg-green-100">了解浇水提醒</a>
+                        <a href="/growth-timeline" class="rounded-lg bg-gray-100 px-3 py-2 text-gray-700 hover:bg-gray-200">查看成长轨迹</a>
+                    </div>
+                </section>
+            </article>
+        </section>
+    </main>
+</body>
+
+</html>

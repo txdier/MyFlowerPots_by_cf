@@ -36,18 +36,44 @@ const STATIC_PAGE_PATHS = new Set([
   '/all-records',
   '/all-timelines',
   '/care-record',
+  '/collaborative-plant-care',
   '/edit-pot',
   '/error',
+  '/growth-timeline',
   '/help',
   '/pot-detail',
+  '/plant-care-records',
   '/privacy',
   '/profile',
+  '/public-plant-sharing',
   '/reset-password',
+  '/watering-reminders',
 ]);
 
 const DEFAULT_APP_BASE_URL = 'https://app.kaside365.com';
-const SEO_PUBLIC_PAGE_PATHS = new Set(['/', '/index', '/about', '/help', '/privacy']);
-const SITEMAP_PATHS = ['/', '/about', '/help', '/privacy'];
+const SEO_PUBLIC_PAGE_PATHS = new Set([
+  '/',
+  '/index',
+  '/about',
+  '/help',
+  '/privacy',
+  '/plant-care-records',
+  '/watering-reminders',
+  '/growth-timeline',
+  '/collaborative-plant-care',
+  '/public-plant-sharing',
+]);
+const SITEMAP_PATHS = [
+  '/',
+  '/about',
+  '/help',
+  '/privacy',
+  '/plant-care-records',
+  '/watering-reminders',
+  '/growth-timeline',
+  '/collaborative-plant-care',
+  '/public-plant-sharing',
+];
 
 function normalizeStaticPagePath(path: string): string {
   const cleanPath = (path || '/').split('?')[0].split('#')[0].trim();

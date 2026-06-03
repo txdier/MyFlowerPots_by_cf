@@ -13,6 +13,11 @@ function normalizePagePath(path) {
   return `/${clean.replace(/^\/+/, "").replace(/\/+$/, "").replace(/\.html$/i, "")}`;
 }
 
+function normalizeCanonicalSeoPath(path) {
+  const normalized = normalizePagePath(path);
+  return normalized === "/index" ? "/" : normalized;
+}
+
 export function extractStaticPagePaths(indexSource) {
   const match = indexSource.match(/const\s+STATIC_PAGE_PATHS\s*=\s*new\s+Set\s*\(\s*\[([\s\S]*?)\]\s*\)/);
   if (!match) {
@@ -20,6 +25,24 @@ export function extractStaticPagePaths(indexSource) {
   }
 
   return new Set(parseQuotedStrings(match[1]).map(normalizePagePath));
+}
+
+export function extractPublicSeoPagePaths(indexSource) {
+  const match = indexSource.match(/const\s+SEO_PUBLIC_PAGE_PATHS\s*=\s*new\s+Set\s*\(\s*\[([\s\S]*?)\]\s*\)/);
+  if (!match) {
+    throw new Error("Unable to find SEO_PUBLIC_PAGE_PATHS in src/index.ts");
+  }
+
+  return new Set(parseQuotedStrings(match[1]).map(normalizePagePath));
+}
+
+export function extractSitemapPaths(indexSource) {
+  const match = indexSource.match(/const\s+SITEMAP_PATHS\s*=\s*\[([\s\S]*?)\]/);
+  if (!match) {
+    throw new Error("Unable to find SITEMAP_PATHS in src/index.ts");
+  }
+
+  return new Set(parseQuotedStrings(match[1]).map(normalizeCanonicalSeoPath));
 }
 
 export function extractRunWorkerFirstPaths(wranglerSource) {
@@ -33,6 +56,9 @@ export function extractRunWorkerFirstPaths(wranglerSource) {
 
 export function findStaticRouteDrift(indexSource, wranglerSource) {
   const staticPages = extractStaticPagePaths(indexSource);
+  const publicSeoPages = extractPublicSeoPagePaths(indexSource);
+  const sitemapPages = extractSitemapPaths(indexSource);
+  const publicCanonicalSeoPages = new Set(Array.from(publicSeoPages).map(normalizeCanonicalSeoPath));
   const workerFirst = extractRunWorkerFirstPaths(wranglerSource);
   const normalizedWorkerPages = new Set(
     Array.from(workerFirst)
@@ -56,7 +82,25 @@ export function findStaticRouteDrift(indexSource, wranglerSource) {
     }
   }
 
-  return { errors, staticPages, workerFirst };
+  for (const page of publicSeoPages) {
+    if (!staticPages.has(page)) {
+      errors.push(`src/index.ts SEO_PUBLIC_PAGE_PATHS contains ${page}, but STATIC_PAGE_PATHS does not`);
+    }
+    if (!sitemapPages.has(normalizeCanonicalSeoPath(page))) {
+      errors.push(`src/index.ts SITEMAP_PATHS is missing public SEO page ${page}`);
+    }
+  }
+
+  for (const page of sitemapPages) {
+    if (!publicCanonicalSeoPages.has(page)) {
+      errors.push(`src/index.ts SITEMAP_PATHS contains ${page}, but SEO_PUBLIC_PAGE_PATHS does not`);
+    }
+    if (!staticPages.has(page)) {
+      errors.push(`src/index.ts SITEMAP_PATHS contains ${page}, but STATIC_PAGE_PATHS does not`);
+    }
+  }
+
+  return { errors, staticPages, publicSeoPages, sitemapPages, workerFirst };
 }
 
 function main() {
