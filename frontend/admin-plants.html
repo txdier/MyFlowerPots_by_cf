@@ -68,8 +68,8 @@
 
         .admin-mobile-card {
             background: white;
-            border-radius: 1rem;
-            padding: 1rem;
+            border-radius: 0.75rem;
+            padding: 0.75rem;
             border: 1px solid #f1f5f9;
             box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
         }
@@ -151,39 +151,52 @@
             <div class="space-y-6">
                 <!-- Tools & Filters -->
                 <div class="glass border border-white rounded-2xl p-4 flex flex-col sm:flex-row gap-4 items-stretch sm:items-center shadow-sm">
-                    <div class="relative flex-1 w-full">
-                        <i class="fa fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                        <input type="text" v-model="searchQuery" @keyup.enter="fetchPlants"
-                            placeholder="搜索植物名称、别名或 ID..."
-                            class="w-full pl-12 pr-4 py-3 rounded-xl border-none bg-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none transition-all">
+                    <div class="flex-1 w-full flex flex-col sm:flex-row gap-2">
+                        <div class="relative flex-1">
+                            <i class="fa fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" v-model="searchQuery" @keyup.enter="applySearch"
+                                placeholder="搜索植物名称、别名或 ID..."
+                                class="w-full pl-12 pr-4 py-3 rounded-xl border-none bg-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none transition-all">
+                        </div>
+                        <button @click="applySearch"
+                            class="w-full sm:w-auto px-5 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all flex items-center justify-center gap-2"
+                            title="搜索植物百科" aria-label="搜索植物百科">
+                            <i class="fa fa-search"></i>
+                        </button>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
                         <button @click="openCreateModal"
                             class="flex-1 sm:flex-none px-6 py-3 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 shadow-sm shadow-emerald-200">
                             <i class="fa fa-plus"></i> 新增植物
                         </button>
-                        <button @click="exportPlants"
-                            class="px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
-                            title="导出当前筛选结果" aria-label="导出植物百科">
+                        <button @click="exportFilteredPlants"
+                            class="px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all flex items-center justify-center gap-2 text-sm"
+                            title="导出当前筛选结果" aria-label="导出筛选结果">
                             <i class="fa fa-download"></i>
-                            <span class="hidden sm:inline">导出</span>
+                            <span>导出筛选结果</span>
                         </button>
+                        <button @click="exportSelectedPlants" :disabled="selectedIds.length === 0"
+                            class="px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
+                            title="导出选中的植物" aria-label="导出选中结果">
+                            <i class="fa fa-list-check"></i>
+                            <span>导出选中结果</span>
+                        </button>
+                        <div v-if="selectedIds.length > 0"
+                            class="px-3 py-2 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl flex items-center gap-2 shadow-sm">
+                            <span class="text-xs font-semibold whitespace-nowrap">已选 {{ selectedIds.length }}</span>
+                            <button @click="batchDelete"
+                                class="px-2 py-1 bg-white text-red-500 hover:bg-red-50 rounded-lg text-xs font-bold transition-all flex items-center gap-1"
+                                title="批量删除" aria-label="批量删除选中植物">
+                                <i class="fa fa-trash"></i>
+                                <span class="hidden sm:inline">删除</span>
+                            </button>
+                        </div>
                         <button @click="showImportModal = true"
                             class="px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all"
                             title="批量导入" aria-label="批量导入植物百科">
                             <i class="fa fa-file-import"></i>
                         </button>
                     </div>
-                </div>
-
-                <!-- Batch Actions -->
-                <div v-if="selectedIds.length > 0"
-                    class="bg-slate-800 text-white px-6 py-3 rounded-2xl flex items-center justify-between animate-in fade-in slide-in-from-bottom-4 shadow-xl">
-                    <span class="text-sm font-medium">已选择 {{ selectedIds.length }} 个植物</span>
-                    <button @click="batchDelete"
-                        class="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-xl text-sm font-bold transition-all">
-                        批量删除
-                    </button>
                 </div>
 
                 <!-- Table -->
@@ -199,7 +212,7 @@
                                 <th class="px-6 py-4 font-semibold text-slate-600">植物信息</th>
                                 <th class="px-6 py-4 font-semibold text-slate-600">分类</th>
                                 <th class="px-6 py-4 font-semibold text-slate-600">养护难度</th>
-                                <th class="px-6 py-4 font-semibold text-slate-600 text-right">操作</th>
+                                <th class="w-40 px-6 py-4 font-semibold text-slate-600 text-center">操作</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
@@ -240,8 +253,8 @@
                                         {{ plant.care_difficulty }}
                                     </span>
                                 </td>
-                                <td class="px-6 py-4 text-right">
-                                    <div class="flex items-center justify-end gap-2">
+                                <td class="w-40 px-6 py-4">
+                                    <div class="flex items-center justify-center gap-2">
                                         <button @click="openDetailModal(plant)"
                                             class="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all"
                                             title="查看详情" aria-label="查看详情">
@@ -263,49 +276,60 @@
                         </tbody>
                     </table>
                     </div>
-                    <div class="admin-mobile-only p-3 space-y-3">
+                    <div class="admin-mobile-only p-2 space-y-2">
                         <div v-if="plants.length === 0" class="py-10 text-center text-sm text-slate-400">
                             暂无植物数据
                         </div>
                         <article v-for="plant in plants" :key="'mobile-plant-' + plant.id" class="admin-mobile-card">
-                            <div class="flex gap-3">
-                                <div class="w-16 h-16 rounded-xl bg-slate-200 overflow-hidden shrink-0">
+                            <div class="flex items-start gap-2">
+                                <input type="checkbox" v-model="selectedIds" :value="plant.id"
+                                    :aria-label="'选择 ' + plant.name"
+                                    class="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-500 focus:ring-emerald-500 shrink-0">
+                                <div class="w-12 h-12 rounded-lg bg-slate-200 overflow-hidden shrink-0">
                                     <img v-if="plant.image_url" :src="plantImageUrl(plant, 80)" class="w-full h-full object-cover">
                                     <div v-else class="w-full h-full flex items-center justify-center text-slate-400">
                                         <i class="fa fa-leaf"></i>
                                     </div>
                                 </div>
                                 <div class="min-w-0 flex-1">
-                                    <div class="flex items-start justify-between gap-2">
-                                        <h3 class="font-bold text-slate-800 truncate">{{ plant.name }}</h3>
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <h3 class="font-bold text-slate-800 truncate text-sm">{{ plant.name }}</h3>
                                         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0" :class="difficultyClass(plant.care_difficulty)">
                                             {{ plant.care_difficulty }}
                                         </span>
                                     </div>
-                                    <p class="text-[10px] text-slate-400 font-mono mt-0.5 truncate">{{ plant.id }}</p>
-                                    <p class="text-xs text-slate-500 mt-1">{{ plant.category || '未分类' }}</p>
-                                    <div v-if="plant.quality_flags && plant.quality_flags.length > 0" class="mt-2 flex flex-wrap gap-1">
-                                        <span v-for="flag in visibleQualityFlags(plant)" :key="'mobile-' + plant.id + '-' + flag"
-                                            class="px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[10px] font-medium">
-                                            {{ flag }}
+                                    <div class="mt-1 flex items-center gap-2 text-[10px] text-slate-400 min-w-0">
+                                        <span class="font-mono truncate">{{ plant.id }}</span>
+                                        <span class="text-slate-300">/</span>
+                                        <span class="text-slate-500 truncate">{{ plant.category || '未分类' }}</span>
+                                    </div>
+                                    <div v-if="plant.quality_flags && plant.quality_flags.length > 0" class="mt-1 flex items-center gap-1 min-w-0">
+                                        <span class="px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[10px] font-medium truncate">
+                                            {{ visibleQualityFlags(plant)[0] }}
                                         </span>
-                                        <span v-if="plant.quality_flags.length > visibleQualityFlags(plant).length"
+                                        <span v-if="plant.quality_flags.length > 1"
                                             class="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 text-[10px] font-medium">
-                                            +{{ plant.quality_flags.length - visibleQualityFlags(plant).length }}
+                                            +{{ plant.quality_flags.length - 1 }}
                                         </span>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="flex items-center justify-end gap-4 mt-4 pt-4 border-t border-slate-50">
-                                <button @click="openDetailModal(plant)" class="text-blue-500 text-sm font-medium flex items-center gap-1">
-                                    <i class="fa fa-eye"></i> 详情
-                                </button>
-                                <button @click="openEditModal(plant)" class="text-slate-500 text-sm font-medium flex items-center gap-1">
-                                    <i class="fa fa-edit"></i> 编辑
-                                </button>
-                                <button @click="deleteSingle(plant)" class="text-red-500 text-sm font-medium flex items-center gap-1">
-                                    <i class="fa fa-trash"></i> 删除
-                                </button>
+                                <div class="flex items-center gap-1 shrink-0">
+                                    <button @click="openDetailModal(plant)"
+                                        class="w-8 h-8 flex items-center justify-center text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
+                                        title="详情" aria-label="查看植物详情">
+                                        <i class="fa fa-eye"></i>
+                                    </button>
+                                    <button @click="openEditModal(plant)"
+                                        class="w-8 h-8 flex items-center justify-center text-slate-500 hover:bg-slate-100 rounded-lg transition-all"
+                                        title="编辑" aria-label="编辑植物">
+                                        <i class="fa fa-edit"></i>
+                                    </button>
+                                    <button @click="deleteSingle(plant)"
+                                        class="w-8 h-8 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                        title="删除" aria-label="删除植物">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </div>
                             </div>
                         </article>
                     </div>
@@ -427,6 +451,24 @@
                                 <input type="text" v-model="formData.ornamental_features.floweringSeason" @focusin="handleKeyboardFieldFocus"
                                     class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
                             </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-2">气味</label>
+                                <input type="text" v-model="formData.ornamental_features.fragrance" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                                    placeholder="例：芳香、无明显气味">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-2">园林用途</label>
+                                <input type="text" v-model="formData.ornamental_features.landscapeUse" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                                    placeholder="例：花坛、花境、切花">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-2">象征意义</label>
+                                <input type="text" v-model="formData.ornamental_features.symbolism" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                                    placeholder="例：爱情、美丽">
+                            </div>
                         </div>
                         <div class="flex items-center gap-8 p-4 bg-slate-50 rounded-2xl">
                             <label class="flex items-center gap-3 cursor-pointer">
@@ -455,11 +497,91 @@
                                 <input type="text" v-model="formData.care_guide.lightRequirement" @focusin="handleKeyboardFieldFocus"
                                     class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500">
                             </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-2">水分要求</label>
+                                <input type="text" v-model="formData.care_guide.waterRequirement" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                                    placeholder="例：中等，保持土壤湿润但不积水">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-2">适宜温度</label>
+                                <input type="text" v-model="formData.care_guide.temperature" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                                    placeholder="例：15-25°C">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-2">湿度要求</label>
+                                <input type="text" v-model="formData.care_guide.humidity" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                                    placeholder="例：中等湿度">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-2">土壤要求</label>
+                                <input type="text" v-model="formData.care_guide.soilRequirement" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                                    placeholder="例：肥沃、排水良好的微酸性土壤">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-2">耐旱性</label>
+                                <input type="text" v-model="formData.care_guide.droughtTolerance" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                                    placeholder="例：中等">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-2">耐阴性</label>
+                                <input type="text" v-model="formData.care_guide.shadeTolerance" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                                    placeholder="例：低">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-2">耐寒性</label>
+                                <input type="text" v-model="formData.care_guide.coldTolerance" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                                    placeholder="例：中等，可耐-15°C">
+                            </div>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-600 mb-2">浇水建议</label>
                             <textarea v-model="formData.care_guide.watering" rows="3" @focusin="handleKeyboardFieldFocus"
                                 class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-2">施肥建议</label>
+                                <textarea v-model="formData.care_guide.fertilizing" rows="3" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                                    placeholder="例：春季和花期前施均衡肥"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-2">修剪建议</label>
+                                <textarea v-model="formData.care_guide.pruning" rows="3" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                                    placeholder="例：花后修剪残花，冬季重剪"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-2">繁殖方式</label>
+                                <textarea v-model="formData.care_guide.propagation" rows="3" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                                    placeholder="例：扦插、嫁接"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-2">常见病虫害</label>
+                                <textarea v-model="formData.care_guide.pests" rows="3" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                                    placeholder="例：黑斑病、白粉病、蚜虫"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-2">安全说明</label>
+                                <textarea v-model="formData.care_guide.safetyInfo" rows="3" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                                    placeholder="例：无毒"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-600 mb-2">特殊备注</label>
+                                <textarea v-model="formData.care_guide.specialNotes" rows="3" @focusin="handleKeyboardFieldFocus"
+                                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
+                                    placeholder="例：需定期防治病虫害"></textarea>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -656,6 +778,12 @@
                     }
                 };
 
+                const applySearch = () => {
+                    pagination.value.page = 1;
+                    selectedIds.value = [];
+                    fetchPlants();
+                };
+
                 const fetchSupportUnreadCount = async () => {
                     try {
                         const res = await apiClient.getSupportUnreadCount();
@@ -849,19 +977,36 @@
 	                    }
 	                };
 
-	                const exportPlants = async () => {
+	                const downloadPlantExport = (plantsToExport, count, label) => {
+	                    const blob = new Blob([JSON.stringify(plantsToExport || [], null, 2)], { type: 'application/json' });
+	                    const url = URL.createObjectURL(blob);
+	                    const a = document.createElement('a');
+	                    const stamp = MyFlowerPotsDate.formatDateTime(new Date()).replace(/\D/g, '').slice(0, 12);
+	                    a.href = url;
+	                    a.download = `plant_export_${label}_${stamp}.json`;
+	                    a.click();
+	                    URL.revokeObjectURL(url);
+	                    showToast(`已导出 ${count || 0} 条植物`, 'fa fa-download');
+	                };
+
+	                const exportFilteredPlants = async () => {
 	                    try {
-	                        const res = await apiClient.adminExportPlants(searchQuery.value);
+	                        const res = await apiClient.adminExportPlants({ search: searchQuery.value });
 	                        if (!res.success) return;
-	                        const blob = new Blob([JSON.stringify(res.data || [], null, 2)], { type: 'application/json' });
-	                        const url = URL.createObjectURL(blob);
-	                        const a = document.createElement('a');
-	                        const stamp = MyFlowerPotsDate.formatDateTime(new Date()).replace(/\D/g, '').slice(0, 12);
-	                        a.href = url;
-	                        a.download = `plant_export_${stamp}.json`;
-	                        a.click();
-	                        URL.revokeObjectURL(url);
-	                        showToast(`已导出 ${res.count || 0} 条植物`, 'fa fa-download');
+	                        downloadPlantExport(res.data, res.count, 'filtered');
+	                    } catch (err) {
+	                        showToast(err.message, 'fa fa-exclamation-circle');
+	                    }
+	                };
+
+	                const exportSelectedPlants = async () => {
+	                    if (selectedIds.value.length === 0) {
+	                        return showToast('请先选择要导出的植物', 'fa fa-exclamation-triangle');
+	                    }
+	                    try {
+	                        const res = await apiClient.adminExportPlants({ ids: selectedIds.value });
+	                        if (!res.success) return;
+	                        downloadPlantExport(res.data, res.count, 'selected');
 	                    } catch (err) {
 	                        showToast(err.message, 'fa fa-exclamation-circle');
 	                    }
@@ -942,10 +1087,11 @@
 	                    showDetailModal, selectedPlant,
 	                    showImportModal, importJson, importPreview, importing, previewing,
 	                    keyboardModalStyle, handleKeyboardFieldFocus,
-	                    fetchPlants, changePage, toggleAll, difficultyClass, visibleQualityFlags, plantImageUrl,
+	                    fetchPlants, applySearch, changePage, toggleAll, difficultyClass, visibleQualityFlags, plantImageUrl,
 	                    formatDetailValue, detailSections, openCreateModal, openDetailModal,
 	                    openEditModal, savePlant, deleteSingle, batchDelete, downloadTemplate, formatDateTime,
-	                    resetImportPreview, previewStatusLabel, previewImport, doImport, exportPlants
+	                    resetImportPreview, previewStatusLabel, previewImport, doImport,
+	                    exportFilteredPlants, exportSelectedPlants
 	                };
             }
         }).mount('#app');

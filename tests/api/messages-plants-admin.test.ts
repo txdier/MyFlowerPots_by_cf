@@ -460,6 +460,20 @@ describe('api regression: comments, messages, plants, upload, analytics headers,
 	    expect(exportedPreview.summary.overwrite).toBe(1);
 	    expect(exportedPreview.summary.failed).toBe(0);
 
+	    const selectedExport = await expectOk(await api(
+	      '/api/admin/plants/export?search=does-not-match&ids=batch-snake&ids=admin-plant',
+	      { token: admin.token }
+	    ));
+	    expect(selectedExport.count).toBe(2);
+	    expect(selectedExport.data.map((plant: any) => plant.id).sort()).toEqual(['admin-plant', 'batch-snake']);
+	    const selectedExportPreview = await expectOk(await api('/api/admin/plants/batch/preview', {
+	      method: 'POST',
+	      token: admin.token,
+	      body: selectedExport.data,
+	    }));
+	    expect(selectedExportPreview.summary.overwrite).toBe(2);
+	    expect(selectedExportPreview.summary.failed).toBe(0);
+
 	    await expectOk(await api('/api/admin/plants/admin-plant', {
       method: 'PUT',
       token: admin.token,

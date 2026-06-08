@@ -165,6 +165,60 @@ describe('frontend shared utilities', () => {
     return context.MyFlowerPotsGallery;
   })();
 
+  it('exposes import-template plant fields in the admin plant form', () => {
+    const html = readFileSync('frontend/admin-plants.html', 'utf8');
+    const bindings = [
+      'formData.id',
+      'formData.name',
+      'formData.category',
+      'formData.care_difficulty',
+      'formData.image_url',
+      'formData.basic_info.standard_name',
+      'formData.basic_info.latinName',
+      'formData.basic_info.family',
+      'formData.basic_info.origin',
+      'formData.ornamental_features.growthHabit',
+      'formData.ornamental_features.flowerColor',
+      'formData.ornamental_features.floweringSeason',
+      'formData.ornamental_features.fragrance',
+      'formData.ornamental_features.landscapeUse',
+      'formData.ornamental_features.potSuitable',
+      'formData.ornamental_features.symbolism',
+      'formData.care_guide.lightRequirement',
+      'formData.care_guide.waterRequirement',
+      'formData.care_guide.temperature',
+      'formData.care_guide.humidity',
+      'formData.care_guide.soilRequirement',
+      'formData.care_guide.droughtTolerance',
+      'formData.care_guide.shadeTolerance',
+      'formData.care_guide.coldTolerance',
+      'formData.care_guide.watering',
+      'formData.care_guide.fertilizing',
+      'formData.care_guide.pruning',
+      'formData.care_guide.propagation',
+      'formData.care_guide.pests',
+      'formData.care_guide.safetyInfo',
+      'formData.care_guide.specialNotes',
+    ];
+
+    for (const binding of bindings) {
+      expect(html).toContain(`v-model="${binding}"`);
+    }
+  });
+
+  it('keeps admin plant mobile rows compact with selectable items', () => {
+    const html = readFileSync('frontend/admin-plants.html', 'utf8');
+
+    expect(html).toContain('v-model="selectedIds" :value="plant.id"');
+    expect(html).toContain('已选 {{ selectedIds.length }}');
+    expect(html).toContain('bg-emerald-50 text-emerald-700 border border-emerald-100');
+    expect(html).toContain('w-40 px-6 py-4 font-semibold text-slate-600 text-center">操作</th>');
+    expect(html).toContain('class="flex items-center justify-center gap-2"');
+    expect(html).not.toContain('bg-slate-800 text-white rounded-xl flex items-center gap-2');
+    expect(html).not.toContain('animate-in fade-in slide-in-from-bottom-4 shadow-xl');
+    expect(html).not.toContain('mt-4 pt-4 border-t border-slate-50');
+  });
+
   it('formats growth duration with exact days when requested', () => {
     expect(dateUtils.formatGrowthDuration(
       { plant_date: '2026-04-28' },

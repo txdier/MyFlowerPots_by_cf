@@ -560,11 +560,14 @@ async function handleGetPlants(request: Request, env: any, url: URL): Promise<Re
     }
 }
 
-async function loadPlantRowsForExport(env: any, search: string) {
+async function loadPlantRowsForExport(env: any, search: string, ids: string[] = []) {
     let query = 'SELECT * FROM plants p';
     const params: any[] = [];
 
-    if (search) {
+    if (ids.length > 0) {
+        query += ` WHERE p.id IN (${ids.map(() => '?').join(', ')})`;
+        params.push(...ids);
+    } else if (search) {
         query += ` WHERE p.name LIKE ? OR p.id LIKE ? OR EXISTS (
             SELECT 1 FROM plant_synonyms ps
             WHERE ps.plant_id = p.id AND ps.synonym LIKE ?
@@ -578,9 +581,15 @@ async function loadPlantRowsForExport(env: any, search: string) {
 
 async function handleExportPlants(env: any, url: URL): Promise<Response> {
     const search = (url.searchParams.get('search') || '').trim();
+    const ids = Array.from(new Set(
+        url.searchParams
+            .getAll('ids')
+            .map((id) => id.trim())
+            .filter((id) => id.length > 0)
+    ));
 
     try {
-        const plants = await loadPlantRowsForExport(env, search);
+        const plants = await loadPlantRowsForExport(env, search, ids);
         const results = await Promise.all((plants.results || []).map(async (p: any) => {
             const synonyms = await env.DB.prepare('SELECT synonym FROM plant_synonyms WHERE plant_id = ? ORDER BY synonym ASC')
                 .bind(p.id)

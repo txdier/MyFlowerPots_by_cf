@@ -1416,8 +1416,22 @@ class APIClient {
         return this.request(`/api/admin/plants?page=${page}&pageSize=${pageSize}&search=${encodeURIComponent(search)}`);
     }
 
-    async adminExportPlants(search = '') {
-        return this.request(`/api/admin/plants/export?search=${encodeURIComponent(search)}`);
+    async adminExportPlants(options = {}) {
+        const exportOptions = typeof options === 'string' ? { search: options } : (options || {});
+        const params = new URLSearchParams();
+        const search = String(exportOptions.search || '').trim();
+        if (search) {
+            params.set('search', search);
+        }
+        if (Array.isArray(exportOptions.ids)) {
+            exportOptions.ids
+                .map((id) => String(id || '').trim())
+                .filter((id) => id.length > 0)
+                .forEach((id) => params.append('ids', id));
+        }
+
+        const query = params.toString();
+        return this.request(`/api/admin/plants/export${query ? `?${query}` : ''}`);
     }
 
     async adminCreatePlant(plantData) {
