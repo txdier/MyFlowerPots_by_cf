@@ -42,4 +42,11 @@ describe('deployment workflow contract', () => {
     expect(workflow.indexOf('d1 migrations apply')).toBeLessThan(workflow.indexOf('npm run deploy'));
   });
 
+  it('uses one Tailwind CLI version for reproducible CSS builds', () => {
+    const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
+
+    expect(packageJson.devDependencies.tailwindcss).toMatch(/^\^3\./);
+    expect(packageJson.devDependencies).not.toHaveProperty('@tailwindcss/cli');
+  });
+
 });
