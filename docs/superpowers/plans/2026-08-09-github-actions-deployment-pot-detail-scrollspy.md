@@ -14,7 +14,7 @@
 - 所有 push 和 Pull Request 都运行 `npm run verify:full`。
 - D1 顺序固定为 Time Travel bookmark、远端 migrations、Worker deploy。
 - 不上传生产 SQL，不自动执行 Time Travel restore。
-- `setup:local` 只创建缺失文件，绝不覆盖已有本地配置。
+- `setup:local` 只创建缺失的 `.dev.vars`，绝不覆盖已有本地配置；公开浏览器配置随仓库维护。
 - Cloudflare API Token 和应用密钥不得进入仓库、日志或构建产物。
 - 修改 `frontend/js/pages/pot-detail-page.js` 后必须同步生成 minified 文件。
 
@@ -27,12 +27,13 @@
 - Create: `.github/workflows/deploy.yml`
 - Modify: `.gitignore`
 - Create from current verified local config: `wrangler.toml`
+- Create from reviewed public browser settings: `frontend/js/config.js`
 - Modify: `wrangler.toml.example`
 - Modify: `docs/superpowers/specs/2026-08-09-github-actions-deployment-pot-detail-scrollspy-design.md`
 
 **Interfaces:**
 - Consumes: `package-lock.json`, `npm run verify:full`, `npm run deploy`, `migrations/`。
-- Produces: main-only production workflow and tracked `wrangler.toml` used by local and CI Wrangler commands.
+- Produces: main-only production workflow, tracked `wrangler.toml`, and tracked public browser config used by local and CI deployments.
 
 - [ ] **Step 1: Write the failing workflow/config contract tests**
 
@@ -40,6 +41,7 @@ Add tests that read repository files and assert:
 
 ```js
 expect(gitignore).not.toMatch(/^wrangler\.toml$/m);
+expect(gitignore).not.toMatch(/^frontend\/js\/config\.js$/m);
 expect(wrangler).toContain('database_id = "8c06be0c-af0c-43fc-99fb-b15c69fe6d2f"');
 expect(workflow).toContain('npm run verify:full');
 expect(workflow).toContain('wrangler d1 time-travel info my-flower-pots');
@@ -56,7 +58,7 @@ Expected: FAIL because `.github/workflows/deploy.yml` is missing and `wrangler.t
 
 - [ ] **Step 3: Track the production resource configuration**
 
-Remove only the `wrangler.toml` ignore rule. Add the verified `wrangler.toml`, including `[assets]`, D1, Analytics Engine and R2 bindings, with no `[vars]` secrets. Do not include the unused AI binding because Workers AI requires remote authentication during local development. Update `wrangler.toml.example` so its routes and bindings remain structurally aligned while retaining a placeholder database ID.
+Remove the `wrangler.toml` and `frontend/js/config.js` ignore rules. Add the verified `wrangler.toml`, including `[assets]`, D1, Analytics Engine and R2 bindings, with no `[vars]` secrets. Do not include the unused AI binding because Workers AI requires remote authentication during local development. Track `frontend/js/config.js` with same-origin production API, public Turnstile Site Key, and public site URL so CI publishes a complete frontend. Update `wrangler.toml.example` so its routes and bindings remain structurally aligned while retaining a placeholder database ID.
 
 - [ ] **Step 4: Implement the workflow**
 
@@ -83,7 +85,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```powershell
-git add .github/workflows/deploy.yml .gitignore wrangler.toml wrangler.toml.example tests/unit/deployment-workflow.test.js docs/superpowers/specs/2026-08-09-github-actions-deployment-pot-detail-scrollspy-design.md
+git add .github/workflows/deploy.yml .gitignore wrangler.toml wrangler.toml.example frontend/js/config.js tests/unit/deployment-workflow.test.js docs/superpowers/specs/2026-08-09-github-actions-deployment-pot-detail-scrollspy-design.md
 git commit -m "ci: 新增 Cloudflare 自动部署流程"
 ```
 
@@ -102,7 +104,7 @@ git commit -m "ci: 新增 Cloudflare 自动部署流程"
 Use a temporary directory and assert that the exported function:
 
 ```js
-expect(result.created).toEqual(['.dev.vars', 'frontend/js/config.js']);
+expect(result.created).toEqual(['.dev.vars']);
 expect(readFileSync(existingTarget, 'utf8')).toBe('keep-me');
 expect(() => setupLocalFiles({ rootDir })).toThrow(/模板文件不存在/);
 ```

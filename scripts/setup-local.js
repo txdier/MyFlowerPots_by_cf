@@ -6,7 +6,6 @@ import { fileURLToPath } from 'node:url';
 
 const localFiles = [
   { source: '.dev.vars.example', target: '.dev.vars' },
-  { source: 'frontend/js/config.js.example', target: 'frontend/js/config.js' },
 ];
 
 export function setupLocalFiles({ rootDir = process.cwd(), log = console.log } = {}) {

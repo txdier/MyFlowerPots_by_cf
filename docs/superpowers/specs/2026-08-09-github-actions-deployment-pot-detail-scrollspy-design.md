@@ -20,7 +20,7 @@
 - GitHub Actions 使用仓库当前锁文件和 Node.js 20，安装命令固定为 `npm ci`。
 - D1 migration 使用仓库 `migrations/` 和 `wrangler.toml` 中的 `my-flower-pots` 数据库绑定。
 - 自动发布不创建或上传生产数据库 SQL 备份；恢复依赖 Cloudflare D1 Time Travel。
-- 本地初始化不得覆盖已经存在的 `.dev.vars` 或 `frontend/js/config.js`。
+- 本地初始化不得覆盖已经存在的 `.dev.vars`；公开的 `frontend/js/config.js` 必须随仓库发布且不得包含 Secret。
 - 不改变详情页三个区域的内容结构和业务权限逻辑。
 - 当前 `main` 没有使用 `env.AI`，因此不纳入未合并 AI 分支的 Workers AI binding，避免本地开发和测试被强制切换到远程资源。
 
@@ -97,7 +97,6 @@ Time Travel restore 是破坏性操作，不由失败工作流自动触发。
 脚本逐项检查：
 
 - `.dev.vars` 不存在时，从 `.dev.vars.example` 复制。
-- `frontend/js/config.js` 不存在时，从 `frontend/js/config.js.example` 复制。
 - 目标文件存在时输出“已跳过”，不读取、改写或覆盖其内容。
 - 缺少模板文件或复制失败时以非零状态退出，并给出具体文件名。
 
@@ -109,7 +108,7 @@ npm run setup:local
 npm run dev
 ```
 
-开发者随后只需在生成的本地文件中填写个人开发密钥。`README.md` 提供最短启动路径，`docs/DEPLOYMENT.md` 提供 GitHub Secrets、自动 migration、部署触发规则、恢复和手动应急发布细节。
+开发者随后只需在生成的 `.dev.vars` 中填写个人开发密钥。浏览器公共配置 `frontend/js/config.js` 随仓库维护，保证 GitHub checkout 能发布完整前端。`README.md` 提供最短启动路径，`docs/DEPLOYMENT.md` 提供 GitHub Secrets、自动 migration、部署触发规则、恢复和手动应急发布细节。
 
 ## 详情页滚动导航
 

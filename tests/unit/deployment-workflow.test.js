@@ -4,16 +4,21 @@ import { describe, expect, it } from 'vitest';
 describe('deployment workflow contract', () => {
   it('tracks the production Wrangler resource configuration', () => {
     expect(existsSync('wrangler.toml')).toBe(true);
+    expect(existsSync('frontend/js/config.js')).toBe(true);
 
     const gitignore = readFileSync('.gitignore', 'utf8');
     const wrangler = readFileSync('wrangler.toml', 'utf8');
+    const frontendConfig = readFileSync('frontend/js/config.js', 'utf8');
 
     expect(gitignore).not.toMatch(/^wrangler\.toml$/m);
+    expect(gitignore).not.toMatch(/^frontend\/js\/config\.js$/m);
     expect(wrangler).toContain('name = "my-flower-pots-api"');
     expect(wrangler).toContain('database_id = "8c06be0c-af0c-43fc-99fb-b15c69fe6d2f"');
     expect(wrangler).toContain('binding = "STATIC_BUCKET"');
     expect(wrangler).not.toMatch(/^\[ai\]/m);
     expect(wrangler).not.toMatch(/^\[vars\]/m);
+    expect(frontendConfig).toContain("siteKey: '0x4AAAAAADFSu3-u_W_mUeJ4'");
+    expect(frontendConfig).toContain("prodUrl: 'https://app.kaside365.com'");
   });
 
   it('verifies every change and deploys production only after D1 migration', () => {

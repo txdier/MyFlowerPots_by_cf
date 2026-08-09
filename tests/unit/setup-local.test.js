@@ -45,22 +45,21 @@ describe('local setup utility', () => {
     expect(setupModule?.setupLocalFiles).toBeTypeOf('function');
   });
 
-  it('creates both missing local configuration files', async () => {
+  it('creates the missing private local configuration file', async () => {
     const setupModule = await loadSetupModule();
     if (!setupModule) return;
 
     const rootDir = createTemporaryRoot();
     writeFixture(rootDir, '.dev.vars.example', 'dev-template');
-    writeFixture(rootDir, 'frontend/js/config.js.example', 'config-template');
 
     const result = setupModule.setupLocalFiles({ rootDir, log() {} });
 
     expect(result).toEqual({
-      created: ['.dev.vars', 'frontend/js/config.js'],
+      created: ['.dev.vars'],
       skipped: [],
     });
     expect(readFileSync(join(rootDir, '.dev.vars'), 'utf8')).toBe('dev-template');
-    expect(readFileSync(join(rootDir, 'frontend/js/config.js'), 'utf8')).toBe('config-template');
+    expect(existsSync(join(rootDir, 'frontend/js/config.js'))).toBe(false);
   });
 
   it('never overwrites existing local configuration', async () => {
@@ -69,18 +68,15 @@ describe('local setup utility', () => {
 
     const rootDir = createTemporaryRoot();
     writeFixture(rootDir, '.dev.vars.example', 'new-dev-template');
-    writeFixture(rootDir, 'frontend/js/config.js.example', 'new-config-template');
     writeFixture(rootDir, '.dev.vars', 'keep-dev');
-    writeFixture(rootDir, 'frontend/js/config.js', 'keep-config');
 
     const result = setupModule.setupLocalFiles({ rootDir, log() {} });
 
     expect(result).toEqual({
       created: [],
-      skipped: ['.dev.vars', 'frontend/js/config.js'],
+      skipped: ['.dev.vars'],
     });
     expect(readFileSync(join(rootDir, '.dev.vars'), 'utf8')).toBe('keep-dev');
-    expect(readFileSync(join(rootDir, 'frontend/js/config.js'), 'utf8')).toBe('keep-config');
   });
 
   it('fails before copying when a required template is missing', async () => {
@@ -88,10 +84,8 @@ describe('local setup utility', () => {
     if (!setupModule) return;
 
     const rootDir = createTemporaryRoot();
-    writeFixture(rootDir, '.dev.vars.example', 'dev-template');
-
     expect(() => setupModule.setupLocalFiles({ rootDir, log() {} }))
-      .toThrow(/模板文件不存在.*frontend[\\/]js[\\/]config\.js\.example/);
+      .toThrow(/模板文件不存在.*\.dev\.vars\.example/);
     expect(existsSync(join(rootDir, '.dev.vars'))).toBe(false);
   });
 });
