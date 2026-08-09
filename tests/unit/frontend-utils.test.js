@@ -250,8 +250,16 @@ describe('frontend shared utilities', () => {
   });
 
   it('formats UTC SQL timestamps as local date time', () => {
-    expect(dateUtils.formatUtcDateTime('2026-05-19 12:00:00')).toBe('2026-05-19 20:00');
-    expect(dateUtils.formatUtcDateTime('2026-05-19T12:00:00.000Z')).toBe('2026-05-19 20:00');
+    const previousTimezone = process.env.TZ;
+    process.env.TZ = 'Asia/Shanghai';
+
+    try {
+      expect(dateUtils.formatUtcDateTime('2026-05-19 12:00:00')).toBe('2026-05-19 20:00');
+      expect(dateUtils.formatUtcDateTime('2026-05-19T12:00:00.000Z')).toBe('2026-05-19 20:00');
+    } finally {
+      if (previousTimezone === undefined) delete process.env.TZ;
+      else process.env.TZ = previousTimezone;
+    }
   });
 
   it('builds local calendar dates without UTC truncation', () => {
