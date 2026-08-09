@@ -4,6 +4,7 @@
   "description": "My Flower Pots - 花盆管理应用",
   "type": "module",
   "scripts": {
+    "setup:local": "node scripts/setup-local.js",
     "dev": "wrangler dev",
     "check": "npm run check:frontend && npm run check:frontend-assets && npm run check:routes && npm run check:types && npm run build-css && git diff --check && npm run check:worker",
     "check:changed": "node scripts/check-changed.js",
