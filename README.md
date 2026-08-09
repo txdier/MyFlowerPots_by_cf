@@ -18,29 +18,31 @@ My Flower Pots 是一个从微信小程序迁移而来的全栈植物养护应�
 - 公共分享、评论留言、消息中心
 - 管理后台：植物库、用户管理、访问统计、客服收件箱
 
-## 本地准备
+## 新电脑快速开始
 
-1. 安装依赖：
+需要 Node.js 20.19.0 或更高版本。拉取代码后执行：
 
-```bash
-npm install
+```powershell
+npm ci
+npm run setup:local
+npm run dev
 ```
 
-2. 复制本地配置文件：
+`setup:local` 只在 `.dev.vars` 缺失时执行以下复制，已有文件会直接跳过，绝不会覆盖个人配置：
 
-- `wrangler.toml.example` -> `wrangler.toml`
 - `.dev.vars.example` -> `.dev.vars`
-- `frontend/js/config.js.example` -> `frontend/js/config.js`
 
-3. 填写关键配置：
+生成后可按需填写：
 
-- `wrangler.toml`：D1 数据库 ID、Workers Assets 绑定、R2 存储桶名称
 - `.dev.vars`：`JWT_SECRET`、`TURNSTILE_SECRET_KEY`、`APP_BASE_URL`、管理员邮箱等
-- `frontend/js/config.js`：生产环境 `prodUrl` 和 Turnstile Site Key
+- `frontend/js/config.js`：已随仓库维护，只包含生产域名、公开 Turnstile Site Key 和功能开关，不得写入 Secret
+
+`wrangler.toml` 和 `frontend/js/config.js` 已纳入版本控制，保证本地开发与 Actions 部署使用同一套非敏感资源/浏览器配置，新电脑无需复制这两个文件。
 
 ## 常用命令
 
 ```bash
+npm run setup:local
 npm run dev
 npm run build-css
 npm run watch-css
@@ -50,6 +52,7 @@ npm run deploy
 npm run backup-db
 ```
 
+- `npm run setup:local`：安全补齐缺失的本地配置，不覆盖已有文件
 - `npm run dev`：启动本地 Worker 开发环境，并通过 `[assets]` 直接读取 `frontend/`
 - `npm run build-css`：重新生成 `frontend/css/tailwind-built.css`
 - `npm run watch-css`：开发时监听 Tailwind 输入文件并持续生成 CSS
@@ -57,6 +60,21 @@ npm run backup-db
 - `npm run verify:full`：发布前完整验证，覆盖 check、unit/worker、smoke 和 API 回归
 - `npm run deploy`：构建 CSS 后部署 Worker；前端静态资源通过 Workers Assets 随部署发布
 - `npm run backup-db`：运行 `scripts/backup-d1.js` 备份数据库
+
+## 自动检查与发布
+
+GitHub Actions 工作流位于 `.github/workflows/deploy.yml`：
+
+- Pull Request 和任意分支 push：执行 `npm ci` 和 `npm run verify:full`，不发布。
+- `main` 分支 push：完整验证通过后，依次记录 D1 Time Travel bookmark、执行远端 migrations、构建并部署 Worker。
+- 生产部署串行执行，不会让两个 D1 migration/Worker 发布同时运行。
+
+仓库管理员需要在 GitHub Actions Secrets 中配置：
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+
+Token 和应用密钥不能提交到仓库。详细权限、恢复和应急发布方式见[部署指南](./docs/DEPLOYMENT.md)。
 
 Release 采用轻量策略：不是每次部署都创建 GitHub Release；生产可见的一组功能、权限/auth、分享、上传、后台、性能改动，或涉及 D1/R2/环境变量的变更，按 [部署指南](./docs/DEPLOYMENT.md) 的 release 流程打 CalVer tag 并记录 release notes。
 
