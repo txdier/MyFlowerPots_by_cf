@@ -3,6 +3,7 @@
         createApp({
             setup() {
                 const formUtils = window.MyFlowerPotsFormUtils;
+                const sectionNavUtils = window.MyFlowerPotsSectionNav;
                 const showAlert = window.MyFlowerPotsDialog.alert;
                 const showConfirm = window.MyFlowerPotsDialog.confirm;
                 const isLoading = ref(true);
@@ -104,7 +105,10 @@
                     tempImages: []
                 });
 
-                const activeSection = ref('');
+                const activeSection = ref('overview');
+                const sectionNavigationActivationY = 120;
+                let sectionNavigationObserver = null;
+                let sectionNavigationFrame = null;
                 const showActionMenu = ref(false);
                 const actionMenuButton = ref(null);
                 const actionMenuPanel = ref(null);
@@ -1791,6 +1795,7 @@
                 onUnmounted(() => {
                     window.removeEventListener('keydown', handleKeydown);
                     document.removeEventListener('pointerdown', closeActionMenuOnOutsidePointer, true);
+                    stopSectionNavigation();
                     if (barrageRotationTimer) {
                         window.clearInterval(barrageRotationTimer);
                         barrageRotationTimer = null;
@@ -2166,6 +2171,69 @@
                 };
                 const goCreatePot = () => window.location.href = '/';
 
+                const getDetailSectionPositions = () => sectionTabs.value
+                    .map((section) => {
+                        const element = document.getElementById(section.id);
+                        return element
+                            ? { key: section.key, top: element.getBoundingClientRect().top }
+                            : null;
+                    })
+                    .filter(Boolean);
+
+                const syncActiveSection = () => {
+                    const nextSection = sectionNavUtils?.getActiveSectionKey({
+                        sections: getDetailSectionPositions(),
+                        activationY: sectionNavigationActivationY,
+                        viewportBottom: window.scrollY + window.innerHeight,
+                        documentHeight: Math.max(
+                            document.documentElement?.scrollHeight || 0,
+                            document.body?.scrollHeight || 0
+                        ),
+                    });
+                    if (nextSection) activeSection.value = nextSection;
+                };
+
+                const scheduleSectionNavigationSync = () => {
+                    if (sectionNavigationFrame !== null) return;
+                    sectionNavigationFrame = window.requestAnimationFrame(() => {
+                        sectionNavigationFrame = null;
+                        syncActiveSection();
+                    });
+                };
+
+                const stopSectionNavigation = () => {
+                    if (sectionNavigationObserver) {
+                        sectionNavigationObserver.disconnect();
+                        sectionNavigationObserver = null;
+                    }
+                    window.removeEventListener('scroll', scheduleSectionNavigationSync);
+                    window.removeEventListener('resize', scheduleSectionNavigationSync);
+                    if (sectionNavigationFrame !== null) {
+                        window.cancelAnimationFrame(sectionNavigationFrame);
+                        sectionNavigationFrame = null;
+                    }
+                };
+
+                const startSectionNavigation = () => {
+                    stopSectionNavigation();
+                    const elements = sectionTabs.value
+                        .map((section) => document.getElementById(section.id))
+                        .filter(Boolean);
+                    if (elements.length === 0) return;
+
+                    if (typeof IntersectionObserver === 'function') {
+                        sectionNavigationObserver = new IntersectionObserver(
+                            scheduleSectionNavigationSync,
+                            { rootMargin: `-${sectionNavigationActivationY}px 0px 0px 0px`, threshold: [0, 0.01] }
+                        );
+                        elements.forEach((element) => sectionNavigationObserver.observe(element));
+                    }
+
+                    window.addEventListener('scroll', scheduleSectionNavigationSync, { passive: true });
+                    window.addEventListener('resize', scheduleSectionNavigationSync);
+                    scheduleSectionNavigationSync();
+                };
+
                 const scrollToSection = (sectionId, sectionKey) => {
                     const el = document.getElementById(sectionId);
                     if (!el) return;
@@ -2173,6 +2241,15 @@
                     const y = el.getBoundingClientRect().top + window.scrollY - 120;
                     window.scrollTo({ top: y, behavior: 'smooth' });
                 };
+
+                watch([isLoading, pot], async ([loading, currentPot]) => {
+                    if (loading || !currentPot) {
+                        stopSectionNavigation();
+                        return;
+                    }
+                    await nextTick();
+                    if (!isLoading.value && pot.value) startSectionNavigation();
+                }, { flush: 'post' });
 
                 // --- 业务模块逻辑 ---
 

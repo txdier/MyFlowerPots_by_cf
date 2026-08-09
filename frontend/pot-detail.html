@@ -105,9 +105,11 @@
         <div v-if="!isLoading && pot" class="container sticky top-16 z-40 bg-gray-50/95 backdrop-blur-sm py-2"
             :class="shouldHideFloatingChrome ? 'opacity-0 pointer-events-none' : 'opacity-100'">
             <div class="flex items-center gap-1 bg-white/80 border border-gray-100 rounded-2xl p-1 shadow-sm">
-                <button v-for="tab in sectionTabs" :key="tab.key" @click="scrollToSection(tab.id, tab.key)"
+                <button v-for="tab in sectionTabs" :key="tab.key" type="button"
+                    :aria-current="activeSection === tab.key ? 'true' : undefined"
+                    @click="scrollToSection(tab.id, tab.key)"
                     class="flex-1 py-2 rounded-xl text-[11px] font-bold transition" :class="activeSection === tab.key
-                        ? 'bg-green-50 text-green-600'
+                        ? 'bg-green-100 text-green-700 shadow-sm'
                         : 'text-gray-400 active:scale-95'">
                     {{ tab.label }}
                 </button>
@@ -2089,6 +2091,7 @@
     <script src="js/pwa-diagnostics.js?v=20260508-pwa-diagnostics"></script>
     <script src="js/media-utils.js?v=20260507-image-cache"></script>
     <script src="js/pot-permissions.js?v=20260523-share-permissions"></script>
+    <script src="js/section-nav-utils.js?v=20260809-scrollspy"></script>
     <script src="js/care-utils.js?v=20260421-refactor"></script>
     <script src="js/gallery-utils.js?v=20260421-refactor"></script>
     <script src="js/comment-barrage-utils.js?v=20260521-barrage-rotation"></script>

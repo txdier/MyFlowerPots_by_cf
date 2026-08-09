@@ -697,4 +697,21 @@ describe('frontend shared utilities', () => {
       activationY: 120,
     })).toBeNull();
   });
+
+  it('wires the pot detail scrollspy before the page controller', () => {
+    const html = readFileSync('frontend/pot-detail.html', 'utf8');
+    const controller = readFileSync('frontend/js/pages/pot-detail-page.js', 'utf8');
+    const utilityIndex = html.indexOf('js/section-nav-utils.js');
+    const controllerIndex = html.indexOf('js/pages/pot-detail-page.min.js');
+
+    expect(utilityIndex).toBeGreaterThan(-1);
+    expect(controllerIndex).toBeGreaterThan(utilityIndex);
+    expect(html).toContain(':aria-current="activeSection === tab.key ? \'true\' : undefined"');
+    expect(html).toContain('bg-green-100 text-green-700');
+    expect(controller).toContain('new IntersectionObserver');
+    expect(controller).toContain('scheduleSectionNavigationSync');
+    expect(controller).toContain("window.addEventListener('scroll', scheduleSectionNavigationSync, { passive: true })");
+    expect(controller).toContain("window.removeEventListener('scroll', scheduleSectionNavigationSync)");
+    expect(controller).toContain('sectionNavigationObserver.disconnect()');
+  });
 });
