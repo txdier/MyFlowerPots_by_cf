@@ -56,7 +56,7 @@ Expected: FAIL because `.github/workflows/deploy.yml` is missing and `wrangler.t
 
 - [ ] **Step 3: Track the production resource configuration**
 
-Remove only the `wrangler.toml` ignore rule. Add the current verified `wrangler.toml`, including `[assets]`, AI, D1, Analytics Engine and R2 bindings, with no `[vars]` secrets. Update `wrangler.toml.example` so its routes and bindings remain structurally aligned while retaining a placeholder database ID.
+Remove only the `wrangler.toml` ignore rule. Add the verified `wrangler.toml`, including `[assets]`, D1, Analytics Engine and R2 bindings, with no `[vars]` secrets. Do not include the unused AI binding because Workers AI requires remote authentication during local development. Update `wrangler.toml.example` so its routes and bindings remain structurally aligned while retaining a placeholder database ID.
 
 - [ ] **Step 4: Implement the workflow**
 

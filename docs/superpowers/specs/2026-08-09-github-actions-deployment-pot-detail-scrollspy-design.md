@@ -22,6 +22,7 @@
 - 自动发布不创建或上传生产数据库 SQL 备份；恢复依赖 Cloudflare D1 Time Travel。
 - 本地初始化不得覆盖已经存在的 `.dev.vars` 或 `frontend/js/config.js`。
 - 不改变详情页三个区域的内容结构和业务权限逻辑。
+- 当前 `main` 没有使用 `env.AI`，因此不纳入未合并 AI 分支的 Workers AI binding，避免本地开发和测试被强制切换到远程资源。
 
 ## GitHub Actions 架构
 

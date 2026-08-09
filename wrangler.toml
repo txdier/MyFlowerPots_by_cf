@@ -4,22 +4,16 @@ compatibility_date = "2025-01-01"
 keep_vars = true
 
 # Production vars are managed in the Cloudflare dashboard / secrets.
-# `keep_vars = true` prevents `wrangler deploy` from overwriting them
-# when this local-only file does not declare a `[vars]` block.
+# `keep_vars = true` prevents `wrangler deploy` from overwriting them.
 
-# 开发环境静态资源目录
 [dev]
 port = 8787
 ip = "127.0.0.1"
 local_protocol = "http"
 
-# 启用静态资源及其在 Worker 中的绑定 (ASSETS)
 [assets]
 directory = "./frontend"
 binding = "ASSETS"
-# Keep API and HTML page requests in the Worker for routing, analytics,
-# and pot-detail OG meta injection. Static files under /css, /js, /assets,
-# manifest.json, and favicon.ico remain asset-first.
 run_worker_first = [
   "/api/*",
   "/",
@@ -76,7 +70,7 @@ run_worker_first = [
 [[d1_databases]]
 binding = "DB"
 database_name = "my-flower-pots"
-database_id = "YOUR_D1_DATABASE_ID"
+database_id = "8c06be0c-af0c-43fc-99fb-b15c69fe6d2f"
 migrations_dir = "migrations"
 migrations_table = "d1_migrations"
 
