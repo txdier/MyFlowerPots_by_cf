@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { describe, expect, it } from 'vitest';
 
@@ -125,6 +125,10 @@ describe('frontend shared utilities', () => {
   const careUtils = loadBrowserUtility('frontend/js/care-utils.js', 'MyFlowerPotsCare');
   const formUtils = loadBrowserUtility('frontend/js/form-utils.js', 'MyFlowerPotsFormUtils');
   const permissionUtils = loadBrowserUtility('frontend/js/pot-permissions.js', 'MyFlowerPotsPotPermissions');
+  const sectionNavPath = 'frontend/js/section-nav-utils.js';
+  const sectionNavUtils = existsSync(sectionNavPath)
+    ? loadBrowserUtility(sectionNavPath, 'MyFlowerPotsSectionNav')
+    : null;
   const commentBarrageUtils = loadBrowserUtility('frontend/js/comment-barrage-utils.js', 'MyFlowerPotsCommentBarrage');
   const galleryUtils = (() => {
     const context = {
@@ -629,5 +633,68 @@ describe('frontend shared utilities', () => {
     expect(findStaticRouteDrift(indexSource, wranglerSource).errors).toContain(
       'src/index.ts SITEMAP_PATHS is missing public SEO page /plant-care-records'
     );
+  });
+
+  it('exposes the section navigation utility', () => {
+    expect(existsSync(sectionNavPath)).toBe(true);
+    expect(sectionNavUtils?.getActiveSectionKey).toBeTypeOf('function');
+  });
+
+  it('selects detail sections as the activation line crosses their headings', () => {
+    if (!sectionNavUtils) return;
+    const getKey = sectionNavUtils.getActiveSectionKey;
+
+    expect(getKey({
+      sections: [
+        { key: 'overview', top: 80 },
+        { key: 'records', top: 420 },
+        { key: 'timelines', top: 780 },
+      ],
+      activationY: 120,
+    })).toBe('overview');
+
+    expect(getKey({
+      sections: [
+        { key: 'overview', top: -300 },
+        { key: 'records', top: 110 },
+        { key: 'timelines', top: 700 },
+      ],
+      activationY: 120,
+    })).toBe('records');
+
+    expect(getKey({
+      sections: [
+        { key: 'overview', top: -600 },
+        { key: 'records', top: -200 },
+        { key: 'timelines', top: 100 },
+      ],
+      activationY: 120,
+    })).toBe('timelines');
+  });
+
+  it('selects the last available section near the document bottom', () => {
+    if (!sectionNavUtils) return;
+
+    expect(sectionNavUtils.getActiveSectionKey({
+      sections: [
+        { key: 'overview', top: -500 },
+        { key: 'records', top: -100 },
+        { key: 'timelines', top: 300 },
+      ],
+      activationY: 120,
+      viewportBottom: 1000,
+      documentHeight: 1001,
+      bottomThreshold: 2,
+    })).toBe('timelines');
+  });
+
+  it('returns null when no valid detail section is available', () => {
+    if (!sectionNavUtils) return;
+
+    expect(sectionNavUtils.getActiveSectionKey({ sections: [], activationY: 120 })).toBeNull();
+    expect(sectionNavUtils.getActiveSectionKey({
+      sections: [{ key: '', top: 0 }, { key: 'records', top: Number.NaN }],
+      activationY: 120,
+    })).toBeNull();
   });
 });
