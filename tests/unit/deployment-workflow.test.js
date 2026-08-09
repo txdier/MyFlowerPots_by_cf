@@ -26,11 +26,14 @@ describe('deployment workflow contract', () => {
     expect(existsSync(workflowPath)).toBe(true);
 
     const workflow = readFileSync(workflowPath, 'utf8');
+    const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
 
     expect(workflow).toContain('pull_request:');
     expect(workflow).toContain('push:');
     expect(workflow).toContain('workflow_dispatch:');
     expect(workflow).toContain('npm run verify:full');
+    expect(workflow).toContain('node-version: 22');
+    expect(packageJson.engines.node).toBe('>=22.0.0');
     expect(workflow).toContain('npx wrangler d1 time-travel info my-flower-pots');
     expect(workflow).toContain('npx wrangler d1 migrations apply my-flower-pots --remote');
     expect(workflow).toContain("github.ref == 'refs/heads/main'");

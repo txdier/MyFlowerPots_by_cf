@@ -17,7 +17,7 @@
 - 生产分支固定为 `main`。
 - 实施时将当前被忽略的 `wrangler.toml` 纳入版本控制，统一 Worker 名称、D1 database ID、R2 bucket 名和 bindings；这些资源标识不是认证密钥。
 - GitHub 仓库不保存 Cloudflare API Token 或应用密钥；Account ID 仍通过 GitHub Secret 传入工作流。
-- GitHub Actions 使用仓库当前锁文件和 Node.js 20，安装命令固定为 `npm ci`。
+- GitHub Actions 使用仓库当前锁文件和 Node.js 22 LTS，安装命令固定为 `npm ci`。
 - D1 migration 使用仓库 `migrations/` 和 `wrangler.toml` 中的 `my-flower-pots` 数据库绑定。
 - 自动发布不创建或上传生产数据库 SQL 备份；恢复依赖 Cloudflare D1 Time Travel。
 - 本地初始化不得覆盖已经存在的 `.dev.vars`；公开的 `frontend/js/config.js` 必须随仓库发布且不得包含 Secret。
@@ -40,7 +40,7 @@
 Verify Job 在 `ubuntu-latest` 上执行：
 
 1. Checkout 当前提交。
-2. 安装 Node.js 20，并启用 npm 缓存。
+2. 安装 Node.js 22，并启用 npm 缓存。
 3. 执行 `npm ci`。
 4. 执行 `npm run verify:full`。
 
@@ -57,7 +57,7 @@ Deploy Job 满足以下条件才运行：
 部署步骤为：
 
 1. Checkout 已验证的同一个 commit。
-2. 安装 Node.js 20，并执行 `npm ci`。
+2. 安装 Node.js 22，并执行 `npm ci`。
 3. 使用 `wrangler d1 time-travel info my-flower-pots` 记录迁移前 bookmark；bookmark 只进入 Action 日志和 Job Summary，不作为数据文件上传。
 4. 执行 `wrangler d1 migrations apply my-flower-pots --remote`。
 5. 执行前端构建命令，生成 Tailwind CSS 和压缩前端资源。

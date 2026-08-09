@@ -46,7 +46,7 @@
     "wrangler": "^4.90.1"
   },
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=22.0.0"
   },
   "keywords": [
     "flower-pots",

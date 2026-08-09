@@ -6,7 +6,7 @@
 
 **Architecture:** 使用单一 GitHub Actions 工作流分离 verify/deploy Job，生产部署串行执行并在 migration 前记录 D1 Time Travel bookmark。将非敏感的 Wrangler 资源配置纳入版本控制；本地配置由幂等脚本补齐。详情页把活动区域判定提取为浏览器纯函数，页面控制器通过 observer 与帧节流滚动同步 Vue 状态。
 
-**Tech Stack:** GitHub Actions, Node.js 20, npm, Wrangler 4, Cloudflare Workers/D1/R2, Vue 3, Vitest, 原生 IntersectionObserver。
+**Tech Stack:** GitHub Actions, Node.js 22 LTS, npm, Wrangler 4, Cloudflare Workers/D1/R2, Vue 3, Vitest, 原生 IntersectionObserver。
 
 ## Global Constraints
 
@@ -62,7 +62,7 @@ Remove the `wrangler.toml` and `frontend/js/config.js` ignore rules. Add the ver
 
 - [ ] **Step 4: Implement the workflow**
 
-Create a workflow with `pull_request`, all-branch `push`, and `workflow_dispatch`; use `actions/checkout@v6`, `actions/setup-node@v6`, Node `20.19.0`, `npm ci`, and `npm run verify:full`. The deploy Job must use:
+Create a workflow with `pull_request`, all-branch `push`, and `workflow_dispatch`; use `actions/checkout@v6`, `actions/setup-node@v6`, Node `22`, `npm ci`, and `npm run verify:full`. The deploy Job must use:
 
 ```yaml
 if: >-

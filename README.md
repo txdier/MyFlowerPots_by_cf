@@ -20,7 +20,7 @@ My Flower Pots 是一个从微信小程序迁移而来的全栈植物养护应�
 
 ## 新电脑快速开始
 
-需要 Node.js 20.19.0 或更高版本。拉取代码后执行：
+需要 Node.js 22 LTS 或更高版本；建议与 GitHub Actions 一致使用 Node 22。拉取代码后执行：
 
 ```powershell
 npm ci

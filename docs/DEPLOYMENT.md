@@ -8,7 +8,7 @@
 
 ## 1. 前置条件
 
-- Node.js 20.19.0+
+- Node.js 22 LTS+
 - Cloudflare 账号
 - 本地手动部署时需要 Wrangler CLI 登录态
 
