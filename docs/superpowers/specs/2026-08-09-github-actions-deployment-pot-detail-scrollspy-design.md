@@ -15,7 +15,8 @@
 ## 总体约束
 
 - 生产分支固定为 `main`。
-- GitHub 仓库只保存配置结构，不保存 Cloudflare API Token、Account ID 或应用密钥。
+- 实施时将当前被忽略的 `wrangler.toml` 纳入版本控制，统一 Worker 名称、D1 database ID、R2 bucket 名和 bindings；这些资源标识不是认证密钥。
+- GitHub 仓库不保存 Cloudflare API Token 或应用密钥；Account ID 仍通过 GitHub Secret 传入工作流。
 - GitHub Actions 使用仓库当前锁文件和 Node.js 20，安装命令固定为 `npm ci`。
 - D1 migration 使用仓库 `migrations/` 和 `wrangler.toml` 中的 `my-flower-pots` 数据库绑定。
 - 自动发布不创建或上传生产数据库 SQL 备份；恢复依赖 Cloudflare D1 Time Travel。
@@ -99,7 +100,7 @@ Time Travel restore 是破坏性操作，不由失败工作流自动触发。
 - 目标文件存在时输出“已跳过”，不读取、改写或覆盖其内容。
 - 缺少模板文件或复制失败时以非零状态退出，并给出具体文件名。
 
-`wrangler.toml` 已由仓库统一维护并包含生产资源绑定，因此不再要求每台电脑从 `wrangler.toml.example` 复制。新电脑标准启动流程为：
+实施时从 `.gitignore` 移除 `wrangler.toml`，并将当前已经验证可用的配置纳入仓库统一维护。它包含生产资源绑定，但不包含 API Token 或应用密钥，因此新电脑不再需要从 `wrangler.toml.example` 复制。`wrangler.toml.example` 同步更新为不易漂移的说明模板。新电脑标准启动流程为：
 
 ```powershell
 npm ci

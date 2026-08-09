@@ -39,3 +39,4 @@ plant_import_template.json
 expanded_plants.json
 
 .playwright-cli/
+.worktrees/
